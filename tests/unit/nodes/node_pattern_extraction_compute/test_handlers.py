@@ -1454,3 +1454,134 @@ class TestWithinTimeBound:
 
         # Any positive delta with zero max_gap should return False
         assert _within_time_bound(exec_a, exec_b_later, max_gap_sec=0) is False
+
+
+# =============================================================================
+# _get_session_context Helper Function Tests (OMN-1583)
+# =============================================================================
+
+
+class TestGetSessionContext:
+    """Unit tests for _get_session_context helper function.
+
+    Verifies path-segment-based matching avoids false positives from
+    substrings like 'docker/' and 'docstring_parser.py' that contain
+    the letters 'doc' but are not documentation files.
+    """
+
+    def test_returns_general_for_empty_input(self) -> None:
+        """Empty file list returns 'general'."""
+        from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_tool_patterns import (
+            _get_session_context,
+        )
+
+        assert _get_session_context([]) == "general"
+
+    def test_detects_test_files(self) -> None:
+        """Files in test directories classify as test_files."""
+        from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_tool_patterns import (
+            _get_session_context,
+        )
+
+        assert _get_session_context(["/project/tests/test_utils.py"]) == "test_files"
+
+    def test_detects_source_files(self) -> None:
+        """Files in src/ classify as source_files."""
+        from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_tool_patterns import (
+            _get_session_context,
+        )
+
+        assert (
+            _get_session_context(["/project/src/module.py", "/project/src/api.py"])
+            == "source_files"
+        )
+
+    def test_detects_config_files(self) -> None:
+        """YAML and TOML files classify as config_files."""
+        from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_tool_patterns import (
+            _get_session_context,
+        )
+
+        assert _get_session_context(["/project/config.yaml"]) == "config_files"
+
+    def test_detects_markdown_as_documentation(self) -> None:
+        """Markdown files (.md) classify as documentation."""
+        from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_tool_patterns import (
+            _get_session_context,
+        )
+
+        assert _get_session_context(["/project/README.md"]) == "documentation"
+
+    def test_detects_rst_as_documentation(self) -> None:
+        """RST files (.rst) classify as documentation."""
+        from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_tool_patterns import (
+            _get_session_context,
+        )
+
+        assert _get_session_context(["/project/docs/index.rst"]) == "documentation"
+
+    def test_detects_doc_directory_as_documentation(self) -> None:
+        """Files in /doc/ directory classify as documentation."""
+        from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_tool_patterns import (
+            _get_session_context,
+        )
+
+        assert (
+            _get_session_context(["/project/doc/architecture.txt"]) == "documentation"
+        )
+
+    def test_detects_docs_directory_as_documentation(self) -> None:
+        """Files in /docs/ directory classify as documentation."""
+        from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_tool_patterns import (
+            _get_session_context,
+        )
+
+        assert _get_session_context(["/project/docs/guide.txt"]) == "documentation"
+
+    def test_docker_directory_not_classified_as_documentation(self) -> None:
+        """Files in docker/ must NOT be classified as documentation (OMN-1583 false positive fix)."""
+        from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_tool_patterns import (
+            _get_session_context,
+        )
+
+        # docker/ contains 'doc' as substring — must not trigger doc_count
+        result = _get_session_context(["/project/docker/Dockerfile"])
+        assert result != "documentation", (
+            "docker/Dockerfile must not be classified as documentation"
+        )
+
+    def test_docstring_parser_not_classified_as_documentation(self) -> None:
+        """Files named docstring_parser.py must NOT be documentation (OMN-1583 false positive fix)."""
+        from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_tool_patterns import (
+            _get_session_context,
+        )
+
+        # docstring_parser.py contains 'doc' as substring — must not trigger doc_count
+        result = _get_session_context(["/project/src/docstring_parser.py"])
+        # src/ wins: this should be source_files, not documentation
+        assert result == "source_files", (
+            f"docstring_parser.py in src/ should be 'source_files', got '{result}'"
+        )
+
+    def test_dominant_category_wins(self) -> None:
+        """When multiple categories present, the most frequent wins."""
+        from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_tool_patterns import (
+            _get_session_context,
+        )
+
+        files = [
+            "/project/README.md",
+            "/project/src/module.py",
+            "/project/src/utils.py",
+            "/project/src/api.py",
+        ]
+        # 3 source files vs 1 doc file → source_files wins
+        assert _get_session_context(files) == "source_files"
+
+    def test_all_unknown_types_return_general(self) -> None:
+        """Files that match no category return 'general'."""
+        from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_tool_patterns import (
+            _get_session_context,
+        )
+
+        assert _get_session_context(["/project/bin/executable"]) == "general"
