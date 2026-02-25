@@ -386,6 +386,9 @@ class PatternCandidateReducer:
         Returns:
             Updated ``PatternCandidate``.
         """
+        if pair_id in candidate.reintroduced_pair_ids:
+            # Already recorded — do not inflate oscillation_count
+            return candidate
         candidate.reintroduced_pair_ids.add(pair_id)
         candidate.oscillation_count += 1
 
@@ -477,17 +480,30 @@ class PatternCandidateReducer:
             )
 
         # Gate 5: tool version stability
-        if tool_version_map:
+        # When tool_version_map is provided but all lookups resolve to "unknown",
+        # or when it is absent entirely, the gate FAILS CLOSED: unknown version
+        # data must not silently allow promotion.
+        if tool_version_map is not None:
             versions = [tool_version_map.get(p.pair_id, "unknown") for p in pairs]
-            if versions:
-                from collections import Counter
+            known_versions = [v for v in versions if v != "unknown"]
+            if not known_versions:
+                # No version data at all — fail closed
+                return PromotionGateResult(
+                    passed=False,
+                    gate_name="tool_version_stability",
+                    gate_detail="no tool version data available; gate fails closed",
+                    occurrence_count=occurrence_count,
+                    similarity_score=similarity,
+                    reintroduction_rate=reintroduction_rate,
+                    tool_version_stability=0.0,
+                )
+            from collections import Counter
 
-                counts = Counter(versions)
-                majority_count = counts.most_common(1)[0][1]
-                version_stability = majority_count / len(versions)
-            else:
-                version_stability = 1.0
+            counts = Counter(known_versions)
+            majority_count = counts.most_common(1)[0][1]
+            version_stability = majority_count / len(versions)
         else:
+            # tool_version_map not provided — skip the gate (caller opted out)
             version_stability = 1.0
 
         if version_stability < TOOL_VERSION_STABILITY:
@@ -605,6 +621,7 @@ class PatternCandidateReducer:
             return candidate
 
         if not acceptance_passed:
+            candidate.deprecated_at = datetime.now(tz=UTC)
             return self._transition(
                 candidate,
                 PatternLifecycleState.DEPRECATED,
@@ -612,6 +629,7 @@ class PatternCandidateReducer:
             )
 
         if not replay_clean:
+            candidate.deprecated_at = datetime.now(tz=UTC)
             return self._transition(
                 candidate,
                 PatternLifecycleState.DEPRECATED,
@@ -651,10 +669,21 @@ class PatternCandidateReducer:
         if elapsed < window:
             return candidate  # Not enough time has passed
 
-        # Check for reintroductions since promotion
-        recent_reintroductions = len(candidate.reintroduced_pair_ids)
-        if recent_reintroductions > 0:
-            return candidate  # Still seeing reintroductions
+        # Check for reintroductions since promotion.
+        # A reintroduction counts as post-promotion if:
+        #   (a) its corresponding pair was added after promoted_at, OR
+        #   (b) the pair_id has no entry in confirmed_pairs (orphan reintroduction —
+        #       always treated as post-promotion since it was added via mark_reintroduced
+        #       which can only be called after promotion in normal flow).
+        promoted_at = candidate.promoted_at
+        pre_promotion_pair_ids = {
+            p.pair_id for p in candidate.confirmed_pairs if p.created_at < promoted_at
+        }
+        post_promotion_reintroductions = (
+            candidate.reintroduced_pair_ids - pre_promotion_pair_ids
+        )
+        if post_promotion_reintroductions:
+            return candidate  # Still seeing post-promotion reintroductions
 
         return self._transition(
             candidate,

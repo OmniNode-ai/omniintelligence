@@ -33,6 +33,8 @@ from omniintelligence.review_pairing.reducer import (
     PatternLifecycleState,
 )
 
+pytestmark = pytest.mark.unit
+
 # ---------------------------------------------------------------------------
 # Fixtures and helpers
 # ---------------------------------------------------------------------------
