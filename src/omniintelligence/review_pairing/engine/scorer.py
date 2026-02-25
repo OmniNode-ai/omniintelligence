@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Set as AbstractSet
 from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
@@ -324,7 +325,7 @@ _CONFIG_FILE_PATTERNS = [
 ]
 
 
-def has_config_change(files_in_pr: set[str]) -> bool:
+def has_config_change(files_in_pr: AbstractSet[str]) -> bool:
     """Detect if any tool configuration file was modified in the PR.
 
     Args:
