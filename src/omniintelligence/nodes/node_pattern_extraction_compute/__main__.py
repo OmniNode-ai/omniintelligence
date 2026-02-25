@@ -81,7 +81,7 @@ Examples:
     parser.add_argument(
         "input",
         metavar="INPUT",
-        help=("Path to JSON file containing session data, or '-' to read from stdin."),
+        help="Path to JSON file containing session data, or '-' to read from stdin.",
     )
 
     # Confidence / occurrence thresholds
@@ -420,11 +420,6 @@ def main() -> None:
     except Exception as exc:
         print(f"Error: extraction failed: {exc}", file=sys.stderr)
         sys.exit(2)
-
-    if not result.success:
-        # Validation errors or non-fatal failures - still exit 0 but include status
-        # The structured output contains the error detail in metadata.message
-        pass
 
     # Format and write output
     if args.output_format == "summary":
