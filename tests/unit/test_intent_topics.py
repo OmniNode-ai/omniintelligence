@@ -26,12 +26,6 @@ from omnibase_core.enums.intelligence.enum_intent_class import EnumIntentClass
 class TestIntentTopicEnum:
     """Tests for IntentTopic Kafka topic name registry."""
 
-    def test_intent_classified_topic_value(self) -> None:
-        """INTENT_CLASSIFIED topic name matches ONEX canonical format."""
-        from omniintelligence.topics import IntentTopic
-
-        assert IntentTopic.INTENT_CLASSIFIED == "onex.evt.intent.classified.v1"
-
     def test_intent_drift_detected_topic_value(self) -> None:
         """INTENT_DRIFT_DETECTED topic name matches ONEX canonical format."""
         from omniintelligence.topics import IntentTopic
@@ -54,11 +48,11 @@ class TestIntentTopicEnum:
             IntentTopic.INTENT_PATTERN_PROMOTED == "onex.evt.intent.pattern.promoted.v1"
         )
 
-    def test_all_topics_are_four(self) -> None:
-        """IntentTopic enum has exactly 4 members."""
+    def test_all_topics_are_three(self) -> None:
+        """IntentTopic enum has exactly 3 members."""
         from omniintelligence.topics import IntentTopic
 
-        assert len(IntentTopic) == 4
+        assert len(IntentTopic) == 3
 
     def test_all_topics_start_with_onex_evt_intent(self) -> None:
         """All intent topics follow the onex.evt.intent.* producer namespace."""
@@ -82,15 +76,14 @@ class TestIntentTopicEnum:
         """IntentTopic values coerce to plain strings (StrEnum behaviour)."""
         from omniintelligence.topics import IntentTopic
 
-        value = IntentTopic.INTENT_CLASSIFIED
+        value = IntentTopic.INTENT_DRIFT_DETECTED
         assert isinstance(str(value), str)
-        assert str(value) == "onex.evt.intent.classified.v1"
+        assert str(value) == "onex.evt.intent.drift.detected.v1"
 
     def test_topic_equality_with_string(self) -> None:
         """IntentTopic members compare equal to their string values."""
         from omniintelligence.topics import IntentTopic
 
-        assert IntentTopic.INTENT_CLASSIFIED == "onex.evt.intent.classified.v1"
         assert IntentTopic.INTENT_DRIFT_DETECTED == "onex.evt.intent.drift.detected.v1"
         assert (
             IntentTopic.INTENT_OUTCOME_LABELED == "onex.evt.intent.outcome.labeled.v1"
