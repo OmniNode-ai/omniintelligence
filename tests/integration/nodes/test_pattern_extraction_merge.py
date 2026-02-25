@@ -31,7 +31,6 @@ from omniintelligence.nodes.node_pattern_extraction_compute.handlers import (
     extract_all_patterns,
 )
 from omniintelligence.nodes.node_pattern_extraction_compute.models import (
-    ModelCodebaseInsight,
     ModelExtractionConfig,
     ModelPatternExtractionInput,
     ModelPatternExtractionOutput,
@@ -116,7 +115,9 @@ def run1_sessions() -> tuple[ModelSessionSnapshot, ...]:
 
 
 @pytest.fixture
-def run2_sessions(run1_sessions: tuple[ModelSessionSnapshot, ...]) -> tuple[ModelSessionSnapshot, ...]:
+def run2_sessions(
+    run1_sessions: tuple[ModelSessionSnapshot, ...],
+) -> tuple[ModelSessionSnapshot, ...]:
     """Sessions for the second run.
 
     Overlaps with run1 (same files, different session IDs) to ensure
