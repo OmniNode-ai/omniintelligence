@@ -37,6 +37,13 @@ dependencies = [
     "adaptive-classifier>=0.1.2",
 ]
 
+[project.optional-dependencies]
+# Optional analysis backend for accurate McCabe cyclomatic complexity (OMN-1452)
+# Install with: pip install omniintelligence[analysis]
+analysis = [
+    "radon>=6.0.0",
+]
+
 [project.urls]
 Homepage = "https://github.com/OmniNode-ai/omniintelligence"
 Repository = "https://github.com/OmniNode-ai/omniintelligence"
@@ -66,6 +73,8 @@ dev = [
     "requests>=2.31.0",
     "factory-boy>=3.3.0",
     "pre-commit>=4.5.0",
+    # Optional radon dependency included in dev for test coverage of radon code path
+    "radon>=6.0.0",
 ]
 
 # Core node system dependencies

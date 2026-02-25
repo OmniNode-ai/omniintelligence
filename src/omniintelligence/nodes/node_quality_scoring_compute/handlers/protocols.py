@@ -53,13 +53,25 @@ class DimensionScores(TypedDict):
     architectural: float
 
 
-class QualityScoringResult(TypedDict):
+class _QualityScoringResultRequired(TypedDict):
+    """Required fields for QualityScoringResult."""
+
+    success: bool
+    quality_score: float
+    dimensions: DimensionScores
+    onex_compliant: bool
+    recommendations: list[str]
+    source_language: str
+    analysis_version: str
+
+
+class QualityScoringResult(_QualityScoringResultRequired, total=False):
     """Result structure for quality scoring handler.
 
     This TypedDict defines the guaranteed structure returned by
     the score_code_quality function.
 
-    All Attributes are Required:
+    Required Attributes:
         success: Whether the scoring completed without errors.
         quality_score: Overall quality score (0.0-1.0), weighted aggregate.
         dimensions: Individual dimension scores using the six-dimension standard.
@@ -69,6 +81,10 @@ class QualityScoringResult(TypedDict):
         recommendations: List of improvement suggestions based on low scores.
         source_language: The detected or specified source language.
         analysis_version: Version identifier for the scoring algorithm.
+
+    Optional Attributes (OMN-1452):
+        radon_complexity_enabled: True if radon was used for cyclomatic complexity
+            scoring; False if the AST-based approximation was used instead.
 
     Example:
         >>> result: QualityScoringResult = {
@@ -85,17 +101,12 @@ class QualityScoringResult(TypedDict):
         ...     "onex_compliant": True,
         ...     "recommendations": ["Add docstrings to functions"],
         ...     "source_language": "python",
-        ...     "analysis_version": "1.0.0",
+        ...     "analysis_version": "1.2.0",
+        ...     "radon_complexity_enabled": True,
         ... }
     """
 
-    success: bool
-    quality_score: float
-    dimensions: DimensionScores
-    onex_compliant: bool
-    recommendations: list[str]
-    source_language: str
-    analysis_version: str
+    radon_complexity_enabled: bool
 
 
 def create_error_dimensions() -> DimensionScores:
