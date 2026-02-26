@@ -10,6 +10,11 @@ ONEX Compliance:
 - Model-based naming: Model{Domain}{Purpose}
 - Strong typing with Pydantic Field validation
 - UUID pattern validation for correlation_id
+
+Contract notes:
+- operation_type is nullable here because failure events may be emitted
+  for malformed requests where the original operation_type was absent.
+  Consumers must handle null operation_type values in this event type.
 """
 
 from pydantic import BaseModel, Field

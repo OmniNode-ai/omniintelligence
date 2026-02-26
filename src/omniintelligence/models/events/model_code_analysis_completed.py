@@ -10,6 +10,12 @@ ONEX Compliance:
 - Model-based naming: Model{Domain}{Purpose}
 - Strong typing with Pydantic Field validation
 - UUID pattern validation for correlation_id
+
+Contract notes:
+- operation_type mirrors the value from the originating request. It should
+  always be non-null for well-formed completed events (since the request
+  model requires it), but consumers must handle null defensively in case
+  events were produced by older or non-conformant producers.
 """
 
 from pydantic import BaseModel, Field
