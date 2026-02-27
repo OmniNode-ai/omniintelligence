@@ -898,6 +898,9 @@ async def _emit_intent_to_kafka(
         topic: Full Kafka topic name for intent classification events.
             Source of truth is the contract's event_bus.publish_topics.
     """
+    _now = datetime.now(
+        UTC
+    ).isoformat()  # compute once; emitted_at == timestamp (OMN-2921)
     event_payload: dict[str, object] = {
         # Original fields (v1.0.0) — unchanged for backward compatibility
         "event_type": "IntentClassified",
@@ -906,7 +909,8 @@ async def _emit_intent_to_kafka(
         "intent_category": intent_category,
         "confidence": confidence,
         "keywords": keywords,
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": _now,  # legacy alias — kept for backward compat
+        "emitted_at": _now,  # OMN-2921: required by omnimemory consumer (OMN-2840 timestamp drift fix)
         # New fields (v1.1.0 — OMN-1620)
         "event_version": {"major": 1, "minor": 1, "patch": 0},
         "secondary_intents": secondary_intents,
