@@ -1,0 +1,64 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# ONEX Node Contract - AntiGamingGuardrailsCompute
+# =============================================================================
+# Implements: OMN-2563 (anti-gaming guardrails)
+# Epic:       OMN-2361 (Objective Functions and Reward Architecture)
+# =============================================================================
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+name: "node_anti_gaming_guardrails_compute"
+node_type: "COMPUTE_GENERIC"
+description: >-
+  Pure COMPUTE node for anti-gaming guardrail evaluation. Implements four structural defenses: (1) Goodhart's
+  Law detection — correlated metric divergence; (2) reward hacking detection — score improves without
+  human acceptance; (3) distributional shift detection — evidence distribution drift; (4) diversity constraint
+  — minimum distinct evidence source types (VETO). Guards 1-3 are non-blocking alerts. Guard 4 is a veto.
+input_model:
+  name: "ModelGuardrailInput"
+  module: "omniintelligence.nodes.node_anti_gaming_guardrails_compute.models"
+  description: "Current/previous scores, evidence sources, distributions, and config."
+output_model:
+  name: "ModelGuardrailOutput"
+  module: "omniintelligence.nodes.node_anti_gaming_guardrails_compute.models"
+  description: "Detected alerts and diversity violation (veto flag)."
+operations:
+  - name: "run_all_guardrails"
+    description: "Run all four anti-gaming guardrail checks."
+    input_fields:
+      - run_id
+      - current_score
+      - previous_score
+      - evidence_sources
+      - config
+    output_fields:
+      - alerts
+      - diversity_violation
+handler_routing:
+  routing_strategy: "single_handler"
+  handlers:
+    - operation: "run_all_guardrails"
+      handler:
+        function: "run_all_guardrails"
+        module: "omniintelligence.nodes.node_anti_gaming_guardrails_compute.handlers"
+        type: "sync"
+dependencies: []
+metadata:
+  author: "OmniNode Team"
+  created: "2026-02-24"
+  updated: "2026-02-24"
+  tags:
+    - "ONEX"
+    - "compute"
+    - "anti-gaming"
+    - "goodhart"
+    - "reward-hacking"
+    - "OMN-2563"
+    - "OMN-2361"
