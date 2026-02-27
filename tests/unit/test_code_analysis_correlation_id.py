@@ -17,6 +17,9 @@ from uuid import UUID, uuid4
 
 import pytest
 
+from omniintelligence.enums.enum_analysis_operation_type import (
+    EnumAnalysisOperationType,
+)
 from omniintelligence.models.events import (
     ModelCodeAnalysisCompletedPayload,
     ModelCodeAnalysisFailedPayload,
@@ -30,16 +33,24 @@ class TestCodeAnalysisCorrelationIdType:
 
     def test_request_payload_accepts_uuid(self) -> None:
         correlation_id = uuid4()
-        payload = ModelCodeAnalysisRequestPayload(correlation_id=correlation_id)
+        payload = ModelCodeAnalysisRequestPayload(
+            correlation_id=correlation_id,
+            operation_type=EnumAnalysisOperationType.QUALITY_ASSESSMENT,
+        )
         assert payload.correlation_id == correlation_id
         assert isinstance(payload.correlation_id, UUID)
 
     def test_request_payload_accepts_none(self) -> None:
-        payload = ModelCodeAnalysisRequestPayload(correlation_id=None)
+        payload = ModelCodeAnalysisRequestPayload(
+            correlation_id=None,
+            operation_type=EnumAnalysisOperationType.QUALITY_ASSESSMENT,
+        )
         assert payload.correlation_id is None
 
     def test_request_payload_default_is_none(self) -> None:
-        payload = ModelCodeAnalysisRequestPayload()
+        payload = ModelCodeAnalysisRequestPayload(
+            operation_type=EnumAnalysisOperationType.QUALITY_ASSESSMENT,
+        )
         assert payload.correlation_id is None
 
     def test_completed_payload_accepts_uuid(self) -> None:
@@ -82,7 +93,10 @@ class TestCodeAnalysisCorrelationIdJsonRoundTrip:
 
     def test_request_payload_uuid_json_round_trip(self) -> None:
         correlation_id = uuid4()
-        payload = ModelCodeAnalysisRequestPayload(correlation_id=correlation_id)
+        payload = ModelCodeAnalysisRequestPayload(
+            correlation_id=correlation_id,
+            operation_type=EnumAnalysisOperationType.QUALITY_ASSESSMENT,
+        )
         serialized = payload.model_dump_json()
         data = json.loads(serialized)
         # UUID serializes to string in JSON
@@ -116,7 +130,10 @@ class TestCodeAnalysisCorrelationIdJsonRoundTrip:
 
     def test_null_correlation_id_json_round_trip(self) -> None:
         """Null correlation_id must survive JSON round-trip without rejection."""
-        payload = ModelCodeAnalysisRequestPayload(correlation_id=None)
+        payload = ModelCodeAnalysisRequestPayload(
+            correlation_id=None,
+            operation_type=EnumAnalysisOperationType.QUALITY_ASSESSMENT,
+        )
         serialized = payload.model_dump_json()
         data = json.loads(serialized)
         assert data["correlation_id"] is None
@@ -131,7 +148,10 @@ class TestCodeAnalysisCorrelationIdJsonRoundTrip:
         """
         correlation_id = uuid4()
         # Simulate Kafka JSON payload with UUID as string (as emitted by str serialization)
-        kafka_json = json.dumps({"correlation_id": str(correlation_id)})
+        kafka_json = json.dumps({
+            "correlation_id": str(correlation_id),
+            "operation_type": EnumAnalysisOperationType.QUALITY_ASSESSMENT.value,
+        })
         reconstructed = ModelCodeAnalysisRequestPayload.model_validate_json(kafka_json)
         assert reconstructed.correlation_id == correlation_id
         assert isinstance(reconstructed.correlation_id, UUID)
