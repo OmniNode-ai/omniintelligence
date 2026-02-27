@@ -2195,7 +2195,7 @@ wheels = [
 
 [[package]]
 name = "omninode-intelligence"
-version = "0.6.0"
+version = "0.6.1"
 source = { editable = "." }
 dependencies = [
     { name = "adaptive-classifier" },

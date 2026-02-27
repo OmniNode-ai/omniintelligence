@@ -35,7 +35,7 @@ class ModelCodeAnalysisRequestPayload(BaseModel):
 
     Attributes:
         correlation_id: UUID for distributed tracing
-        source_path: Path to the source file (for context)
+        source_path: Path to the source file (for context). None if not provided.
         content: Source code content to analyze
         operation_type: Type of analysis to perform (required, must not be null)
         language: Programming language (default: python)
@@ -48,7 +48,10 @@ class ModelCodeAnalysisRequestPayload(BaseModel):
         default=None,
         description="Correlation ID for distributed tracing",
     )
-    source_path: str = Field(default="", min_length=0)
+    source_path: str | None = Field(
+        default=None,
+        description="Path to the source file (for context). None if not provided.",
+    )
     content: str = Field(default="", min_length=0)
     operation_type: EnumAnalysisOperationType = Field(
         description="Type of analysis operation to perform. Required — producers must always specify this field.",
