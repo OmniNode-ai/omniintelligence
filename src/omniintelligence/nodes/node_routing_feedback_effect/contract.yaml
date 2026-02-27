@@ -8,12 +8,13 @@
 # Node: NodeRoutingFeedbackEffect
 #
 # This contract defines the interface for the routing feedback effect node.
-# The node consumes routing.feedback events from omniclaude's session-end hook
+# The node consumes routing-outcome-raw events from omniclaude's session-end hook
 # and persists idempotent upsert records to routing_feedback_scores table.
 #
 # Reference:
 #   - OMN-2366: Add routing.feedback consumer in omniintelligence (orphan topic)
 #   - OMN-2356: Session-end hook routing feedback producer (omniclaude)
+#   - OMN-2935: Fix routing feedback loop — subscribe to routing-outcome-raw.v1
 
 # =============================================================================
 # IDENTIFIERS
@@ -35,17 +36,18 @@ node_type: "EFFECT_GENERIC"
 
 # Description
 description: >
-  Effect node for processing routing feedback events from omniclaude's session-end hook. Consumes onex.evt.omniclaude.routing-feedback.v1
-  events containing session_id and outcome (success/failed). Upserts idempotent records to routing_feedback_scores
-  table using (session_id, correlation_id, stage) as the composite idempotency key. Publishes onex.evt.omniintelligence.routing-feedback-processed.v1
-  after successful processing.
+  Effect node for processing routing-outcome-raw events from omniclaude's session-end hook. Consumes onex.evt.omniclaude.routing-outcome-raw.v1
+  events containing raw observable session facts (injection_occurred, patterns_injected_count, agent_selected,
+  routing_confidence, duration_ms). Upserts idempotent records to routing_feedback_scores table using
+  session_id as the idempotency key. Publishes onex.evt.omniintelligence.routing-feedback-processed.v1
+  after successful processing. Replaces deprecated routing-feedback.v1 subscription (OMN-2935).
 # =============================================================================
 # I/O MODELS
 # =============================================================================
 input_model:
-  name: "ModelRoutingFeedbackEvent"
+  name: "ModelSessionRawOutcomePayload"
   module: "omniintelligence.nodes.node_routing_feedback_effect.models"
-  description: "Routing feedback event from omniclaude session-end hook"
+  description: "Routing-outcome-raw event from omniclaude session-end hook (OMN-2935)"
 
 output_model:
   name: "ModelRoutingFeedbackResult"
@@ -63,14 +65,17 @@ handler_routing:
         function: "process_routing_feedback"
         module: "omniintelligence.nodes.node_routing_feedback_effect.handlers.handler_routing_feedback"
         type: "async"
-      description: "Consume routing feedback event, upsert to routing_feedback_scores, publish processed
+      description: "Consume routing-outcome-raw event, upsert to routing_feedback_scores, publish processed
         event"
       output_fields:
         - status
         - session_id
-        - correlation_id
-        - stage
-        - outcome
+        - injection_occurred
+        - patterns_injected_count
+        - tool_calls_count
+        - duration_ms
+        - agent_selected
+        - routing_confidence
         - was_upserted
         - processed_at
         - error_message
@@ -80,19 +85,25 @@ handler_routing:
 # =============================================================================
 io_operations:
   - operation: "process_routing_feedback"
-    description: "Process routing feedback event and upsert idempotent record to routing_feedback_scores"
+    description: "Process routing-outcome-raw event and upsert idempotent record to routing_feedback_scores"
     input_fields:
       - session_id
-      - correlation_id
-      - stage
-      - outcome
+      - injection_occurred
+      - patterns_injected_count
+      - tool_calls_count
+      - duration_ms
+      - agent_selected
+      - routing_confidence
       - emitted_at
     output_fields:
       - status
       - session_id
-      - correlation_id
-      - stage
-      - outcome
+      - injection_occurred
+      - patterns_injected_count
+      - tool_calls_count
+      - duration_ms
+      - agent_selected
+      - routing_confidence
       - was_upserted
       - processed_at
       - error_message
@@ -151,15 +162,16 @@ event_bus:
     # NOTE: This topic uses 'evt' kind (not 'cmd') because it is produced by omniclaude.
     # The topic name is dictated by the producer; this is an intentional cross-system
     # exception to the convention that subscribe topics use 'cmd' kind.
-    - "onex.evt.omniclaude.routing-feedback.v1"
+    # OMN-2935: Updated from routing-feedback.v1 to routing-outcome-raw.v1
+    - "onex.evt.omniclaude.routing-outcome-raw.v1"
 
   publish_topics:
     - "onex.evt.omniintelligence.routing-feedback-processed.v1"
 
   subscribe_topic_metadata:
-    "onex.evt.omniclaude.routing-feedback.v1":
-      schema_ref: "omniintelligence.nodes.node_routing_feedback_effect.models.ModelRoutingFeedbackEvent"
-      description: "Routing feedback events from omniclaude session-end hook"
+    "onex.evt.omniclaude.routing-outcome-raw.v1":
+      schema_ref: "omniintelligence.nodes.node_routing_feedback_effect.models.ModelSessionRawOutcomePayload"
+      description: "Routing-outcome-raw events from omniclaude session-end hook (OMN-2935)"
 
   publish_topic_metadata:
     "onex.evt.omniintelligence.routing-feedback-processed.v1":
@@ -172,11 +184,12 @@ event_bus:
 idempotency:
   enabled: true
   strategy: "event_id_tracking"
-  hash_fields: ["session_id", "correlation_id", "stage"]
+  hash_fields: ["session_id"]
   description: >
-    Each routing feedback event is uniquely identified by (session_id, correlation_id, stage). Re-processing
-    the same event is idempotent via ON CONFLICT (session_id, correlation_id, stage) DO UPDATE SET processed_at
-    = EXCLUDED.processed_at. This handles at-least-once Kafka delivery without creating duplicate rows.
+    Each routing-outcome-raw event is uniquely identified by session_id. Re-processing the same event
+    is idempotent via ON CONFLICT (session_id) DO UPDATE SET all raw signal fields and processed_at. This
+    handles at-least-once Kafka delivery without creating duplicate rows. OMN-2935: correlation_id and
+    stage removed from idempotency key (no longer present in the producer payload).
 
 # =============================================================================
 # CAPABILITIES
@@ -196,10 +209,11 @@ metadata:
   author: "OmniNode Team"
   license: "MIT"
   created: "2026-02-20"
-  updated: "2026-02-20"
+  updated: "2026-02-27"
   tags:
     - effect
     - routing-feedback
+    - routing-outcome-raw
     - idempotent
     - postgresql
     - kafka
@@ -210,3 +224,6 @@ metadata:
     - ticket: "OMN-2356"
       url: "https://linear.app/omninode/issue/OMN-2356"
       description: "Session-end hook routing feedback producer (omniclaude)"
+    - ticket: "OMN-2935"
+      url: "https://linear.app/omninode/issue/OMN-2935"
+      description: "Fix routing feedback loop — subscribe to routing-outcome-raw.v1"

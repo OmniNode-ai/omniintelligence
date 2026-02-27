@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: MIT
 
 # Copyright (c) 2025 OmniNode Team
-"""Unit tests for routing feedback handler.
+"""Unit tests for routing feedback handler (OMN-2935).
 
-Tests the handler that processes routing.feedback events from omniclaude
+Tests the handler that processes routing-outcome-raw events from omniclaude
 and upserts idempotent records to routing_feedback_scores.
 
 Test organization:
@@ -21,12 +21,12 @@ Test organization:
 
 Reference:
     - OMN-2366: Add routing.feedback consumer in omniintelligence
+    - OMN-2935: Fix routing feedback loop — subscribe to routing-outcome-raw.v1
 """
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from uuid import UUID, uuid4
 
 import pytest
 
@@ -36,10 +36,9 @@ from omniintelligence.nodes.node_routing_feedback_effect.handlers.handler_routin
     process_routing_feedback,
 )
 from omniintelligence.nodes.node_routing_feedback_effect.models import (
-    EnumRoutingFeedbackOutcome,
     EnumRoutingFeedbackStatus,
-    ModelRoutingFeedbackEvent,
     ModelRoutingFeedbackResult,
+    ModelSessionRawOutcomePayload,
 )
 from omniintelligence.protocols import ProtocolKafkaPublisher, ProtocolPatternRepository
 
@@ -55,76 +54,76 @@ class TestHappyPath:
     """Tests for successful first-time processing."""
 
     @pytest.mark.asyncio
-    async def test_success_outcome_is_upserted(
+    async def test_injection_event_is_upserted(
         self,
         mock_repository: MockRoutingFeedbackRepository,
-        sample_routing_feedback_event_success: ModelRoutingFeedbackEvent,
+        sample_raw_outcome_event_with_injection: ModelSessionRawOutcomePayload,
         sample_session_id: str,
-        sample_correlation_id: UUID,
-        sample_stage: str,
+        sample_agent_selected: str,
+        sample_routing_confidence: float,
     ) -> None:
-        """Success outcome event is upserted to routing_feedback_scores."""
+        """injection_occurred=True event is upserted to routing_feedback_scores."""
         result = await process_routing_feedback(
-            event=sample_routing_feedback_event_success,
+            event=sample_raw_outcome_event_with_injection,
             repository=mock_repository,
         )
 
         assert result.status == EnumRoutingFeedbackStatus.SUCCESS
         assert result.was_upserted is True
         assert result.session_id == sample_session_id
-        assert result.correlation_id == sample_correlation_id
-        assert result.stage == sample_stage
-        assert result.outcome == "success"
+        assert result.injection_occurred is True
+        assert result.patterns_injected_count == 3
+        assert result.agent_selected == sample_agent_selected
+        assert result.routing_confidence == sample_routing_confidence
         assert result.error_message is None
 
     @pytest.mark.asyncio
-    async def test_failed_outcome_is_upserted(
+    async def test_no_injection_event_is_upserted(
         self,
         mock_repository: MockRoutingFeedbackRepository,
-        sample_routing_feedback_event_failed: ModelRoutingFeedbackEvent,
+        sample_raw_outcome_event_no_injection: ModelSessionRawOutcomePayload,
     ) -> None:
-        """Failed outcome event is upserted to routing_feedback_scores."""
+        """injection_occurred=False event is upserted to routing_feedback_scores."""
         result = await process_routing_feedback(
-            event=sample_routing_feedback_event_failed,
+            event=sample_raw_outcome_event_no_injection,
             repository=mock_repository,
         )
 
         assert result.status == EnumRoutingFeedbackStatus.SUCCESS
         assert result.was_upserted is True
-        assert result.outcome == "failed"
+        assert result.injection_occurred is False
+        assert result.patterns_injected_count == 0
 
     @pytest.mark.asyncio
     async def test_row_is_persisted_in_repository(
         self,
         mock_repository: MockRoutingFeedbackRepository,
-        sample_routing_feedback_event_success: ModelRoutingFeedbackEvent,
+        sample_raw_outcome_event_with_injection: ModelSessionRawOutcomePayload,
         sample_session_id: str,
-        sample_correlation_id: UUID,
-        sample_stage: str,
+        sample_agent_selected: str,
     ) -> None:
         """Exactly one row is written to routing_feedback_scores."""
         await process_routing_feedback(
-            event=sample_routing_feedback_event_success,
+            event=sample_raw_outcome_event_with_injection,
             repository=mock_repository,
         )
 
         assert mock_repository.row_count() == 1
-        row = mock_repository.get_row(
-            sample_session_id, sample_correlation_id, sample_stage
-        )
+        row = mock_repository.get_row(sample_session_id)
         assert row is not None
-        assert row["outcome"] == "success"
+        assert row["agent_selected"] == sample_agent_selected
+        assert row["injection_occurred"] is True
 
     @pytest.mark.asyncio
     async def test_processed_at_is_recent(
         self,
         mock_repository: MockRoutingFeedbackRepository,
-        sample_routing_feedback_event_success: ModelRoutingFeedbackEvent,
+        sample_raw_outcome_event_with_injection: ModelSessionRawOutcomePayload,
     ) -> None:
         """processed_at in result is a recent UTC timestamp."""
         before = datetime.now(UTC)
         result = await process_routing_feedback(
-            event=sample_routing_feedback_event_success,
+            event=sample_raw_outcome_event_with_injection,
             repository=mock_repository,
         )
         after = datetime.now(UTC)
@@ -136,11 +135,11 @@ class TestHappyPath:
         self,
         mock_repository: MockRoutingFeedbackRepository,
         mock_publisher: MockKafkaPublisher,
-        sample_routing_feedback_event_success: ModelRoutingFeedbackEvent,
+        sample_raw_outcome_event_with_injection: ModelSessionRawOutcomePayload,
     ) -> None:
         """When Kafka publisher is provided, confirmation event is published."""
         result = await process_routing_feedback(
-            event=sample_routing_feedback_event_success,
+            event=sample_raw_outcome_event_with_injection,
             repository=mock_repository,
             kafka_publisher=mock_publisher,
         )
@@ -149,8 +148,8 @@ class TestHappyPath:
         assert len(mock_publisher.published) == 1
         topic, key, value = mock_publisher.published[0]
         assert topic == TOPIC_ROUTING_FEEDBACK_PROCESSED
-        assert key == sample_routing_feedback_event_success.session_id
-        assert value["outcome"] == "success"
+        assert key == sample_raw_outcome_event_with_injection.session_id
+        assert value["injection_occurred"] is True
 
 
 # =============================================================================
@@ -160,30 +159,27 @@ class TestHappyPath:
 
 @pytest.mark.unit
 class TestIdempotency:
-    """Tests verifying idempotent upsert semantics (OMN-2366 acceptance test)."""
+    """Tests verifying idempotent upsert semantics (OMN-2366, OMN-2935 acceptance test)."""
 
     @pytest.mark.asyncio
-    async def test_processing_same_event_twice_creates_one_row(
+    async def test_processing_same_session_twice_creates_one_row(
         self,
         mock_repository: MockRoutingFeedbackRepository,
-        sample_routing_feedback_event_success: ModelRoutingFeedbackEvent,
+        sample_raw_outcome_event_with_injection: ModelSessionRawOutcomePayload,
         sample_session_id: str,
-        sample_correlation_id: UUID,
-        sample_stage: str,
     ) -> None:
         """Processing the same feedback event twice must not create duplicate rows.
 
-        This is the acceptance test from the OMN-2366 ticket.
         Simulates at-least-once Kafka delivery.
         """
         # First delivery
         result1 = await process_routing_feedback(
-            event=sample_routing_feedback_event_success,
+            event=sample_raw_outcome_event_with_injection,
             repository=mock_repository,
         )
         # Second delivery (simulating at-least-once re-delivery)
         result2 = await process_routing_feedback(
-            event=sample_routing_feedback_event_success,
+            event=sample_raw_outcome_event_with_injection,
             repository=mock_repository,
         )
 
@@ -199,24 +195,29 @@ class TestIdempotency:
         )
 
     @pytest.mark.asyncio
-    async def test_idempotency_key_is_composite(
+    async def test_idempotency_key_is_session_id(
         self,
         mock_repository: MockRoutingFeedbackRepository,
-        sample_correlation_id: UUID,
     ) -> None:
-        """Different (session_id, correlation_id, stage) combinations are distinct rows."""
-        event_a = ModelRoutingFeedbackEvent(
+        """Different session_ids produce distinct rows (idempotency key = session_id)."""
+        event_a = ModelSessionRawOutcomePayload(
             session_id="session-a",
-            correlation_id=sample_correlation_id,
-            stage="session_end",
-            outcome=EnumRoutingFeedbackOutcome.SUCCESS,
+            injection_occurred=True,
+            patterns_injected_count=2,
+            tool_calls_count=8,
+            duration_ms=30000,
+            agent_selected="omniarchon",
+            routing_confidence=0.85,
             emitted_at=datetime(2026, 2, 20, 12, 0, 0, tzinfo=UTC),
         )
-        event_b = ModelRoutingFeedbackEvent(
+        event_b = ModelSessionRawOutcomePayload(
             session_id="session-b",
-            correlation_id=sample_correlation_id,
-            stage="session_end",
-            outcome=EnumRoutingFeedbackOutcome.FAILED,
+            injection_occurred=False,
+            patterns_injected_count=0,
+            tool_calls_count=3,
+            duration_ms=10000,
+            agent_selected="",
+            routing_confidence=0.0,
             emitted_at=datetime(2026, 2, 20, 12, 0, 1, tzinfo=UTC),
         )
 
@@ -227,40 +228,15 @@ class TestIdempotency:
         assert mock_repository.row_count() == 2
 
     @pytest.mark.asyncio
-    async def test_repeated_delivery_does_not_change_outcome(
-        self,
-        mock_repository: MockRoutingFeedbackRepository,
-        sample_routing_feedback_event_success: ModelRoutingFeedbackEvent,
-        sample_session_id: str,
-        sample_correlation_id: UUID,
-        sample_stage: str,
-    ) -> None:
-        """Idempotent re-delivery does not overwrite the outcome field."""
-        await process_routing_feedback(
-            event=sample_routing_feedback_event_success,
-            repository=mock_repository,
-        )
-        await process_routing_feedback(
-            event=sample_routing_feedback_event_success,
-            repository=mock_repository,
-        )
-
-        row = mock_repository.get_row(
-            sample_session_id, sample_correlation_id, sample_stage
-        )
-        assert row is not None
-        assert row["outcome"] == "success"
-
-    @pytest.mark.asyncio
     async def test_five_deliveries_produces_one_row(
         self,
         mock_repository: MockRoutingFeedbackRepository,
-        sample_routing_feedback_event_success: ModelRoutingFeedbackEvent,
+        sample_raw_outcome_event_with_injection: ModelSessionRawOutcomePayload,
     ) -> None:
-        """At-least-once delivery of 5x the same event = exactly 1 row."""
+        """At-least-once delivery of 5x the same session = exactly 1 row."""
         for _ in range(5):
             result = await process_routing_feedback(
-                event=sample_routing_feedback_event_success,
+                event=sample_raw_outcome_event_with_injection,
                 repository=mock_repository,
             )
             assert result.status == EnumRoutingFeedbackStatus.SUCCESS
@@ -283,11 +259,11 @@ class TestKafkaGracefulDegradation:
     async def test_no_kafka_publisher_still_succeeds(
         self,
         mock_repository: MockRoutingFeedbackRepository,
-        sample_routing_feedback_event_success: ModelRoutingFeedbackEvent,
+        sample_raw_outcome_event_with_injection: ModelSessionRawOutcomePayload,
     ) -> None:
         """Handler succeeds when kafka_publisher is None (graceful degradation)."""
         result = await process_routing_feedback(
-            event=sample_routing_feedback_event_success,
+            event=sample_raw_outcome_event_with_injection,
             repository=mock_repository,
             kafka_publisher=None,
         )
@@ -300,12 +276,11 @@ class TestKafkaGracefulDegradation:
     async def test_default_kafka_publisher_is_none(
         self,
         mock_repository: MockRoutingFeedbackRepository,
-        sample_routing_feedback_event_success: ModelRoutingFeedbackEvent,
+        sample_raw_outcome_event_with_injection: ModelSessionRawOutcomePayload,
     ) -> None:
         """kafka_publisher defaults to None when not provided."""
-        # Call with only required arguments - should not raise
         result = await process_routing_feedback(
-            event=sample_routing_feedback_event_success,
+            event=sample_raw_outcome_event_with_injection,
             repository=mock_repository,
         )
 
@@ -326,13 +301,13 @@ class TestKafkaPublishFailure:
         self,
         mock_repository: MockRoutingFeedbackRepository,
         mock_publisher: MockKafkaPublisher,
-        sample_routing_feedback_event_success: ModelRoutingFeedbackEvent,
+        sample_raw_outcome_event_with_injection: ModelSessionRawOutcomePayload,
     ) -> None:
         """Kafka publish failure is non-fatal; DB upsert result is SUCCESS."""
         mock_publisher.simulate_publish_error = ConnectionError("Kafka unavailable")
 
         result = await process_routing_feedback(
-            event=sample_routing_feedback_event_success,
+            event=sample_raw_outcome_event_with_injection,
             repository=mock_repository,
             kafka_publisher=mock_publisher,
         )
@@ -341,7 +316,6 @@ class TestKafkaPublishFailure:
         assert result.status == EnumRoutingFeedbackStatus.SUCCESS
         assert result.was_upserted is True
         assert mock_repository.row_count() == 1
-        # No error message in result (Kafka failure is logged but not surfaced)
         assert result.error_message is None
 
     @pytest.mark.asyncio
@@ -349,25 +323,21 @@ class TestKafkaPublishFailure:
         self,
         mock_repository: MockRoutingFeedbackRepository,
         mock_publisher: MockKafkaPublisher,
-        sample_routing_feedback_event_success: ModelRoutingFeedbackEvent,
+        sample_raw_outcome_event_with_injection: ModelSessionRawOutcomePayload,
         sample_session_id: str,
-        sample_correlation_id: UUID,
-        sample_stage: str,
     ) -> None:
         """Even when Kafka fails, the DB row is persisted."""
         mock_publisher.simulate_publish_error = RuntimeError("Kafka broker down")
 
         await process_routing_feedback(
-            event=sample_routing_feedback_event_success,
+            event=sample_raw_outcome_event_with_injection,
             repository=mock_repository,
             kafka_publisher=mock_publisher,
         )
 
-        row = mock_repository.get_row(
-            sample_session_id, sample_correlation_id, sample_stage
-        )
+        row = mock_repository.get_row(sample_session_id)
         assert row is not None
-        assert row["outcome"] == "success"
+        assert row["injection_occurred"] is True
 
 
 # =============================================================================
@@ -383,13 +353,13 @@ class TestDatabaseError:
     async def test_database_error_returns_structured_error(
         self,
         mock_repository: MockRoutingFeedbackRepository,
-        sample_routing_feedback_event_success: ModelRoutingFeedbackEvent,
+        sample_raw_outcome_event_with_injection: ModelSessionRawOutcomePayload,
     ) -> None:
         """Database error returns structured ERROR result, never raises."""
         mock_repository.simulate_db_error = ConnectionError("DB connection refused")
 
         result = await process_routing_feedback(
-            event=sample_routing_feedback_event_success,
+            event=sample_raw_outcome_event_with_injection,
             repository=mock_repository,
         )
 
@@ -402,36 +372,34 @@ class TestDatabaseError:
     async def test_database_error_preserves_event_metadata(
         self,
         mock_repository: MockRoutingFeedbackRepository,
-        sample_routing_feedback_event_success: ModelRoutingFeedbackEvent,
+        sample_raw_outcome_event_with_injection: ModelSessionRawOutcomePayload,
         sample_session_id: str,
-        sample_correlation_id: UUID,
-        sample_stage: str,
+        sample_agent_selected: str,
     ) -> None:
         """Even on DB error, event metadata is preserved in the result."""
         mock_repository.simulate_db_error = Exception("Unexpected failure")
 
         result = await process_routing_feedback(
-            event=sample_routing_feedback_event_success,
+            event=sample_raw_outcome_event_with_injection,
             repository=mock_repository,
         )
 
         assert result.session_id == sample_session_id
-        assert result.correlation_id == sample_correlation_id
-        assert result.stage == sample_stage
-        assert result.outcome == "success"
+        assert result.agent_selected == sample_agent_selected
+        assert result.injection_occurred is True
 
     @pytest.mark.asyncio
     async def test_handler_never_raises(
         self,
         mock_repository: MockRoutingFeedbackRepository,
-        sample_routing_feedback_event_success: ModelRoutingFeedbackEvent,
+        sample_raw_outcome_event_with_injection: ModelSessionRawOutcomePayload,
     ) -> None:
         """Handler catches all exceptions and returns structured result."""
         mock_repository.simulate_db_error = RuntimeError("Catastrophic failure")
 
         # Must NOT raise - handler contract
         result = await process_routing_feedback(
-            event=sample_routing_feedback_event_success,
+            event=sample_raw_outcome_event_with_injection,
             repository=mock_repository,
         )
 
@@ -452,11 +420,11 @@ class TestKafkaPublishedEvent:
         self,
         mock_repository: MockRoutingFeedbackRepository,
         mock_publisher: MockKafkaPublisher,
-        sample_routing_feedback_event_success: ModelRoutingFeedbackEvent,
+        sample_raw_outcome_event_with_injection: ModelSessionRawOutcomePayload,
     ) -> None:
         """Confirmation event is published to the correct topic."""
         await process_routing_feedback(
-            event=sample_routing_feedback_event_success,
+            event=sample_raw_outcome_event_with_injection,
             repository=mock_repository,
             kafka_publisher=mock_publisher,
         )
@@ -470,12 +438,12 @@ class TestKafkaPublishedEvent:
         self,
         mock_repository: MockRoutingFeedbackRepository,
         mock_publisher: MockKafkaPublisher,
-        sample_routing_feedback_event_success: ModelRoutingFeedbackEvent,
+        sample_raw_outcome_event_with_injection: ModelSessionRawOutcomePayload,
         sample_session_id: str,
     ) -> None:
         """Confirmation event uses session_id as the Kafka message key."""
         await process_routing_feedback(
-            event=sample_routing_feedback_event_success,
+            event=sample_raw_outcome_event_with_injection,
             repository=mock_repository,
             kafka_publisher=mock_publisher,
         )
@@ -484,34 +452,38 @@ class TestKafkaPublishedEvent:
         assert key == sample_session_id
 
     @pytest.mark.asyncio
-    async def test_published_event_contains_outcome(
+    async def test_published_event_contains_raw_signal_fields(
         self,
         mock_repository: MockRoutingFeedbackRepository,
         mock_publisher: MockKafkaPublisher,
-        sample_routing_feedback_event_success: ModelRoutingFeedbackEvent,
+        sample_raw_outcome_event_with_injection: ModelSessionRawOutcomePayload,
+        sample_agent_selected: str,
+        sample_routing_confidence: float,
     ) -> None:
-        """Confirmation event payload includes the outcome."""
+        """Confirmation event payload includes the raw signal fields."""
         await process_routing_feedback(
-            event=sample_routing_feedback_event_success,
+            event=sample_raw_outcome_event_with_injection,
             repository=mock_repository,
             kafka_publisher=mock_publisher,
         )
 
         _, _, value = mock_publisher.published[0]
-        assert value["outcome"] == "success"
-        assert value["session_id"] == sample_routing_feedback_event_success.session_id
-        assert "correlation_id" in value
+        assert value["injection_occurred"] is True
+        assert value["patterns_injected_count"] == 3
+        assert value["agent_selected"] == sample_agent_selected
+        assert value["routing_confidence"] == sample_routing_confidence
+        assert value["session_id"] == sample_raw_outcome_event_with_injection.session_id
 
     @pytest.mark.asyncio
     async def test_published_event_has_event_name(
         self,
         mock_repository: MockRoutingFeedbackRepository,
         mock_publisher: MockKafkaPublisher,
-        sample_routing_feedback_event_success: ModelRoutingFeedbackEvent,
+        sample_raw_outcome_event_with_injection: ModelSessionRawOutcomePayload,
     ) -> None:
         """Confirmation event payload includes the fixed event_name discriminator."""
         await process_routing_feedback(
-            event=sample_routing_feedback_event_success,
+            event=sample_raw_outcome_event_with_injection,
             repository=mock_repository,
             kafka_publisher=mock_publisher,
         )
@@ -524,15 +496,12 @@ class TestKafkaPublishedEvent:
         self,
         mock_repository: MockRoutingFeedbackRepository,
         mock_publisher: MockKafkaPublisher,
-        sample_routing_feedback_event_success: ModelRoutingFeedbackEvent,
+        sample_raw_outcome_event_with_injection: ModelSessionRawOutcomePayload,
     ) -> None:
-        """Confirmation event payload includes emitted_at and processed_at fields.
-
-        Both timestamps are serialised as ISO-8601 strings by model_dump(mode='json').
-        """
+        """Confirmation event payload includes emitted_at and processed_at fields."""
         before = datetime.now(UTC)
         await process_routing_feedback(
-            event=sample_routing_feedback_event_success,
+            event=sample_raw_outcome_event_with_injection,
             repository=mock_repository,
             kafka_publisher=mock_publisher,
         )
@@ -544,10 +513,8 @@ class TestKafkaPublishedEvent:
             "processed_at must be present in published payload"
         )
 
-        # emitted_at is the producer-side timestamp from the original event fixture.
         assert value["emitted_at"] == "2026-02-20T12:00:00Z"
 
-        # processed_at is generated at handler invocation time; verify it is recent.
         processed_at_dt = datetime.fromisoformat(value["processed_at"])
         assert before <= processed_at_dt <= after
 
@@ -555,12 +522,11 @@ class TestKafkaPublishedEvent:
     async def test_no_event_published_without_kafka(
         self,
         mock_repository: MockRoutingFeedbackRepository,
-        sample_routing_feedback_event_success: ModelRoutingFeedbackEvent,
+        sample_raw_outcome_event_with_injection: ModelSessionRawOutcomePayload,
     ) -> None:
         """No Kafka publish occurs when kafka_publisher is None."""
-        # No publisher - should succeed silently
         result = await process_routing_feedback(
-            event=sample_routing_feedback_event_success,
+            event=sample_raw_outcome_event_with_injection,
             repository=mock_repository,
             kafka_publisher=None,
         )
@@ -574,56 +540,35 @@ class TestKafkaPublishedEvent:
 
 @pytest.mark.unit
 class TestDlqRouting:
-    """Tests verifying dead-letter queue routing on Kafka publish failures.
-
-    When the primary Kafka publish (routing-feedback-processed) fails, the
-    handler must:
-    1. Attempt a second publish to DLQ_TOPIC with error metadata.
-    2. Never propagate exceptions - the handler result must remain SUCCESS.
-    """
+    """Tests verifying dead-letter queue routing on Kafka publish failures."""
 
     @pytest.mark.asyncio
     async def test_dlq_publish_attempted_on_kafka_failure(
         self,
         mock_repository: MockRoutingFeedbackRepository,
         mock_publisher: MockKafkaPublisher,
-        sample_routing_feedback_event_success: ModelRoutingFeedbackEvent,
+        sample_raw_outcome_event_with_injection: ModelSessionRawOutcomePayload,
     ) -> None:
-        """DLQ publish is attempted when the primary Kafka publish fails.
-
-        Simulates a failed first publish (processed-event topic) followed by
-        a successful second publish (DLQ topic).  Asserts that:
-        - The DLQ publish uses DLQ_TOPIC as the topic.
-        - The DLQ payload contains ``original_topic``, ``error_message``,
-          and ``retry_count == 0``.
-        """
-        # First call (processed-event) raises; second call (DLQ) succeeds.
+        """DLQ publish is attempted when the primary Kafka publish fails."""
         mock_publisher.publish_side_effects = [
             ConnectionError("Kafka broker unreachable"),
             None,  # DLQ publish succeeds
         ]
 
         result = await process_routing_feedback(
-            event=sample_routing_feedback_event_success,
+            event=sample_raw_outcome_event_with_injection,
             repository=mock_repository,
             kafka_publisher=mock_publisher,
         )
 
-        # DB upsert succeeded and handler result is SUCCESS.
         assert result.status == EnumRoutingFeedbackStatus.SUCCESS
         assert result.was_upserted is True
 
-        # Exactly one event was successfully published (to the DLQ).
         assert len(mock_publisher.published) == 1
         dlq_topic, dlq_key, dlq_value = mock_publisher.published[0]
 
-        # DLQ topic must be the processed-event topic with ".dlq" suffix.
         assert dlq_topic == DLQ_TOPIC
-
-        # DLQ key must be the session_id (mirrors primary publish key).
-        assert dlq_key == sample_routing_feedback_event_success.session_id
-
-        # DLQ payload must carry error metadata per effect-node guidelines.
+        assert dlq_key == sample_raw_outcome_event_with_injection.session_id
         assert dlq_value["original_topic"] == TOPIC_ROUTING_FEEDBACK_PROCESSED
         assert "error_message" in dlq_value
         assert dlq_value["retry_count"] == 0
@@ -633,29 +578,20 @@ class TestDlqRouting:
         self,
         mock_repository: MockRoutingFeedbackRepository,
         mock_publisher: MockKafkaPublisher,
-        sample_routing_feedback_event_success: ModelRoutingFeedbackEvent,
+        sample_raw_outcome_event_with_injection: ModelSessionRawOutcomePayload,
     ) -> None:
-        """Handler returns SUCCESS even when both primary and DLQ publishes fail.
-
-        Both the processed-event publish and the DLQ publish raise.  The
-        handler must swallow both errors and return a successful result
-        (the DB upsert already succeeded before Kafka was contacted).
-        """
-        # Both calls raise - simulate persistent Kafka outage.
+        """Handler returns SUCCESS even when both primary and DLQ publishes fail."""
         mock_publisher.simulate_publish_error = RuntimeError("Kafka cluster down")
 
         result = await process_routing_feedback(
-            event=sample_routing_feedback_event_success,
+            event=sample_raw_outcome_event_with_injection,
             repository=mock_repository,
             kafka_publisher=mock_publisher,
         )
 
-        # No exception must propagate out of the handler.
         assert result.status == EnumRoutingFeedbackStatus.SUCCESS
         assert result.was_upserted is True
         assert result.error_message is None
-
-        # No messages were successfully published (all raised).
         assert len(mock_publisher.published) == 0
 
 
@@ -668,17 +604,15 @@ class TestDlqRouting:
 class TestModelValidation:
     """Tests for event model validation."""
 
-    def test_routing_feedback_event_is_frozen(
+    def test_raw_outcome_event_is_frozen(
         self,
-        sample_routing_feedback_event_success: ModelRoutingFeedbackEvent,
+        sample_raw_outcome_event_with_injection: ModelSessionRawOutcomePayload,
     ) -> None:
-        """ModelRoutingFeedbackEvent is immutable (frozen)."""
+        """ModelSessionRawOutcomePayload is immutable (frozen)."""
         import pydantic
 
         with pytest.raises(pydantic.ValidationError):
-            sample_routing_feedback_event_success.outcome = (
-                EnumRoutingFeedbackOutcome.FAILED
-            )
+            sample_raw_outcome_event_with_injection.injection_occurred = False  # type: ignore[misc]
 
     def test_result_is_frozen(self) -> None:
         """ModelRoutingFeedbackResult is immutable (frozen)."""
@@ -687,84 +621,85 @@ class TestModelValidation:
         result = ModelRoutingFeedbackResult(
             status=EnumRoutingFeedbackStatus.SUCCESS,
             session_id="test",
-            correlation_id=uuid4(),
-            stage="session_end",
-            outcome=EnumRoutingFeedbackOutcome.SUCCESS,
+            injection_occurred=True,
+            patterns_injected_count=1,
+            tool_calls_count=5,
+            duration_ms=10000,
+            agent_selected="omniarchon",
+            routing_confidence=0.9,
             processed_at=datetime.now(UTC),
         )
 
         with pytest.raises(pydantic.ValidationError):
-            result.outcome = EnumRoutingFeedbackOutcome.FAILED
+            result.injection_occurred = False  # type: ignore[misc]
 
-    def test_event_rejects_invalid_outcome(
-        self,
-        sample_correlation_id: UUID,
-    ) -> None:
-        """ModelRoutingFeedbackEvent rejects outcomes other than success/failed."""
+    def test_event_rejects_negative_patterns_count(self) -> None:
+        """ModelSessionRawOutcomePayload rejects negative patterns_injected_count."""
         import pydantic
 
         with pytest.raises(pydantic.ValidationError):
-            ModelRoutingFeedbackEvent(
+            ModelSessionRawOutcomePayload(
                 session_id="test-session",
-                correlation_id=sample_correlation_id,
-                outcome="unknown",  # type: ignore[arg-type]
+                injection_occurred=True,
+                patterns_injected_count=-1,
+                tool_calls_count=5,
+                duration_ms=10000,
+                agent_selected="",
+                routing_confidence=0.5,
                 emitted_at=datetime(2026, 2, 20, 12, 0, 0, tzinfo=UTC),
             )
 
-    def test_event_rejects_empty_session_id(
-        self,
-        sample_correlation_id: UUID,
-    ) -> None:
-        """ModelRoutingFeedbackEvent rejects empty session_id."""
+    def test_event_rejects_empty_session_id(self) -> None:
+        """ModelSessionRawOutcomePayload rejects empty session_id."""
         import pydantic
 
         with pytest.raises(pydantic.ValidationError):
-            ModelRoutingFeedbackEvent(
+            ModelSessionRawOutcomePayload(
                 session_id="",
-                correlation_id=sample_correlation_id,
-                outcome=EnumRoutingFeedbackOutcome.SUCCESS,
+                injection_occurred=False,
+                patterns_injected_count=0,
+                tool_calls_count=0,
+                duration_ms=0,
+                agent_selected="",
+                routing_confidence=0.0,
                 emitted_at=datetime(2026, 2, 20, 12, 0, 0, tzinfo=UTC),
             )
 
-    def test_event_default_stage_is_session_end(
-        self,
-        sample_correlation_id: UUID,
-    ) -> None:
-        """ModelRoutingFeedbackEvent defaults stage to session_end."""
-        event = ModelRoutingFeedbackEvent(
-            session_id="test-session",
-            correlation_id=sample_correlation_id,
-            outcome=EnumRoutingFeedbackOutcome.SUCCESS,
-            emitted_at=datetime(2026, 2, 20, 12, 0, 0, tzinfo=UTC),
-        )
-        assert event.stage == "session_end"
+    def test_event_rejects_out_of_range_confidence(self) -> None:
+        """ModelSessionRawOutcomePayload rejects routing_confidence > 1.0."""
+        import pydantic
 
-    def test_extra_fields_are_silently_dropped(
-        self,
-        sample_correlation_id: UUID,
-    ) -> None:
-        """Unknown fields from omniclaude are silently ignored (extra='ignore').
+        with pytest.raises(pydantic.ValidationError):
+            ModelSessionRawOutcomePayload(
+                session_id="test-session",
+                injection_occurred=True,
+                patterns_injected_count=1,
+                tool_calls_count=5,
+                duration_ms=10000,
+                agent_selected="omniarchon",
+                routing_confidence=1.5,  # invalid
+                emitted_at=datetime(2026, 2, 20, 12, 0, 0, tzinfo=UTC),
+            )
 
-        omniclaude may add new fields to the routing.feedback event payload
-        before omniintelligence is updated. extra='ignore' prevents validation
-        errors and ensures forward-compatible deserialization.
-        """
-        event = ModelRoutingFeedbackEvent.model_validate(
+    def test_extra_fields_are_silently_dropped(self) -> None:
+        """Unknown fields from omniclaude are silently ignored (extra='ignore')."""
+        event = ModelSessionRawOutcomePayload.model_validate(
             {
                 "session_id": "test-session",
-                "correlation_id": str(sample_correlation_id),
-                "outcome": "success",
+                "injection_occurred": True,
+                "patterns_injected_count": 2,
+                "tool_calls_count": 10,
+                "duration_ms": 30000,
+                "agent_selected": "omniarchon",
+                "routing_confidence": 0.9,
                 "emitted_at": "2026-02-20T12:00:00+00:00",
                 "unknown_future_field": "some_value",
                 "another_unknown_field": 42,
             }
         )
 
-        # Valid fields are present
         assert event.session_id == "test-session"
-        assert event.outcome == "success"
-
-        # Unknown fields are not accessible on the model
+        assert event.injection_occurred is True
         assert not hasattr(event, "unknown_future_field")
         assert not hasattr(event, "another_unknown_field")
 
