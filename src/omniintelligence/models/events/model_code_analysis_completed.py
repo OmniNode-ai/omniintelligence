@@ -9,18 +9,15 @@ published to the code analysis completed Kafka topic after successful analysis.
 ONEX Compliance:
 - Model-based naming: Model{Domain}{Purpose}
 - Strong typing with Pydantic Field validation
-- UUID pattern validation for correlation_id
+- UUID type for correlation_id (aligns with omnimemory consumer)
 """
+
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 from omniintelligence.enums.enum_analysis_operation_type import (
     EnumAnalysisOperationType,
-)
-
-# UUID pattern for correlation_id validation
-UUID_PATTERN = (
-    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 )
 
 
@@ -46,10 +43,9 @@ class ModelCodeAnalysisCompletedPayload(BaseModel):
         cache_hit: Whether result was from cache
     """
 
-    correlation_id: str | None = Field(
+    correlation_id: UUID | None = Field(
         default=None,
-        description="Correlation ID for distributed tracing (UUID format)",
-        pattern=UUID_PATTERN,
+        description="Correlation ID for distributed tracing",
     )
     result: dict[str, object] = Field(default_factory=dict)
     source_path: str = Field(default="", description="Path to the analyzed source")
