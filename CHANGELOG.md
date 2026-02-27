@@ -5,6 +5,15 @@ All notable changes to OmniIntelligence will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-02-27
+
+### Changed
+- Version bump as part of coordinated OmniNode platform release (release-20260227-eceed7)
+
+### Dependencies
+- omnibase-spi pinned to 0.14.0
+- omnibase-core pinned to 0.21.0
+
 ## [0.6.0] - 2026-02-24
 
 ### Added
