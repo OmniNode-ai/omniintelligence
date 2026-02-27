@@ -8,23 +8,18 @@ Formalizes the Kafka payload published by ``_publish_processed_event()``
 to ``onex.evt.omniintelligence.routing-feedback-processed.v1`` after a
 successful upsert to ``routing_feedback_scores``.
 
-Reference: OMN-2366
+Reference: OMN-2366, OMN-2935
 """
 
 from __future__ import annotations
 
 from typing import Literal
-from uuid import UUID
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
-from omniintelligence.nodes.node_routing_feedback_effect.models.enum_routing_feedback_outcome import (
-    EnumRoutingFeedbackOutcome,
-)
-
 
 class ModelRoutingFeedbackProcessedEvent(BaseModel):
-    """Kafka event emitted after a routing feedback record is upserted.
+    """Kafka event emitted after a routing-outcome-raw record is upserted (OMN-2935).
 
     This model represents the payload published to
     ``onex.evt.omniintelligence.routing-feedback-processed.v1``. Events are
@@ -32,12 +27,12 @@ class ModelRoutingFeedbackProcessedEvent(BaseModel):
 
     Attributes:
         event_name: Fixed discriminator identifying the event type.
-        session_id: Session ID from the original routing feedback event.
-        correlation_id: Correlation ID from the original routing feedback event.
-        stage: Hook stage from the original routing feedback event.
-        outcome: Session outcome from the original routing feedback event.
-        emitted_at: Timestamp from the original event envelope (when omniclaude
-            emitted the routing feedback event).
+        session_id: Session ID from the original routing-outcome-raw event.
+        injection_occurred: Whether context injection happened this session.
+        patterns_injected_count: Number of patterns injected.
+        agent_selected: Agent name selected by routing.
+        routing_confidence: Routing confidence score (0.0-1.0).
+        emitted_at: Timestamp from the original event envelope.
         processed_at: Timestamp of when the upsert completed in this handler.
     """
 
@@ -49,26 +44,29 @@ class ModelRoutingFeedbackProcessedEvent(BaseModel):
     )
     session_id: str = Field(
         ...,
-        description="Session ID from the original routing feedback event",
+        description="Session ID from the original routing-outcome-raw event",
     )
-    correlation_id: UUID = Field(
+    injection_occurred: bool = Field(
         ...,
-        description="Correlation ID from the original routing feedback event",
+        description="Whether context injection happened this session",
     )
-    stage: str = Field(
+    patterns_injected_count: int = Field(
         ...,
-        min_length=1,
-        description="Hook stage from the original routing feedback event",
+        description="Number of patterns injected (0 if no injection occurred)",
     )
-    outcome: EnumRoutingFeedbackOutcome = Field(
+    agent_selected: str = Field(
         ...,
-        description="Session outcome from the original routing feedback event",
+        description="Agent name selected by routing (empty string if none)",
+    )
+    routing_confidence: float = Field(
+        ...,
+        description="Routing confidence score from the router (0.0-1.0)",
     )
     emitted_at: AwareDatetime = Field(
         ...,
         description=(
             "Timestamp from the original event envelope — when omniclaude "
-            "emitted the routing feedback event"
+            "emitted the routing-outcome-raw event"
         ),
     )
     processed_at: AwareDatetime = Field(

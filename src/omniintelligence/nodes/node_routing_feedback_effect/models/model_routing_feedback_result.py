@@ -4,37 +4,34 @@
 # Copyright (c) 2025 OmniNode Team
 """Routing feedback result model.
 
-Reference: OMN-2366
+Reference: OMN-2366, OMN-2935
 """
 
 from __future__ import annotations
 
-from uuid import UUID
-
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
-from omniintelligence.nodes.node_routing_feedback_effect.models.enum_routing_feedback_outcome import (
-    EnumRoutingFeedbackOutcome,
-)
 from omniintelligence.nodes.node_routing_feedback_effect.models.enum_routing_feedback_status import (
     EnumRoutingFeedbackStatus,
 )
 
 
 class ModelRoutingFeedbackResult(BaseModel):
-    """Result of processing a routing feedback event.
+    """Result of processing a routing-outcome-raw event (OMN-2935).
 
-    Returned by the handler after consuming a routing feedback event and
+    Returned by the handler after consuming a routing-outcome-raw event and
     upserting the idempotent record to routing_feedback_scores.
 
     Attributes:
         status: Overall processing status.
         session_id: Session ID from the input event.
-        correlation_id: Correlation ID from the input event.
-        stage: Hook stage from the input event.
-        outcome: Session outcome from the input event.
-        was_upserted: True if a row was inserted or updated (ON CONFLICT DO
-            UPDATE always counts as a change on the success path).
+        injection_occurred: Whether context injection happened this session.
+        patterns_injected_count: Number of patterns injected.
+        tool_calls_count: Total tool calls observed.
+        duration_ms: Session duration in milliseconds.
+        agent_selected: Agent name selected by routing.
+        routing_confidence: Routing confidence score (0.0-1.0).
+        was_upserted: True if a row was inserted or updated.
         processed_at: Timestamp of when processing completed.
         error_message: Error details if status is ERROR.
     """
@@ -49,17 +46,29 @@ class ModelRoutingFeedbackResult(BaseModel):
         ...,
         description="Session ID from the input event",
     )
-    correlation_id: UUID = Field(
+    injection_occurred: bool = Field(
         ...,
-        description="Correlation ID from the input event",
+        description="Whether context injection happened this session",
     )
-    stage: str = Field(
+    patterns_injected_count: int = Field(
         ...,
-        description="Hook stage from the input event",
+        description="Number of patterns injected (0 if no injection occurred)",
     )
-    outcome: EnumRoutingFeedbackOutcome = Field(
+    tool_calls_count: int = Field(
         ...,
-        description="Session outcome from the input event",
+        description="Total tool calls observed during the session",
+    )
+    duration_ms: int = Field(
+        ...,
+        description="Session duration in milliseconds (0 if unknown)",
+    )
+    agent_selected: str = Field(
+        ...,
+        description="Agent name selected by routing (empty string if none)",
+    )
+    routing_confidence: float = Field(
+        ...,
+        description="Routing confidence score (0.0-1.0)",
     )
     was_upserted: bool = Field(
         default=False,

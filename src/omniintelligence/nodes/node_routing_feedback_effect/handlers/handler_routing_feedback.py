@@ -4,33 +4,29 @@
 # Copyright (c) 2025 OmniNode Team
 """Handler functions for routing feedback processing.
 
-This module implements the routing feedback consumer: when omniclaude's
-session-end hook determines that a routing decision should be reinforced,
-it emits a routing.feedback event. This handler:
+This module implements the routing-outcome-raw consumer (OMN-2935): when
+omniclaude's session-end hook emits a routing-outcome-raw event, this handler:
 
-1. Consumes ``onex.evt.omniclaude.routing-feedback.v1`` events.
+1. Consumes ``onex.evt.omniclaude.routing-outcome-raw.v1`` events.
 2. Upserts an idempotent record to ``routing_feedback_scores`` using
-   ``(session_id, correlation_id, stage)`` as the composite idempotency key.
+   ``session_id`` as the idempotency key (no correlation_id in new payload).
 3. Publishes ``onex.evt.omniintelligence.routing-feedback-processed.v1`` after
    successful upsert (optional; gracefully degrades without Kafka).
 
+Migration note (OMN-2935):
+    Replaced ModelRoutingFeedbackEvent (routing-feedback.v1) with
+    ModelSessionRawOutcomePayload (routing-outcome-raw.v1). The new payload
+    carries raw observable facts: injection_occurred, patterns_injected_count,
+    tool_calls_count, duration_ms, agent_selected, routing_confidence.
+    correlation_id and outcome are no longer present in the producer payload.
+
 Idempotency:
 -----------
-The upsert uses ``ON CONFLICT (session_id, correlation_id, stage) DO UPDATE``
-to handle at-least-once Kafka delivery. Re-processing the same event is safe:
-the conflict clause updates ``processed_at`` to the current timestamp and
-returns the existing row count.
+The upsert uses ``ON CONFLICT (session_id) DO UPDATE`` to handle at-least-once
+Kafka delivery. Re-processing the same session_id is safe.
 
 The ``was_upserted`` flag in the result is ``True`` on the success path for
-both the first delivery and idempotent re-deliveries, because ``ON CONFLICT DO
-UPDATE`` always updates ``processed_at`` and counts as a row change. It is
-``False`` only when ``status`` is ``ERROR`` and the upsert did not execute.
-Use the ``status`` field to distinguish between SUCCESS and ERROR.
-
-Note: this relies on PostgreSQL behaviour where ON CONFLICT DO UPDATE always
-counts the affected row (returning ``"UPDATE 1"``), regardless of whether the
-SET clause actually changes any column values. This is guaranteed by the
-PostgreSQL specification and is not specific to any particular version.
+both the first delivery and idempotent re-deliveries.
 
 Kafka Graceful Degradation (Repository Invariant):
 ----------------------------------------------------
@@ -41,6 +37,7 @@ the ONEX invariant: "Effect nodes must never block on Kafka."
 Reference:
     - OMN-2366: Add routing.feedback consumer in omniintelligence
     - OMN-2356: Session-end hook routing feedback producer (omniclaude)
+    - OMN-2935: Fix routing feedback loop — subscribe to routing-outcome-raw.v1
 
 Design Principles:
     - Pure handler functions with injected repository and optional publisher
@@ -54,14 +51,13 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 from typing import Final
-from uuid import UUID
 
 from omniintelligence.constants import TOPIC_ROUTING_FEEDBACK_PROCESSED
 from omniintelligence.nodes.node_routing_feedback_effect.models import (
     EnumRoutingFeedbackStatus,
-    ModelRoutingFeedbackEvent,
     ModelRoutingFeedbackProcessedEvent,
     ModelRoutingFeedbackResult,
+    ModelSessionRawOutcomePayload,
 )
 from omniintelligence.protocols import ProtocolKafkaPublisher, ProtocolPatternRepository
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
@@ -78,25 +74,37 @@ DLQ_TOPIC: Final[str] = f"{TOPIC_ROUTING_FEEDBACK_PROCESSED}.dlq"
 # =============================================================================
 
 # Idempotent upsert for routing feedback scores.
-# Idempotency key: (session_id, correlation_id, stage)
-# ON CONFLICT: update processed_at to latest delivery timestamp.
+# Idempotency key: session_id
+# ON CONFLICT: update all raw signal fields + processed_at on re-delivery.
 # Parameters:
 #   $1 = session_id (text)
-#   $2 = correlation_id (uuid)
-#   $3 = stage (text)
-#   $4 = outcome (text: 'success' | 'failed')
-#   $5 = processed_at (timestamptz)
+#   $2 = injection_occurred (bool)
+#   $3 = patterns_injected_count (int)
+#   $4 = tool_calls_count (int)
+#   $5 = duration_ms (int)
+#   $6 = agent_selected (text)
+#   $7 = routing_confidence (float)
+#   $8 = processed_at (timestamptz)
 SQL_UPSERT_ROUTING_FEEDBACK = """
 INSERT INTO routing_feedback_scores (
     session_id,
-    correlation_id,
-    stage,
-    outcome,
+    injection_occurred,
+    patterns_injected_count,
+    tool_calls_count,
+    duration_ms,
+    agent_selected,
+    routing_confidence,
     processed_at
 )
-VALUES ($1, $2, $3, $4, $5)
-ON CONFLICT (session_id, correlation_id, stage)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+ON CONFLICT (session_id)
 DO UPDATE SET
+    injection_occurred = EXCLUDED.injection_occurred,
+    patterns_injected_count = EXCLUDED.patterns_injected_count,
+    tool_calls_count = EXCLUDED.tool_calls_count,
+    duration_ms = EXCLUDED.duration_ms,
+    agent_selected = EXCLUDED.agent_selected,
+    routing_confidence = EXCLUDED.routing_confidence,
     processed_at = EXCLUDED.processed_at
 ;"""
 
@@ -106,16 +114,16 @@ DO UPDATE SET
 
 
 async def process_routing_feedback(
-    event: ModelRoutingFeedbackEvent,
+    event: ModelSessionRawOutcomePayload,
     *,
     repository: ProtocolPatternRepository,
     kafka_publisher: ProtocolKafkaPublisher | None = None,
 ) -> ModelRoutingFeedbackResult:
-    """Process a routing feedback event and upsert to routing_feedback_scores.
+    """Process a routing-outcome-raw event and upsert to routing_feedback_scores.
 
     This is the main entry point for the routing feedback handler. It:
     1. Upserts the event to routing_feedback_scores with idempotency key
-       (session_id, correlation_id, stage).
+       session_id.
     2. Publishes a confirmation event to Kafka (optional, graceful degradation).
     3. Returns structured result with processing status.
 
@@ -124,7 +132,7 @@ async def process_routing_feedback(
     result with status=EnumRoutingFeedbackStatus.ERROR.
 
     Args:
-        event: The routing feedback event from omniclaude's session-end hook.
+        event: The routing-outcome-raw event from omniclaude's session-end hook.
         repository: Database repository implementing ProtocolPatternRepository.
         kafka_publisher: Optional Kafka publisher for confirmation events.
             If None, DB write still succeeds (graceful degradation).
@@ -144,9 +152,8 @@ async def process_routing_feedback(
         logger.exception(
             "Unhandled exception in routing feedback handler",
             extra={
-                "correlation_id": str(event.correlation_id),
                 "session_id": event.session_id,
-                "stage": event.stage,
+                "agent_selected": event.agent_selected,
                 "error": sanitized_error,
                 "error_type": type(exc).__name__,
             },
@@ -154,9 +161,12 @@ async def process_routing_feedback(
         return ModelRoutingFeedbackResult(
             status=EnumRoutingFeedbackStatus.ERROR,
             session_id=event.session_id,
-            correlation_id=event.correlation_id,
-            stage=event.stage,
-            outcome=event.outcome,
+            injection_occurred=event.injection_occurred,
+            patterns_injected_count=event.patterns_injected_count,
+            tool_calls_count=event.tool_calls_count,
+            duration_ms=event.duration_ms,
+            agent_selected=event.agent_selected,
+            routing_confidence=event.routing_confidence,
             was_upserted=False,
             processed_at=datetime.now(UTC),
             error_message=sanitized_error,
@@ -164,7 +174,7 @@ async def process_routing_feedback(
 
 
 async def _process_routing_feedback_inner(
-    event: ModelRoutingFeedbackEvent,
+    event: ModelSessionRawOutcomePayload,
     *,
     repository: ProtocolPatternRepository,
     kafka_publisher: ProtocolKafkaPublisher | None,
@@ -178,30 +188,28 @@ async def _process_routing_feedback_inner(
     now = datetime.now(UTC)
 
     logger.info(
-        "Processing routing feedback event",
+        "Processing routing-outcome-raw event",
         extra={
-            "correlation_id": str(event.correlation_id),
             "session_id": event.session_id,
-            "stage": event.stage,
-            "outcome": event.outcome,
+            "injection_occurred": event.injection_occurred,
+            "patterns_injected_count": event.patterns_injected_count,
+            "agent_selected": event.agent_selected,
+            "routing_confidence": event.routing_confidence,
         },
     )
 
-    # Step 1: Upsert to routing_feedback_scores with idempotency key.
-    # ON CONFLICT (session_id, correlation_id, stage) DO UPDATE SET processed_at
-    # ensures at-least-once Kafka delivery is safe.
-    #
-    # Note: event.emitted_at is intentionally not persisted here. It is
-    # producer-side metadata for the event envelope (when omniclaude emitted
-    # the event) and has no corresponding column in routing_feedback_scores.
-    # processed_at (generated at handler invocation time) is the storage
-    # timestamp of record.
+    # Step 1: Upsert to routing_feedback_scores with idempotency key session_id.
+    # ON CONFLICT (session_id) DO UPDATE ensures at-least-once Kafka delivery
+    # is safe — re-delivering the same session updates the raw signal fields.
     status = await repository.execute(
         SQL_UPSERT_ROUTING_FEEDBACK,
         event.session_id,
-        event.correlation_id,
-        event.stage,
-        event.outcome.value,
+        event.injection_occurred,
+        event.patterns_injected_count,
+        event.tool_calls_count,
+        event.duration_ms,
+        event.agent_selected,
+        event.routing_confidence,
         now,
     )
 
@@ -211,9 +219,7 @@ async def _process_routing_feedback_inner(
     logger.debug(
         "Upserted routing feedback record",
         extra={
-            "correlation_id": str(event.correlation_id),
             "session_id": event.session_id,
-            "stage": event.stage,
             "rows_affected": rows_affected,
             "was_upserted": was_upserted,
         },
@@ -231,9 +237,12 @@ async def _process_routing_feedback_inner(
     return ModelRoutingFeedbackResult(
         status=EnumRoutingFeedbackStatus.SUCCESS,
         session_id=event.session_id,
-        correlation_id=event.correlation_id,
-        stage=event.stage,
-        outcome=event.outcome,
+        injection_occurred=event.injection_occurred,
+        patterns_injected_count=event.patterns_injected_count,
+        tool_calls_count=event.tool_calls_count,
+        duration_ms=event.duration_ms,
+        agent_selected=event.agent_selected,
+        routing_confidence=event.routing_confidence,
         was_upserted=was_upserted,
         processed_at=now,
         error_message=None,
@@ -248,7 +257,6 @@ async def _route_to_dlq(
     error_message: str,
     error_timestamp: str,
     session_id: str,
-    correlation_id: UUID,
 ) -> None:
     """Route a failed message to the dead-letter queue.
 
@@ -268,16 +276,9 @@ async def _route_to_dlq(
         error_message: Error description from the failed publish (pre-sanitized).
         error_timestamp: ISO-formatted timestamp of the failure.
         session_id: Session ID used as the Kafka message key.
-        correlation_id: Correlation ID for tracing.
     """
     try:
         sanitizer = get_log_sanitizer()
-        # NOTE: Sanitization covers top-level string values. The current
-        # envelope (routing-feedback-processed payload) produces only
-        # top-level string/primitive fields, so this is sufficient.
-        # INVARIANT: DLQ payloads from this handler are flat dicts; nested
-        # sanitization is not required. If the envelope gains nested objects,
-        # add recursive sanitization here.
         sanitized_envelope = {
             k: sanitizer.sanitize(str(v)) if isinstance(v, str) else v
             for k, v in original_envelope.items()
@@ -306,14 +307,13 @@ async def _route_to_dlq(
             DLQ_TOPIC,
             exc_info=True,
             extra={
-                "correlation_id": str(correlation_id),
                 "session_id": session_id,
             },
         )
 
 
 async def _publish_processed_event(
-    event: ModelRoutingFeedbackEvent,
+    event: ModelSessionRawOutcomePayload,
     kafka_publisher: ProtocolKafkaPublisher,
     processed_at: datetime,
 ) -> None:
@@ -324,15 +324,16 @@ async def _publish_processed_event(
     (``TOPIC_ROUTING_FEEDBACK_PROCESSED + ".dlq"``) per effect-node guidelines.
 
     Args:
-        event: The original routing feedback event.
+        event: The original routing-outcome-raw event.
         kafka_publisher: Kafka publisher for the confirmation event.
         processed_at: Timestamp of when the upsert was processed.
     """
     event_model = ModelRoutingFeedbackProcessedEvent(
         session_id=event.session_id,
-        correlation_id=event.correlation_id,
-        stage=event.stage,
-        outcome=event.outcome,
+        injection_occurred=event.injection_occurred,
+        patterns_injected_count=event.patterns_injected_count,
+        agent_selected=event.agent_selected,
+        routing_confidence=event.routing_confidence,
         emitted_at=event.emitted_at,
         processed_at=processed_at,
     )
@@ -346,31 +347,24 @@ async def _publish_processed_event(
         logger.debug(
             "Published routing feedback processed event",
             extra={
-                "correlation_id": str(event.correlation_id),
                 "session_id": event.session_id,
                 "topic": TOPIC_ROUTING_FEEDBACK_PROCESSED,
             },
         )
     except Exception as exc:
         # DB upsert already succeeded; Kafka failure is non-fatal.
-        # Log as warning so operators can detect persistent Kafka issues
-        # without blocking the routing feedback pipeline.
         sanitized_error = get_log_sanitizer().sanitize(str(exc))
         logger.warning(
             "Failed to publish routing feedback processed event — "
             "DB upsert succeeded, Kafka publish failed (non-fatal)",
             exc_info=True,
             extra={
-                "correlation_id": str(event.correlation_id),
                 "session_id": event.session_id,
                 "topic": TOPIC_ROUTING_FEEDBACK_PROCESSED,
             },
         )
 
         # Route to DLQ per effect-node guidelines.
-        # Sanitize error before passing to _route_to_dlq for defense-in-depth
-        # (_route_to_dlq also sanitizes internally, but we sanitize at the call
-        # site to avoid passing raw exception strings across function boundaries).
         await _route_to_dlq(
             producer=kafka_publisher,
             original_topic=TOPIC_ROUTING_FEEDBACK_PROCESSED,
@@ -378,7 +372,6 @@ async def _publish_processed_event(
             error_message=sanitized_error,
             error_timestamp=datetime.now(UTC).isoformat(),
             session_id=event.session_id,
-            correlation_id=event.correlation_id,
         )
 
 
