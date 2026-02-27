@@ -166,7 +166,7 @@ io_operations:
 # =============================================================================
 published_events:
   - topic_suffix: "onex.cmd.omnimemory.crawl-tick.v1"
-    full_topic_pattern: "{env}.onex.cmd.omnimemory.crawl-tick.v1"
+    full_topic_pattern: "onex.cmd.omnimemory.crawl-tick.v1"
     event_type: "CrawlTickRequested"
     trigger: "Scheduled tick or manual trigger that passes the debounce guard"
     description: >
@@ -211,23 +211,23 @@ event_bus:
   # CLI/MCP manual triggers.  The topic is internal to omniintelligence — no
   # external producer from omnimemory or other repos is required (OMN-2719).
   subscribe_topics:
-    - "{env}.onex.cmd.omnimemory.crawl-requested.v1"
-    - "{env}.onex.evt.omnimemory.document-indexed.v1"
+    - "onex.cmd.omnimemory.crawl-requested.v1"
+    - "onex.evt.omnimemory.document-indexed.v1"
 
   # Topics this node publishes to (sends events to)
   publish_topics:
-    - "{env}.onex.cmd.omnimemory.crawl-tick.v1"
+    - "onex.cmd.omnimemory.crawl-tick.v1"
 
   # Metadata for subscribed topics
   subscribe_topic_metadata:
-    "{env}.onex.cmd.omnimemory.crawl-requested.v1":
+    "onex.cmd.omnimemory.crawl-requested.v1":
       schema_ref: "omniintelligence.nodes.node_crawl_scheduler_effect.models.ModelCrawlRequestedEvent"
       description: >
         Manual crawl trigger events from CLI, MCP, git hooks, and filesystem watchdog. Producer: node_watchdog_effect
         (omniintelligence) — emits on OS-level file change events. Additional producers: git post-commit
         hooks, omniclaude MCP triggers. Ownership: trigger is internal to omniintelligence; no omnimemory
         producer needed.
-    "{env}.onex.evt.omnimemory.document-indexed.v1":
+    "onex.evt.omnimemory.document-indexed.v1":
       schema_ref: "object"
       description: >
         Confirmation that a crawl completed and the document was indexed. Used to reset the debounce window
@@ -235,7 +235,7 @@ event_bus:
 
   # Metadata for published topics
   publish_topic_metadata:
-    "{env}.onex.cmd.omnimemory.crawl-tick.v1":
+    "onex.cmd.omnimemory.crawl-tick.v1":
       schema_ref: "omniintelligence.nodes.node_crawl_scheduler_effect.models.ModelCrawlTickCommand"
       description: "Crawl tick commands consumed by FilesystemCrawlerEffect, GitRepoCrawlerEffect, LinearCrawlerEffect"
 

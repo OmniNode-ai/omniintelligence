@@ -54,12 +54,12 @@ output_models:
   - name: "ModelDemotionCheckResult"
     module: "omniintelligence.nodes.node_pattern_demotion_effect.models"
     operation: "check_and_demote"
-    topic: "{env}.onex.evt.omniintelligence.pattern-deprecated.v1"
+    topic: "onex.evt.omniintelligence.pattern-deprecated.v1"
     description: "Aggregated result of demotion check with individual pattern outcomes."
   - name: "ModelDemotionResult"
     module: "omniintelligence.nodes.node_pattern_demotion_effect.models"
     operation: "demote_pattern"
-    topic: "{env}.onex.evt.omniintelligence.pattern-deprecated.v1"
+    topic: "onex.evt.omniintelligence.pattern-deprecated.v1"
     description: "Individual pattern demotion result with gate snapshot."
 
 # =============================================================================
@@ -130,7 +130,7 @@ io_operations:
     description: "Check all validated patterns and demote those meeting failure criteria"
     input_model: "ModelDemotionCheckRequest"
     output_model: "ModelDemotionCheckResult"
-    output_topic: "{env}.onex.evt.omniintelligence.pattern-deprecated.v1"
+    output_topic: "onex.evt.omniintelligence.pattern-deprecated.v1"
     input_fields:
       - dry_run
       - max_success_rate
@@ -151,7 +151,7 @@ io_operations:
     description: "Demote a single pattern by emitting lifecycle event"
     input_model: "ModelDemotionCheckRequest"
     output_model: "ModelDemotionResult"
-    output_topic: "{env}.onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
+    output_topic: "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
     input_fields:
       - pattern_id
       - reason
@@ -185,14 +185,14 @@ io_operations:
 # =============================================================================
 published_events:
   - topic_suffix: "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
-    full_topic_pattern: "{env}.onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
+    full_topic_pattern: "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
     event_type: "PatternLifecycleEvent"
     trigger: "Pattern meets demotion criteria (failure streak, low success rate, manual disable)"
     description: "Emitted when a pattern needs to transition from validated to deprecated. Consumed by
       reducer for FSM validation."
 
   - topic_suffix: "onex.evt.omniintelligence.pattern-deprecated.v1"
-    full_topic_pattern: "{env}.onex.evt.omniintelligence.pattern-deprecated.v1"
+    full_topic_pattern: "onex.evt.omniintelligence.pattern-deprecated.v1"
     event_type: "PatternDeprecated"
     trigger: "Pattern successfully deprecated after reducer validation"
     description: "Emitted after reducer processes lifecycle event and pattern is deprecated. Contains

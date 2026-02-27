@@ -53,7 +53,7 @@ output_models:
   - name: "ModelDocumentRemovedEvent"
     module: "omniintelligence.nodes.node_document_fetch_effect.models"
     operation: "fetch_document"
-    topic: "{env}.onex.evt.omnimemory.document-removed.v1"
+    topic: "onex.evt.omnimemory.document-removed.v1"
     description: "Emitted when document is not found at fetch time (file deleted between crawl and fetch)."
 
 # =============================================================================
@@ -117,7 +117,7 @@ io_operations:
 # =============================================================================
 published_events:
   - topic_suffix: "onex.evt.omnimemory.document-removed.v1"
-    full_topic_pattern: "{env}.onex.evt.omnimemory.document-removed.v1"
+    full_topic_pattern: "onex.evt.omnimemory.document-removed.v1"
     event_type: "DocumentRemoved"
     trigger: "Document file not found at fetch time (deleted between crawl and fetch)"
     description: "Emitted when a document that was crawled is missing when the fetcher arrives."
@@ -133,24 +133,24 @@ event_bus:
   event_bus_enabled: true
 
   subscribe_topics:
-    - "{env}.onex.evt.omnimemory.document-discovered.v1"
-    - "{env}.onex.evt.omnimemory.document-changed.v1"
+    - "onex.evt.omnimemory.document-discovered.v1"
+    - "onex.evt.omnimemory.document-changed.v1"
 
   publish_topics:
-    - "{env}.onex.evt.omnimemory.document-removed.v1"
+    - "onex.evt.omnimemory.document-removed.v1"
 
   subscribe_topic_metadata:
-    "{env}.onex.evt.omnimemory.document-discovered.v1":
+    "onex.evt.omnimemory.document-discovered.v1":
       schema_ref: "omniintelligence.nodes.node_document_fetch_effect.models.ModelDocumentFetchInput"
       description: "New document discovery events from GitRepoCrawlerEffect or LinearCrawlerEffect."
       content_type: "application/json"
-    "{env}.onex.evt.omnimemory.document-changed.v1":
+    "onex.evt.omnimemory.document-changed.v1":
       schema_ref: "omniintelligence.nodes.node_document_fetch_effect.models.ModelDocumentFetchInput"
       description: "Document change events requiring content re-fetch."
       content_type: "application/json"
 
   publish_topic_metadata:
-    "{env}.onex.evt.omnimemory.document-removed.v1":
+    "onex.evt.omnimemory.document-removed.v1":
       schema_ref: "omniintelligence.nodes.node_document_fetch_effect.models.ModelDocumentRemovedEvent"
       description: "Document removed at fetch time (race between crawl and fetch)"
       content_type: "application/json"

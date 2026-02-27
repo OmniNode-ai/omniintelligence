@@ -201,7 +201,7 @@ storage:
 # =============================================================================
 events:
   emitted:
-    - topic: "{env}.onex.evt.omnimemory.document-indexed.v1"
+    - topic: "onex.evt.omnimemory.document-indexed.v1"
       trigger: "successful write of all chunks"
       payload_fields:
         - source_ref
