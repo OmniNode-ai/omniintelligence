@@ -148,10 +148,12 @@ class TestCodeAnalysisCorrelationIdJsonRoundTrip:
         """
         correlation_id = uuid4()
         # Simulate Kafka JSON payload with UUID as string (as emitted by str serialization)
-        kafka_json = json.dumps({
-            "correlation_id": str(correlation_id),
-            "operation_type": EnumAnalysisOperationType.QUALITY_ASSESSMENT.value,
-        })
+        kafka_json = json.dumps(
+            {
+                "correlation_id": str(correlation_id),
+                "operation_type": EnumAnalysisOperationType.QUALITY_ASSESSMENT.value,
+            }
+        )
         reconstructed = ModelCodeAnalysisRequestPayload.model_validate_json(kafka_json)
         assert reconstructed.correlation_id == correlation_id
         assert isinstance(reconstructed.correlation_id, UUID)
