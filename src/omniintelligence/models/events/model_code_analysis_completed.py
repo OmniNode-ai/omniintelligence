@@ -10,6 +10,12 @@ ONEX Compliance:
 - Model-based naming: Model{Domain}{Purpose}
 - Strong typing with Pydantic Field validation
 - UUID type for correlation_id (aligns with omnimemory consumer)
+
+Contract notes:
+- operation_type mirrors the value from the originating request. It should
+  always be non-null for well-formed completed events (since the request
+  model requires it), but consumers must handle null defensively in case
+  events were produced by older or non-conformant producers.
 """
 
 from uuid import UUID
