@@ -233,6 +233,22 @@ Deletion ticket: OMN-1546
 # No Python constant is needed because RuntimeHostProcess reads
 # the topic from the contract at startup.  Removed in OMN-2059 review.
 
+TOPIC_RUN_EVALUATED_V1: str = "onex.evt.omniintelligence.run-evaluated.v1"
+"""
+TEMP_BOOTSTRAP: Canonical topic for objective evaluation result events (OUTPUT).
+
+Canonical topic: onex.evt.omniintelligence.run-evaluated.v1
+
+NodeEvidenceCollectionEffect publishes a RunEvaluatedEvent after each agent
+session is evaluated against an ObjectiveSpec. Consumers:
+  - NodePolicyStateReducer (OMN-2557): Updates policy state.
+  - omnidash: Displays objective scores in analytics dashboard.
+  - omniintelligence audit: Stores full evaluation for replay verification.
+
+Reference: OMN-2578
+Deletion ticket: OMN-1546
+"""
+
 # =============================================================================
 # Exports
 # =============================================================================
@@ -242,6 +258,7 @@ __all__ = [
     "PERCENTAGE_MULTIPLIER",
     "TOPIC_PATTERN_LIFECYCLE_CMD_V1",
     "TOPIC_ROUTING_FEEDBACK_PROCESSED",
+    "TOPIC_RUN_EVALUATED_V1",
     "TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1",
     "TOPIC_SUFFIX_INTENT_CLASSIFIED_V1",
     "TOPIC_SUFFIX_PATTERN_DEPRECATED_V1",
