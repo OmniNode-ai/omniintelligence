@@ -1,27 +1,14 @@
 # SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
 
-"""Policy type enum (OMN-2557)."""
+"""Re-export canonical EnumPolicyType from omnibase_core.
+
+Local definition replaced in OMN-2928 (gap:164320af CONTRACT_DRIFT fix).
+Canonical enum lives at omnibase_core.enums.enum_policy_type.
+"""
 
 from __future__ import annotations
 
-from enum import Enum
-
-
-class EnumPolicyType(str, Enum):
-    """The four policy types managed by PolicyStateReducer."""
-
-    TOOL_RELIABILITY = "tool_reliability"
-    """Tool reliability: tracks tool_id, reliability score, run/failure counts."""
-
-    PATTERN_EFFECTIVENESS = "pattern_effectiveness"
-    """Pattern effectiveness: tracks pattern_id, effectiveness score, tier."""
-
-    MODEL_ROUTING_CONFIDENCE = "model_routing_confidence"
-    """Model routing confidence: tracks model_id, task_class, confidence, cost."""
-
-    RETRY_THRESHOLD = "retry_threshold"
-    """Retry threshold: tracks context_class, max_retries, escalation_after."""
-
+from omnibase_core.enums.enum_policy_type import EnumPolicyType
 
 __all__ = ["EnumPolicyType"]

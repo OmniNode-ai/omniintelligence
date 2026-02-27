@@ -13,6 +13,8 @@ Tests cover:
 
 from __future__ import annotations
 
+import uuid
+
 import pytest
 
 from omniintelligence.nodes.node_policy_state_reducer.handlers.handler_lifecycle import (
@@ -325,22 +327,35 @@ class TestNodePolicyStateReducer:
         )
         return reducer, repo, publisher
 
+    # Fixed UUIDs for deterministic tests
+    _POLICY_ID = uuid.UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
+    _POLICY_ID_BAD = uuid.UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
+    _OBJECTIVE_ID = uuid.UUID("cccccccc-cccc-cccc-cccc-cccccccccccc")
+
     def _make_event(
         self,
-        event_id: str = "evt-001",
-        policy_id: str = "tool-abc",
+        event_id: uuid.UUID | None = None,
+        policy_id: uuid.UUID | None = None,
         policy_type: str = "tool_reliability",
         reward_delta: float = 0.5,
     ) -> ModelRewardAssignedEvent:
+        eid = event_id or uuid.uuid4()
+        pid = policy_id or self._POLICY_ID
         return ModelRewardAssignedEvent(
-            event_id=event_id,
-            policy_id=policy_id,
+            event_id=eid,
+            policy_id=pid,
             policy_type=EnumPolicyType(policy_type),
             reward_delta=reward_delta,
-            run_id=f"run-{event_id}",
-            objective_id="objective-v1",
+            run_id=uuid.uuid4(),
+            objective_id=self._OBJECTIVE_ID,
             occurred_at_utc="2026-02-24T00:00:00Z",
-            idempotency_key=f"key-{event_id}",
+            idempotency_key=f"key-{eid.hex}",
+            correctness=0.8,
+            safety=0.9,
+            cost=0.7,
+            latency=0.75,
+            maintainability=0.85,
+            human_time=0.6,
         )
 
     @pytest.mark.asyncio
@@ -349,14 +364,16 @@ class TestNodePolicyStateReducer:
         event = self._make_event()
         output = await reducer.reduce(ModelPolicyStateInput(event=event))
 
-        assert output.policy_id == "tool-abc"
+        # policy_id is returned as str(UUID) by the node
+        assert output.policy_id == str(self._POLICY_ID)
         assert output.was_duplicate is False
         assert not output.transition_occurred  # First event: candidate stays candidate
 
     @pytest.mark.asyncio
     async def test_duplicate_event_returns_was_duplicate(self) -> None:
         reducer, _repo, _ = self._make_reducer()
-        event = self._make_event(event_id="evt-dup")
+        eid = uuid.UUID("dddddddd-dddd-dddd-dddd-dddddddddddd")
+        event = self._make_event(event_id=eid)
         inp = ModelPolicyStateInput(event=event)
 
         # First call
@@ -374,7 +391,7 @@ class TestNodePolicyStateReducer:
         await reducer.reduce(ModelPolicyStateInput(event=event))
 
         assert len(repo.audit_log) == 1
-        assert repo.audit_log[0]["policy_id"] == "tool-abc"
+        assert repo.audit_log[0]["policy_id"] == str(self._POLICY_ID)
 
     @pytest.mark.asyncio
     async def test_auto_blacklist_fires_when_reliability_below_floor(self) -> None:
@@ -383,19 +400,21 @@ class TestNodePolicyStateReducer:
 
         reducer, repo, publisher = self._make_reducer()
 
-        # Set up initial state with very low reliability
-        repo._state[("tool-bad", "tool_reliability")] = json.dumps(
+        bad_pid = self._POLICY_ID_BAD
+        bad_pid_str = str(bad_pid)
+
+        # Set up initial state with very low reliability (keyed by str UUID)
+        repo._state[(bad_pid_str, "tool_reliability")] = json.dumps(
             {
                 "lifecycle_state": "promoted",
                 "reliability_0_1": 0.35,
                 "blacklisted": False,
             }
         )
-        repo._counts[("tool-bad", "tool_reliability")] = (100, 70)
+        repo._counts[(bad_pid_str, "tool_reliability")] = (100, 70)
 
         event = self._make_event(
-            event_id="evt-bad",
-            policy_id="tool-bad",
+            policy_id=bad_pid,
             reward_delta=-0.9,  # large negative delta
         )
         thresholds = ModelTransitionThresholds(
@@ -409,21 +428,29 @@ class TestNodePolicyStateReducer:
         assert output.blacklisted is True
         assert output.alert_emitted is True
         assert len(publisher.tool_degraded_calls) == 1
-        assert publisher.tool_degraded_calls[0]["tool_id"] == "tool-bad"
+        assert publisher.tool_degraded_calls[0]["tool_id"] == bad_pid_str
 
 
 @pytest.mark.unit
 class TestModelRewardAssignedEvent:
     def test_model_construction(self) -> None:
+        eid = uuid.uuid4()
+        pid = uuid.uuid4()
         event = ModelRewardAssignedEvent(
-            event_id="e1",
-            policy_id="tool-x",
+            event_id=eid,
+            policy_id=pid,
             policy_type=EnumPolicyType.TOOL_RELIABILITY,
             reward_delta=0.3,
-            run_id="r1",
-            objective_id="obj-1",
+            run_id=uuid.uuid4(),
+            objective_id=uuid.uuid4(),
             occurred_at_utc="2026-02-24T00:00:00Z",
             idempotency_key="key-e1",
+            correctness=0.8,
+            safety=0.9,
+            cost=0.7,
+            latency=0.75,
+            maintainability=0.85,
+            human_time=0.6,
         )
         assert event.policy_type == EnumPolicyType.TOOL_RELIABILITY
         assert event.reward_delta == 0.3

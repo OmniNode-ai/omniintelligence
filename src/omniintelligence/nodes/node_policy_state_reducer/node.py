@@ -32,6 +32,12 @@ Related:
     - OMN-2537: Core data models
     - OMN-2545: ScoringReducerCompute (upstream)
     - OMN-2361: Objective Functions epic
+    - OMN-2928: Canonical ModelRewardAssignedEvent (CONTRACT_DRIFT fix)
+
+UUID → str conversion:
+    The canonical ModelRewardAssignedEvent uses UUID types for identifiers.
+    Repository protocols expect str. All UUID fields are converted via str()
+    before being passed to repository or alert publisher calls.
 """
 
 from __future__ import annotations
@@ -110,16 +116,23 @@ class NodePolicyStateReducer:
         thresholds = input_data.thresholds
         now_utc = datetime.now(tz=UTC).isoformat()
 
+        # Convert UUID identifiers to str for repository protocol (which expects str).
+        # The canonical ModelRewardAssignedEvent uses UUID for type safety on the wire.
+        policy_id_str = str(event.policy_id)
+        event_id_str = str(event.event_id)
+        run_id_str = str(event.run_id)
+        objective_id_str = str(event.objective_id)
+
         # Idempotency check — skip if already processed
         if await self._repository.is_duplicate_event(event.idempotency_key):
             logger.info(
                 "Skipping duplicate event (idempotency_key=%s, policy_id=%s)",
                 event.idempotency_key,
-                event.policy_id,
+                policy_id_str,
             )
             # Return a no-op output without reading old state
             return ModelPolicyStateOutput(
-                policy_id=event.policy_id,
+                policy_id=policy_id_str,
                 policy_type=event.policy_type,
                 old_lifecycle_state=EnumPolicyLifecycleState.CANDIDATE,
                 new_lifecycle_state=EnumPolicyLifecycleState.CANDIDATE,
@@ -133,10 +146,10 @@ class NodePolicyStateReducer:
 
         # Read current state
         old_state_json = await self._repository.get_current_state_json(
-            event.policy_id, event.policy_type
+            policy_id_str, event.policy_type
         )
         run_count, failure_count = await self._repository.get_run_counts(
-            event.policy_id, event.policy_type
+            policy_id_str, event.policy_type
         )
 
         # Compute initial state from existing state or defaults
@@ -180,12 +193,12 @@ class NodePolicyStateReducer:
                 alert_emitted = True
                 logger.warning(
                     "Auto-blacklisting tool '%s': reliability=%.3f < floor=%.3f",
-                    event.policy_id,
+                    policy_id_str,
                     new_reliability,
                     thresholds.blacklist_floor,
                 )
                 await self._alert_publisher.publish_tool_degraded(
-                    tool_id=event.policy_id,
+                    tool_id=policy_id_str,
                     reliability_0_1=new_reliability,
                     occurred_at_utc=now_utc,
                 )
@@ -208,7 +221,7 @@ class NodePolicyStateReducer:
 
         # Persist updated state
         await self._repository.upsert_state(
-            policy_id=event.policy_id,
+            policy_id=policy_id_str,
             policy_type=event.policy_type,
             lifecycle_state_value=new_lifecycle_enum.value,
             state_json=new_state_json,
@@ -220,9 +233,9 @@ class NodePolicyStateReducer:
 
         # Write audit entry
         await self._repository.write_audit_entry(
-            policy_id=event.policy_id,
+            policy_id=policy_id_str,
             policy_type=event.policy_type,
-            event_id=event.event_id,
+            event_id=event_id_str,
             idempotency_key=event.idempotency_key,
             old_lifecycle_state=old_lifecycle_enum.value,
             new_lifecycle_state=new_lifecycle_enum.value,
@@ -230,8 +243,8 @@ class NodePolicyStateReducer:
             old_state_json=old_state_json_str,
             new_state_json=new_state_json,
             reward_delta=event.reward_delta,
-            run_id=event.run_id,
-            objective_id=event.objective_id,
+            run_id=run_id_str,
+            objective_id=objective_id_str,
             blacklisted=blacklisted,
             alert_emitted=alert_emitted,
             occurred_at_utc=event.occurred_at_utc,
@@ -243,7 +256,7 @@ class NodePolicyStateReducer:
         # Emit PolicyStateUpdatedEvent if transition occurred
         if transition_occurred:
             await self._alert_publisher.publish_policy_state_updated(
-                policy_id=event.policy_id,
+                policy_id=policy_id_str,
                 policy_type=event.policy_type.value,
                 old_lifecycle_state=old_lifecycle_enum.value,
                 new_lifecycle_state=new_lifecycle_enum.value,
@@ -253,7 +266,7 @@ class NodePolicyStateReducer:
         logger.info(
             "PolicyState updated: policy_id=%s type=%s %s→%s "
             "reliability=%.3f runs=%d blacklisted=%s",
-            event.policy_id,
+            policy_id_str,
             event.policy_type.value,
             old_lifecycle_enum.value,
             new_lifecycle_enum.value,
@@ -263,7 +276,7 @@ class NodePolicyStateReducer:
         )
 
         return ModelPolicyStateOutput(
-            policy_id=event.policy_id,
+            policy_id=policy_id_str,
             policy_type=event.policy_type,
             old_lifecycle_state=old_lifecycle_enum,
             new_lifecycle_state=new_lifecycle_enum,
