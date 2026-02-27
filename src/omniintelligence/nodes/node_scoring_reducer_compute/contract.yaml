@@ -1,0 +1,77 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# ONEX Node Contract - ScoringReducer Compute Node
+# =============================================================================
+# Implements: OMN-2545 (ScoringReducer COMPUTE node)
+# Epic:       OMN-2361 (Objective Functions and Reward Architecture)
+# =============================================================================
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+name: "node_scoring_reducer_compute"
+node_type: "COMPUTE_GENERIC"
+description: >-
+  Pure COMPUTE node for objective-function evaluation. Evaluates an EvidenceBundle against an ObjectiveSpec
+  using a two-stage pipeline: (1) hard gates that all must pass, and (2) shaped reward terms producing
+  a ScoreVector. Zero I/O, zero side effects. Identical inputs always produce bit-identical outputs (replay
+  invariant).
+input_model:
+  name: "ModelScoringInput"
+  module: "omniintelligence.nodes.node_scoring_reducer_compute.models"
+  description: "Evidence bundle + objective spec to evaluate."
+output_model:
+  name: "ModelScoringOutput"
+  module: "omniintelligence.nodes.node_scoring_reducer_compute.models"
+  description: "Evaluation result with ScoreVector, failures, and attribution refs."
+operations:
+  - name: "evaluate_run"
+    description: >-
+      Evaluate an evidence bundle against an objective spec. Returns passed=True with ScoreVector when
+      all gates pass; passed=False with ScoreVector.zero() and failing gate IDs when any gate fails.
+    input_fields:
+      - evidence
+      - spec
+    output_fields:
+      - result
+      - objective_id
+      - objective_version
+      - run_id
+handler_routing:
+  routing_strategy: "single_handler"
+  handlers:
+    - operation: "evaluate_run"
+      handler:
+        function: "evaluate_run"
+        module: "omniintelligence.nodes.node_scoring_reducer_compute.handlers"
+        type: "sync"
+dependencies: []
+error_handling:
+  error_types:
+    - name: "ScoringValidationError"
+      error_code: "SCORING_001"
+      description: "Input validation failed (e.g., unknown evidence source, invalid spec)"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "ScoringComputeError"
+      error_code: "SCORING_002"
+      description: "Unexpected error during scoring computation"
+      recoverable: true
+      retry_strategy: "immediate_retry"
+metadata:
+  author: "OmniNode Team"
+  created: "2026-02-24"
+  updated: "2026-02-24"
+  tags:
+    - "ONEX"
+    - "compute"
+    - "objective"
+    - "scoring"
+    - "reward"
+    - "OMN-2545"
+    - "OMN-2361"

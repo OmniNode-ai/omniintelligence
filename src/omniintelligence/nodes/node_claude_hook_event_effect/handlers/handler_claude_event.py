@@ -20,6 +20,7 @@ Reference:
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import logging
 import time
@@ -37,6 +38,12 @@ from omniintelligence.nodes.node_claude_hook_event_effect.models import (
     ModelClaudeHookResult,
     ModelIntentResult,
     ModelPatternLearningCommand,
+)
+from omniintelligence.nodes.node_evidence_collection_effect.handlers.handler_evidence_collection import (
+    fire_and_forget_evaluate,
+)
+from omniintelligence.nodes.node_evidence_collection_effect.models.model_session_check_results import (
+    ModelSessionCheckResults,
 )
 from omniintelligence.protocols import ProtocolIntentClassifier, ProtocolKafkaPublisher
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
@@ -329,6 +336,29 @@ async def handle_stop(
     else:
         status = EnumHookProcessingStatus.PARTIAL
 
+    # -------------------------------------------------------------------------
+    # OMN-2578: Fire-and-forget objective evaluation at session end.
+    #
+    # Construct a minimal ModelSessionCheckResults from the STOP event context.
+    # The check results are intentionally sparse here (no gates, tests, or static
+    # analysis data in the STOP event payload) — the session_id and run_id are
+    # enough to produce cost/latency evidence if telemetry is available.
+    #
+    # Full ChangeFrame integration (richer gate/test/static results) is the
+    # responsibility of the hook scripts that populate event.payload. This
+    # wiring establishes the async path and will be enriched as the hook
+    # payloads are extended.
+    #
+    # NON-BLOCKING: asyncio.create_task schedules this as a background task.
+    # Session completion is NOT delayed regardless of evaluation outcome.
+    # -------------------------------------------------------------------------
+    _launch_objective_evaluation(
+        event=event,
+        resolved_correlation_id=resolved_correlation_id,
+        kafka_producer=kafka_producer,
+    )
+    metadata["objective_evaluation"] = "dispatched"
+
     processing_time_ms = (time.perf_counter() - start_time) * 1000
 
     return ModelClaudeHookResult(
@@ -342,6 +372,65 @@ async def handle_stop(
         error_message=sanitized_error,
         metadata=metadata,
     )
+
+
+def _launch_objective_evaluation(
+    *,
+    event: ModelClaudeCodeHookEvent,
+    resolved_correlation_id: UUID,
+    kafka_producer: ProtocolKafkaPublisher | None,
+) -> None:
+    """Schedule objective evaluation as a non-blocking asyncio background task.
+
+    Constructs a minimal ModelSessionCheckResults from the STOP event and
+    schedules fire_and_forget_evaluate as an asyncio.create_task. This
+    ensures the session completion is never delayed.
+
+    The check results are sparse at this stage — they carry only the run_id,
+    session_id, and timestamp. Richer ChangeFrame data (gate/test/static results)
+    will be injected as the hook payload is extended in future tickets.
+
+    Args:
+        event: The Stop hook event.
+        resolved_correlation_id: Non-None correlation UUID for this session.
+        kafka_producer: Optional Kafka publisher for RunEvaluatedEvent.
+
+    Related:
+        - OMN-2578: Wire objective evaluation into agent execution trace
+    """
+    try:
+        collected_at = datetime.now(UTC).isoformat()
+        check_results = ModelSessionCheckResults(
+            run_id=str(resolved_correlation_id),
+            session_id=event.session_id,
+            # Gate/test/static results are empty here — future enrichment
+            # will populate these from the STOP event payload ChangeFrame data.
+            gate_results=(),
+            test_results=(),
+            static_analysis_results=(),
+            # Cost and latency are not available in the raw STOP event payload.
+            # They will be populated when hook payload telemetry is wired.
+            cost_usd=None,
+            latency_seconds=None,
+            collected_at_utc=collected_at,
+        )
+        _task = asyncio.ensure_future(
+            fire_and_forget_evaluate(
+                check_results,
+                task_class=None,
+                kafka_publisher=kafka_producer,
+                db_conn=None,  # DB wiring requires connection injection — future work
+            )
+        )
+        # Discard the task reference intentionally — fire-and-forget pattern.
+        # The task is scheduled on the event loop and will run independently.
+        del _task
+    except Exception:
+        # Swallow all errors — this must never affect session completion
+        logger.exception(
+            "Failed to launch objective evaluation background task (non-blocking — session unaffected)",
+            extra={"session_id": event.session_id},
+        )
 
 
 async def _route_to_dlq(
@@ -841,6 +930,7 @@ __all__ = [
     "HandlerClaudeHookEvent",
     "ProtocolIntentClassifier",
     "ProtocolKafkaPublisher",
+    "_launch_objective_evaluation",
     "_parse_semver_str",
     "handle_no_op",
     "handle_stop",

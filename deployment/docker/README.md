@@ -1,275 +1,143 @@
 # OmniIntelligence Docker Deployment
 
-Comprehensive Docker deployment for ONEX 4.0 architecture.
+## Service Ownership
 
-## Architecture
+**omniintelligence is a pure application service — it owns zero data stores.**
 
-### Base Infrastructure (docker-compose.yml)
-- **PostgreSQL**: FSM state, pattern lineage, workflow tracking
-- **Qdrant**: Vector embeddings (1536D)
-- **Memgraph**: Knowledge graph (entities + relationships)
-- **Valkey**: Distributed cache (Redis-compatible)
-- **Redpanda**: Kafka-compatible event streaming
+All infrastructure (PostgreSQL, Kafka/Redpanda, Valkey, Qdrant, Memgraph) is
+provided by other services in the OmniNode platform. Do not run a separate
+infrastructure stack from this repo.
 
-### ONEX Nodes (docker-compose.nodes.yml)
-- **Intelligence Reducer**: Pure FSM state management
-- **Intelligence Orchestrator**: Llama Index workflow execution
-- **Compute Nodes**: Vectorization, Quality Scoring, etc.
-- **Effect Nodes**: Kafka Events, Qdrant Vectors, Memgraph Graph, PostgreSQL Patterns
+| Infrastructure | Owned by |
+|----------------|----------|
+| PostgreSQL | `omnibase_infra` |
+| Kafka / Redpanda | `omnibase_infra` |
+| Valkey (Redis-compatible cache) | `omnibase_infra` |
+| Qdrant (vector store) | `omnimemory` |
+| Memgraph (knowledge graph) | `omnimemory` |
 
 ## Quick Start
 
 ### Prerequisites
 
 1. Docker Engine 24.0+ with Compose V2
-2. 8GB+ available RAM
-3. Create `.env` file:
+2. `omnibase_infra` running and healthy (see below)
+3. A populated `.env` file (copy from `.env.example` at repo root)
+
+### Step 1 — Start omnibase_infra
+
+All infrastructure required by omniintelligence is owned by `omnibase_infra`.
+Start it first from its own repository:
 
 ```bash
-cp .env.example .env
-# Edit .env and set required passwords
+# From the omnibase_infra repo root
+docker compose -f docker/docker-compose.infra.yml up -d
+
+# Verify infrastructure is healthy before proceeding
+docker compose -f docker/docker-compose.infra.yml ps
 ```
 
-### Start Infrastructure
+For Qdrant and Memgraph, start `omnimemory` as well:
 
 ```bash
-# Start base infrastructure
-docker compose -f deployment/docker/docker-compose.yml up -d
-
-# Check health
-docker compose -f deployment/docker/docker-compose.yml ps
-
-# View logs
-docker compose -f deployment/docker/docker-compose.yml logs -f
+# From the omnimemory repo root (if needed by your workload)
+docker compose -f docker/docker-compose.yml up -d
 ```
 
-### Start ONEX Nodes
+### Step 2 — Start ONEX Nodes
 
 ```bash
-# Start all ONEX nodes
-docker compose -f deployment/docker/docker-compose.yml \
-               -f deployment/docker/docker-compose.nodes.yml up -d
+# From the omniintelligence repo root
+docker compose -f deployment/docker/docker-compose.nodes.yml up -d
 
 # Check node health
 docker compose -f deployment/docker/docker-compose.nodes.yml ps
 ```
 
-### Apply Database Migrations
-
-```bash
-# Run migrations
-docker compose -f deployment/docker/docker-compose.yml exec postgres \
-  psql -U postgres -d omniintelligence -f /docker-entrypoint-initdb.d/001_create_fsm_state_table.sql
-
-# Or use migration script
-docker compose -f deployment/docker/docker-compose.yml run --rm \
-  -e DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/omniintelligence \
-  python python scripts/migration/apply_migrations.py
-```
+The nodes attach to `omnibase-infra-network`, the external Docker network
+created by `omnibase_infra`.
 
 ## Environment Variables
 
-### Required Variables
+Set these in `.env` at the repo root. Required variables:
 
 ```bash
-# Database passwords (REQUIRED)
-POSTGRES_PASSWORD=your_secure_password_here
-VALKEY_PASSWORD=your_valkey_password_here
+# PostgreSQL — provided by omnibase_infra
+POSTGRES_PASSWORD=<from omnibase_infra .env>
 
-# API keys (if using external services)
-OPENAI_API_KEY=sk-...
+# Valkey — provided by omnibase_infra
+VALKEY_PASSWORD=<from omnibase_infra .env>
+
+# Override connection URLs if needed (defaults point to omnibase_infra containers)
+DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@omnibase-infra-postgres:5432/omnibase_infra
+VALKEY_URL=redis://:${VALKEY_PASSWORD}@omnibase-infra-valkey:6379/0
 ```
 
-### Optional Variables
+Optional tuning variables:
 
 ```bash
-# PostgreSQL
-POSTGRES_DB=omniintelligence
-POSTGRES_USER=postgres
-POSTGRES_PORT=5432
-
-# Qdrant
-QDRANT_PORT=6333
-QDRANT_GRPC_PORT=6334
-
-# Memgraph
-MEMGRAPH_PORT=7687
-MEMGRAPH_HTTP_PORT=3000
-
-# Valkey
-VALKEY_PORT=6379
-
-# Redpanda
-REDPANDA_KAFKA_PORT=19092
-REDPANDA_ADMIN_PORT=9644
-
 # Orchestrator
 MAX_CONCURRENT_WORKFLOWS=10
 WORKFLOW_TIMEOUT_SECONDS=300
+ENABLE_CACHING=true
+CACHE_TTL_SECONDS=300
 
 # Reducer
 ENABLE_LEASE_MANAGEMENT=true
 LEASE_TIMEOUT_SECONDS=300
+MAX_RETRY_ATTEMPTS=3
 
 # Logging
 LOG_LEVEL=INFO
 ```
 
-## Service URLs
+## ONEX Nodes
 
-### Infrastructure
-- PostgreSQL: `localhost:5432`
-- Qdrant: `http://localhost:6333`
-- Memgraph Lab: `http://localhost:3000`
-- Valkey: `localhost:6379`
-- Redpanda Console: `http://localhost:8080`
-- Redpanda Kafka: `localhost:19092`
+### Node Services
 
-### ONEX Nodes
-All nodes expose health checks on port 8000.
+All nodes expose a `/health` HTTP endpoint on port 8000.
+
+| Service | Container | Purpose |
+|---------|-----------|---------|
+| `intelligence-reducer` | `omni-intelligence-reducer` | FSM state management |
+| `intelligence-orchestrator` | `omni-intelligence-orchestrator` | Llama Index workflow execution |
+| `quality-scoring-compute` | `omni-quality-scoring-compute` | Code quality scoring |
+
+### Build Images
+
+```bash
+# Build all node images
+docker compose -f deployment/docker/docker-compose.nodes.yml build
+
+# Build a specific node
+docker compose -f deployment/docker/docker-compose.nodes.yml build intelligence-reducer
+```
 
 ## Monitoring
 
 ### View Logs
 
 ```bash
-# All services
-docker compose -f deployment/docker/docker-compose.yml logs -f
+# All nodes
+docker compose -f deployment/docker/docker-compose.nodes.yml logs -f
 
-# Specific service
-docker compose -f deployment/docker/docker-compose.yml logs -f postgres
-
-# Nodes
+# Specific node
 docker compose -f deployment/docker/docker-compose.nodes.yml logs -f intelligence-reducer
 ```
 
 ### Health Checks
 
 ```bash
-# Check infrastructure health
-docker compose -f deployment/docker/docker-compose.yml ps
-
-# Check node health
+# Node health
 docker compose -f deployment/docker/docker-compose.nodes.yml ps
 
 # Manual health check
-curl http://localhost:6333/health  # Qdrant
-```
-
-### Database Queries
-
-```bash
-# Connect to PostgreSQL
-docker compose -f deployment/docker/docker-compose.yml exec postgres \
-  psql -U postgres -d omniintelligence
-
-# View FSM states
-SELECT fsm_type, current_state, COUNT(*)
-FROM fsm_state
-GROUP BY fsm_type, current_state;
-
-# View active workflows
-SELECT workflow_id, operation_type, status, started_at
-FROM workflow_executions
-WHERE status = 'RUNNING';
-```
-
-### Redpanda Console
-
-Access Kafka UI at http://localhost:8080 to view:
-- Topics
-- Messages
-- Consumer groups
-- Cluster health
-
-## Development
-
-### Build Images
-
-```bash
-# Build all images
-docker compose -f deployment/docker/docker-compose.nodes.yml build
-
-# Build specific node
-docker compose -f deployment/docker/docker-compose.nodes.yml build intelligence-reducer
-```
-
-### Run Tests
-
-```bash
-# Run all tests
-docker compose -f deployment/docker/Dockerfile --target dev run --rm tests
-
-# Run specific test
-docker compose run --rm tests pytest tests/unit/test_models.py -v
-```
-
-### Hot Reload
-
-For development with hot reload, mount source code:
-
-```yaml
-volumes:
-  - ../../src:/app/src
-```
-
-## Troubleshooting
-
-### PostgreSQL Connection Issues
-
-```bash
-# Check PostgreSQL is running
-docker compose -f deployment/docker/docker-compose.yml ps postgres
-
-# Check logs
-docker compose -f deployment/docker/docker-compose.yml logs postgres
-
-# Test connection
-docker compose -f deployment/docker/docker-compose.yml exec postgres \
-  pg_isready -U postgres
-```
-
-### Redpanda Connection Issues
-
-```bash
-# Check Redpanda health
-docker compose -f deployment/docker/docker-compose.yml exec redpanda \
-  rpk cluster health
-
-# List topics
-docker compose -f deployment/docker/docker-compose.yml exec redpanda \
-  rpk topic list
-```
-
-### Qdrant Issues
-
-```bash
-# Check Qdrant health
-curl http://localhost:6333/health
-
-# View collections
-curl http://localhost:6333/collections
-```
-
-### Reset Everything
-
-```bash
-# Stop and remove all containers, networks, volumes
-docker compose -f deployment/docker/docker-compose.yml \
-               -f deployment/docker/docker-compose.nodes.yml down -v
-
-# Remove all data
-docker volume rm \
-  omniintelligence_postgres_data \
-  omniintelligence_qdrant_data \
-  omniintelligence_memgraph_data \
-  omniintelligence_valkey_data \
-  omniintelligence_redpanda_data
+curl http://localhost:8000/health
 ```
 
 ## Runtime Container Integration
 
-The `omnibase_infra` runtime container (`RuntimeHostProcess`) needs to import
+The `omnibase_infra` runtime container (`RuntimeHostProcess`) imports
 omniintelligence handler classes dynamically via `HandlerPluginLoader`. This
 requires the package to be installed in the container's Python environment.
 
@@ -386,54 +254,50 @@ For the runtime container, the minimal install is sufficient since
 connections. Kafka connectivity is included in the base install because
 handler modules import Kafka types at module load time.
 
-## Production Deployment
+## Troubleshooting
 
-### Security
+### Node Cannot Connect to PostgreSQL
 
-1. **Use strong passwords**: Generate secure passwords for all services
-2. **Network isolation**: Use Docker networks to isolate services
-3. **TLS/SSL**: Enable TLS for all external connections
-4. **Secrets management**: Use Docker secrets or external secret managers
-
-### Scaling
+Verify `omnibase_infra` is running and healthy:
 
 ```bash
-# Scale compute nodes
-docker compose -f deployment/docker/docker-compose.nodes.yml up -d --scale vectorization-compute=3
+# Check omnibase_infra postgres
+docker ps | grep omnibase-infra-postgres
 
-# Scale effect nodes
-docker compose -f deployment/docker/docker-compose.nodes.yml up -d --scale qdrant-vector-effect=2
+# Test connection
+psql -h localhost -p 5436 -U postgres -d omnibase_infra -c "SELECT 1"
 ```
 
-### Resource Limits
+Ensure `DATABASE_URL` in your `.env` points to the correct host:
+- Docker service-to-service: `omnibase-infra-postgres:5432`
+- Host scripts: `localhost:5436`
 
-Adjust resource limits in docker-compose files:
+### Node Cannot Connect to Kafka
 
-```yaml
-deploy:
-  resources:
-    limits:
-      memory: 2G
-      cpus: '2.0'
-    reservations:
-      memory: 1G
-      cpus: '1.0'
-```
+Redpanda runs on the **remote M2 Ultra (192.168.86.200)**, not locally. Verify
+`KAFKA_BOOTSTRAP_SERVERS` is set correctly:
+- Docker services: `omnibase-infra-redpanda:9092` (via `/etc/hosts` DNS)
+- Host scripts: `192.168.86.200:29092`
 
-### Backup
+### Network Not Found
+
+If nodes fail to start because `omnibase-infra-network` does not exist, start
+`omnibase_infra` first:
 
 ```bash
-# Backup PostgreSQL
-docker compose -f deployment/docker/docker-compose.yml exec postgres \
-  pg_dump -U postgres omniintelligence > backup.sql
-
-# Backup Qdrant
-curl -X POST http://localhost:6333/collections/archon_vectors/snapshots
-
-# Backup Memgraph
-docker compose -f deployment/docker/docker-compose.yml exec memgraph \
-  mgconsole -c "CALL mg.backup();"
+docker compose -f <omnibase_infra>/docker/docker-compose.infra.yml up -d
 ```
+
+### Reset Nodes
+
+```bash
+# Stop and remove node containers only (does NOT touch infrastructure)
+docker compose -f deployment/docker/docker-compose.nodes.yml down
+```
+
+**Never run `docker compose down -v` from this directory.** There are no
+volumes owned by omniintelligence. Infrastructure data lives in
+`omnibase_infra` volumes.
 
 ## Support
 

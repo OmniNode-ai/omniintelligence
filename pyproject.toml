@@ -17,7 +17,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "omninode-intelligence"
-version = "0.6.0"
+version = "0.6.1"
 description = "Intelligence, indexing, and pattern services as first-class Omninode nodes"
 readme = "README.md"
 requires-python = ">=3.12,<4.0"

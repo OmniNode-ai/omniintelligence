@@ -129,7 +129,7 @@ io_operations:
 # =============================================================================
 published_events:
   - topic_suffix: "onex.cmd.omnimemory.crawl-requested.v1"
-    full_topic_pattern: "{env}.onex.cmd.omnimemory.crawl-requested.v1"
+    full_topic_pattern: "onex.cmd.omnimemory.crawl-requested.v1"
     event_type: "CrawlRequested"
     trigger: "File create, modify, or delete detected in a watched path"
     description: >
@@ -177,11 +177,11 @@ event_bus:
   # to these topics.  Files are watched but crawl-requested.v1 is silently
   # suppressed.  See dependencies.kafka_publisher and error_handling.kafka_absent_behavior.
   publish_topics:
-    - "{env}.onex.cmd.omnimemory.crawl-requested.v1"
+    - "onex.cmd.omnimemory.crawl-requested.v1"
 
   # Metadata for published topics
   publish_topic_metadata:
-    "{env}.onex.cmd.omnimemory.crawl-requested.v1":
+    "onex.cmd.omnimemory.crawl-requested.v1":
       schema_ref: "omniintelligence.nodes.node_crawl_scheduler_effect.models.ModelCrawlRequestedEvent"
       description: "Crawl request commands consumed by CrawlSchedulerEffect"
 

@@ -52,17 +52,17 @@ output_models:
   - name: "ModelDocumentDiscoveredEvent"
     module: "omniintelligence.nodes.node_git_repo_crawler_effect.models"
     operation: "crawl_repo"
-    topic: "{env}.onex.evt.omnimemory.document-discovered.v1"
+    topic: "onex.evt.omnimemory.document-discovered.v1"
     description: "Emitted when a .md file is found that has no entry in crawl_state."
   - name: "ModelDocumentChangedEvent"
     module: "omniintelligence.nodes.node_git_repo_crawler_effect.models"
     operation: "crawl_repo"
-    topic: "{env}.onex.evt.omnimemory.document-changed.v1"
+    topic: "onex.evt.omnimemory.document-changed.v1"
     description: "Emitted when a .md file's content fingerprint has changed."
   - name: "ModelDocumentRemovedEvent"
     module: "omniintelligence.nodes.node_git_repo_crawler_effect.models"
     operation: "crawl_repo"
-    topic: "{env}.onex.evt.omnimemory.document-removed.v1"
+    topic: "onex.evt.omnimemory.document-removed.v1"
     description: "Emitted when a tracked .md file is no longer in the git tree."
 
 # =============================================================================
@@ -123,19 +123,19 @@ io_operations:
 # =============================================================================
 published_events:
   - topic_suffix: "onex.evt.omnimemory.document-discovered.v1"
-    full_topic_pattern: "{env}.onex.evt.omnimemory.document-discovered.v1"
+    full_topic_pattern: "onex.evt.omnimemory.document-discovered.v1"
     event_type: "DocumentDiscovered"
     trigger: "New .md file found with no entry in crawl_state"
     description: "Emitted when a .md file is encountered for the first time."
 
   - topic_suffix: "onex.evt.omnimemory.document-changed.v1"
-    full_topic_pattern: "{env}.onex.evt.omnimemory.document-changed.v1"
+    full_topic_pattern: "onex.evt.omnimemory.document-changed.v1"
     event_type: "DocumentChanged"
     trigger: "Existing .md file has a different content fingerprint"
     description: "Emitted when the SHA-256 of a tracked .md file differs from the stored value."
 
   - topic_suffix: "onex.evt.omnimemory.document-removed.v1"
-    full_topic_pattern: "{env}.onex.evt.omnimemory.document-removed.v1"
+    full_topic_pattern: "onex.evt.omnimemory.document-removed.v1"
     event_type: "DocumentRemoved"
     trigger: "Tracked .md file is no longer in the git tree"
     description: "Emitted when a tracked file disappears from the repository."
@@ -151,15 +151,15 @@ event_bus:
   event_bus_enabled: true
 
   subscribe_topics:
-    - "{env}.onex.cmd.omnimemory.crawl-tick.v1"
+    - "onex.cmd.omnimemory.crawl-tick.v1"
 
   publish_topics:
-    - "{env}.onex.evt.omnimemory.document-discovered.v1"
-    - "{env}.onex.evt.omnimemory.document-changed.v1"
-    - "{env}.onex.evt.omnimemory.document-removed.v1"
+    - "onex.evt.omnimemory.document-discovered.v1"
+    - "onex.evt.omnimemory.document-changed.v1"
+    - "onex.evt.omnimemory.document-removed.v1"
 
   subscribe_topic_metadata:
-    "{env}.onex.cmd.omnimemory.crawl-tick.v1":
+    "onex.cmd.omnimemory.crawl-tick.v1":
       schema_ref: "omniintelligence.nodes.node_git_repo_crawler_effect.models.ModelGitRepoCrawlInput"
       description: >
         Crawl tick commands from CrawlSchedulerEffect (node_crawl_scheduler_effect). The scheduler emits
@@ -168,15 +168,15 @@ event_bus:
       content_type: "application/json"
 
   publish_topic_metadata:
-    "{env}.onex.evt.omnimemory.document-discovered.v1":
+    "onex.evt.omnimemory.document-discovered.v1":
       schema_ref: "omniintelligence.nodes.node_git_repo_crawler_effect.models.ModelDocumentDiscoveredEvent"
       description: "New .md file discovery event"
       content_type: "application/json"
-    "{env}.onex.evt.omnimemory.document-changed.v1":
+    "onex.evt.omnimemory.document-changed.v1":
       schema_ref: "omniintelligence.nodes.node_git_repo_crawler_effect.models.ModelDocumentChangedEvent"
       description: "Changed .md file event with old and new fingerprints"
       content_type: "application/json"
-    "{env}.onex.evt.omnimemory.document-removed.v1":
+    "onex.evt.omnimemory.document-removed.v1":
       schema_ref: "omniintelligence.nodes.node_git_repo_crawler_effect.models.ModelDocumentRemovedEvent"
       description: "Removed .md file event"
       content_type: "application/json"

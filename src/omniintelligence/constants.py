@@ -218,11 +218,9 @@ NodeRoutingFeedbackEffect publishes after a successful upsert to
 routing_feedback_scores. Consumers can use this to confirm that a routing
 feedback event was fully processed.
 
-NOTE: The contract.yaml ``publish_topics`` entry is prefixed with ``{env}.``
-(e.g. ``{env}.onex.evt.omniintelligence.routing-feedback-processed.v1``).
-This constant is intentionally bare — RuntimeHostProcess handles env
-substitution for subscriptions. Direct publishes (handler code) use this
-bare constant and RuntimeHostProcess injects the prefix at runtime.
+This constant uses the canonical ONEX format (no env prefix) per OMN-2876.
+Both the contract.yaml publish_topics and this Python constant use bare
+canonical onex.* names — no {env}. prefix.
 
 Reference: OMN-2366
 Deletion ticket: OMN-1546
@@ -233,6 +231,22 @@ Deletion ticket: OMN-1546
 # No Python constant is needed because RuntimeHostProcess reads
 # the topic from the contract at startup.  Removed in OMN-2059 review.
 
+TOPIC_RUN_EVALUATED_V1: str = "onex.evt.omniintelligence.run-evaluated.v1"
+"""
+TEMP_BOOTSTRAP: Canonical topic for objective evaluation result events (OUTPUT).
+
+Canonical topic: onex.evt.omniintelligence.run-evaluated.v1
+
+NodeEvidenceCollectionEffect publishes a RunEvaluatedEvent after each agent
+session is evaluated against an ObjectiveSpec. Consumers:
+  - NodePolicyStateReducer (OMN-2557): Updates policy state.
+  - omnidash: Displays objective scores in analytics dashboard.
+  - omniintelligence audit: Stores full evaluation for replay verification.
+
+Reference: OMN-2578
+Deletion ticket: OMN-1546
+"""
+
 # =============================================================================
 # Exports
 # =============================================================================
@@ -242,6 +256,7 @@ __all__ = [
     "PERCENTAGE_MULTIPLIER",
     "TOPIC_PATTERN_LIFECYCLE_CMD_V1",
     "TOPIC_ROUTING_FEEDBACK_PROCESSED",
+    "TOPIC_RUN_EVALUATED_V1",
     "TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1",
     "TOPIC_SUFFIX_INTENT_CLASSIFIED_V1",
     "TOPIC_SUFFIX_PATTERN_DEPRECATED_V1",

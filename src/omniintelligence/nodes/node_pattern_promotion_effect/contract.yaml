@@ -186,7 +186,7 @@ io_operations:
 # =============================================================================
 published_events:
   - topic_suffix: "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
-    full_topic_pattern: "{env}.onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
+    full_topic_pattern: "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
     event_type: "PatternLifecycleEvent"
     trigger: "Pattern meets promotion gates (injection count, success rate, failure streak)"
     description: "Emitted when a provisional pattern is eligible for promotion. Contains pattern ID, gate
