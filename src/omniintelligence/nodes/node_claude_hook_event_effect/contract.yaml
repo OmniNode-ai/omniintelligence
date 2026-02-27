@@ -189,7 +189,7 @@ io_operations:
 # =============================================================================
 published_events:
   - topic_suffix: "onex.cmd.omniintelligence.pattern-learning.v1"
-    full_topic_pattern: "{env}.onex.cmd.omniintelligence.pattern-learning.v1"
+    full_topic_pattern: "onex.cmd.omniintelligence.pattern-learning.v1"
     event_type: "PatternLearningRequested"
     trigger: "Stop event processed (session completed)"
     description: "Emitted when a Claude Code session stops to trigger pattern extraction in the intelligence
@@ -212,7 +212,7 @@ published_events:
         description: "ISO-8601 timestamp of when the command was emitted"
 
   - topic_suffix: "onex.evt.omniintelligence.intent-classified.v1"
-    full_topic_pattern: "{env}.onex.evt.omniintelligence.intent-classified.v1"
+    full_topic_pattern: "onex.evt.omniintelligence.intent-classified.v1"
     event_type: "IntentClassified"
     event_version: "1.1.0"
     trigger: "UserPromptSubmit processed successfully"
@@ -296,30 +296,30 @@ event_bus:
 
   # Topics this node subscribes to (receives events from)
   subscribe_topics:
-    - "{env}.onex.cmd.omniintelligence.claude-hook-event.v1"
-    - "{env}.onex.cmd.omniintelligence.tool-content.v1"
+    - "onex.cmd.omniintelligence.claude-hook-event.v1"
+    - "onex.cmd.omniintelligence.tool-content.v1"
 
   # Topics this node publishes to (sends events to)
   publish_topics:
-    - "{env}.onex.evt.omniintelligence.intent-classified.v1"
+    - "onex.evt.omniintelligence.intent-classified.v1"
     - "onex.cmd.omniintelligence.pattern-learning.v1"
 
   # Metadata for subscribed topics
   # Note: consumer_group is NOT specified here - it's runtime configuration
   # via KAFKA_GROUP environment variable or ModelKafkaEventBusConfig.group
   subscribe_topic_metadata:
-    "{env}.onex.cmd.omniintelligence.claude-hook-event.v1":
+    "onex.cmd.omniintelligence.claude-hook-event.v1":
       schema_ref: "omniintelligence.nodes.node_claude_hook_event_effect.models.ModelClaudeCodeHookEvent"
       description: "Claude Code hook events from omniclaude (SessionStart, UserPromptSubmit, PreToolUse,
         PostToolUse, Stop, etc.)"
-    "{env}.onex.cmd.omniintelligence.tool-content.v1":
+    "onex.cmd.omniintelligence.tool-content.v1":
       schema_ref: "omniintelligence.nodes.node_claude_hook_event_effect.models.ModelClaudeCodeHookEvent"
       description: "Tool content events from omniclaude containing PostToolUse payloads with file contents,
         command outputs, and other tool results for intelligence analysis."
 
   # Metadata for published topics
   publish_topic_metadata:
-    "{env}.onex.evt.omniintelligence.intent-classified.v1":
+    "onex.evt.omniintelligence.intent-classified.v1":
       schema_ref: "omniintelligence.nodes.node_claude_hook_event_effect.models.ModelClaudeHookResult"
       description: "Classified intent results from UserPromptSubmit processing"
     "onex.cmd.omniintelligence.pattern-learning.v1":

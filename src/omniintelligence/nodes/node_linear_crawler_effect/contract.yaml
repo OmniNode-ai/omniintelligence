@@ -53,17 +53,17 @@ output_models:
   - name: "ModelDocumentDiscoveredEvent"
     module: "omniintelligence.nodes.node_linear_crawler_effect.models"
     operation: "crawl_linear"
-    topic: "{env}.onex.evt.omnimemory.document-discovered.v1"
+    topic: "onex.evt.omnimemory.document-discovered.v1"
     description: "Emitted when a Linear issue or document is found for the first time."
   - name: "ModelDocumentChangedEvent"
     module: "omniintelligence.nodes.node_linear_crawler_effect.models"
     operation: "crawl_linear"
-    topic: "{env}.onex.evt.omnimemory.document-changed.v1"
+    topic: "onex.evt.omnimemory.document-changed.v1"
     description: "Emitted when a Linear item's content fingerprint has changed."
   - name: "ModelDocumentRemovedEvent"
     module: "omniintelligence.nodes.node_linear_crawler_effect.models"
     operation: "crawl_linear"
-    topic: "{env}.onex.evt.omnimemory.document-removed.v1"
+    topic: "onex.evt.omnimemory.document-removed.v1"
     description: "Emitted when a tracked Linear item is no longer returned by the API."
 
 # =============================================================================
@@ -128,19 +128,19 @@ io_operations:
 # =============================================================================
 published_events:
   - topic_suffix: "onex.evt.omnimemory.document-discovered.v1"
-    full_topic_pattern: "{env}.onex.evt.omnimemory.document-discovered.v1"
+    full_topic_pattern: "onex.evt.omnimemory.document-discovered.v1"
     event_type: "DocumentDiscovered"
     trigger: "New Linear issue or document not in omnimemory_linear_state"
     description: "Emitted when a Linear item is encountered for the first time."
 
   - topic_suffix: "onex.evt.omnimemory.document-changed.v1"
-    full_topic_pattern: "{env}.onex.evt.omnimemory.document-changed.v1"
+    full_topic_pattern: "onex.evt.omnimemory.document-changed.v1"
     event_type: "DocumentChanged"
     trigger: "Linear item updatedAt changed and content SHA-256 differs"
     description: "Emitted when a tracked item's rendered content has changed."
 
   - topic_suffix: "onex.evt.omnimemory.document-removed.v1"
-    full_topic_pattern: "{env}.onex.evt.omnimemory.document-removed.v1"
+    full_topic_pattern: "onex.evt.omnimemory.document-removed.v1"
     event_type: "DocumentRemoved"
     trigger: "Tracked Linear item absent from list_issues/list_documents response"
     description: "Emitted when a tracked item disappears from the Linear API."
@@ -156,29 +156,29 @@ event_bus:
   event_bus_enabled: true
 
   subscribe_topics:
-    - "{env}.onex.cmd.omnimemory.crawl-tick.v1"
+    - "onex.cmd.omnimemory.crawl-tick.v1"
 
   publish_topics:
-    - "{env}.onex.evt.omnimemory.document-discovered.v1"
-    - "{env}.onex.evt.omnimemory.document-changed.v1"
-    - "{env}.onex.evt.omnimemory.document-removed.v1"
+    - "onex.evt.omnimemory.document-discovered.v1"
+    - "onex.evt.omnimemory.document-changed.v1"
+    - "onex.evt.omnimemory.document-removed.v1"
 
   subscribe_topic_metadata:
-    "{env}.onex.cmd.omnimemory.crawl-tick.v1":
+    "onex.cmd.omnimemory.crawl-tick.v1":
       schema_ref: "omniintelligence.nodes.node_linear_crawler_effect.models.ModelLinearCrawlInput"
       description: "Crawl tick events from CrawlSchedulerEffect (crawl_type=LINEAR)."
       content_type: "application/json"
 
   publish_topic_metadata:
-    "{env}.onex.evt.omnimemory.document-discovered.v1":
+    "onex.evt.omnimemory.document-discovered.v1":
       schema_ref: "omniintelligence.nodes.node_linear_crawler_effect.models.ModelDocumentDiscoveredEvent"
       description: "New Linear item discovery event"
       content_type: "application/json"
-    "{env}.onex.evt.omnimemory.document-changed.v1":
+    "onex.evt.omnimemory.document-changed.v1":
       schema_ref: "omniintelligence.nodes.node_linear_crawler_effect.models.ModelDocumentChangedEvent"
       description: "Changed Linear item event with old and new version info"
       content_type: "application/json"
-    "{env}.onex.evt.omnimemory.document-removed.v1":
+    "onex.evt.omnimemory.document-removed.v1":
       schema_ref: "omniintelligence.nodes.node_linear_crawler_effect.models.ModelDocumentRemovedEvent"
       description: "Removed Linear item event"
       content_type: "application/json"

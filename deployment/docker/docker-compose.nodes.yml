@@ -5,8 +5,17 @@
 # OmniIntelligence - ONEX Nodes
 # ============================================================================
 # Purpose: ONEX 4.0 node deployments (orchestrator, reducer, compute, effect)
-# Dependencies: Requires docker-compose.yml (base infrastructure) running
-# Usage: docker compose -f docker-compose.yml -f docker-compose.nodes.yml up -d
+#
+# Dependencies:
+#   omniintelligence owns ZERO data stores. All infrastructure is provided by:
+#   - omnibase_infra: PostgreSQL, Kafka/Redpanda, Valkey
+#   - omnimemory: Qdrant, Memgraph
+#
+# Usage:
+#   1. Start omnibase_infra first:
+#      docker compose -f <omnibase_infra>/docker/docker-compose.infra.yml up -d
+#   2. Start omniintelligence nodes:
+#      docker compose -f deployment/docker/docker-compose.nodes.yml up -d
 #
 # Health Checks:
 # - All nodes expose HTTP /health endpoint on port 8000
@@ -14,8 +23,9 @@
 # - Nodes start in "stub mode" with health checks until ONEX container injection
 #
 # Network:
-# - Uses external network 'omniintelligence_omni-network' from base compose
-# - Nodes communicate with infrastructure via container names (postgres, qdrant, etc.)
+# - Uses external network 'omnibase-infra-network' from omnibase_infra
+# - Nodes communicate with infrastructure via container names
+#   (omnibase-infra-postgres, omnibase-infra-redpanda, etc.)
 # ============================================================================
 
 name: omniintelligence
@@ -32,8 +42,8 @@ services:
       dockerfile: deployment/docker/Dockerfile.reducer
     container_name: omni-intelligence-reducer
     environment:
-      # Database Configuration
-      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/omniintelligence}
+      # Database Configuration — points to omnibase_infra postgres
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:${POSTGRES_PASSWORD}@omnibase-infra-postgres:5432/omnibase_infra}
 
       # Reducer Configuration
       ENABLE_LEASE_MANAGEMENT: ${ENABLE_LEASE_MANAGEMENT:-true}
@@ -44,10 +54,7 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
 
     networks:
-      - omni-network
-    depends_on:
-      postgres:
-        condition: service_healthy
+      - omnibase-infra-network
     healthcheck:
       # Node Dockerfiles install curl - safe to use for healthcheck
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -81,19 +88,17 @@ services:
       ENABLE_CACHING: ${ENABLE_CACHING:-true}
       CACHE_TTL_SECONDS: ${CACHE_TTL_SECONDS:-300}
 
-      # Dependencies
+      # Dependencies — points to omnibase_infra valkey
       REDUCER_URL: http://intelligence-reducer:8000
-      VALKEY_URL: redis://:${VALKEY_PASSWORD}@valkey:6379/0
+      VALKEY_URL: redis://:${VALKEY_PASSWORD}@omnibase-infra-valkey:6379/0
 
       # Logging
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
 
     networks:
-      - omni-network
+      - omnibase-infra-network
     depends_on:
       intelligence-reducer:
-        condition: service_healthy
-      valkey:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -127,7 +132,7 @@ services:
       GENERATE_RECOMMENDATIONS: ${GENERATE_RECOMMENDATIONS:-true}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     networks:
-      - omni-network
+      - omnibase-infra-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -147,41 +152,15 @@ services:
 # =============================================================================
 # Network Configuration
 # =============================================================================
-# DEPLOYMENT MODES:
+# omniintelligence attaches to the omnibase_infra external network.
+# That network is created when omnibase_infra starts:
 #
-# Mode 1: Combined Deployment (RECOMMENDED)
-#   docker compose -f docker-compose.yml -f docker-compose.nodes.yml up -d
-#   - Files are merged, network definition comes from base docker-compose.yml
-#   - Empty network definition here allows proper merging with base file
-#   - Services communicate via container names (postgres, qdrant, etc.)
+#   docker compose -f <omnibase_infra>/docker/docker-compose.infra.yml up -d
 #
-# Mode 2: Standalone Node Deployment (requires base infra running first)
-#   Step 1: docker compose -f docker-compose.yml up -d  # Start infrastructure
-#   Step 2: docker compose -f docker-compose.nodes.yml --project-name omniintelligence up -d
-#   - IMPORTANT: Use --project-name to match base compose project name
-#   - This ensures nodes join the existing omniintelligence_omni-network
-#   - Network already exists from Step 1
-#
-# WHY NOT external: true?
-#   Using external: true here would break combined deployment (Mode 1) because
-#   Docker Compose would look for an existing network instead of creating it.
-#   The empty definition {} allows proper merging with the base file's full
-#   network definition (driver, ipam, subnet).
-#
-# Network Architecture:
-#   - omni-network: Internal bridge network (172.28.0.0/16)
-#   - Defined in docker-compose.yml as bridge with custom subnet
-#   - All nodes and infrastructure share this network
-#   - Container DNS resolution for service discovery
-#
-# For production with external infrastructure (see ~/.claude/CLAUDE.md):
-#   - Override service URLs via environment variables
-#   - Connect to remote PostgreSQL (192.168.86.200:5436)
-#   - Connect to remote Kafka (192.168.86.200:29092)
+# Do NOT start infrastructure from this repo — omniintelligence is a pure
+# application service and owns zero data stores.
 # =============================================================================
 
 networks:
-  # Empty definition merges cleanly with base compose bridge network
-  # Combined mode: Uses bridge definition from docker-compose.yml
-  # Standalone mode: Requires --project-name omniintelligence to join existing network
-  omni-network: {}
+  omnibase-infra-network:
+    external: true

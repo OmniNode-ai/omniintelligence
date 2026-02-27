@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """Input configuration model for the Gmail Intent Evaluator.
 
-Populated from the onex.evt.omnibase_infra.gmail-intent-received.v1 Kafka event payload.
+Populated from the onex.evt.omnibase-infra.gmail-intent-received.v1 Kafka event payload.
 
 Reference:
     - OMN-2788: Add ModelGmailIntentEvaluatorConfig + ModelGmailIntentEvaluationResult

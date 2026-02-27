@@ -151,18 +151,18 @@ event_bus:
     # NOTE: This topic uses 'evt' kind (not 'cmd') because it is produced by omniclaude.
     # The topic name is dictated by the producer; this is an intentional cross-system
     # exception to the convention that subscribe topics use 'cmd' kind.
-    - "{env}.onex.evt.omniclaude.routing-feedback.v1"
+    - "onex.evt.omniclaude.routing-feedback.v1"
 
   publish_topics:
-    - "{env}.onex.evt.omniintelligence.routing-feedback-processed.v1"
+    - "onex.evt.omniintelligence.routing-feedback-processed.v1"
 
   subscribe_topic_metadata:
-    "{env}.onex.evt.omniclaude.routing-feedback.v1":
+    "onex.evt.omniclaude.routing-feedback.v1":
       schema_ref: "omniintelligence.nodes.node_routing_feedback_effect.models.ModelRoutingFeedbackEvent"
       description: "Routing feedback events from omniclaude session-end hook"
 
   publish_topic_metadata:
-    "{env}.onex.evt.omniintelligence.routing-feedback-processed.v1":
+    "onex.evt.omniintelligence.routing-feedback-processed.v1":
       schema_ref: "omniintelligence.nodes.node_routing_feedback_effect.models.ModelRoutingFeedbackProcessedEvent"
       description: "Routing feedback processed confirmation events"
 

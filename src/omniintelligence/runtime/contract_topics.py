@@ -168,9 +168,9 @@ def canonical_topic_to_dispatch_alias(topic: str) -> str:
     events.  ``MessageDispatchEngine`` expects ``.commands.`` and
     ``.events.`` segments.  This function bridges the naming gap.
 
-    Topics passed to this function should **not** contain the ``{env}.``
-    prefix.  The prefix is stripped by ``_read_event_bus_topics`` when
-    reading topics from contract YAML files.
+    Topics passed to this function should use the canonical ``onex.*``
+    format (no ``{env}.`` prefix).  Any legacy ``{env}.`` prefix is
+    stripped by ``_read_event_bus_topics`` when reading from contract YAMLs.
 
     Args:
         topic: Canonical topic string (e.g.
@@ -229,9 +229,9 @@ def _read_event_bus_topics(package: str, field: str) -> list[str]:
 
     topics: list[str] = event_bus.get(field, [])
 
-    # Strip {env}. prefix if present — contracts declare full canonical
-    # topic patterns (e.g. "{env}.onex.cmd...") but the runtime resolves
-    # environment prefixes at the event-bus layer, not here.
+    # Strip legacy {env}. prefix if present (OMN-2876: contracts now use bare
+    # canonical onex.* names, but this guard handles any remaining legacy YAML
+    # files that still use the old "{env}.onex.cmd..." template form).
     topics = [t.removeprefix("{env}.") for t in topics]
 
     if topics:
