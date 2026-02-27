@@ -84,7 +84,7 @@ class NodeNavigationRetrieverEffect(NodeEffect):
                     fingerprint="sha256:abc123",
                     valid_transitions=frozenset([("node-start", "to_auth")]),
                 ),
-                embedding_url=os.environ.get("LLM_EMBEDDING_URL", "http://192.168.86.200:8100"),
+                embedding_url=os.environ["LLM_EMBEDDING_URL"],
                 qdrant_url="http://localhost:6333",
             )
         )
