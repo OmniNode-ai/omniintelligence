@@ -45,6 +45,7 @@ if TYPE_CHECKING:
         HandlerClaudeHookEvent,
         ProtocolIntentClassifier,
         ProtocolKafkaPublisher,
+        ProtocolPatternRepository,
     )
 
 __all__ = ["RegistryClaudeHookEventEffect"]
@@ -98,6 +99,7 @@ class RegistryClaudeHookEventEffect:
         kafka_publisher: ProtocolKafkaPublisher | None = None,
         intent_classifier: ProtocolIntentClassifier | None = None,
         publish_topic: str | None = None,
+        repository: ProtocolPatternRepository | None = None,
     ) -> HandlerClaudeHookEvent:
         """Create a handler with explicit dependencies.
 
@@ -111,6 +113,9 @@ class RegistryClaudeHookEventEffect:
             intent_classifier: Optional intent classifier compute node.
             publish_topic: Full Kafka topic for publishing classified intents.
                 Source of truth is the contract's event_bus.publish_topics.
+            repository: Optional database repository for PostToolUse persistence.
+                When None, PostToolUse events are processed as no-ops (graceful
+                degradation for environments without DB access).
 
         Returns:
             Configured HandlerClaudeHookEvent instance.
@@ -120,6 +125,7 @@ class RegistryClaudeHookEventEffect:
             ...     kafka_publisher=kafka_producer,
             ...     intent_classifier=classifier,
             ...     publish_topic="onex.evt.omniintelligence.intent-classified.v1",
+            ...     repository=db_repo,
             ... )
         """
         # Import here to avoid circular imports
@@ -132,6 +138,7 @@ class RegistryClaudeHookEventEffect:
             kafka_publisher=kafka_publisher,
             intent_classifier=intent_classifier,
             publish_topic=publish_topic,
+            repository=repository,
         )
 
     @staticmethod
