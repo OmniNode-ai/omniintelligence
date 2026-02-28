@@ -136,6 +136,7 @@ event_bus:
   subscribe_topics:
     - "onex.evt.omniintelligence.pattern-promoted.v1"
     - "onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1"
+    - "onex.evt.intent.pattern.promoted.v1"
 
   publish_topics:
     - "onex.evt.omniintelligence.pattern-projection.v1"
@@ -147,6 +148,11 @@ event_bus:
     "onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1":
       schema_ref: "omniintelligence.nodes.node_pattern_lifecycle_effect.models.ModelPatternLifecycleTransitionedEvent"
       description: "Unified pattern lifecycle transition event (trigger for projection rebuild)"
+    "onex.evt.intent.pattern.promoted.v1":
+      schema_ref: "omniintelligence.models.events.model_intent_event_envelopes.ModelIntentPatternPromotedEnvelope"
+      description: "Intent-derived pattern promoted to learned-patterns corpus. Triggers projection rebuild
+        to refresh downstream pattern caches."
+      content_type: "application/json"
 
   publish_topic_metadata:
     "onex.evt.omniintelligence.pattern-projection.v1":

@@ -4,7 +4,7 @@
 
 Defines frozen Pydantic envelope models for all 4 Intent Intelligence topics:
 
-    - ModelIntentClassifiedEnvelope  → onex.evt.intent.classified.v1
+    - ModelIntentClassifiedEnvelope  → onex.evt.omniintelligence.intent-classified.v1
     - ModelIntentDriftDetectedEnvelope → onex.evt.intent.drift.detected.v1
     - ModelIntentOutcomeLabeledEnvelope → onex.evt.intent.outcome.labeled.v1
     - ModelIntentPatternPromotedEnvelope → onex.evt.intent.pattern.promoted.v1
@@ -29,7 +29,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class ModelIntentClassifiedEnvelope(BaseModel):
-    """Frozen event envelope for onex.evt.intent.classified.v1.
+    """Frozen event envelope for onex.evt.omniintelligence.intent-classified.v1.
 
     Published whenever the intent classifier assigns a class to a session prompt.
     Consumed by omnimemory for graph storage and by analytics consumers.

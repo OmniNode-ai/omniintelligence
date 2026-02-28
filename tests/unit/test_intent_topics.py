@@ -113,7 +113,7 @@ class TestIntentTopicEnum:
 
 @pytest.mark.unit
 class TestModelIntentClassifiedEnvelope:
-    """Tests for ModelIntentClassifiedEnvelope (onex.evt.intent.classified.v1)."""
+    """Tests for ModelIntentClassifiedEnvelope (onex.evt.omniintelligence.intent-classified.v1)."""
 
     def _make_envelope(self, **overrides: object) -> object:
         from omniintelligence.models.events.model_intent_event_envelopes import (
