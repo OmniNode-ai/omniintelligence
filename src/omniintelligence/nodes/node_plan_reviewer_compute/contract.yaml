@@ -1,0 +1,69 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# ONEX Node Contract - Plan Reviewer Compute Node
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+name: "node_plan_reviewer_compute"
+node_type: "COMPUTE_GENERIC"
+description: >-
+  Compute node for adversarial review of implementation plans.
+  Checks six failure categories (R1-R6): count integrity, acceptance criteria
+  strength, scope violations, integration traps, idempotency, and verification
+  soundness. Returns structured findings and text patches as primary artifacts.
+input_model:
+  name: "ModelPlanReviewerComputeCommand"
+  module: "omniintelligence.nodes.node_plan_reviewer_compute.models"
+  description: "Plan text and optional category filter."
+output_model:
+  name: "ModelPlanReviewerComputeOutput"
+  module: "omniintelligence.nodes.node_plan_reviewer_compute.models"
+  description: "Findings, patches, revised plan text, and per-category clean/dirty summary."
+operations:
+  - name: "review_plan"
+    description: "Run adversarial review on an implementation plan document."
+    input_fields:
+      - plan_text
+      - review_categories
+    output_fields:
+      - findings
+      - patches
+      - plan_text_revised
+      - categories_clean
+      - categories_with_findings
+handler_routing:
+  routing_strategy: "single_handler"
+  handlers:
+    - operation: "review_plan"
+      handler:
+        function: "handle_plan_reviewer_compute"
+        module: "omniintelligence.nodes.node_plan_reviewer_compute.handlers"
+        type: "sync"
+dependencies: []
+error_handling:
+  error_types:
+    - name: "PlanReviewLlmError"
+      error_code: "PLAN_REVIEW_001"
+      description: "LLM call failed (network error, timeout, non-200 response)"
+      recoverable: true
+      retry_strategy: "immediate_retry"
+    - name: "PlanReviewParseError"
+      error_code: "PLAN_REVIEW_002"
+      description: "LLM returned non-JSON or schema-mismatched response"
+      recoverable: false
+      retry_strategy: "none"
+metadata:
+  author: "OmniNode Team"
+  created: "2026-02-28"
+  updated: "2026-02-28"
+  tags:
+    - "ONEX"
+    - "compute"
+    - "plan-review"
+    - "adversarial"

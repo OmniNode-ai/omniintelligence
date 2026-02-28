@@ -15,10 +15,14 @@ from omniintelligence.clients.embedding_client import (
     EmbeddingConnectionError,
     EmbeddingTimeoutError,
 )
+from omniintelligence.clients.plan_reviewer_llm_client import (
+    call_plan_reviewer_llm,
+)
 
 __all__ = [
     "EmbeddingClient",
     "EmbeddingClientError",
     "EmbeddingConnectionError",
     "EmbeddingTimeoutError",
+    "call_plan_reviewer_llm",
 ]

@@ -139,7 +139,11 @@ _LAZY_IMPORT_MAP: dict[str, tuple[str, str]] = {
         "omniintelligence.nodes.node_doc_retrieval_compute.node",
         "NodeDocRetrievalCompute",
     ),
-    # Computes (11)
+    # Computes (12)
+    "NodePlanReviewerCompute": (
+        "omniintelligence.nodes.node_plan_reviewer_compute.node",
+        "NodePlanReviewerCompute",
+    ),
     "NodeDocumentParserCompute": (
         "omniintelligence.nodes.node_document_parser_compute.node",
         "NodeDocumentParserCompute",
@@ -309,6 +313,9 @@ if TYPE_CHECKING:
     from omniintelligence.nodes.node_pattern_storage_effect.node import (
         NodePatternStorageEffect as NodePatternStorageEffect,
     )
+    from omniintelligence.nodes.node_plan_reviewer_compute.node import (
+        NodePlanReviewerCompute as NodePlanReviewerCompute,
+    )
     from omniintelligence.nodes.node_quality_scoring_compute.node import (
         NodeQualityScoringCompute as NodeQualityScoringCompute,
     )
@@ -341,8 +348,9 @@ __all__ = [
     # Nodes — Stream B
     "NodeChunkClassifierCompute",
     "NodeDocRetrievalCompute",
-    # Nodes — Computes (11)
+    # Nodes — Computes (12)
     "NodeDocumentParserCompute",
+    "NodePlanReviewerCompute",
     "NodeExecutionTraceParserCompute",
     "NodeIntentClassifierCompute",
     "NodeIntentDriftDetectCompute",
