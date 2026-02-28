@@ -431,7 +431,6 @@ def classify_intent(
         if multi_label is None:
             multi_label = config.default_multi_label
 
-        # Step 1: Tokenize and normalize
         tokens = _tokenize(content)
 
         if not tokens:
@@ -446,10 +445,9 @@ def classify_intent(
                 result["secondary_intents"] = []
             return result
 
-        # Step 2: Calculate term frequencies
         tf_scores = _calculate_term_frequency(tokens)
 
-        # Step 3: Score each intent category
+        # Score each intent category
         intent_scores: dict[str, float] = {}
         intent_keywords: dict[str, list[str]] = {}
 
@@ -460,28 +458,25 @@ def classify_intent(
             intent_scores[intent] = score
             intent_keywords[intent] = matched_keywords
 
-        # Step 3.5: Apply semantic boosts to raw scores before normalization
+        # Apply semantic boosts before normalization so corpus-size effects don't dilute them
         if score_boosts:
             for intent_key, boost_val in score_boosts.items():
                 if intent_key in intent_scores:
                     intent_scores[intent_key] += boost_val
 
-        # Step 4: Normalize scores to 0.0-1.0 range
-        # Max-normalization: top intent always receives 1.0, all others are
-        # relative to it. This keeps confidence values meaningful against the
-        # calibrated default_confidence_threshold of 0.5.
+        # Max-normalize so top intent receives 1.0 and others are relative to it.
+        # This keeps confidence values meaningful against the calibrated
+        # default_confidence_threshold of 0.5.
         max_score = max(intent_scores.values()) if intent_scores else 1.0
         normalized_scores: dict[str, float] = {
             intent: score / max_score if max_score > 0 else 0.0
             for intent, score in intent_scores.items()
         }
 
-        # Step 5: Rank by confidence (descending)
         sorted_intents = sorted(
             normalized_scores.items(), key=lambda x: x[1], reverse=True
         )
 
-        # Step 6: Build result based on mode
         if multi_label:
             return _build_multi_label_result(
                 sorted_intents=sorted_intents,

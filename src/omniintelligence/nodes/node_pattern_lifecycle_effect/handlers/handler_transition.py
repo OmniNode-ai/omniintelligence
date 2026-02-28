@@ -236,7 +236,6 @@ async def apply_transition(
         },
     )
 
-    # Step 0: Validate trigger is not empty
     # Trigger documents why the transition occurred - empty triggers make audit logs useless
     if not trigger or not trigger.strip():
         logger.warning(
@@ -262,10 +261,8 @@ async def apply_transition(
             "A meaningful trigger is required for audit trail integrity.",
         )
 
-    # Step 0b: Validate publish_topic when Kafka producer is available
-    # This validation MUST happen before any database operations for fail-fast
-    # semantics. We validate early to avoid partial-success states where DB
-    # operations succeed but we can't emit events due to missing config.
+    # Validate publish_topic when Kafka producer is available - must fail before any DB ops
+    # to avoid partial-success states where DB writes succeed but events cannot be emitted.
     if producer is not None and publish_topic is None:
         logger.warning(
             "publish_topic required when producer is available",
@@ -290,8 +287,8 @@ async def apply_transition(
             "Provide the full topic from the contract's event_bus.publish_topics.",
         )
 
-    # Step 1: PROVISIONAL guard - reject transitions TO provisional
-    # EXCEPT for CANDIDATE -> PROVISIONAL (valid lifecycle promotion, OMN-2133)
+    # PROVISIONAL guard: reject transitions TO provisional EXCEPT CANDIDATE -> PROVISIONAL
+    # (CANDIDATE -> PROVISIONAL is the valid lifecycle promotion path, OMN-2133)
     if (
         to_status == PROVISIONAL_STATUS
         and from_status != EnumPatternLifecycleStatus.CANDIDATE
@@ -319,18 +316,13 @@ async def apply_transition(
             "'candidate'. Use CANDIDATE -> PROVISIONAL for lifecycle promotion.",
         )
 
-    # Step 1c: Evidence tier guard (OMN-2133)
-    # Reads evidence_tier at the point of entry. The actual enforcement is deferred
-    # until after pattern lookup (Step 3), but we define the gate rules here for clarity.
-    # - to_status == PROVISIONAL requires evidence_tier >= OBSERVED
-    # - to_status == VALIDATED requires evidence_tier >= MEASURED
-    # Note: This check is performed after pattern lookup (Step 3) because we need
-    # the current evidence_tier from the database. See "Evidence tier enforcement" below.
+    # Evidence tier enforcement is deferred until after pattern lookup because we need
+    # the current evidence_tier from the database. Rules: PROVISIONAL requires >= OBSERVED,
+    # VALIDATED requires >= MEASURED. See enforcement code after pattern fetch below.
 
-    # Step 2: Check idempotency - is this a duplicate request?
-    # Use exists() to check WITHOUT recording. The key will be recorded
-    # AFTER successful database operations to ensure failed ops are retriable.
-    # When idempotency_store is None, skip check (all requests treated as new).
+    # Check idempotency before hitting the database: use exists() WITHOUT recording yet.
+    # Recording happens AFTER successful DB operations so failed ops remain retriable.
+    # When idempotency_store is None, skip (all requests treated as new).
     if idempotency_store is not None:
         is_duplicate = await idempotency_store.exists(request_id)
         if is_duplicate:
@@ -353,7 +345,7 @@ async def apply_transition(
                 transitioned_at=None,
             )
 
-    # Step 3: Verify pattern exists and check current status
+    # Verify pattern exists and check current status.
     # Use conn if provided for external transaction control, otherwise use repository
     db = conn if conn is not None else repository
     pattern_row = await db.fetchrow(SQL_GET_PATTERN_STATUS, pattern_id)
@@ -378,9 +370,8 @@ async def apply_transition(
             error_message=f"Pattern with ID {pattern_id} does not exist",
         )
 
-    # Step 3b: Evidence tier enforcement (OMN-2133)
-    # Read evidence_tier from the pattern row (added in migration 011).
-    # If null or unparseable, treat as UNMEASURED (defensive).
+    # Evidence tier enforcement (OMN-2133): read from pattern row (added in migration 011).
+    # If null or unparseable, treat as UNMEASURED for defensive minimum-privilege behavior.
     raw_evidence_tier = pattern_row.get("evidence_tier")
     try:
         current_evidence_tier = (
@@ -455,12 +446,10 @@ async def apply_transition(
             f"but pattern has evidence_tier='{current_evidence_tier.value}'.",
         )
 
-    # Step 4: UPDATE status + INSERT audit record
-    # Both operations use the same db handle (conn or repository).
-    # Atomicity guarantee: When conn is provided, both execute in the caller's
-    # transaction. When conn is None, operations execute independently on the
-    # repository connection - callers requiring atomicity MUST provide a
-    # transactional conn.
+    # UPDATE status + INSERT audit record on the same db handle for atomicity.
+    # Atomicity guarantee: when conn is provided both execute in caller's transaction;
+    # when conn is None they auto-commit independently (callers requiring atomicity MUST
+    # pass conn).
     transition_id = uuid4()
 
     try:
@@ -539,11 +528,9 @@ async def apply_transition(
             correlation_id,
         )
 
-        # Step 4b: Record idempotency key AFTER successful database operations
-        # This ensures failed operations can be retried with the same request_id.
-        # NOTE: Idempotency record is best-effort and not part of the DB transaction.
-        # A crash between DB commit and record() allows replay, which is safe because
-        # the transition is idempotent by (pattern_id, from_status, to_status) check.
+        # Record idempotency key AFTER DB success so failed ops stay retriable.
+        # Best-effort: not part of the DB transaction. A crash between commit and record()
+        # allows replay, which is safe by (pattern_id, from_status, to_status) idempotency.
         if idempotency_store is not None:
             await idempotency_store.record(request_id)
 
@@ -584,10 +571,8 @@ async def apply_transition(
             error_message=sanitized_error,
         )
 
-    # Step 5: Emit Kafka event (if producer available)
-    # Kafka failures do NOT fail the main operation - the database transition
-    # already succeeded. Failed events are routed to DLQ for later processing.
-    # Note: publish_topic is validated at function entry (Step 0b) for fail-fast.
+    # Emit Kafka event if producer is available. Kafka failures do NOT fail the main
+    # operation — DB transition already committed. Failed events route to DLQ.
     if producer is not None:
         # Type narrowing: Step 0b validates publish_topic when producer is available
         if publish_topic is None:  # pragma: no cover - guarded by Step 0b
