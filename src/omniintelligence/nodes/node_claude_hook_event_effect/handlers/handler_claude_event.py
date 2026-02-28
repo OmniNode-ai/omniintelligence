@@ -45,7 +45,11 @@ from omniintelligence.nodes.node_evidence_collection_effect.handlers.handler_evi
 from omniintelligence.nodes.node_evidence_collection_effect.models.model_session_check_results import (
     ModelSessionCheckResults,
 )
-from omniintelligence.protocols import ProtocolIntentClassifier, ProtocolKafkaPublisher
+from omniintelligence.protocols import (
+    ProtocolIntentClassifier,
+    ProtocolKafkaPublisher,
+    ProtocolPatternRepository,
+)
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
 logger = logging.getLogger(__name__)
@@ -66,12 +70,14 @@ class HandlerClaudeHookEvent:
         kafka_publisher: Kafka publisher for event emission (OPTIONAL, graceful degradation).
         intent_classifier: Intent classifier compute node (OPTIONAL).
         publish_topic: Full Kafka publish topic from contract (OPTIONAL).
+        repository: Database repository for PostToolUse persistence (OPTIONAL).
 
     Example:
         >>> handler = HandlerClaudeHookEvent(
         ...     kafka_publisher=kafka_producer,
         ...     intent_classifier=classifier,
         ...     publish_topic="onex.evt.omniintelligence.intent-classified.v1",
+        ...     repository=db_repo,
         ... )
         >>> result = await handler.handle(event)
     """
@@ -82,6 +88,7 @@ class HandlerClaudeHookEvent:
         kafka_publisher: ProtocolKafkaPublisher | None = None,
         intent_classifier: ProtocolIntentClassifier | None = None,
         publish_topic: str | None = None,
+        repository: ProtocolPatternRepository | None = None,
     ) -> None:
         """Initialize handler with explicit dependencies.
 
@@ -92,10 +99,14 @@ class HandlerClaudeHookEvent:
             intent_classifier: Optional intent classifier compute node.
             publish_topic: Full Kafka topic for publishing classified intents.
                 Source of truth is the contract's event_bus.publish_topics.
+            repository: Optional database repository for PostToolUse persistence.
+                When None, PostToolUse events are processed as no-ops (graceful
+                degradation for environments without DB access).
         """
         self._kafka_publisher = kafka_publisher
         self._intent_classifier = intent_classifier
         self._publish_topic = publish_topic
+        self._repository = repository
 
     @property
     def kafka_publisher(self) -> ProtocolKafkaPublisher | None:
@@ -111,6 +122,11 @@ class HandlerClaudeHookEvent:
     def publish_topic(self) -> str | None:
         """Get the Kafka publish topic."""
         return self._publish_topic
+
+    @property
+    def repository(self) -> ProtocolPatternRepository | None:
+        """Get the database repository, or None if not configured."""
+        return self._repository
 
     async def handle(self, event: ModelClaudeCodeHookEvent) -> ModelClaudeHookResult:
         """Handle a Claude Code hook event.
@@ -129,6 +145,7 @@ class HandlerClaudeHookEvent:
             intent_classifier=self._intent_classifier,
             kafka_producer=self._kafka_publisher,
             publish_topic=self._publish_topic,
+            repository=self._repository,
         )
 
 
@@ -143,6 +160,7 @@ async def route_hook_event(
     intent_classifier: ProtocolIntentClassifier | None = None,
     kafka_producer: ProtocolKafkaPublisher | None = None,
     publish_topic: str | None = None,
+    repository: ProtocolPatternRepository | None = None,
 ) -> ModelClaudeHookResult:
     """Route a Claude Code hook event to the appropriate handler.
 
@@ -156,6 +174,8 @@ async def route_hook_event(
         kafka_producer: Optional Kafka producer implementing ProtocolKafkaPublisher.
         publish_topic: Full Kafka topic for publishing classified intents.
             Source of truth is the contract's event_bus.publish_topics.
+        repository: Optional database repository for PostToolUse persistence.
+            When None, PostToolUse events degrade to no-op (no DB write).
 
     Returns:
         ModelClaudeHookResult with processing outcome.
@@ -175,6 +195,14 @@ async def route_hook_event(
             result = await handle_stop(
                 event=event,
                 kafka_producer=kafka_producer,
+            )
+        elif event.event_type in (
+            EnumClaudeCodeHookEventType.POST_TOOL_USE,
+            EnumClaudeCodeHookEventType.POST_TOOL_USE_FAILURE,
+        ):
+            result = await handle_post_tool_use(
+                event=event,
+                repository=repository,
             )
         else:
             # All other event types are no-op for now
@@ -370,6 +398,209 @@ async def handle_stop(
         processing_time_ms=processing_time_ms,
         processed_at=datetime.now(UTC),
         error_message=sanitized_error,
+        metadata=metadata,
+    )
+
+
+_SQL_INSERT_AGENT_ACTION = """\
+INSERT INTO agent_actions (
+    id,
+    session_id,
+    action_type,
+    tool_name,
+    file_path,
+    status,
+    error_message,
+    created_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+ON CONFLICT (id) DO NOTHING;
+"""
+"""SQL INSERT for agent_actions table (idempotent via ON CONFLICT DO NOTHING).
+
+Column semantics:
+    id            — UUID primary key, generated per event
+    session_id    — TEXT: Claude Code session identifier (not a UUID column)
+    action_type   — TEXT: event type string (e.g. "tool_use", "tool_use_failure")
+    tool_name     — TEXT: name of the tool invoked (e.g. "Bash", "Read", "Write")
+    file_path     — TEXT: first file path from tool input, if applicable; may be NULL
+    status        — TEXT: "success" or "error"
+    error_message — TEXT: error detail from PostToolUseFailure; NULL on success
+    created_at    — TIMESTAMPTZ: UTC timestamp of the hook event
+"""
+
+
+def _extract_file_path_from_payload(
+    payload: ModelClaudeCodeHookEventPayload,
+) -> str | None:
+    """Extract the first file path from a PostToolUse payload.
+
+    Inspects ``model_extra`` for common file-path keys emitted by tool-content
+    payloads (``file_path``, ``path``) and falls back to ``tool_input.file_path``
+    or ``tool_input.path`` when present.
+
+    Args:
+        payload: The hook event payload (PostToolUse or PostToolUseFailure).
+
+    Returns:
+        The extracted file path string, or None if not found.
+    """
+    extra = payload.model_extra or {}
+
+    # Direct keys from tool-content payloads
+    for key in ("file_path", "path"):
+        val = extra.get(key)
+        if val and isinstance(val, str):
+            return val[:4096]  # Bound length for safety
+
+    # Nested tool_input dict (daemon format)
+    tool_input = extra.get("tool_input")
+    if isinstance(tool_input, dict):
+        for key in ("file_path", "path"):
+            val = tool_input.get(key)
+            if val and isinstance(val, str):
+                return val[:4096]
+
+    return None
+
+
+def _extract_tool_name_from_payload(
+    payload: ModelClaudeCodeHookEventPayload,
+) -> str | None:
+    """Extract the tool name from a PostToolUse payload.
+
+    Checks ``model_extra`` for ``tool_name``, ``tool_name_raw``, and
+    ``tool`` keys, covering both daemon and canonical payload formats.
+
+    Args:
+        payload: The hook event payload.
+
+    Returns:
+        The tool name string, or None if not found.
+    """
+    extra = payload.model_extra or {}
+    for key in ("tool_name", "tool_name_raw", "tool"):
+        val = extra.get(key)
+        if val and isinstance(val, str):
+            return val[:255]  # Bound to column size
+    return None
+
+
+async def handle_post_tool_use(
+    event: ModelClaudeCodeHookEvent,
+    *,
+    repository: ProtocolPatternRepository | None = None,
+) -> ModelClaudeHookResult:
+    """Handle PostToolUse and PostToolUseFailure events by persisting to agent_actions.
+
+    Each tool execution event is written to ``omniintelligence.agent_actions``
+    so that ``dispatch_handler_pattern_learning`` can query session activity
+    when building ModelSessionSnapshot objects for pattern extraction.
+
+    Graceful degradation: when ``repository`` is None, the event is acknowledged
+    as a no-op (no DB write, no error). This preserves existing behaviour in
+    environments without DB access.
+
+    Args:
+        event: The PostToolUse or PostToolUseFailure hook event.
+        repository: Optional database repository implementing ProtocolPatternRepository.
+            When None, the handler returns success without writing to the DB.
+
+    Returns:
+        ModelClaudeHookResult with processing outcome.
+
+    Related:
+        - OMN-2984: Wire PostToolUse write path to omniintelligence.agent_actions
+    """
+    resolved_correlation_id: UUID = (
+        event.correlation_id if event.correlation_id is not None else uuid4()
+    )
+    metadata: dict[str, object] = {"handler": "post_tool_use"}
+
+    if repository is None:
+        metadata["db_write"] = "skipped_no_repository"
+        return ModelClaudeHookResult(
+            status=EnumHookProcessingStatus.SUCCESS,
+            event_type=str(event.event_type),
+            session_id=event.session_id,
+            correlation_id=resolved_correlation_id,
+            intent_result=None,
+            processing_time_ms=0.0,
+            processed_at=datetime.now(UTC),
+            error_message=None,
+            metadata=metadata,
+        )
+
+    # Determine status and action_type from event type
+    is_failure = event.event_type == EnumClaudeCodeHookEventType.POST_TOOL_USE_FAILURE
+    status_str = "error" if is_failure else "success"
+    action_type = "tool_use_failure" if is_failure else "tool_use"
+
+    # Extract tool name and file path from payload (extra="allow" fields)
+    tool_name = _extract_tool_name_from_payload(event.payload)
+    file_path = _extract_file_path_from_payload(event.payload)
+
+    # Extract error_message for failures
+    error_message: str | None = None
+    if is_failure:
+        extra = event.payload.model_extra or {}
+        raw_err = extra.get("error") or extra.get("error_message")
+        if raw_err:
+            raw_err_str = get_log_sanitizer().sanitize(str(raw_err))
+            error_message = raw_err_str[:2000]  # Bound to reasonable column size
+
+    row_id = uuid4()
+    created_at = event.timestamp_utc
+
+    try:
+        await repository.execute(
+            _SQL_INSERT_AGENT_ACTION,
+            str(row_id),
+            event.session_id,
+            action_type,
+            tool_name,
+            file_path,
+            status_str,
+            error_message,
+            created_at,
+        )
+        metadata["db_write"] = "ok"
+        metadata["action_type"] = action_type
+        if tool_name:
+            metadata["tool_name"] = tool_name
+    except Exception as exc:
+        sanitized = get_log_sanitizer().sanitize(str(exc))
+        logger.warning(
+            "Failed to write PostToolUse event to agent_actions "
+            "(session_id=%s, tool_name=%s, error=%s)",
+            event.session_id,
+            tool_name,
+            sanitized,
+        )
+        metadata["db_write"] = "failed"
+        metadata["db_write_error"] = sanitized
+        # Return PARTIAL: the hook event was received and processed, but DB
+        # persistence failed. The caller can still acknowledge the message.
+        return ModelClaudeHookResult(
+            status=EnumHookProcessingStatus.PARTIAL,
+            event_type=str(event.event_type),
+            session_id=event.session_id,
+            correlation_id=resolved_correlation_id,
+            intent_result=None,
+            processing_time_ms=0.0,
+            processed_at=datetime.now(UTC),
+            error_message=sanitized,
+            metadata=metadata,
+        )
+
+    return ModelClaudeHookResult(
+        status=EnumHookProcessingStatus.SUCCESS,
+        event_type=str(event.event_type),
+        session_id=event.session_id,
+        correlation_id=resolved_correlation_id,
+        intent_result=None,
+        processing_time_ms=0.0,
+        processed_at=datetime.now(UTC),
+        error_message=None,
         metadata=metadata,
     )
 
@@ -934,9 +1165,11 @@ __all__ = [
     "HandlerClaudeHookEvent",
     "ProtocolIntentClassifier",
     "ProtocolKafkaPublisher",
+    "ProtocolPatternRepository",
     "_launch_objective_evaluation",
     "_parse_semver_str",
     "handle_no_op",
+    "handle_post_tool_use",
     "handle_stop",
     "handle_user_prompt_submit",
     "route_hook_event",

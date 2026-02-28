@@ -604,6 +604,7 @@ def create_claude_hook_dispatch_handler(
     kafka_producer: ProtocolKafkaPublisher | None = None,
     publish_topic: str | None = None,
     correlation_id: UUID | None = None,
+    repository: ProtocolPatternRepository | None = None,
 ) -> Callable[
     [ModelEventEnvelope[object], ProtocolHandlerContext],
     Awaitable[str],
@@ -619,6 +620,9 @@ def create_claude_hook_dispatch_handler(
         kafka_producer: Optional Kafka producer (graceful degradation if absent).
         publish_topic: Full topic for intent classification events (from contract).
         correlation_id: Optional fixed correlation ID for tracing.
+        repository: Optional database repository for PostToolUse persistence.
+            When None, PostToolUse events are processed as no-ops (graceful
+            degradation for environments without DB access).
 
     Returns:
         Async handler function with signature (envelope, context) -> str.
@@ -775,6 +779,7 @@ def create_claude_hook_dispatch_handler(
             intent_classifier=intent_classifier,
             kafka_producer=kafka_producer,
             publish_topic=publish_topic,
+            repository=repository,
         )
 
         logger.info(
@@ -1723,6 +1728,7 @@ def create_intelligence_dispatch_engine(
         intent_classifier=intent_classifier,
         kafka_producer=kafka_producer,
         publish_topic=topics.get("claude_hook"),
+        repository=repository,
     )
     engine.register_handler(
         handler_id="intelligence-claude-hook-handler",
