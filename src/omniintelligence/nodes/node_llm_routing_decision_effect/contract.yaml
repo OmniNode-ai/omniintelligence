@@ -1,0 +1,224 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 OmniNode Team
+#
+# ONEX Node Contract
+# Node: NodeLlmRoutingDecisionEffect
+#
+# This contract defines the interface for the LLM routing decision effect node.
+# The node consumes onex.evt.omniclaude.llm-routing-decision.v1 events emitted
+# by omniclaude's Bifrost LLM gateway (OMN-2740) and persists routing decisions
+# for model performance analytics.
+#
+# Reference:
+#   - OMN-2939: Bifrost feedback loop — add LLM routing decision consumer in omniintelligence
+#   - OMN-2740: Bifrost LLM Gateway (producer in omniclaude)
+
+# =============================================================================
+# IDENTIFIERS
+# =============================================================================
+name: "node_llm_routing_decision_effect"
+contract_name: "node_llm_routing_decision_effect"
+node_name: "node_llm_routing_decision_effect"
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+# Node type
+node_type: "EFFECT_GENERIC"
+
+# Description
+description: >
+  Effect node for processing LLM routing decision events from omniclaude's Bifrost LLM gateway. Consumes
+  onex.evt.omniclaude.llm-routing-decision.v1 events containing the full routing decision metadata (selected
+  agent, confidence, latency, model used, agreement with fuzzy matching). Persists idempotent records
+  to llm_routing_decisions table using (session_id, correlation_id) as the composite idempotency key.
+  Publishes onex.evt.omniintelligence.llm-routing-decision-processed.v1 after successful processing. #magic___^_^___line
+# =============================================================================
+# I/O MODELS
+# =============================================================================
+input_model:
+  name: "ModelLlmRoutingDecisionEvent"
+  module: "omniintelligence.nodes.node_llm_routing_decision_effect.models"
+  description: "LLM routing decision event from omniclaude's Bifrost LLM gateway"
+
+output_model:
+  name: "ModelLlmRoutingDecisionResult"
+  module: "omniintelligence.nodes.node_llm_routing_decision_effect.models"
+  description: "Result of LLM routing decision processing with upsert status"
+
+# =============================================================================
+# HANDLER ROUTING
+# =============================================================================
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    - operation: "process_llm_routing_decision"
+      handler:
+        function: "process_llm_routing_decision"
+        module: "omniintelligence.nodes.node_llm_routing_decision_effect.handlers.handler_llm_routing_decision"
+        type: "async"
+      description: "Consume LLM routing decision event, upsert to llm_routing_decisions, publish processed
+        event"
+      output_fields:
+        - status
+        - session_id
+        - correlation_id
+        - selected_agent
+        - was_upserted
+        - processed_at
+        - error_message
+
+# =============================================================================
+# IO OPERATIONS
+# =============================================================================
+io_operations:
+  - operation: "process_llm_routing_decision"
+    description: "Process LLM routing decision event and upsert idempotent record to llm_routing_decisions"
+    input_fields:
+      - session_id
+      - correlation_id
+      - selected_agent
+      - llm_confidence
+      - llm_latency_ms
+      - fallback_used
+      - model_used
+      - fuzzy_top_candidate
+      - llm_selected_candidate
+      - agreement
+      - routing_prompt_version
+    output_fields:
+      - status
+      - session_id
+      - correlation_id
+      - selected_agent
+      - was_upserted
+      - processed_at
+      - error_message
+
+# =============================================================================
+# DEPENDENCIES
+# =============================================================================
+dependencies:
+  - name: "repository"
+    type: "protocol"
+    class_name: "ProtocolPatternRepository"
+    module: "omniintelligence.protocols"
+    description: "Repository protocol for upsert operations on llm_routing_decisions"
+    required: true
+  - name: "kafka_publisher"
+    type: "protocol"
+    class_name: "ProtocolKafkaPublisher"
+    module: "omniintelligence.protocols"
+    description: "Optional Kafka publisher for llm-routing-decision-processed events. Absent = graceful
+      degradation"
+    required: false
+
+# =============================================================================
+# ERROR HANDLING
+# =============================================================================
+error_handling:
+  retry_policy:
+    max_retries: 3
+    initial_delay_ms: 100
+    max_delay_ms: 2000
+    exponential_base: 2
+    retry_on:
+      - "ConnectionError"
+      - "TimeoutError"
+
+  error_types:
+    - name: "DatabaseWriteError"
+      description: "Failed to upsert LLM routing decision record to PostgreSQL"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+    - name: "ValidationError"
+      description: "Invalid LLM routing decision event data"
+      recoverable: false
+      retry_strategy: "none"
+
+# =============================================================================
+# EVENT BUS
+# =============================================================================
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  event_bus_enabled: true
+
+  subscribe_topics:
+    # NOTE: This topic uses 'evt' kind (not 'cmd') because it is produced by omniclaude.
+    # The topic name is dictated by the producer; this is an intentional cross-system
+    # exception to the convention that subscribe topics use 'cmd' kind.
+    - "onex.evt.omniclaude.llm-routing-decision.v1"
+
+  publish_topics:
+    - "onex.evt.omniintelligence.llm-routing-decision-processed.v1"
+
+  subscribe_topic_metadata:
+    "onex.evt.omniclaude.llm-routing-decision.v1":
+      schema_ref: "omniintelligence.nodes.node_llm_routing_decision_effect.models.ModelLlmRoutingDecisionEvent"
+      description: "LLM routing decision events from omniclaude's Bifrost LLM gateway"
+
+  publish_topic_metadata:
+    "onex.evt.omniintelligence.llm-routing-decision-processed.v1":
+      schema_ref: "omniintelligence.nodes.node_llm_routing_decision_effect.models.ModelLlmRoutingDecisionProcessedEvent"
+      description: "LLM routing decision processed confirmation events"
+
+# =============================================================================
+# IDEMPOTENCY
+# =============================================================================
+idempotency:
+  enabled: true
+  strategy: "event_id_tracking"
+  hash_fields: ["session_id", "correlation_id"]
+  description: >
+    Each LLM routing decision event is uniquely identified by (session_id, correlation_id). Re-processing
+    the same event is idempotent via ON CONFLICT (session_id, correlation_id) DO UPDATE SET processed_at
+    = EXCLUDED.processed_at. This handles at-least-once Kafka delivery without creating duplicate rows.
+
+# =============================================================================
+# CAPABILITIES
+# =============================================================================
+capabilities:
+  - name: "database_write"
+    description: "Upsert LLM routing decision records to llm_routing_decisions in PostgreSQL"
+  - name: "idempotent_upsert"
+    description: "ON CONFLICT upsert prevents duplicate records from at-least-once Kafka delivery"
+  - name: "event_publish"
+    description: "Publish llm-routing-decision-processed events to Kafka (optional, graceful degradation)"
+  - name: "model_analytics"
+    description: "Persist per-decision metadata (confidence, latency, agreement) for model performance
+      analytics"
+
+# =============================================================================
+# METADATA
+# =============================================================================
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-02-27"
+  updated: "2026-02-27"
+  tags:
+    - effect
+    - llm-routing
+    - bifrost
+    - idempotent
+    - postgresql
+    - kafka
+    - analytics
+  references:
+    - ticket: "OMN-2939"
+      url: "https://linear.app/omninode/issue/OMN-2939"
+      description: "Bifrost feedback loop — add LLM routing decision consumer in omniintelligence"
+    - ticket: "OMN-2740"
+      url: "https://linear.app/omninode/issue/OMN-2740"
+      description: "Bifrost LLM Gateway (producer in omniclaude)"

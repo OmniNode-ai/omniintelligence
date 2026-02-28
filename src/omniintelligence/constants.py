@@ -226,6 +226,26 @@ Reference: OMN-2366
 Deletion ticket: OMN-1546
 """
 
+TOPIC_LLM_ROUTING_DECISION_PROCESSED: str = (
+    "onex.evt.omniintelligence.llm-routing-decision-processed.v1"
+)
+"""
+TEMP_BOOTSTRAP: Canonical topic for LLM routing decision processed events (OUTPUT).
+
+Canonical topic: onex.evt.omniintelligence.llm-routing-decision-processed.v1
+
+NodeLlmRoutingDecisionEffect publishes after a successful upsert to
+llm_routing_decisions. Consumers can use this to confirm that a Bifrost
+LLM routing decision event was fully processed for model performance analytics.
+
+This constant uses the canonical ONEX format (no env prefix) per OMN-2876.
+Both the contract.yaml publish_topics and this Python constant use bare
+canonical onex.* names — no {env}. prefix.
+
+Reference: OMN-2939
+Deletion ticket: OMN-1546
+"""
+
 # NOTE: The pattern.discovered topic string lives exclusively in
 # node_pattern_storage_effect/contract.yaml (subscribe_topics).
 # No Python constant is needed because RuntimeHostProcess reads
@@ -255,6 +275,7 @@ __all__ = [
     "MAX_PATTERN_MATCH_RESULTS",
     "PERCENTAGE_MULTIPLIER",
     "TOPIC_PATTERN_LIFECYCLE_CMD_V1",
+    "TOPIC_LLM_ROUTING_DECISION_PROCESSED",
     "TOPIC_ROUTING_FEEDBACK_PROCESSED",
     "TOPIC_RUN_EVALUATED_V1",
     "TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1",
