@@ -485,6 +485,13 @@ repos:
         # Note: The specific file pattern must NOT have .*\.py$ suffix as it's already complete
         files: ^(src/omniintelligence/(tools|utils|runtime)/.*\.py|tests/unit/tools/.*\.py|tests/unit/test_log_sanitizer\.py)$
         stages: [pre-push]
+      - id: check-ai-slop
+        name: Check for AI-slop patterns
+        language: system
+        entry: uv run python scripts/validation/check_ai_slop.py
+        types_or: [python, markdown]
+        pass_filenames: true
+        stages: [pre-commit]
 
 # Default stage for hooks (commit, not push)
 default_stages: [pre-commit]
