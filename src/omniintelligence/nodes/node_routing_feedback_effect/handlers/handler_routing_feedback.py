@@ -4,29 +4,25 @@
 # Copyright (c) 2025 OmniNode Team
 """Handler functions for routing feedback processing.
 
-This module implements the routing-outcome-raw consumer (OMN-2935): when
-omniclaude's session-end hook emits a routing-outcome-raw event, this handler:
+OMN-2622: Switched subscription from routing-outcome-raw.v1 to routing-feedback.v1.
+The producer (omniclaude) now emits all routing feedback outcomes on routing-feedback.v1
+with a ``feedback_status`` field ("produced" or "skipped") and optional ``skip_reason``.
 
-1. Consumes ``onex.evt.omniclaude.routing-outcome-raw.v1`` events.
-2. Upserts an idempotent record to ``routing_feedback_scores`` using
-   ``session_id`` as the idempotency key (no correlation_id in new payload).
-3. Publishes ``onex.evt.omniintelligence.routing-feedback-processed.v1`` after
-   successful upsert (optional; gracefully degrades without Kafka).
-
-Migration note (OMN-2935):
-    Replaced ModelRoutingFeedbackEvent (routing-feedback.v1) with
-    ModelSessionRawOutcomePayload (routing-outcome-raw.v1). The new payload
-    carries raw observable facts: injection_occurred, patterns_injected_count,
-    tool_calls_count, duration_ms, agent_selected, routing_confidence.
-    correlation_id and outcome are no longer present in the producer payload.
+This handler:
+1. Consumes ``onex.evt.omniclaude.routing-feedback.v1`` events.
+2. Filters on ``feedback_status``:
+   - ``"produced"``: Upserts an idempotent record to ``routing_feedback_scores``
+     and publishes ``onex.evt.omniintelligence.routing-feedback-processed.v1``.
+   - ``"skipped"``: Logs skip_reason for observability, skips DB write.
+3. Returns structured result with processing status.
 
 Idempotency:
 -----------
 The upsert uses ``ON CONFLICT (session_id) DO UPDATE`` to handle at-least-once
 Kafka delivery. Re-processing the same session_id is safe.
 
-The ``was_upserted`` flag in the result is ``True`` on the success path for
-both the first delivery and idempotent re-deliveries.
+The ``was_upserted`` flag is ``True`` on the success path for produced events and
+``False`` for skipped events (no DB write) or ERROR status.
 
 Kafka Graceful Degradation (Repository Invariant):
 ----------------------------------------------------
@@ -36,8 +32,8 @@ the ONEX invariant: "Effect nodes must never block on Kafka."
 
 Reference:
     - OMN-2366: Add routing.feedback consumer in omniintelligence
-    - OMN-2356: Session-end hook routing feedback producer (omniclaude)
     - OMN-2935: Fix routing feedback loop — subscribe to routing-outcome-raw.v1
+    - OMN-2622: Fold routing-feedback-skipped into routing-feedback.v1
 
 Design Principles:
     - Pure handler functions with injected repository and optional publisher
@@ -55,9 +51,9 @@ from typing import Final
 from omniintelligence.constants import TOPIC_ROUTING_FEEDBACK_PROCESSED
 from omniintelligence.nodes.node_routing_feedback_effect.models import (
     EnumRoutingFeedbackStatus,
+    ModelRoutingFeedbackPayload,
     ModelRoutingFeedbackProcessedEvent,
     ModelRoutingFeedbackResult,
-    ModelSessionRawOutcomePayload,
 )
 from omniintelligence.protocols import ProtocolKafkaPublisher, ProtocolPatternRepository
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
@@ -75,36 +71,21 @@ DLQ_TOPIC: Final[str] = f"{TOPIC_ROUTING_FEEDBACK_PROCESSED}.dlq"
 
 # Idempotent upsert for routing feedback scores.
 # Idempotency key: session_id
-# ON CONFLICT: update all raw signal fields + processed_at on re-delivery.
+# ON CONFLICT: update outcome + processed_at on re-delivery.
 # Parameters:
 #   $1 = session_id (text)
-#   $2 = injection_occurred (bool)
-#   $3 = patterns_injected_count (int)
-#   $4 = tool_calls_count (int)
-#   $5 = duration_ms (int)
-#   $6 = agent_selected (text)
-#   $7 = routing_confidence (float)
-#   $8 = processed_at (timestamptz)
+#   $2 = outcome (text)
+#   $3 = processed_at (timestamptz)
 SQL_UPSERT_ROUTING_FEEDBACK = """
 INSERT INTO routing_feedback_scores (
     session_id,
-    injection_occurred,
-    patterns_injected_count,
-    tool_calls_count,
-    duration_ms,
-    agent_selected,
-    routing_confidence,
+    outcome,
     processed_at
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+VALUES ($1, $2, $3)
 ON CONFLICT (session_id)
 DO UPDATE SET
-    injection_occurred = EXCLUDED.injection_occurred,
-    patterns_injected_count = EXCLUDED.patterns_injected_count,
-    tool_calls_count = EXCLUDED.tool_calls_count,
-    duration_ms = EXCLUDED.duration_ms,
-    agent_selected = EXCLUDED.agent_selected,
-    routing_confidence = EXCLUDED.routing_confidence,
+    outcome = EXCLUDED.outcome,
     processed_at = EXCLUDED.processed_at
 ;"""
 
@@ -114,25 +95,23 @@ DO UPDATE SET
 
 
 async def process_routing_feedback(
-    event: ModelSessionRawOutcomePayload,
+    event: ModelRoutingFeedbackPayload,
     *,
     repository: ProtocolPatternRepository,
     kafka_publisher: ProtocolKafkaPublisher | None = None,
 ) -> ModelRoutingFeedbackResult:
-    """Process a routing-outcome-raw event and upsert to routing_feedback_scores.
+    """Process a routing-feedback event and conditionally upsert to routing_feedback_scores.
 
-    This is the main entry point for the routing feedback handler. It:
-    1. Upserts the event to routing_feedback_scores with idempotency key
-       session_id.
-    2. Publishes a confirmation event to Kafka (optional, graceful degradation).
-    3. Returns structured result with processing status.
+    When ``event.feedback_status == "produced"``, upserts to routing_feedback_scores
+    and publishes a confirmation event. When ``"skipped"``, logs the skip_reason and
+    returns without touching the DB.
 
     Per handler contract: ALL exceptions are caught and returned as structured
     ERROR results. This function never raises - unexpected errors produce a
     result with status=EnumRoutingFeedbackStatus.ERROR.
 
     Args:
-        event: The routing-outcome-raw event from omniclaude's session-end hook.
+        event: The routing-feedback event from omniclaude.
         repository: Database repository implementing ProtocolPatternRepository.
         kafka_publisher: Optional Kafka publisher for confirmation events.
             If None, DB write still succeeds (graceful degradation).
@@ -153,7 +132,7 @@ async def process_routing_feedback(
             "Unhandled exception in routing feedback handler",
             extra={
                 "session_id": event.session_id,
-                "agent_selected": event.agent_selected,
+                "feedback_status": event.feedback_status,
                 "error": sanitized_error,
                 "error_type": type(exc).__name__,
             },
@@ -161,12 +140,9 @@ async def process_routing_feedback(
         return ModelRoutingFeedbackResult(
             status=EnumRoutingFeedbackStatus.ERROR,
             session_id=event.session_id,
-            injection_occurred=event.injection_occurred,
-            patterns_injected_count=event.patterns_injected_count,
-            tool_calls_count=event.tool_calls_count,
-            duration_ms=event.duration_ms,
-            agent_selected=event.agent_selected,
-            routing_confidence=event.routing_confidence,
+            outcome=event.outcome,
+            feedback_status=event.feedback_status,
+            skip_reason=event.skip_reason,
             was_upserted=False,
             processed_at=datetime.now(UTC),
             error_message=sanitized_error,
@@ -174,7 +150,7 @@ async def process_routing_feedback(
 
 
 async def _process_routing_feedback_inner(
-    event: ModelSessionRawOutcomePayload,
+    event: ModelRoutingFeedbackPayload,
     *,
     repository: ProtocolPatternRepository,
     kafka_publisher: ProtocolKafkaPublisher | None,
@@ -187,29 +163,43 @@ async def _process_routing_feedback_inner(
     """
     now = datetime.now(UTC)
 
+    # Filter on feedback_status — skipped events do not go to DB.
+    if event.feedback_status == "skipped":
+        logger.info(
+            "Routing feedback skipped — not persisting to DB",
+            extra={
+                "session_id": event.session_id,
+                "outcome": event.outcome,
+                "skip_reason": event.skip_reason,
+            },
+        )
+        return ModelRoutingFeedbackResult(
+            status=EnumRoutingFeedbackStatus.SUCCESS,
+            session_id=event.session_id,
+            outcome=event.outcome,
+            feedback_status="skipped",
+            skip_reason=event.skip_reason,
+            was_upserted=False,
+            processed_at=now,
+            error_message=None,
+        )
+
     logger.info(
-        "Processing routing-outcome-raw event",
+        "Processing routing-feedback event (produced)",
         extra={
             "session_id": event.session_id,
-            "injection_occurred": event.injection_occurred,
-            "patterns_injected_count": event.patterns_injected_count,
-            "agent_selected": event.agent_selected,
-            "routing_confidence": event.routing_confidence,
+            "outcome": event.outcome,
+            "feedback_status": event.feedback_status,
         },
     )
 
     # Step 1: Upsert to routing_feedback_scores with idempotency key session_id.
     # ON CONFLICT (session_id) DO UPDATE ensures at-least-once Kafka delivery
-    # is safe — re-delivering the same session updates the raw signal fields.
+    # is safe — re-delivering the same session updates the outcome + processed_at.
     status = await repository.execute(
         SQL_UPSERT_ROUTING_FEEDBACK,
         event.session_id,
-        event.injection_occurred,
-        event.patterns_injected_count,
-        event.tool_calls_count,
-        event.duration_ms,
-        event.agent_selected,
-        event.routing_confidence,
+        event.outcome,
         now,
     )
 
@@ -237,12 +227,9 @@ async def _process_routing_feedback_inner(
     return ModelRoutingFeedbackResult(
         status=EnumRoutingFeedbackStatus.SUCCESS,
         session_id=event.session_id,
-        injection_occurred=event.injection_occurred,
-        patterns_injected_count=event.patterns_injected_count,
-        tool_calls_count=event.tool_calls_count,
-        duration_ms=event.duration_ms,
-        agent_selected=event.agent_selected,
-        routing_confidence=event.routing_confidence,
+        outcome=event.outcome,
+        feedback_status="produced",
+        skip_reason=None,
         was_upserted=was_upserted,
         processed_at=now,
         error_message=None,
@@ -313,27 +300,26 @@ async def _route_to_dlq(
 
 
 async def _publish_processed_event(
-    event: ModelSessionRawOutcomePayload,
+    event: ModelRoutingFeedbackPayload,
     kafka_publisher: ProtocolKafkaPublisher,
     processed_at: datetime,
 ) -> None:
     """Publish a routing-feedback-processed confirmation event.
 
-    Failures are logged but NOT propagated - the DB upsert already succeeded.
+    Only called when feedback_status == "produced". Failures are logged
+    but NOT propagated - the DB upsert already succeeded.
     On publish failure, the original envelope is routed to the DLQ topic
     (``TOPIC_ROUTING_FEEDBACK_PROCESSED + ".dlq"``) per effect-node guidelines.
 
     Args:
-        event: The original routing-outcome-raw event.
+        event: The original routing-feedback event (feedback_status == "produced").
         kafka_publisher: Kafka publisher for the confirmation event.
         processed_at: Timestamp of when the upsert was processed.
     """
     event_model = ModelRoutingFeedbackProcessedEvent(
         session_id=event.session_id,
-        injection_occurred=event.injection_occurred,
-        patterns_injected_count=event.patterns_injected_count,
-        agent_selected=event.agent_selected,
-        routing_confidence=event.routing_confidence,
+        outcome=event.outcome,
+        feedback_status="produced",
         emitted_at=event.emitted_at,
         processed_at=processed_at,
     )

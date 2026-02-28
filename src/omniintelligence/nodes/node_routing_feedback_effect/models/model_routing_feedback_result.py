@@ -4,10 +4,16 @@
 # Copyright (c) 2025 OmniNode Team
 """Routing feedback result model.
 
-Reference: OMN-2366, OMN-2935
+OMN-2622: Updated to reflect routing-feedback.v1 consumer (was routing-outcome-raw.v1).
+Raw signal fields (injection_occurred, patterns_injected_count, etc.) removed;
+replaced with feedback_status and skip_reason from the new payload schema.
+
+Reference: OMN-2366, OMN-2935, OMN-2622
 """
 
 from __future__ import annotations
+
+from typing import Literal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
@@ -17,21 +23,20 @@ from omniintelligence.nodes.node_routing_feedback_effect.models.enum_routing_fee
 
 
 class ModelRoutingFeedbackResult(BaseModel):
-    """Result of processing a routing-outcome-raw event (OMN-2935).
+    """Result of processing a routing-feedback event (OMN-2622).
 
-    Returned by the handler after consuming a routing-outcome-raw event and
-    upserting the idempotent record to routing_feedback_scores.
+    Returned by the handler after consuming a routing-feedback.v1 event
+    and either upserting the idempotent record to routing_feedback_scores
+    (when feedback_status == "produced") or skipping the DB write
+    (when feedback_status == "skipped").
 
     Attributes:
         status: Overall processing status.
         session_id: Session ID from the input event.
-        injection_occurred: Whether context injection happened this session.
-        patterns_injected_count: Number of patterns injected.
-        tool_calls_count: Total tool calls observed.
-        duration_ms: Session duration in milliseconds.
-        agent_selected: Agent name selected by routing.
-        routing_confidence: Routing confidence score (0.0-1.0).
-        was_upserted: True if a row was inserted or updated.
+        outcome: Session outcome (success, failed, abandoned, unknown).
+        feedback_status: Whether reinforcement was produced or skipped.
+        skip_reason: Why reinforcement was skipped (None if produced).
+        was_upserted: True if a row was inserted or updated in DB.
         processed_at: Timestamp of when processing completed.
         error_message: Error details if status is ERROR.
     """
@@ -46,36 +51,27 @@ class ModelRoutingFeedbackResult(BaseModel):
         ...,
         description="Session ID from the input event",
     )
-    injection_occurred: bool = Field(
+    outcome: str = Field(
         ...,
-        description="Whether context injection happened this session",
+        description="Session outcome from the input event",
     )
-    patterns_injected_count: int = Field(
+    feedback_status: Literal["produced", "skipped"] = Field(
         ...,
-        description="Number of patterns injected (0 if no injection occurred)",
+        description=(
+            "Whether routing reinforcement was produced or skipped. "
+            "Skipped events are not persisted to routing_feedback_scores. [OMN-2622]"
+        ),
     )
-    tool_calls_count: int = Field(
-        ...,
-        description="Total tool calls observed during the session",
-    )
-    duration_ms: int = Field(
-        ...,
-        description="Session duration in milliseconds (0 if unknown)",
-    )
-    agent_selected: str = Field(
-        ...,
-        description="Agent name selected by routing (empty string if none)",
-    )
-    routing_confidence: float = Field(
-        ...,
-        description="Routing confidence score (0.0-1.0)",
+    skip_reason: str | None = Field(
+        default=None,
+        description="Why reinforcement was skipped. None when feedback_status is 'produced'. [OMN-2622]",
     )
     was_upserted: bool = Field(
         default=False,
         description=(
             "True if a row was inserted or updated in routing_feedback_scores. "
-            "ON CONFLICT DO UPDATE always returns True on the success path; "
-            "False only when status is ERROR and the upsert did not execute."
+            "Always False when feedback_status is 'skipped'. "
+            "ON CONFLICT DO UPDATE always returns True on the success path."
         ),
     )
     processed_at: AwareDatetime = Field(

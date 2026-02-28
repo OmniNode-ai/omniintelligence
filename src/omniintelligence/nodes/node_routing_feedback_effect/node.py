@@ -11,20 +11,19 @@ This node follows the ONEX declarative pattern:
     - Used for ONEX-compliant runtime execution via RuntimeHostProcess
     - Pattern: "Contract-driven, handlers wired externally"
 
-This node consumes routing-outcome-raw events from omniclaude's session-end hook
-and persists idempotent upsert records to routing_feedback_scores table.
-
-OMN-2935: Updated to subscribe to onex.evt.omniclaude.routing-outcome-raw.v1
-(was: onex.evt.omniclaude.routing-feedback.v1 — deprecated).
+OMN-2622: Switched subscription to onex.evt.omniclaude.routing-feedback.v1
+(was: onex.evt.omniclaude.routing-outcome-raw.v1 — now deprecated).
+routing-feedback-skipped.v1 has been folded into routing-feedback.v1 via
+the ``feedback_status`` field on ModelRoutingFeedbackPayload.
 
 Extends NodeEffect from omnibase_core for infrastructure I/O operations.
 All handler routing is 100% driven by contract.yaml, not Python code.
 
 Handler Routing Pattern:
-    1. Receive ModelSessionRawOutcomePayload (input_model in contract)
+    1. Receive ModelRoutingFeedbackPayload (input_model in contract)
     2. Route to process_routing_feedback handler (handler_routing)
-    3. Execute database I/O via handler (PostgreSQL upsert to routing_feedback_scores)
-    4. Publish onex.evt.omniintelligence.routing-feedback-processed.v1
+    3. Filter on feedback_status: produced → upsert DB; skipped → log only
+    4. Publish onex.evt.omniintelligence.routing-feedback-processed.v1 (produced only)
     5. Return ModelRoutingFeedbackResult (output_model in contract)
 
 Design Decisions:
@@ -34,7 +33,7 @@ Design Decisions:
     - External DI: Handler dependencies resolved by callers/orchestrators
 
 Node Responsibilities:
-    - Define I/O model contract (ModelSessionRawOutcomePayload -> ModelRoutingFeedbackResult)
+    - Define I/O model contract (ModelRoutingFeedbackPayload -> ModelRoutingFeedbackResult)
     - Delegate all execution to handlers via base class
     - NO custom logic - pure declarative shell
 
@@ -45,8 +44,8 @@ Related Modules:
 
 Related Tickets:
     - OMN-2366: Add routing.feedback consumer in omniintelligence (orphan topic)
-    - OMN-2356: Session-end hook routing feedback producer (omniclaude)
     - OMN-2935: Fix routing feedback loop — subscribe to routing-outcome-raw.v1
+    - OMN-2622: Fold routing-feedback-skipped.v1 into routing-feedback.v1
 """
 
 from __future__ import annotations
