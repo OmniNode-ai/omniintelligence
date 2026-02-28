@@ -570,6 +570,36 @@ error_handling:
       description: "Duplicate action detected via idempotency check"
       recoverable: false
       retry_strategy: "none"
+# =============================================================================
+# EVENT BUS SUBCONTRACT - Runtime Routing Layer
+# =============================================================================
+# PURPOSE: Machine-readable configuration of WHERE events are routed.
+#
+# The reducer subscribes to onex.evt.intent.outcome.labeled.v1 to receive
+# labeled session outcomes and drive FSM state transitions for intent tracking.
+# This wires the intent pipeline output side (OMN-2938).
+# =============================================================================
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  event_bus_enabled: true
+
+  # Topics this node subscribes to (receives events from)
+  subscribe_topics:
+    - "onex.evt.intent.outcome.labeled.v1"
+
+  # Reducers do not publish to Kafka — they emit intents for the orchestrator
+  publish_topics: []
+
+  subscribe_topic_metadata:
+    "onex.evt.intent.outcome.labeled.v1":
+      schema_ref: "omniintelligence.models.events.model_intent_event_envelopes.ModelIntentOutcomeLabeledEnvelope"
+      description: "Session outcome labeled event. Drives FSM state transition for intent tracking — updates
+        success rates and pattern confidence scores."
+      content_type: "application/json"
+
 # Health Check
 # ============
 health_check:
@@ -581,7 +611,7 @@ health_check:
 metadata:
   author: "OmniNode Team"
   created: "2025-11-14"
-  updated: "2026-01-18"
+  updated: "2026-02-27"
   tags:
     - "ONEX"
     - "reducer"
