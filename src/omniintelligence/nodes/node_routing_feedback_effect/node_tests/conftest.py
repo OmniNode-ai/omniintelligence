@@ -11,6 +11,7 @@ without requiring real infrastructure.
 Reference:
     - OMN-2366: Add routing.feedback consumer in omniintelligence
     - OMN-2935: Fix routing feedback loop — subscribe to routing-outcome-raw.v1
+    - OMN-2622: Fold routing-feedback-skipped.v1 into routing-feedback.v1
 """
 
 from __future__ import annotations
@@ -22,7 +23,7 @@ from typing import Any
 import pytest
 
 from omniintelligence.nodes.node_routing_feedback_effect.models import (
-    ModelSessionRawOutcomePayload,
+    ModelRoutingFeedbackPayload,
 )
 
 # =============================================================================
@@ -51,9 +52,10 @@ class MockRoutingFeedbackRepository:
     Simulates a PostgreSQL database with in-memory storage, supporting
     the specific SQL operations used by the routing feedback handler.
 
-    The upsert behaviour mirrors the real SQL (OMN-2935 schema):
+    The upsert behaviour mirrors the real SQL (OMN-2622 schema):
     - First call for a given session_id inserts a row.
-    - Subsequent calls update all raw signal fields + processed_at (no duplicate rows).
+    - Subsequent calls update outcome + processed_at (no duplicate rows).
+    - Skipped events (feedback_status == "skipped") do not call execute().
 
     Attributes:
         rows: In-memory store keyed by session_id.
@@ -95,25 +97,15 @@ class MockRoutingFeedbackRepository:
 
         # Handle upsert: INSERT ... ON CONFLICT (session_id) DO UPDATE
         if "INSERT INTO routing_feedback_scores" in query:
-            if len(args) >= 8:
+            if len(args) >= 3:
                 session_id = args[0]
-                injection_occurred = args[1]
-                patterns_injected_count = args[2]
-                tool_calls_count = args[3]
-                duration_ms = args[4]
-                agent_selected = args[5]
-                routing_confidence = args[6]
-                processed_at = args[7]
+                outcome = args[1]
+                processed_at = args[2]
                 if session_id in self.rows:
-                    # ON CONFLICT DO UPDATE: update raw signal fields + processed_at
+                    # ON CONFLICT DO UPDATE: update outcome + processed_at
                     self.rows[session_id].update(
                         {
-                            "injection_occurred": injection_occurred,
-                            "patterns_injected_count": patterns_injected_count,
-                            "tool_calls_count": tool_calls_count,
-                            "duration_ms": duration_ms,
-                            "agent_selected": agent_selected,
-                            "routing_confidence": routing_confidence,
+                            "outcome": outcome,
                             "processed_at": processed_at,
                         }
                     )
@@ -121,12 +113,7 @@ class MockRoutingFeedbackRepository:
                 else:
                     self.rows[session_id] = {
                         "session_id": session_id,
-                        "injection_occurred": injection_occurred,
-                        "patterns_injected_count": patterns_injected_count,
-                        "tool_calls_count": tool_calls_count,
-                        "duration_ms": duration_ms,
-                        "agent_selected": agent_selected,
-                        "routing_confidence": routing_confidence,
+                        "outcome": outcome,
                         "processed_at": processed_at,
                         "created_at": processed_at,
                     }
@@ -216,65 +203,51 @@ def sample_session_id() -> str:
 
 
 @pytest.fixture
-def sample_agent_selected() -> str:
-    """Fixed agent name for deterministic tests."""
-    return "omniarchon"
-
-
-@pytest.fixture
-def sample_routing_confidence() -> float:
-    """Fixed routing confidence for deterministic tests."""
-    return 0.91
-
-
-@pytest.fixture
-def sample_raw_outcome_event_with_injection(
+def sample_routing_feedback_event_produced(
     sample_session_id: str,
-    sample_agent_selected: str,
-    sample_routing_confidence: float,
-) -> ModelSessionRawOutcomePayload:
-    """Routing-outcome-raw event with injection_occurred=True."""
-    return ModelSessionRawOutcomePayload(
+) -> ModelRoutingFeedbackPayload:
+    """Routing-feedback event with feedback_status='produced'."""
+    return ModelRoutingFeedbackPayload(
         session_id=sample_session_id,
-        injection_occurred=True,
-        patterns_injected_count=3,
-        tool_calls_count=12,
-        duration_ms=45200,
-        agent_selected=sample_agent_selected,
-        routing_confidence=sample_routing_confidence,
-        emitted_at=datetime(2026, 2, 20, 12, 0, 0, tzinfo=UTC),
+        outcome="success",
+        feedback_status="produced",
+        skip_reason=None,
+        emitted_at=datetime(2026, 2, 28, 12, 0, 0, tzinfo=UTC),
     )
 
 
 @pytest.fixture
-def sample_raw_outcome_event_no_injection(
+def sample_routing_feedback_event_skipped(
     sample_session_id: str,
-) -> ModelSessionRawOutcomePayload:
-    """Routing-outcome-raw event with injection_occurred=False."""
-    return ModelSessionRawOutcomePayload(
+) -> ModelRoutingFeedbackPayload:
+    """Routing-feedback event with feedback_status='skipped'."""
+    return ModelRoutingFeedbackPayload(
         session_id=sample_session_id,
-        injection_occurred=False,
-        patterns_injected_count=0,
-        tool_calls_count=5,
-        duration_ms=12000,
-        agent_selected="",
-        routing_confidence=0.0,
-        emitted_at=datetime(2026, 2, 20, 12, 0, 0, tzinfo=UTC),
+        outcome="unknown",
+        feedback_status="skipped",
+        skip_reason="NO_INJECTION",
+        emitted_at=datetime(2026, 2, 28, 12, 0, 0, tzinfo=UTC),
     )
 
 
-# Keep legacy fixture names as aliases for backward compatibility within test file.
+# Legacy fixture aliases for test backward compatibility.
 @pytest.fixture
 def sample_routing_feedback_event_success(
-    sample_raw_outcome_event_with_injection: ModelSessionRawOutcomePayload,
-) -> ModelSessionRawOutcomePayload:
-    """Alias for sample_raw_outcome_event_with_injection."""
-    return sample_raw_outcome_event_with_injection
+    sample_routing_feedback_event_produced: ModelRoutingFeedbackPayload,
+) -> ModelRoutingFeedbackPayload:
+    """Alias for sample_routing_feedback_event_produced."""
+    return sample_routing_feedback_event_produced
 
 
 @pytest.fixture
 def sample_routing_feedback_event_failed(
-    sample_raw_outcome_event_no_injection: ModelSessionRawOutcomePayload,
-) -> ModelSessionRawOutcomePayload:
-    """Alias for sample_raw_outcome_event_no_injection."""
-    return sample_raw_outcome_event_no_injection
+    sample_session_id: str,
+) -> ModelRoutingFeedbackPayload:
+    """Routing-feedback event with outcome='failed' and feedback_status='produced'."""
+    return ModelRoutingFeedbackPayload(
+        session_id=sample_session_id,
+        outcome="failed",
+        feedback_status="produced",
+        skip_reason=None,
+        emitted_at=datetime(2026, 2, 28, 12, 0, 0, tzinfo=UTC),
+    )
