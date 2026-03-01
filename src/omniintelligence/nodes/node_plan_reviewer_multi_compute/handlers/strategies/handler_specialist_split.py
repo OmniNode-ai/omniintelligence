@@ -8,23 +8,11 @@ only its assigned categories.  All four invocations run concurrently.
 Findings are merged directly — no majority vote is needed because each
 category has exactly one owner.
 
-Category-model assignment:
-
-    +--------------------------------+---------------+
-    | Category                       | Model         |
-    +================================+===============+
-    | R1 (counts), R5 (idempotency)  | qwen3-coder   |
-    | R4 (integration), R6 (verify)  | deepseek-r1   |
-    | R2 (acceptance), R3 (scope)    | gemini-flash  |
-    | tiebreaker (all, if empty)     | glm-4         |
-    +--------------------------------+---------------+
+Category-model assignment: R1/R5 -> qwen3-coder, R4/R6 -> deepseek-r1,
+R2/R3 -> gemini-flash, tiebreaker (all, if empty) -> glm-4.
 
 The ``glm-4`` tiebreaker model is only invoked when any other model
 returns an empty findings list for its assigned categories.
-
-Architecture note:
-    This module contains only pure business logic.  No ``httpx`` or
-    ``os.getenv`` usage is allowed here (ARCH-002).
 
 Ticket: OMN-3288
 """

@@ -21,10 +21,6 @@ Unlike S1 ``panel_vote``, every finding is included regardless of how many
 models agree.  The confidence score naturally reflects single-model findings
 (lower) vs. unanimous findings (higher).
 
-Architecture note:
-    This module contains only pure business logic.  No ``httpx`` or
-    ``os.getenv`` usage is allowed here (ARCH-002).
-
 Ticket: OMN-3288
 """
 

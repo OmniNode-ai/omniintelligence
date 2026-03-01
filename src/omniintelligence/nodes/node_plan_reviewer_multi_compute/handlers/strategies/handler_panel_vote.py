@@ -15,11 +15,6 @@ Confidence formula::
 The patch for an included finding is taken from the agreeing model with
 the highest accuracy weight.
 
-Architecture note:
-    This module contains only pure business logic.  Network I/O is
-    performed by caller-injected async callables (``model_callers``).
-    No ``httpx`` or ``os.getenv`` usage is allowed here (ARCH-002).
-
 Ticket: OMN-3288
 """
 

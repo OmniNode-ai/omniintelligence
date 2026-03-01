@@ -28,10 +28,6 @@ Because the critic model does not produce ``PlanReviewFinding`` objects
 directly (its output is a structured dict parsed from JSON/text), a
 ``CriticCaller`` callable with a distinct signature is used.
 
-Architecture note:
-    This module contains only pure business logic.  No ``httpx`` or
-    ``os.getenv`` usage is allowed here (ARCH-002).
-
 Ticket: OMN-3288
 """
 
