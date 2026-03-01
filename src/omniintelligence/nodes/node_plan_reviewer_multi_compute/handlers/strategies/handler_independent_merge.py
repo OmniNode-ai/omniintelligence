@@ -81,20 +81,23 @@ async def handle_independent_merge(
     if not model_callers:
         return []
 
-    # Run all models concurrently.
-    tasks: dict[EnumReviewModel, asyncio.Task[list[PlanReviewFinding]]] = {
-        model: asyncio.create_task(caller(plan_text, categories))
-        for model, caller in model_callers.items()
-    }
+    # Run all models concurrently with per-item exception capture.
+    ordered_models = list(model_callers.keys())
+    raw = await asyncio.gather(
+        *[model_callers[m](plan_text, categories) for m in ordered_models],
+        return_exceptions=True,
+    )
     results: dict[EnumReviewModel, list[PlanReviewFinding]] = {}
-    for model, task in tasks.items():
-        try:
-            results[model] = await task
-        except Exception:
+    for model, outcome in zip(ordered_models, raw, strict=False):
+        if isinstance(outcome, BaseException):
             logger.exception(
-                "independent_merge: model %s call failed — treating as empty", model
+                "independent_merge: model %s call failed — treating as empty",
+                model,
+                exc_info=outcome,
             )
             results[model] = []
+        else:
+            results[model] = outcome
 
     total_weight = sum(accuracy_weights.get(m, 0.5) for m in model_callers)
     if total_weight == 0.0:

@@ -116,20 +116,26 @@ async def handle_specialist_split(
         if assigned and model in model_callers:
             specialist_assignments[model] = assigned
 
-    # Launch specialist calls concurrently.
-    tasks: dict[EnumReviewModel, asyncio.Task[list[PlanReviewFinding]]] = {
-        model: asyncio.create_task(model_callers[model](plan_text, assigned))
-        for model, assigned in specialist_assignments.items()
-    }
+    # Launch specialist calls concurrently with per-item exception capture.
+    ordered_specialists = list(specialist_assignments.keys())
+    raw = await asyncio.gather(
+        *[
+            model_callers[m](plan_text, specialist_assignments[m])
+            for m in ordered_specialists
+        ],
+        return_exceptions=True,
+    )
     specialist_results: dict[EnumReviewModel, list[PlanReviewFinding]] = {}
-    for model, task in tasks.items():
-        try:
-            specialist_results[model] = await task
-        except Exception:
+    for model, outcome in zip(ordered_specialists, raw, strict=False):
+        if isinstance(outcome, BaseException):
             logger.exception(
-                "specialist_split: model %s call failed — treating as empty", model
+                "specialist_split: model %s call failed — treating as empty",
+                model,
+                exc_info=outcome,
             )
             specialist_results[model] = []
+        else:
+            specialist_results[model] = outcome
 
     # Determine which categories had empty output (need tiebreaker).
     covered_with_findings: set[EnumPlanReviewCategory] = set()
