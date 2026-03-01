@@ -17,7 +17,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "omninode-intelligence"
-version = "0.7.0"
+version = "0.8.0"
 description = "Intelligence, indexing, and pattern services as first-class Omninode nodes"
 readme = "README.md"
 requires-python = ">=3.12,<4.0"
@@ -35,7 +35,7 @@ dependencies = [
     "tenacity>=8.2.0",
     "watchdog>=6.0.0",
     "adaptive-classifier>=0.1.2",
-    "omnibase-infra>=0.12.0,<0.13.0",
+    "omnibase-infra>=0.13.0,<0.14.0",
 ]
 
 [project.optional-dependencies]
@@ -87,9 +87,9 @@ core = [
     # ONEX private ecosystem dependencies (NOT on public PyPI)
     # Installed via editable installs from sibling repos or private registry.
     # Version bounds match Poetry caret syntax above.
-    "omnibase-core==0.21.0",
-    "omnibase-spi==0.14.0",
-    "omnibase-infra>=0.12.0,<0.13.0",
+    "omnibase-core>=0.22.0,<0.23.0",
+    "omnibase-spi>=0.15.0,<0.16.0",
+    "omnibase-infra>=0.13.0,<0.14.0",
     "pydantic>=2.12.5,<3.0.0",
     "pydantic-settings>=2.7.0,<3.0.0",
     # Web framework for API endpoints
