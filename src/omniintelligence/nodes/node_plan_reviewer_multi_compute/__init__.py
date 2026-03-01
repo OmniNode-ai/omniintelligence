@@ -5,3 +5,9 @@
 
 Ticket: OMN-3282
 """
+
+from omniintelligence.nodes.node_plan_reviewer_multi_compute.node import (
+    NodePlanReviewerMultiCompute,
+)
+
+__all__ = ["NodePlanReviewerMultiCompute"]

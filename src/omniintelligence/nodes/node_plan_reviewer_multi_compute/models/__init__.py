@@ -21,11 +21,19 @@ from omniintelligence.nodes.node_plan_reviewer_multi_compute.models.model_plan_r
     PlanReviewFinding,
     PlanReviewFindingWithConfidence,
 )
+from omniintelligence.nodes.node_plan_reviewer_multi_compute.models.model_plan_reviewer_multi_input import (
+    ModelPlanReviewerMultiCommand,
+)
+from omniintelligence.nodes.node_plan_reviewer_multi_compute.models.model_plan_reviewer_multi_output import (
+    ModelPlanReviewerMultiOutput,
+)
 
 __all__ = [
     "EnumPlanReviewCategory",
     "EnumReviewModel",
     "EnumReviewStrategy",
+    "ModelPlanReviewerMultiCommand",
+    "ModelPlanReviewerMultiOutput",
     "PlanReviewFinding",
     "PlanReviewFindingWithConfidence",
     "SEVERITY_BLOCK",

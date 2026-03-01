@@ -86,3 +86,5 @@ environment:
 # OMN-3282 — parent epic
 # OMN-3284 — Phase 1: DB migration 020 + EnumReviewStrategy/EnumReviewModel
 # OMN-3286 — Phase 2: LLM client adapters (this contract)
+# OMN-3288 — Phase 3: Strategy handlers S1-S4
+# OMN-3290 — Phase 4: Main handler + confidence scorer + DB write (this)
