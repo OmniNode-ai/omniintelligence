@@ -318,7 +318,7 @@ def _parse_findings(
         return []
 
     try:
-        items: list[dict[str, Any]] = json.loads(text[start:end])
+        items: list[Any] = json.loads(text[start:end])
     except json.JSONDecodeError:
         logger.warning(
             "_parse_findings: JSON decode error for model=%s",
