@@ -1,0 +1,34 @@
+# Topic Naming Lint Baseline (OMN-3259)
+#
+# Pre-existing topic naming violations in Python source files tracked for
+# future cleanup. Topics listed here are excluded from the linter's failure
+# criteria.
+#
+# DO NOT add new topics to this list. New violations must be fixed before
+# merging. Remove entries as violations are resolved.
+#
+# Format: one raw topic string per line (comments start with #)
+#
+# Tracked violations:
+#   onex.commands.* / onex.events.* — legacy 'commands'/'events' kind segments
+#     (should be 'cmd'/'evt'); found in dispatch_handlers.py and
+#     dispatch_handler_crawl_scheduler.py
+#   onex.evt.intent.*.v1 — 6-segment topics in topics.py (IntentTopic enum)
+#   onex.dlq.omniintelligence.v1 — 4-segment DLQ topic (missing event slug)
+#
+onex.commands.omnimemory.crawl-requested.v1
+onex.events.omnimemory.document-indexed.v1
+onex.commands.omniintelligence.claude-hook-event.v1
+onex.commands.omniintelligence.session-outcome.v1
+onex.commands.omniintelligence.pattern-lifecycle-transition.v1
+onex.events.omniintelligence.pattern-learned.v1
+onex.events.pattern.discovered.v1
+onex.commands.omniintelligence.tool-content.v1
+onex.commands.omniintelligence.pattern-learning.v1
+onex.commands.omniintelligence.compliance-evaluate.v1
+onex.events.omniintelligence.pattern-promoted.v1
+onex.events.omniintelligence.pattern-lifecycle-transitioned.v1
+onex.dlq.omniintelligence.v1
+onex.evt.intent.drift.detected.v1
+onex.evt.intent.outcome.labeled.v1
+onex.evt.intent.pattern.promoted.v1

@@ -492,6 +492,16 @@ repos:
         types_or: [python, markdown]
         pass_filenames: true
         stages: [pre-commit]
+      # Topic naming lint — validate onex.{kind}.{producer}.{event}.v{n} convention
+      # (OMN-3259) Triggers on any *.py change; always scans full source tree.
+      # Pre-existing violations suppressed by scripts/validation/topic_naming_baseline.txt
+      - id: topic-naming-lint
+        name: Topic Naming Lint
+        entry: bash scripts/validation/run_topic_lint.sh
+        language: system
+        types_or: [python]
+        pass_filenames: false
+        stages: [pre-commit]
 
 # Default stage for hooks (commit, not push)
 default_stages: [pre-commit]
