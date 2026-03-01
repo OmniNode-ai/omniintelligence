@@ -216,6 +216,9 @@ class TestContractParamOrder:
 
         This catches unused params that may indicate copy-paste errors
         or outdated contract definitions.
+
+        Operations using positional $N syntax are skipped here — a separate
+        test (test_positional_param_count_matches) validates those.
         """
         import re
 
@@ -225,10 +228,16 @@ class TestContractParamOrder:
 
         # Regex to match :param_name but NOT ::type (PostgreSQL casts)
         placeholder_pattern = re.compile(r"(?<!:):([a-z_][a-z0-9_]*)")
+        # Regex to detect positional $N params
+        positional_pattern = re.compile(r"\$\d+")
 
         for op_name, operation in contract.ops.items():
             sql = operation.sql
             param_names = set(operation.params.keys())
+
+            # Skip operations that use positional $N syntax — validated separately
+            if positional_pattern.search(sql):
+                continue
 
             # Extract all :placeholder names from SQL
             placeholders_in_sql = set(placeholder_pattern.findall(sql))
@@ -239,6 +248,39 @@ class TestContractParamOrder:
                 f"Operation '{op_name}': params defined but not used in SQL: {unused_params}\n"
                 f"Defined params: {sorted(param_names)}\n"
                 f"Placeholders in SQL: {sorted(placeholders_in_sql)}"
+            )
+
+    @pytest.mark.unit
+    def test_positional_param_count_matches(self) -> None:
+        """Verify positional $N params count matches number of defined params.
+
+        For operations using $N positional syntax (e.g. asyncpg-compatible SQL),
+        the highest $N index must equal the number of defined params, ensuring
+        no positional index is skipped or duplicated.
+        """
+        import re
+
+        from omniintelligence.repositories.adapter_pattern_store import load_contract
+
+        contract = load_contract()
+
+        positional_pattern = re.compile(r"\$(\d+)")
+
+        for op_name, operation in contract.ops.items():
+            sql = operation.sql
+            param_names = list(operation.params.keys())
+
+            matches = positional_pattern.findall(sql)
+            if not matches:
+                # Named-param operation — not our concern here
+                continue
+
+            max_index = max(int(m) for m in matches)
+            expected_count = len(param_names)
+            assert max_index == expected_count, (
+                f"Operation '{op_name}': SQL uses up to ${{max_index}} but contract defines "
+                f"{{expected_count}} params {param_names}. "
+                f"Positional indices must be contiguous 1..N."
             )
 
     @pytest.mark.unit
