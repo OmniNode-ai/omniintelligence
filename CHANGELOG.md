@@ -5,6 +5,29 @@ All notable changes to OmniIntelligence will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-02-28
+
+### Added
+- Bifrost feedback loop consumer for routing-feedback events (OMN-2939, #240)
+- `emitted_at` field to intent-classified.v1 event payload (OMN-2921, #236)
+- Import canonical `ModelRewardAssignedEvent` from omnibase_core (OMN-2928, #237)
+- AI-slop checker Phase 2 rollout (#243)
+- Migration 019 for `agent_actions` and `workflow_steps` tables (OMN-2985, #245)
+
+### Fixed
+- Wire PostToolUse write path to `omniintelligence.agent_actions` (OMN-2984, #246)
+- Switch routing-feedback consumer from `routing-outcome-raw.v1` to `routing-feedback.v1` (OMN-2622, #242)
+- Wire intent output topics to downstream consumers (OMN-2938, #239)
+- Remove internal IP references from `.env.example` (#241)
+- Replace Step N narration with intent comments in handler docs (#244)
+- Tune AI-slop checker v1.0 — scope `step_narration` to markdown only (OMN-3191, #248)
+- Add code fence tracking to AI-slop checker follow-up (OMN-3191, #249)
+
+### Dependencies
+- `omnibase-core` bumped to >=0.22.0,<0.23.0 (was ==0.21.0)
+- `omnibase-spi` bumped to >=0.15.0,<0.16.0 (was ==0.14.0)
+- `omnibase-infra` bumped to >=0.13.0,<0.14.0 (was >=0.12.0,<0.13.0)
+
 ## [0.7.0] - 2026-02-27
 
 ### Changed
