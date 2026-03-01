@@ -1,3 +1,4 @@
+---
 # SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
 # =============================================================================
@@ -12,13 +13,10 @@ node_type: "COMPUTE_GENERIC"
 # DESCRIPTION
 # =============================================================================
 description: >
-  Multi-LLM plan reviewer compute node.  Evaluates plans against multiple
-  language model reviewers (Qwen3-Coder, DeepSeek-R1, Gemini Flash, GLM-4)
-  using configurable review strategies (panel_vote, specialist_split,
-  sequential_critique, independent_merge).  Results are persisted to the
-  plan_reviewer_strategy_runs and plan_reviewer_model_accuracy tables
-  (migration 020).
-
+  Multi-LLM plan reviewer compute node.  Evaluates plans against multiple language model reviewers (Qwen3-Coder,
+  DeepSeek-R1, Gemini Flash, GLM-4) using configurable review strategies (panel_vote, specialist_split,
+  sequential_critique, independent_merge).  Results are persisted to the plan_reviewer_strategy_runs and
+  plan_reviewer_model_accuracy tables (migration 020). #magic___^_^___line
 # =============================================================================
 # ENVIRONMENT CONFIGURATION
 # =============================================================================
@@ -36,9 +34,8 @@ environment:
   # -----------------------------------------------------------------------
   - key: GEMINI_API_KEY
     description: >
-      Google API key with Generative Language access.
-      Used by PlanReviewerGeminiClient to authenticate requests to the
-      Gemini 2.0 Flash OpenAI-compatible endpoint.
+      Google API key with Generative Language access. Used by PlanReviewerGeminiClient to authenticate
+      requests to the Gemini 2.0 Flash OpenAI-compatible endpoint.
     required: true
     secret: true
 
@@ -47,16 +44,14 @@ environment:
   # -----------------------------------------------------------------------
   - key: Z_AI_API_KEY
     description: >
-      Z.AI platform API key.
-      Used by PlanReviewerZAIClient to authenticate requests to the
-      GLM-4 OpenAI-compatible endpoint.
+      Z.AI platform API key. Used by PlanReviewerZAIClient to authenticate requests to the GLM-4 OpenAI-compatible
+      endpoint.
     required: true
     secret: true
 
   - key: Z_AI_API_URL
     description: >
-      Z.AI base URL for the chat completions endpoint.
-      Default: https://api.z.ai/api/paas/v4/chat/completions.
+      Z.AI base URL for the chat completions endpoint. Default: https://api.z.ai/api/paas/v4/chat/completions.
       Override for custom deployments or staging environments.
     required: false
     default: "https://api.z.ai/api/paas/v4/chat/completions"
