@@ -32,7 +32,7 @@ pytestmark = pytest.mark.unit
 # Helpers
 # ---------------------------------------------------------------------------
 
-_API_KEY = "test-gemini-api-key"
+_API_KEY = "test-gemini-api-key"  # pragma: allowlist secret
 _MESSAGES = [{"role": "user", "content": "Review this plan."}]
 
 

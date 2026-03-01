@@ -28,6 +28,15 @@ description: >
 # All network I/O lives in clients/ (plan_reviewer_gemini_client.py,
 # plan_reviewer_z_ai_client.py) and is injected.
 # =============================================================================
+input_model:
+  name: "ModelPlanReviewerMultiInput"
+  module: "omniintelligence.nodes.node_plan_reviewer_multi_compute.models"
+  description: "Input containing plan text, review strategy, and model selection."
+output_model:
+  name: "ModelPlanReviewerMultiOutput"
+  module: "omniintelligence.nodes.node_plan_reviewer_multi_compute.models"
+  description: "Output containing deduplicated findings with confidence scores."
+
 environment:
   # -----------------------------------------------------------------------
   # Gemini Flash (plan_reviewer_gemini_client.py)
