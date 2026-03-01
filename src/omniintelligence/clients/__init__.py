@@ -15,10 +15,34 @@ from omniintelligence.clients.embedding_client import (
     EmbeddingConnectionError,
     EmbeddingTimeoutError,
 )
+from omniintelligence.clients.plan_reviewer_gemini_client import (
+    ModelPlanReviewerGeminiConfig,
+    PlanReviewerGeminiAuthError,
+    PlanReviewerGeminiClient,
+    PlanReviewerGeminiClientError,
+    PlanReviewerGeminiTimeoutError,
+)
+from omniintelligence.clients.plan_reviewer_z_ai_client import (
+    ModelPlanReviewerZAIConfig,
+    PlanReviewerZAIAuthError,
+    PlanReviewerZAIClient,
+    PlanReviewerZAIClientError,
+    PlanReviewerZAITimeoutError,
+)
 
 __all__ = [
     "EmbeddingClient",
     "EmbeddingClientError",
     "EmbeddingConnectionError",
     "EmbeddingTimeoutError",
+    "ModelPlanReviewerGeminiConfig",
+    "ModelPlanReviewerZAIConfig",
+    "PlanReviewerGeminiAuthError",
+    "PlanReviewerGeminiClient",
+    "PlanReviewerGeminiClientError",
+    "PlanReviewerGeminiTimeoutError",
+    "PlanReviewerZAIAuthError",
+    "PlanReviewerZAIClient",
+    "PlanReviewerZAIClientError",
+    "PlanReviewerZAITimeoutError",
 ]

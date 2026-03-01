@@ -1,0 +1,84 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# =============================================================================
+# IDENTIFIERS
+# =============================================================================
+name: "node_plan_reviewer_multi_compute"
+contract_version: {major: 1, minor: 0, patch: 0}
+node_version: {major: 1, minor: 0, patch: 0}
+node_type: "COMPUTE_GENERIC"
+
+# =============================================================================
+# DESCRIPTION
+# =============================================================================
+description: >
+  Multi-LLM plan reviewer compute node.  Evaluates plans against multiple
+  language model reviewers (Qwen3-Coder, DeepSeek-R1, Gemini Flash, GLM-4)
+  using configurable review strategies (panel_vote, specialist_split,
+  sequential_critique, independent_merge).  Results are persisted to the
+  plan_reviewer_strategy_runs and plan_reviewer_model_accuracy tables
+  (migration 020).
+
+# =============================================================================
+# ENVIRONMENT CONFIGURATION
+# =============================================================================
+# All values below must be provided at runtime via environment variables or
+# Infisical (see omnibase_infra docs).  Nodes receive these values via
+# constructor injection — never via os.getenv() inside handlers.
+#
+# ARCH-002: httpx and os.environ are FORBIDDEN inside nodes/ and handlers/.
+# All network I/O lives in clients/ (plan_reviewer_gemini_client.py,
+# plan_reviewer_z_ai_client.py) and is injected.
+# =============================================================================
+environment:
+  # -----------------------------------------------------------------------
+  # Gemini Flash (plan_reviewer_gemini_client.py)
+  # -----------------------------------------------------------------------
+  - key: GEMINI_API_KEY
+    description: >
+      Google API key with Generative Language access.
+      Used by PlanReviewerGeminiClient to authenticate requests to the
+      Gemini 2.0 Flash OpenAI-compatible endpoint.
+    required: true
+    secret: true
+
+  # -----------------------------------------------------------------------
+  # Z.AI GLM-4 (plan_reviewer_z_ai_client.py)
+  # -----------------------------------------------------------------------
+  - key: Z_AI_API_KEY
+    description: >
+      Z.AI platform API key.
+      Used by PlanReviewerZAIClient to authenticate requests to the
+      GLM-4 OpenAI-compatible endpoint.
+    required: true
+    secret: true
+
+  - key: Z_AI_API_URL
+    description: >
+      Z.AI base URL for the chat completions endpoint.
+      Default: https://api.z.ai/api/paas/v4/chat/completions.
+      Override for custom deployments or staging environments.
+    required: false
+    default: "https://api.z.ai/api/paas/v4/chat/completions"
+    secret: false
+
+# =============================================================================
+# LLM CLIENTS (injected — not called directly inside the node)
+# =============================================================================
+# Each model corresponds to a value in EnumReviewModel (migration 020).
+# Clients are instantiated externally and injected into the node/handler.
+#
+# | EnumReviewModel  | Client class                 | Env vars         |
+# |------------------|------------------------------|------------------|
+# | qwen3-coder      | (existing vLLM client)       | LLM_CODER_URL    |
+# | deepseek-r1      | (existing vLLM client)       | LLM_DEEPSEEK_R1_URL |
+# | gemini-flash     | PlanReviewerGeminiClient     | GEMINI_API_KEY   |
+# | glm-4            | PlanReviewerZAIClient        | Z_AI_API_KEY     |
+# =============================================================================
+
+# =============================================================================
+# TICKETS
+# =============================================================================
+# OMN-3282 — parent epic
+# OMN-3284 — Phase 1: DB migration 020 + EnumReviewStrategy/EnumReviewModel
+# OMN-3286 — Phase 2: LLM client adapters (this contract)
