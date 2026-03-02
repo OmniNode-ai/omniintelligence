@@ -1,0 +1,26 @@
+{
+  "node_id": "node_pattern_storage_effect",
+  "ticket_id": "OMN-3382",
+  "input": {
+    "topic": "onex.evt.omniintelligence.pattern-learned.v1",
+    "fixture": {
+      "pattern_signature": "Functions should have docstrings for documentation compliance",
+      "domain_id": "code_quality",
+      "confidence": 0.85,
+      "source_session_id": "00000000-0000-0000-0000-000000000001",
+      "correlation_id": "00000000-0000-0000-0000-000000000002"
+    }
+  },
+  "output": {
+    "topic": "onex.evt.omniintelligence.pattern-stored.v1"
+  },
+  "timeout_ms": 10000,
+  "assertions": [
+    {
+      "field": "status",
+      "op": "in",
+      "expected": ["stored", "duplicate", "error"]
+    }
+  ],
+  "schema_name": "omniintelligence.nodes.node_pattern_storage_effect.models.ModelPatternStoredEvent"
+}
