@@ -1,0 +1,25 @@
+{
+  "node_id": "node_pattern_feedback_effect",
+  "ticket_id": "OMN-3380",
+  "input": {
+    "topic": "onex.cmd.omniintelligence.session-outcome.v1",
+    "fixture": {
+      "session_id": "00000000-0000-0000-0000-000000000001",
+      "outcome": "success",
+      "error": null,
+      "correlation_id": "00000000-0000-0000-0000-000000000002"
+    }
+  },
+  "output": {
+    "topic": null
+  },
+  "timeout_ms": 10000,
+  "assertions": [
+    {
+      "field": "status",
+      "op": "in",
+      "expected": ["success", "no_injections_found", "already_recorded", "error"]
+    }
+  ],
+  "schema_name": "omniintelligence.nodes.node_pattern_feedback_effect.models.model_output.ModelSessionOutcomeResult"
+}

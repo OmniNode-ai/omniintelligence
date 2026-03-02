@@ -172,6 +172,14 @@ event_bus:
     "onex.cmd.omniintelligence.session-outcome.v1":
       schema_ref: "omnibase_core.integrations.claude_code.ClaudeSessionOutcome"
       description: "Session outcome events from omniclaude SessionEnd hook"
+      # Cross-repo topic: published by omniclaude hooks (handler_event_emitter.py,
+      # TopicBase.SESSION_OUTCOME_CMD). No publisher registration in omniintelligence
+      # contracts is expected — this is intentional cross-repo command routing.
+      # Reference: omniclaude/src/omniclaude/hooks/topics.py (OMN-3380)
+      external_publisher:
+        repo: "omniclaude"
+        module: "omniclaude.hooks.handler_event_emitter"
+        topic_constant: "TopicBase.SESSION_OUTCOME_CMD"
 
 # =============================================================================
 # CAPABILITIES
