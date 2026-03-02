@@ -1,0 +1,54 @@
+{
+  "node_id": "node_compliance_evaluate_effect",
+  "ticket_id": "OMN-3391",
+  "input": {
+    "topic": "onex.cmd.omniintelligence.compliance-evaluate.v1",
+    "fixture": {
+      "source_path": "src/omniintelligence/nodes/node_compliance_evaluate_effect/node.py",
+      "content": "def example_function():\n    pass\n",
+      "content_sha256": "10173d7eba02e0ec158319bbddcad970f4f35aad25bf3ec2babe7f3249d67283",
+      "language": "python",
+      "applicable_patterns": [
+        {
+          "pattern_id": "pattern-golden-path-test-001",
+          "pattern_signature": "Functions should have docstrings for documentation compliance",
+          "domain_id": "code_quality",
+          "confidence": 0.95
+        }
+      ],
+      "session_id": "golden-path-test-session"
+    }
+  },
+  "output": {
+    "topic": "onex.evt.omniintelligence.compliance-evaluated.v1"
+  },
+  "timeout_ms": 30000,
+  "assertions": [
+    {
+      "field": "event_type",
+      "op": "eq",
+      "expected": "ComplianceEvaluated"
+    },
+    {
+      "field": "status",
+      "op": "in",
+      "expected": ["completed", "llm_error", "parse_error"]
+    },
+    {
+      "field": "source_path",
+      "op": "eq",
+      "expected": "src/omniintelligence/nodes/node_compliance_evaluate_effect/node.py"
+    },
+    {
+      "field": "content_sha256",
+      "op": "eq",
+      "expected": "10173d7eba02e0ec158319bbddcad970f4f35aad25bf3ec2babe7f3249d67283"
+    },
+    {
+      "field": "language",
+      "op": "eq",
+      "expected": "python"
+    }
+  ],
+  "schema_name": "omniintelligence.nodes.node_compliance_evaluate_effect.models.model_compliance_evaluated_event.ModelComplianceEvaluatedEvent"
+}
