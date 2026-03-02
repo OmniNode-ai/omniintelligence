@@ -167,6 +167,14 @@ event_bus:
     "onex.evt.omniclaude.llm-routing-decision.v1":
       schema_ref: "omniintelligence.nodes.node_llm_routing_decision_effect.models.ModelLlmRoutingDecisionEvent"
       description: "LLM routing decision events from omniclaude's Bifrost LLM gateway"
+      # Cross-repo topic: published by omniclaude UserPromptSubmit hook routing wrapper.
+      # No publisher registration in omniintelligence contracts is expected —
+      # this is intentional cross-repo event flow from omniclaude's LLM routing pipeline.
+      # Reference: omniclaude/plugins/onex/hooks/lib/route_via_events_wrapper.py TopicBase.LLM_ROUTING_DECISION (OMN-3379)
+      external_publisher:
+        repo: "omniclaude"
+        module: "omniclaude.hooks.route_via_events_wrapper"
+        topic_constant: "TopicBase.LLM_ROUTING_DECISION"
 
   publish_topic_metadata:
     "onex.evt.omniintelligence.llm-routing-decision-processed.v1":
