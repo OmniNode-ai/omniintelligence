@@ -114,6 +114,8 @@ ALLOWED_ROOT_DIRECTORIES: frozenset[str] = frozenset(
         "bin",
         # ML/AI label stores (versioned, PR-reviewed — e.g. intent_classes_v1.yaml)
         "labels",
+        # Golden path fixture declarations (OMN-3386)
+        "_golden_path_validate",
         # Hidden directories
         ".git",
         ".github",
