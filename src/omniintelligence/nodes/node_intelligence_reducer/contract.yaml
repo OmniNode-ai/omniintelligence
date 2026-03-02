@@ -590,8 +590,19 @@ event_bus:
   subscribe_topics:
     - "onex.evt.intent.outcome.labeled.v1"
 
-  # Reducers do not publish to Kafka — they emit intents for the orchestrator
-  publish_topics: []
+  # This reducer publishes one Kafka event: onex.evt.intent.pattern.promoted.v1
+  # emitted via the FSM entry_action "emit_pattern_promoted_event" when a pattern
+  # transitions to the "validated" state. All other intents are sent to the orchestrator.
+  publish_topics:
+    - "onex.evt.intent.pattern.promoted.v1"
+
+  publish_topic_metadata:
+    "onex.evt.intent.pattern.promoted.v1":
+      schema_ref: "omniintelligence.models.events.model_intent_event_envelopes.ModelIntentPatternPromotedEnvelope"
+      description: "Intent-derived pattern promoted to learned-patterns corpus. Emitted by FSM entry_action
+        emit_pattern_promoted_event when pattern transitions to 'validated' state. Consumed by node_pattern_projection_effect
+        to trigger projection rebuild."
+      content_type: "application/json"
 
   subscribe_topic_metadata:
     "onex.evt.intent.outcome.labeled.v1":
