@@ -1,0 +1,18 @@
+{
+  "node_id": "node_watchdog_effect",
+  "ticket_id": "OMN-3400",
+  "_note": "Watchdog node with subscribe_topics: []. Triggered by filesystem events (inotify), not Kafka input. Fixture uses a synthetic crawl-requested event on the output topic. Expected: this node is tested via its scheduled filesystem polling; output topic assertion validates the crawl-requested format.",
+  "input": {
+    "topic": "onex.cmd.omnimemory.crawl-requested.v1",
+    "fixture": {
+      "event_type": "crawl-requested.v1",
+      "crawl_scope": "omninode/test-golden-path",
+      "trigger_source": "watchdog"
+    }
+  },
+  "output": {
+    "topic": "onex.cmd.omnimemory.crawl-requested.v1"
+  },
+  "timeout_ms": 3000,
+  "assertions": []
+}
