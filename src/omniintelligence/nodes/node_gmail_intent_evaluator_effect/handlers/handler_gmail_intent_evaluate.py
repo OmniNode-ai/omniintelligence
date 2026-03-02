@@ -494,7 +494,7 @@ async def _post_to_slack(
             Injecting a notifier enables testing without the concrete impl.
     """
     bot_token = os.environ.get("SLACK_BOT_TOKEN", "")
-    default_channel = os.environ.get("SLACK_DEFAULT_CHANNEL", "#ai-signals")
+    default_channel = os.environ.get("SLACK_DEFAULT_CHANNEL", "#omninode-notifications")
 
     url_label = f"<{selected_url}|{config.subject}>" if selected_url else config.subject
 
