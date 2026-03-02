@@ -21,6 +21,9 @@ from omniintelligence.nodes.node_plan_reviewer_multi_compute.models.model_plan_r
     PlanReviewFinding,
     PlanReviewFindingWithConfidence,
 )
+from omniintelligence.nodes.node_plan_reviewer_multi_compute.models.model_plan_review_strategy_run_completed_event import (
+    ModelPlanReviewStrategyRunCompletedEvent,
+)
 from omniintelligence.nodes.node_plan_reviewer_multi_compute.models.model_plan_reviewer_multi_input import (
     ModelPlanReviewerMultiCommand,
 )
@@ -32,6 +35,7 @@ __all__ = [
     "EnumPlanReviewCategory",
     "EnumReviewModel",
     "EnumReviewStrategy",
+    "ModelPlanReviewStrategyRunCompletedEvent",
     "ModelPlanReviewerMultiCommand",
     "ModelPlanReviewerMultiOutput",
     "PlanReviewFinding",

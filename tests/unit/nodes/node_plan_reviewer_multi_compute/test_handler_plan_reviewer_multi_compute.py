@@ -283,3 +283,84 @@ async def test_no_db_conn_strategy_run_stored_false() -> None:
     output = await handle_plan_reviewer_multi_compute(cmd, callers, db_conn=None)
     assert output.strategy_run_stored is False
     assert isinstance(output.findings, list)
+
+
+# ---------------------------------------------------------------------------
+# Kafka emit behavior (OMN-3323)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_kafka_emit_called_with_correct_topic_and_key() -> None:
+    """producer.publish is called with the correct topic and key=run_id."""
+    from unittest.mock import AsyncMock
+
+    from omniintelligence.constants import TOPIC_PLAN_REVIEW_STRATEGY_RUN_COMPLETED_V1
+
+    callers = _make_callers()
+    producer = AsyncMock()
+    producer.publish = AsyncMock()
+    cmd = ModelPlanReviewerMultiCommand(plan_text=_PLAN, run_id="OMN-3323-test")
+    await handle_plan_reviewer_multi_compute(cmd, callers, producer=producer)
+
+    producer.publish.assert_awaited_once()
+    call_kwargs = producer.publish.call_args
+    assert call_kwargs.kwargs["topic"] == TOPIC_PLAN_REVIEW_STRATEGY_RUN_COMPLETED_V1
+    assert call_kwargs.kwargs["key"] == "OMN-3323-test"
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_kafka_emit_skipped_when_producer_none() -> None:
+    """producer=None → no exception raised, handler returns normally."""
+    callers = _make_callers()
+    cmd = ModelPlanReviewerMultiCommand(plan_text=_PLAN)
+    # Should not raise — producer=None is the default and must be a no-op.
+    output = await handle_plan_reviewer_multi_compute(cmd, callers, producer=None)
+    assert isinstance(output.findings, list)
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_kafka_emit_failure_does_not_raise() -> None:
+    """producer.publish raises an exception → handler still returns result, only logs warning."""
+    from unittest.mock import AsyncMock
+
+    callers = _make_callers()
+    producer = AsyncMock()
+    producer.publish = AsyncMock(side_effect=RuntimeError("Kafka unavailable"))
+    cmd = ModelPlanReviewerMultiCommand(plan_text=_PLAN)
+    # Must NOT raise despite publish failing.
+    output = await handle_plan_reviewer_multi_compute(cmd, callers, producer=producer)
+    assert isinstance(output.findings, list)
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_kafka_event_fields_event_id_and_node_id() -> None:
+    """event_id is a valid UUID string and node_id == 'node_plan_reviewer_multi_compute'."""
+    import uuid
+    from unittest.mock import AsyncMock
+
+    callers = _make_callers()
+    captured: list[dict] = []  # type: ignore[type-arg]
+
+    async def capture_publish(
+        *,
+        topic: str,  # noqa: ARG001
+        key: str,  # noqa: ARG001
+        value: dict,  # type: ignore[type-arg]
+    ) -> None:
+        captured.append(value)
+
+    producer = AsyncMock()
+    producer.publish = AsyncMock(side_effect=capture_publish)
+    cmd = ModelPlanReviewerMultiCommand(plan_text=_PLAN, run_id="test-run")
+    await handle_plan_reviewer_multi_compute(cmd, callers, producer=producer)
+
+    assert len(captured) == 1
+    payload = captured[0]
+    # event_id must be a valid UUID string
+    uuid.UUID(payload["event_id"])  # raises ValueError if invalid
+    assert payload["node_id"] == "node_plan_reviewer_multi_compute"

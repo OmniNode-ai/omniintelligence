@@ -81,6 +81,22 @@ environment:
 # =============================================================================
 
 # =============================================================================
+# EVENT BUS
+# =============================================================================
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  event_bus_enabled: true
+  publish_topics:
+    - "onex.evt.omniintelligence.plan-review-strategy-run-completed.v1"
+  publish_topic_metadata:
+    "onex.evt.omniintelligence.plan-review-strategy-run-completed.v1":
+      schema_ref: "omniintelligence.nodes.node_plan_reviewer_multi_compute.models.ModelPlanReviewStrategyRunCompletedEvent"
+      description: "One event per strategy run — findings, confidence, model weights snapshot"
+
+# =============================================================================
 # TICKETS
 # =============================================================================
 # OMN-3282 — parent epic
@@ -88,3 +104,4 @@ environment:
 # OMN-3286 — Phase 2: LLM client adapters (this contract)
 # OMN-3288 — Phase 3: Strategy handlers S1-S4
 # OMN-3290 — Phase 4: Main handler + confidence scorer + DB write (this)
+# OMN-3323 — Phase 5: Kafka event emission (this)

@@ -267,6 +267,15 @@ Reference: OMN-2578
 Deletion ticket: OMN-1546
 """
 
+# Mirror of contract.yaml publish_topics — canonical source is contract.yaml
+TOPIC_PLAN_REVIEW_STRATEGY_RUN_COMPLETED_V1: str = (
+    "onex.evt.omniintelligence.plan-review-strategy-run-completed.v1"
+)
+"""Emitted once per strategy run from node_plan_reviewer_multi_compute.
+Canonical declaration: nodes/node_plan_reviewer_multi_compute/contract.yaml
+Reference: OMN-3282
+"""
+
 # =============================================================================
 # Exports
 # =============================================================================
@@ -276,6 +285,7 @@ __all__ = [
     "PERCENTAGE_MULTIPLIER",
     "TOPIC_PATTERN_LIFECYCLE_CMD_V1",
     "TOPIC_LLM_ROUTING_DECISION_PROCESSED",
+    "TOPIC_PLAN_REVIEW_STRATEGY_RUN_COMPLETED_V1",
     "TOPIC_ROUTING_FEEDBACK_PROCESSED",
     "TOPIC_RUN_EVALUATED_V1",
     "TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1",
