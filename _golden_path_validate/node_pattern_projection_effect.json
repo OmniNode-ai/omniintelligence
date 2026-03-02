@@ -1,0 +1,32 @@
+{
+  "node_id": "node_pattern_projection_effect",
+  "ticket_id": "OMN-3398",
+  "input": {
+    "topic": "onex.evt.omniintelligence.pattern-promoted.v1",
+    "fixture": {
+      "event_type": "PatternPromoted",
+      "pattern_id": "00000000-0000-0000-0000-000000000001",
+      "pattern_signature": "golden-path-test-signature",
+      "domain": "code_quality",
+      "confidence": 0.85,
+      "promoted_at": "2026-03-02T18:00:00Z"
+    }
+  },
+  "output": {
+    "topic": "onex.evt.omniintelligence.pattern-projection.v1"
+  },
+  "timeout_ms": 15000,
+  "assertions": [
+    {
+      "field": "event_type",
+      "op": "eq",
+      "expected": "PatternProjection"
+    },
+    {
+      "field": "total_count",
+      "op": "gte",
+      "expected": 0
+    }
+  ],
+  "schema_name": "omniintelligence.models.events.model_pattern_projection_event.ModelPatternProjectionEvent"
+}
