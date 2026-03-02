@@ -77,6 +77,14 @@ event_bus:
         Compliance evaluation commands from omniclaude PostToolUse hook (OMN-2256, PR #161). Payload includes
         source_path, content, language, applicable_patterns, and a content_sha256 fingerprint for idempotency
         keying. #magic___^_^___line
+      # Cross-repo topic: published by omniclaude PostToolUse hook handler.
+      # No publisher registration in omniintelligence contracts is expected —
+      # this is intentional cross-repo command routing from omniclaude.
+      # Reference: omniclaude/src/omniclaude/hooks/topics.py TopicBase.COMPLIANCE_EVALUATE (OMN-3375)
+      external_publisher:
+        repo: "omniclaude"
+        module: "omniclaude.hooks.handler_event_emitter"
+        topic_constant: "TopicBase.COMPLIANCE_EVALUATE"
   publish_topic_metadata:
     "onex.evt.omniintelligence.compliance-evaluated.v1":
       schema_ref: "omniintelligence.nodes.node_compliance_evaluate_effect.models.ModelComplianceEvaluatedEvent"
