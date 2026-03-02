@@ -1,0 +1,25 @@
+{
+  "node_id": "node_pattern_learning_effect",
+  "ticket_id": "OMN-3397",
+  "input": {
+    "topic": "onex.cmd.omniintelligence.pattern-learning.v1",
+    "fixture": {
+      "event_type": "PatternLearningRequested",
+      "session_id": "golden-path-test-session",
+      "trigger": "session_stop",
+      "timestamp": "2026-03-02T18:00:00Z"
+    }
+  },
+  "output": {
+    "topic": "onex.evt.omniintelligence.pattern-learned.v1"
+  },
+  "timeout_ms": 30000,
+  "assertions": [
+    {
+      "field": "signature",
+      "op": "in",
+      "expected": ["string"]
+    }
+  ],
+  "schema_name": "omniintelligence.nodes.node_pattern_storage_effect.models.ModelPatternStorageInput"
+}
