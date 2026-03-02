@@ -1,0 +1,23 @@
+{
+  "node_id": "node_git_repo_crawler_effect",
+  "ticket_id": "OMN-3393",
+  "input": {
+    "topic": "onex.cmd.omnimemory.crawl-tick.v1",
+    "fixture": {
+      "repo_path": "/tmp/golden-path-test-repo",
+      "trigger_source": "golden-path-test"
+    }
+  },
+  "output": {
+    "topic": "onex.evt.omnimemory.document-discovered.v1"
+  },
+  "timeout_ms": 15000,
+  "assertions": [
+    {
+      "field": "event_type",
+      "op": "in",
+      "expected": ["document.discovered.v1", "document.changed.v1", "document.removed.v1"]
+    }
+  ],
+  "schema_name": null
+}
