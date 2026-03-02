@@ -1,0 +1,40 @@
+{
+  "node_id": "node_llm_routing_decision_effect",
+  "ticket_id": "OMN-3396",
+  "input": {
+    "topic": "onex.evt.omniclaude.llm-routing-decision.v1",
+    "fixture": {
+      "event_name": "llm.routing.decision",
+      "session_id": "golden-path-test-session",
+      "selected_agent": "onex:polymorphic-agent",
+      "llm_confidence": 0.92,
+      "llm_latency_ms": 150,
+      "fallback_used": false,
+      "model_used": "claude-sonnet-4-6",
+      "routing_prompt_version": "1.0.0",
+      "agreement": true
+    }
+  },
+  "output": {
+    "topic": "onex.evt.omniintelligence.llm-routing-decision-processed.v1"
+  },
+  "timeout_ms": 15000,
+  "assertions": [
+    {
+      "field": "session_id",
+      "op": "eq",
+      "expected": "golden-path-test-session"
+    },
+    {
+      "field": "selected_agent",
+      "op": "eq",
+      "expected": "onex:polymorphic-agent"
+    },
+    {
+      "field": "was_upserted",
+      "op": "in",
+      "expected": [true, false]
+    }
+  ],
+  "schema_name": "omniintelligence.nodes.node_llm_routing_decision_effect.models.ModelLlmRoutingDecisionResult"
+}
