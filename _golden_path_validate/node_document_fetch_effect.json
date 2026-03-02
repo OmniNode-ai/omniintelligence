@@ -1,0 +1,35 @@
+{
+  "node_id": "node_document_fetch_effect",
+  "ticket_id": "OMN-3392",
+  "input": {
+    "topic": "onex.evt.omnimemory.document-discovered.v1",
+    "fixture": {
+      "source_ref": "/nonexistent/golden-path-test-document.md",
+      "crawler_type": "filesystem",
+      "crawl_scope": "omninode/test-golden-path",
+      "event_type": "document.discovered.v1"
+    }
+  },
+  "output": {
+    "topic": "onex.evt.omnimemory.document-removed.v1"
+  },
+  "timeout_ms": 15000,
+  "assertions": [
+    {
+      "field": "event_type",
+      "op": "eq",
+      "expected": "document.removed.v1"
+    },
+    {
+      "field": "source_ref",
+      "op": "eq",
+      "expected": "/nonexistent/golden-path-test-document.md"
+    },
+    {
+      "field": "crawl_scope",
+      "op": "eq",
+      "expected": "omninode/test-golden-path"
+    }
+  ],
+  "schema_name": "omniintelligence.nodes.node_document_fetch_effect.models.model_document_fetch_output.ModelDocumentRemovedEvent"
+}
