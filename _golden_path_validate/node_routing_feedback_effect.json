@@ -1,0 +1,27 @@
+{
+  "node_id": "node_routing_feedback_effect",
+  "ticket_id": "OMN-3383",
+  "input": {
+    "topic": "onex.evt.omniclaude.routing-feedback.v1",
+    "fixture": {
+      "session_id": "golden-path-test-session-routing",
+      "outcome": "success",
+      "feedback_status": "produced",
+      "skip_reason": null,
+      "correlation_id": "00000000-0000-0000-0000-000000000001",
+      "emitted_at": "2026-03-02T00:00:00+00:00"
+    }
+  },
+  "output": {
+    "topic": "onex.evt.omniintelligence.routing-feedback-processed.v1"
+  },
+  "timeout_ms": 10000,
+  "assertions": [
+    {
+      "field": "status",
+      "op": "in",
+      "expected": ["success", "error"]
+    }
+  ],
+  "schema_name": "omniintelligence.nodes.node_routing_feedback_effect.models.model_routing_feedback_result.ModelRoutingFeedbackResult"
+}

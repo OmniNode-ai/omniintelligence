@@ -166,6 +166,14 @@ event_bus:
     "onex.evt.omniclaude.routing-feedback.v1":
       schema_ref: "omniintelligence.nodes.node_routing_feedback_effect.models.ModelRoutingFeedbackPayload"
       description: "Routing-feedback events from omniclaude (OMN-2622: includes feedback_status field)"
+      # Cross-repo topic: published by omniclaude hooks (event_registry.py,
+      # TopicBase.ROUTING_FEEDBACK). No publisher registration in omniintelligence
+      # contracts is expected — this is intentional cross-repo event routing.
+      # Reference: omniclaude/src/omniclaude/hooks/topics.py (OMN-3383)
+      external_publisher:
+        repo: "omniclaude"
+        module: "omniclaude.hooks.event_registry"
+        topic_constant: "TopicBase.ROUTING_FEEDBACK"
 
   publish_topic_metadata:
     "onex.evt.omniintelligence.routing-feedback-processed.v1":
