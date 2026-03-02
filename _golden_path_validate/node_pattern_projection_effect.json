@@ -2,7 +2,7 @@
   "node_id": "node_pattern_projection_effect",
   "ticket_id": "OMN-3398",
   "input": {
-    "topic": "onex.evt.omniintelligence.pattern-promoted.v1",
+    "topic": "onex.evt.intent.pattern.promoted.v1",
     "fixture": {
       "event_type": "PatternPromoted",
       "pattern_id": "00000000-0000-0000-0000-000000000001",
