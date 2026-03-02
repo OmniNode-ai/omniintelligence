@@ -278,6 +278,17 @@ event_bus:
       description: "Pattern discovery events from external systems (e.g., omniclaude). Contains pattern
         signature, domain, confidence, and source session metadata."
       content_type: "application/json"
+      # Multi-producer topic: producer segment intentionally omitted from topic name (OMN-2059).
+      # Published by any external system that discovers patterns — omniclaude PostToolUse hooks,
+      # CLI tools, git post-commit hooks. No single registered publisher in omniintelligence
+      # contracts is expected — this is a domain-level cross-boundary event by design.
+      # Reference: src/omniintelligence/models/events/model_pattern_discovered_event.py (OMN-3382)
+      external_publisher:
+        multi_producer: true
+        known_producers:
+          - repo: "omniclaude"
+            module: "omniclaude.hooks.handler_event_emitter"
+            description: "PostToolUse hook discovers patterns during code analysis sessions"
 
   # Metadata for published topics
   publish_topic_metadata:
