@@ -164,6 +164,14 @@ event_bus:
     "onex.evt.omniclaude.pattern-enforcement.v1":
       schema_ref: "omniintelligence.nodes.node_enforcement_feedback_effect.models.ModelEnforcementEvent"
       description: "Pattern enforcement events from omniclaude PostToolUse hook"
+      # Cross-repo topic: published by omniclaude PostToolUse hook quality enforcer.
+      # No publisher registration in omniintelligence contracts is expected —
+      # this is intentional cross-repo event flow from omniclaude.
+      # Reference: omniclaude/src/omniclaude/lib/utils/quality_enforcer.py TopicBase.PATTERN_ENFORCEMENT (OMN-3376)
+      external_publisher:
+        repo: "omniclaude"
+        module: "omniclaude.lib.utils.quality_enforcer"
+        topic_constant: "TopicBase.PATTERN_ENFORCEMENT"
 
 # =============================================================================
 # IDEMPOTENCY
