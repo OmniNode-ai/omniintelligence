@@ -1,0 +1,22 @@
+{
+  "node_id": "node_intelligence_reducer",
+  "ticket_id": "OMN-3394",
+  "_note": "Reducer node with publish_topics: []. No Kafka output event is published. Fixture uses timeout to verify the node consumes without crashing. Expected status: timeout.",
+  "input": {
+    "topic": "onex.evt.intent.outcome.labeled.v1",
+    "fixture": {
+      "event_type": "IntentOutcomeLabeled",
+      "session_id": "golden-path-test-session",
+      "correlation_id": "00000000-0000-0000-0000-000000000001",
+      "intent_class": "COMPUTATION",
+      "success": true,
+      "cost_usd": 0.001,
+      "emitted_at": "2026-03-02T18:00:00+00:00"
+    }
+  },
+  "output": {
+    "topic": "onex.evt.intent.outcome.labeled.v1"
+  },
+  "timeout_ms": 3000,
+  "assertions": []
+}
