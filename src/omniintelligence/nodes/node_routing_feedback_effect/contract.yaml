@@ -39,8 +39,10 @@ description: >
   Effect node for processing routing-feedback events from omniclaude. Consumes onex.evt.omniclaude.routing-feedback.v1
   events, filters on feedback_status ("produced" = persist to DB, "skipped" = log only). Upserts idempotent
   records to routing_feedback_scores table using session_id as the idempotency key. Publishes onex.evt.omniintelligence.routing-feedback-processed.v1
-  after successful upsert. OMN-2622: Switched from routing-outcome-raw.v1 (deprecated); routing-feedback-skipped.v1
-  folded into routing-feedback.v1 via feedback_status field.
+  after successful upsert. Also publishes onex.evt.intent.outcome.labeled.v1 to wire the intent pipeline
+  output side (OMN-2938), consumed by node_intelligence_reducer to drive FSM state transitions for intent
+  tracking. OMN-2622: Switched from routing-outcome-raw.v1 (deprecated); routing-feedback-skipped.v1 folded
+  into routing-feedback.v1 via feedback_status field.
 # =============================================================================
 # I/O MODELS
 # =============================================================================
@@ -161,6 +163,7 @@ event_bus:
 
   publish_topics:
     - "onex.evt.omniintelligence.routing-feedback-processed.v1"
+    - "onex.evt.intent.outcome.labeled.v1"
 
   subscribe_topic_metadata:
     "onex.evt.omniclaude.routing-feedback.v1":
@@ -179,6 +182,12 @@ event_bus:
     "onex.evt.omniintelligence.routing-feedback-processed.v1":
       schema_ref: "omniintelligence.nodes.node_routing_feedback_effect.models.ModelRoutingFeedbackProcessedEvent"
       description: "Routing feedback processed confirmation events"
+    "onex.evt.intent.outcome.labeled.v1":
+      schema_ref: "omniintelligence.models.events.model_intent_event_envelopes.ModelIntentOutcomeLabeledEnvelope"
+      description: "Intent outcome labeled event emitted after a routing-feedback event with feedback_status='produced'
+        is processed. Consumed by node_intelligence_reducer to drive FSM state transitions for intent
+        tracking (OMN-2938)."
+      content_type: "application/json"
 
 # =============================================================================
 # IDEMPOTENCY
@@ -211,7 +220,7 @@ metadata:
   author: "OmniNode Team"
   license: "MIT"
   created: "2026-02-20"
-  updated: "2026-02-28"
+  updated: "2026-03-02"
   tags:
     - effect
     - routing-feedback
