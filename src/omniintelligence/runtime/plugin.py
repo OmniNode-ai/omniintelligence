@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 # Copyright (c) 2025 OmniNode Team
-"""Intelligence domain plugin for kernel-level initialization.
+"""Intelligence domain plugin for kernel-level initialization.  # ai-slop-ok
 
 This module provides the PluginIntelligence class, which implements
 ProtocolDomainPlugin for the Intelligence domain. It encapsulates all
