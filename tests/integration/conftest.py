@@ -51,6 +51,18 @@ import pytest_asyncio
 # =============================================================================
 
 
+def _refresh_kafka_runtime_state() -> None:
+    """Re-evaluate module-level Kafka globals from the current environment.
+
+    Called after mutating KAFKA_BOOTSTRAP_SERVERS in pytest_configure /
+    pytest_unconfigure so that skip markers and fixtures see the correct
+    server address rather than the stale value captured at import time.
+    """
+    global KAFKA_BOOTSTRAP_SERVERS, KAFKA_AVAILABLE
+    KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:19092")
+    KAFKA_AVAILABLE = is_kafka_available()
+
+
 def pytest_configure(config: pytest.Config) -> None:
     """Force bus_local Kafka config for all integration tests in this process."""
     _prev_servers = os.environ.get("KAFKA_BOOTSTRAP_SERVERS")
@@ -58,6 +70,7 @@ def pytest_configure(config: pytest.Config) -> None:
     os.environ["KAFKA_BOOTSTRAP_SERVERS"] = "localhost:19092"
     os.environ["KAFKA_BROKER_ALLOWLIST"] = "localhost:19092,127.0.0.1:19092"
     config._kafka_isolation_prev = (_prev_servers, _prev_allowlist)  # type: ignore[attr-defined]
+    _refresh_kafka_runtime_state()
 
 
 def pytest_unconfigure(config: pytest.Config) -> None:
@@ -72,6 +85,7 @@ def pytest_unconfigure(config: pytest.Config) -> None:
         os.environ.pop("KAFKA_BROKER_ALLOWLIST", None)
     else:
         os.environ["KAFKA_BROKER_ALLOWLIST"] = _prev_allowlist
+    _refresh_kafka_runtime_state()
 
 
 if TYPE_CHECKING:
@@ -219,7 +233,7 @@ def is_kafka_available(timeout: float = 2.0) -> bool:
             port = int(port_str)
         else:
             host = server
-            port = 9092
+            port = 19092  # bus_local default (OMN-3477)
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(timeout)
