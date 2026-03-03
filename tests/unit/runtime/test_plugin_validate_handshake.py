@@ -7,11 +7,13 @@
 Validates:
     - Raises RuntimeHostError when pool is None (initialize() did not run)
     - B1 failure path: DbOwnershipMismatchError propagates and appends check
+    - B1.5 check: RuntimeHostError raised when idempotency_records is absent (OMN-3531)
     - B2 failure path: SchemaFingerprintMismatchError propagates and appends check
     - Happy path: both checks pass, returns ModelHandshakeResult.all_passed()
 
 Related:
     - OMN-2435: omniintelligence missing boot-time handshake despite owning its own DB
+    - OMN-3531: Cross-repo boot dependency: clear error when idempotency_records missing
 """
 
 from __future__ import annotations
@@ -48,6 +50,8 @@ from omniintelligence.runtime.plugin import (
 _OWNERSHIP_PATH = "omniintelligence.runtime.plugin.validate_db_ownership"
 _FINGERPRINT_PATH = "omniintelligence.runtime.plugin.validate_schema_fingerprint"
 _COMPUTE_PATCH = "omniintelligence.runtime.plugin.compute_schema_fingerprint"
+# B1.5 check method -- patch at instance level via AsyncMock on the plugin object
+_CROSS_REPO_METHOD = "_check_cross_repo_tables"
 
 
 def _make_config() -> ModelDomainPluginConfig:
@@ -147,8 +151,9 @@ async def test_validate_handshake_b1_missing_raises_and_records_check() -> None:
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_validate_handshake_b2_mismatch_raises_and_records_check() -> None:
-    """B2 SchemaFingerprintMismatchError propagates after B1 passes and records check."""
+    """B2 SchemaFingerprintMismatchError propagates after B1 and B1.5 pass, records check."""
     plugin = _make_plugin_with_pool()
+    plugin._check_cross_repo_tables = AsyncMock(return_value=None)  # B1.5 passes
     config = _make_config()
 
     error = SchemaFingerprintMismatchError(
@@ -182,6 +187,7 @@ async def test_validate_handshake_b2_missing_auto_stamps_on_first_boot() -> None
     No exception is raised — first boot proceeds normally.
     """
     plugin = _make_plugin_with_pool()
+    plugin._check_cross_repo_tables = AsyncMock(return_value=None)  # B1.5 passes
     config = _make_config()
 
     error = SchemaFingerprintMissingError(
@@ -232,6 +238,7 @@ async def test_validate_handshake_b2_missing_auto_stamps_on_first_boot() -> None
 async def test_validate_handshake_auto_stamp_update_zero_rows_raises() -> None:
     """UPDATE 0 during auto-stamp raises RuntimeHostError and cleans up pool."""
     plugin = _make_plugin_with_pool()
+    plugin._check_cross_repo_tables = AsyncMock(return_value=None)  # B1.5 passes
     config = _make_config()
 
     error = SchemaFingerprintMissingError(
@@ -276,6 +283,7 @@ async def test_validate_handshake_auto_stamp_unexpected_error_propagates() -> No
     handshake error and propagates directly to the caller.
     """
     plugin = _make_plugin_with_pool()
+    plugin._check_cross_repo_tables = AsyncMock(return_value=None)  # B1.5 passes
     config = _make_config()
 
     missing_error = SchemaFingerprintMissingError(
@@ -300,8 +308,9 @@ async def test_validate_handshake_auto_stamp_unexpected_error_propagates() -> No
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_validate_handshake_happy_path_returns_all_passed() -> None:
-    """Both B1 and B2 pass: returns ModelHandshakeResult with all_passed()."""
+    """B1, B1.5, and B2 all pass: returns ModelHandshakeResult with all_passed()."""
     plugin = _make_plugin_with_pool()
+    plugin._check_cross_repo_tables = AsyncMock(return_value=None)  # B1.5 passes
     config = _make_config()
 
     with (
@@ -318,6 +327,68 @@ async def test_validate_handshake_happy_path_returns_all_passed() -> None:
     check_names = [c.check_name for c in result.checks]
     assert "db_ownership" in check_names
     assert "schema_fingerprint" in check_names
+    # B1.5 was called once
+    plugin._check_cross_repo_tables.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# B1.5: Cross-repo tables check (OMN-3531)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_check_cross_repo_tables_raises_when_idempotency_records_absent() -> None:
+    """_check_cross_repo_tables raises RuntimeHostError when idempotency_records is absent."""
+    plugin = _make_plugin_with_pool()
+    # Pool returns None (table not found in information_schema.tables)
+    plugin._pool.fetchrow = AsyncMock(return_value=None)  # type: ignore[attr-defined]
+
+    with pytest.raises(RuntimeHostError) as exc_info:
+        await plugin._check_cross_repo_tables(plugin._pool)
+
+    assert "idempotency_records" in str(exc_info.value)
+    assert "provision-cross-repo-tables.py" in str(exc_info.value)
+    assert "OMNIINTELLIGENCE_DB_URL" in str(exc_info.value)
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_check_cross_repo_tables_passes_when_idempotency_records_present() -> (
+    None
+):
+    """_check_cross_repo_tables returns without error when idempotency_records exists."""
+    plugin = _make_plugin_with_pool()
+    # Pool returns a row (table found)
+    plugin._pool.fetchrow = AsyncMock(return_value={"?column?": 1})  # type: ignore[attr-defined]
+
+    # Should not raise
+    await plugin._check_cross_repo_tables(plugin._pool)
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_validate_handshake_b1_5_missing_raises_before_b2() -> None:
+    """B1.5 RuntimeHostError raises before B2 schema fingerprint check when idempotency_records absent."""
+    plugin = _make_plugin_with_pool()
+    # B1.5 raises (cross-repo table missing)
+    cross_repo_error = RuntimeHostError(
+        "omniintelligence requires the 'idempotency_records' table to exist in the connected database"
+    )
+    plugin._check_cross_repo_tables = AsyncMock(side_effect=cross_repo_error)
+    config = _make_config()
+
+    mock_fingerprint = AsyncMock()
+    with (
+        patch(_OWNERSHIP_PATH, new=AsyncMock(return_value=None)),
+        patch(_FINGERPRINT_PATH, new=mock_fingerprint),
+    ):
+        with pytest.raises(RuntimeHostError) as exc_info:
+            await plugin.validate_handshake(config)
+
+    # B2 must not be attempted when B1.5 fails
+    mock_fingerprint.assert_not_called()
+    assert "idempotency_records" in str(exc_info.value)
 
 
 @pytest.mark.unit
@@ -424,6 +495,7 @@ async def test_validate_handshake_second_call_reruns_checks() -> None:
     both calls.  Re-running is idempotent when the checks continue to pass.
     """
     plugin = _make_plugin_with_pool()
+    plugin._check_cross_repo_tables = AsyncMock(return_value=None)  # B1.5 passes
     config = _make_config()
 
     with (
@@ -464,6 +536,7 @@ async def test_validate_handshake_auto_stamp_aborts_on_table_count_mismatch() ->
     pool is released.
     """
     plugin = _make_plugin_with_pool()
+    plugin._check_cross_repo_tables = AsyncMock(return_value=None)  # B1.5 passes
     config = _make_config()
 
     missing_error = SchemaFingerprintMissingError(
@@ -504,6 +577,7 @@ async def test_validate_handshake_auto_stamp_extra_tables_ok() -> None:
     table_count exceeds the manifest expectation.
     """
     plugin = _make_plugin_with_pool()
+    plugin._check_cross_repo_tables = AsyncMock(return_value=None)  # B1.5 passes
     config = _make_config()
 
     missing_error = SchemaFingerprintMissingError(

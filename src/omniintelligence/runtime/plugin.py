@@ -549,13 +549,17 @@ class PluginIntelligence:
         self,
         config: ModelDomainPluginConfig,
     ) -> ModelHandshakeResult:
-        """Run B1-B2 prerequisite checks before handler wiring.
+        """Run B1-B1.5-B2 prerequisite checks before handler wiring.
 
         Validates:
-            B1: Database ownership (OMN-2085) -- prevents operating on a
-                database owned by another service.
-            B2: Schema fingerprint (OMN-2087) -- prevents operating on a
-                database whose schema has drifted from what code expects.
+            B1:   Database ownership (OMN-2085) -- prevents operating on a
+                  database owned by another service.
+            B1.5: Cross-repo tables (OMN-3531) -- verifies that tables owned
+                  by omnibase_infra (e.g. idempotency_records) have been
+                  provisioned in this database.  Missing tables would cause an
+                  opaque SchemaFingerprintMismatchError in B2.
+            B2:   Schema fingerprint (OMN-2087) -- prevents operating on a
+                  database whose schema has drifted from what code expects.
 
         Args:
             config: Plugin configuration with container and correlation_id.
@@ -568,6 +572,7 @@ class PluginIntelligence:
             RuntimeHostError: Pool is None -- initialize() did not run or failed.
             DbOwnershipMismatchError: B1 failure -- wrong database owner.
             DbOwnershipMissingError: B1 failure -- no ownership record.
+            RuntimeHostError: B1.5 failure -- cross-repo table missing.
             SchemaFingerprintMismatchError: B2 failure -- schema drift detected.
 
         Note:
@@ -632,6 +637,14 @@ class PluginIntelligence:
             )
             await self._cleanup_on_failure(config)
             raise
+
+        # B1.5: Verify cross-repo tables provisioned by omnibase_infra (OMN-3531)
+        #
+        # idempotency_records is owned by omnibase_infra but must exist in this DB
+        # before the B2 schema fingerprint check runs.  If it is absent, the
+        # fingerprint table count will be wrong and the error message is opaque.
+        # Checking here gives a clear, actionable error message.
+        await self._check_cross_repo_tables(pool)
 
         # B2: Validate schema fingerprint
         #
@@ -757,6 +770,40 @@ class PluginIntelligence:
             plugin_id=self.plugin_id,
             checks=checks,
         )
+
+    async def _check_cross_repo_tables(self, pool: object) -> None:
+        """Fail early with a clear error if cross-repo tables owned by omnibase_infra are missing.
+
+        ``idempotency_records`` is owned and migrated by omnibase_infra but must
+        exist in the omniintelligence database before the service starts.  When it
+        is absent the B2 schema fingerprint check raises a cryptic
+        ``SchemaFingerprintMismatchError`` (table count mismatch).  This pre-check
+        surfaces the real problem with an actionable error message.
+
+        Called by validate_handshake() between the B1 DB-ownership check and the
+        B2 schema-fingerprint check so the operator sees a clear remediation step.
+
+        Args:
+            pool: asyncpg connection pool (type: asyncpg.Pool at runtime).
+
+        Raises:
+            RuntimeHostError: When ``idempotency_records`` is not present in the
+                ``public`` schema of the connected database.
+        """
+        row = await pool.fetchrow(  # type: ignore[attr-defined]
+            "SELECT 1 FROM information_schema.tables "
+            "WHERE table_schema = 'public' AND table_name = 'idempotency_records'"
+        )
+        if not row:
+            raise RuntimeHostError(
+                "omniintelligence requires the 'idempotency_records' table to exist in "
+                "the connected database, but it was not found.  "
+                "This table is owned by omnibase_infra and must be provisioned before "
+                "this service starts.  "
+                "Run: uv run python scripts/provision-cross-repo-tables.py "
+                "--target-db $OMNIINTELLIGENCE_DB_URL  "
+                "(from the omnibase_infra repo root)"
+            )
 
     async def _cleanup_on_failure(self, config: ModelDomainPluginConfig) -> None:
         """Clean up resources if initialization fails."""
