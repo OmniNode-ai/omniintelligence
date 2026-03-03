@@ -147,7 +147,7 @@ dependencies:
   - name: "slack_default_channel"
     type: "environment"
     env_var: "SLACK_DEFAULT_CHANNEL"
-    description: "Target Slack channel (e.g. #ai-signals). Unset = default channel."
+    description: "Target Slack channel ID or name (e.g. C08PRL6BRQE). Unset = #omninode-notifications."
     required: false
   - name: "httpx"
     type: "library"
