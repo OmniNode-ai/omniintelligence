@@ -59,7 +59,9 @@ def _refresh_kafka_runtime_state() -> None:
     server address rather than the stale value captured at import time.
     """
     global KAFKA_BOOTSTRAP_SERVERS, KAFKA_AVAILABLE
-    KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:19092")
+    KAFKA_BOOTSTRAP_SERVERS = os.getenv(
+        "KAFKA_BOOTSTRAP_SERVERS", "localhost:19092"
+    )  # kafka-fallback-ok — integration test default
     KAFKA_AVAILABLE = is_kafka_available()
 
 
@@ -162,13 +164,23 @@ def _parse_db_url_host_port(url: str) -> tuple[str, int]:
 # Kafka Configuration
 # =============================================================================
 
-KAFKA_BOOTSTRAP_SERVERS: str = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:19092")
+KAFKA_BOOTSTRAP_SERVERS: str = os.getenv(
+    "KAFKA_BOOTSTRAP_SERVERS", "localhost:19092"
+)  # kafka-fallback-ok — integration test default
 """Kafka bootstrap servers. Configure via KAFKA_BOOTSTRAP_SERVERS env var (default: bus_local)."""
 
-KAFKA_REQUEST_TIMEOUT_MS: int = int(os.getenv("KAFKA_REQUEST_TIMEOUT_MS", "30000"))
+KAFKA_REQUEST_TIMEOUT_MS: int = int(
+    os.getenv(
+        "KAFKA_REQUEST_TIMEOUT_MS", "30000"
+    )  # kafka-fallback-ok — integration test timing default
+)
 """Kafka request timeout in milliseconds. Default: 30000."""
 
-KAFKA_MAX_BLOCK_MS: int = int(os.getenv("KAFKA_MAX_BLOCK_MS", "10000"))
+KAFKA_MAX_BLOCK_MS: int = int(
+    os.getenv(
+        "KAFKA_MAX_BLOCK_MS", "10000"
+    )  # kafka-fallback-ok — integration test timing default
+)
 """Kafka max block time in milliseconds. Default: 10000."""
 
 
