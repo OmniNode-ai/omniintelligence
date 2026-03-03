@@ -236,20 +236,48 @@ event_bus:
     "onex.cmd.omniintelligence.code-analysis.v1":
       schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorInput"
       description: "Code analysis operation requests"
+      # Cross-repo topic: published by omniclaude IntelligenceEventClient.
+      # No publisher registration in omniintelligence contracts is expected —
+      # this is intentional cross-repo command routing from omniclaude.
+      # Reference: omniclaude/src/omniclaude/lib/core/intelligence_event_client.py IntelligenceEventClient.TOPIC_REQUEST (OMN-3377)
+      external_publisher:
+        repo: "omniclaude"
+        module: "omniclaude.lib.core.intelligence_event_client"
+        topic_constant: "IntelligenceEventClient.TOPIC_REQUEST"
     "onex.cmd.omniintelligence.document-ingestion.v1":
       schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorInput"
       description: "Document ingestion operation requests"
+      # External command topic: no publisher currently registered in any scanned contract.
+      # This is an externally-triggered command topic intended for future producers
+      # (e.g., omnimemory document ingestion pipeline). (OMN-3377)
+      external_publisher:
+        repo: "external"
+        module: "unregistered"
+        topic_constant: "onex.cmd.omniintelligence.document-ingestion.v1"
     "onex.cmd.omniintelligence.pattern-learning.v1":
       schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorInput"
       description: "Pattern learning operation requests"
     "onex.cmd.omniintelligence.quality-assessment.v1":
       schema_ref: "omniintelligence.nodes.node_intelligence_orchestrator.models.ModelOrchestratorInput"
       description: "Quality assessment operation requests"
+      # External command topic: no publisher currently registered in any scanned contract.
+      # This is an externally-triggered command topic intended for future producers. (OMN-3377)
+      external_publisher:
+        repo: "external"
+        module: "unregistered"
+        topic_constant: "onex.cmd.omniintelligence.quality-assessment.v1"
     "onex.evt.intent.drift.detected.v1":
       schema_ref: "omniintelligence.models.events.model_intent_event_envelopes.ModelIntentDriftDetectedEnvelope"
       description: "Intent drift signal from node_intent_drift_detect_compute. Orchestrator routes alerts
         and may trigger model updates."
       content_type: "application/json"
+      # Internal omniintelligence topic: published by callers of node_intent_drift_detect_compute.
+      # The compute node is pure (no Kafka I/O); its caller emits to this topic.
+      # No separate publisher contract registration is expected — emission is caller-owned. (OMN-3377)
+      external_publisher:
+        repo: "omniintelligence"
+        module: "omniintelligence.nodes.node_intent_drift_detect_compute"
+        topic_constant: "Topics.INTENT_DRIFT_DETECTED"
 
   publish_topic_metadata:
     "onex.evt.omniintelligence.code-analysis-completed.v1":
