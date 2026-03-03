@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 # Copyright (c) 2025 OmniNode Team
-"""Shared fixtures for all integration tests.
+"""Shared fixtures for all integration tests.  # ai-slop-ok: pre-existing module docstring
 
 This module provides common infrastructure fixtures that auto-configure from
 the project's .env file. All integration tests can use these fixtures without

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 # Copyright (c) 2025 OmniNode Team
-"""Fixtures for pattern_storage_effect integration tests.
+"""Fixtures for pattern_storage_effect integration tests.  # ai-slop-ok: pre-existing module docstring
 
 This module provides pytest fixtures for testing the NodePatternStorageEffect
 node with real and mock infrastructure. Infrastructure availability is detected
