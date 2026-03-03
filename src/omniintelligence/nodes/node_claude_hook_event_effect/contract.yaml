@@ -312,10 +312,26 @@ event_bus:
       schema_ref: "omniintelligence.nodes.node_claude_hook_event_effect.models.ModelClaudeCodeHookEvent"
       description: "Claude Code hook events from omniclaude (SessionStart, UserPromptSubmit, PreToolUse,
         PostToolUse, Stop, etc.)"
+      # Cross-repo topic: published by omniclaude hooks (handler_event_emitter.py,
+      # TopicBase.CLAUDE_HOOK_EVENT). No publisher registration in omniintelligence
+      # contracts is expected — this is intentional cross-repo command routing.
+      # Reference: omniclaude/src/omniclaude/hooks/topics.py (OMN-3374)
+      external_publisher:
+        repo: "omniclaude"
+        module: "omniclaude.hooks.handler_event_emitter"
+        topic_constant: "TopicBase.CLAUDE_HOOK_EVENT"
     "onex.cmd.omniintelligence.tool-content.v1":
       schema_ref: "omniintelligence.nodes.node_claude_hook_event_effect.models.ModelClaudeCodeHookEvent"
       description: "Tool content events from omniclaude containing PostToolUse payloads with file contents,
         command outputs, and other tool results for intelligence analysis."
+      # Cross-repo topic: published by omniclaude hooks (handler_event_emitter.py,
+      # TopicBase.TOOL_CONTENT). No publisher registration in omniintelligence
+      # contracts is expected — this is intentional cross-repo command routing.
+      # Reference: omniclaude/src/omniclaude/hooks/topics.py (OMN-1702, OMN-3374)
+      external_publisher:
+        repo: "omniclaude"
+        module: "omniclaude.hooks.handler_event_emitter"
+        topic_constant: "TopicBase.TOOL_CONTENT"
 
   # Metadata for published topics
   publish_topic_metadata:
