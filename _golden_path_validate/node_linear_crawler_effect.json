@@ -1,0 +1,28 @@
+{
+  "node_id": "node_linear_crawler_effect",
+  "ticket_id": "OMN-3395",
+  "input": {
+    "topic": "onex.cmd.omnimemory.crawl-tick.v1",
+    "fixture": {
+      "team_id": "9bdff6a3-f4ef-4ff7-b29a-6c4cf44371e6",
+      "crawl_scope": "omninode/test-golden-path"
+    }
+  },
+  "output": {
+    "topic": "onex.evt.omnimemory.document-discovered.v1"
+  },
+  "timeout_ms": 20000,
+  "assertions": [
+    {
+      "field": "event_type",
+      "op": "in",
+      "expected": ["document.discovered.v1", "document.changed.v1", "document.removed.v1"]
+    },
+    {
+      "field": "crawl_scope",
+      "op": "eq",
+      "expected": "omninode/test-golden-path"
+    }
+  ],
+  "schema_name": null
+}
