@@ -1,27 +1,36 @@
 {
   "node_id": "node_routing_feedback_effect",
-  "ticket_id": "OMN-3383",
+  "ticket_id": "OMN-3399",
   "input": {
     "topic": "onex.evt.omniclaude.routing-feedback.v1",
     "fixture": {
-      "session_id": "golden-path-test-session-routing",
+      "event_name": "routing.feedback",
+      "session_id": "golden-path-test-session",
       "outcome": "success",
       "feedback_status": "produced",
-      "skip_reason": null,
-      "correlation_id": "00000000-0000-0000-0000-000000000001",
-      "emitted_at": "2026-03-02T00:00:00+00:00"
+      "emitted_at": "2026-03-02T18:00:00+00:00"
     }
   },
   "output": {
     "topic": "onex.evt.omniintelligence.routing-feedback-processed.v1"
   },
-  "timeout_ms": 10000,
+  "timeout_ms": 15000,
   "assertions": [
     {
-      "field": "status",
-      "op": "in",
-      "expected": ["success", "error"]
+      "field": "session_id",
+      "op": "eq",
+      "expected": "golden-path-test-session"
+    },
+    {
+      "field": "outcome",
+      "op": "eq",
+      "expected": "success"
+    },
+    {
+      "field": "feedback_status",
+      "op": "eq",
+      "expected": "produced"
     }
   ],
-  "schema_name": "omniintelligence.nodes.node_routing_feedback_effect.models.model_routing_feedback_result.ModelRoutingFeedbackResult"
+  "schema_name": "omniintelligence.nodes.node_routing_feedback_effect.models.ModelRoutingFeedbackResult"
 }
