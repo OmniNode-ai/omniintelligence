@@ -11,7 +11,7 @@ E2E fixtures. It verifies that:
 - The consumer can verify events were actually published
 - Topic isolation via prefix works correctly
 
-These tests require real Kafka infrastructure at localhost:9092.
+These tests require real Kafka infrastructure at localhost:19092 (bus_local; see OMN-3477).
 Tests are skipped gracefully when Kafka is unavailable.
 
 Reference:

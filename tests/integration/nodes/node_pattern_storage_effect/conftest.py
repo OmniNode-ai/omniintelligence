@@ -10,7 +10,7 @@ at runtime to allow tests to run with or without real PostgreSQL/Kafka.
 
 Infrastructure Configuration (from .env):
     - PostgreSQL: localhost:5432 (database: omniintelligence)
-    - Kafka/Redpanda: localhost:9092 (for host scripts)
+    - Kafka/Redpanda: localhost:19092 (bus_local; see OMN-3477)
 
 Reference:
     - OMN-1668: Pattern storage effect node implementation
