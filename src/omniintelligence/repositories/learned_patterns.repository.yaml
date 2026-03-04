@@ -8,12 +8,15 @@
 # Contract for the learned_patterns table. Defines all read/write operations
 # for pattern storage, retrieval, and lifecycle management.
 #
+# All SQL uses asyncpg $N positional syntax (OMN-3644).
+# Each operation declares a param_order list mapping $1..$N to param names.
+#
 # Validators (OMN-1782):
 #   - validator_db_structural: Required fields, unique op names
 #   - validator_db_sql_safety: read->SELECT only, no DROP/ALTER
 #   - validator_db_table_access: SQL only touches declared tables
 #   - validator_db_deterministic: many:true requires ORDER BY
-#   - validator_db_params: All :params defined, no unused
+#   - validator_db_params: All $N params defined, no unused
 #
 # =============================================================================
 # ONEX CONTRACT ENVELOPE (required by contracts validator)
@@ -111,7 +114,9 @@ db_repository:
           CASE WHEN status = 'validated' THEN 0 ELSE 1 END,
           quality_score DESC,
           id ASC
-        LIMIT :limit
+        LIMIT $1
+      param_order:
+        - limit
       params:
         limit:
           name: limit
@@ -120,7 +125,7 @@ db_repository:
           default: 10
           ge: 1
           le: 200
-          description: Maximum number of patterns to return
+          description: Maximum number of patterns to return. Positional $1.
       returns:
         model_ref: PatternInjection
         many: true
@@ -138,14 +143,16 @@ db_repository:
       sql: |
         SELECT *
         FROM learned_patterns
-        WHERE id = :pattern_id
+        WHERE id = $1
           AND status IN ('validated', 'provisional')
+      param_order:
+        - pattern_id
       params:
         pattern_id:
           name: pattern_id
           param_type: string
           required: true
-          description: Pattern UUID
+          description: Pattern UUID. Positional $1.
       returns:
         model_ref: PatternRow
         many: false
@@ -164,13 +171,15 @@ db_repository:
       sql: |
         SELECT *
         FROM learned_patterns
-        WHERE id = :pattern_id
+        WHERE id = $1
+      param_order:
+        - pattern_id
       params:
         pattern_id:
           name: pattern_id
           param_type: string
           required: true
-          description: Pattern UUID
+          description: Pattern UUID. Positional $1.
       returns:
         model_ref: PatternRow
         many: false
@@ -181,7 +190,7 @@ db_repository:
     # OMN-1894 EXEMPTION: This query is intentionally unfiltered.
     # It is used for lineage management (storing new versions, checking existence)
     # and MUST return patterns in ANY lifecycle state to support version transitions.
-    # Filtering here would break CANDIDATE → PROVISIONAL → VALIDATED upgrades.
+    # Filtering here would break CANDIDATE -> PROVISIONAL -> VALIDATED upgrades.
     get_latest_by_lineage:
       mode: read
       description: |
@@ -192,22 +201,26 @@ db_repository:
       sql: |
         SELECT *
         FROM learned_patterns
-        WHERE signature_hash = :signature_hash
-          AND domain_id = :domain_id
+        WHERE signature_hash = $1
+          AND domain_id = $2
           AND is_current = TRUE
+      param_order:
+        - signature_hash
+        - domain_id
       params:
         signature_hash:
           name: signature_hash
           param_type: string
           required: true
-          description: SHA256 hash of canonicalized signature for stable lineage identity
+          description: SHA256 hash of canonicalized signature for stable lineage identity. Positional
+            $1.
         domain_id:
           name: domain_id
           param_type: string
           required: true
           min_length: 1
           max_length: 50
-          description: Domain identifier
+          description: Domain identifier. Positional $2.
       returns:
         model_ref: PatternRow
         many: false
@@ -235,15 +248,19 @@ db_repository:
           version,
           created_at
         FROM learned_patterns
-        WHERE domain_id = :domain_id
+        WHERE domain_id = $1
           AND is_current = TRUE
           AND status IN ('validated', 'provisional')
         ORDER BY
           CASE WHEN status = 'validated' THEN 0 ELSE 1 END,
           quality_score DESC,
           id ASC
-        LIMIT :limit
-        OFFSET :offset
+        LIMIT $2
+        OFFSET $3
+      param_order:
+        - domain_id
+        - limit
+        - offset
       params:
         domain_id:
           name: domain_id
@@ -251,7 +268,7 @@ db_repository:
           required: true
           min_length: 1
           max_length: 50
-          description: Domain identifier to filter patterns by
+          description: Domain identifier to filter patterns by. Positional $1.
         limit:
           name: limit
           param_type: integer
@@ -259,14 +276,14 @@ db_repository:
           default: 50
           ge: 1
           le: 200
-          description: Maximum number of patterns to return
+          description: Maximum number of patterns to return. Positional $2.
         offset:
           name: offset
           param_type: integer
           required: false
           default: 0
           ge: 0
-          description: Number of patterns to skip for pagination
+          description: Number of patterns to skip for pagination. Positional $3.
       returns:
         model_ref: PatternSummary
         many: true
@@ -369,11 +386,16 @@ db_repository:
         FROM learned_patterns
         WHERE status IN ('candidate', 'provisional')
           AND is_current = TRUE
-          AND quality_score >= :min_quality
-          AND distinct_days_seen >= :min_days
-          AND recurrence_count >= :min_recurrence
+          AND quality_score >= $1
+          AND distinct_days_seen >= $2
+          AND recurrence_count >= $3
         ORDER BY quality_score DESC, distinct_days_seen DESC, id ASC
-        LIMIT :limit
+        LIMIT $4
+      param_order:
+        - min_quality
+        - min_days
+        - min_recurrence
+        - limit
       params:
         min_quality:
           name: min_quality
@@ -382,21 +404,21 @@ db_repository:
           default: 0.7
           ge: 0.0
           le: 1.0
-          description: Minimum quality score threshold for promotion eligibility
+          description: Minimum quality score threshold for promotion eligibility. Positional $1.
         min_days:
           name: min_days
           param_type: integer
           required: false
           default: 3
           ge: 1
-          description: Minimum distinct days the pattern must have been seen
+          description: Minimum distinct days the pattern must have been seen. Positional $2.
         min_recurrence:
           name: min_recurrence
           param_type: integer
           required: false
           default: 5
           ge: 1
-          description: Minimum number of times the pattern must have recurred
+          description: Minimum number of times the pattern must have recurred. Positional $3.
         limit:
           name: limit
           param_type: integer
@@ -404,7 +426,7 @@ db_repository:
           default: 50
           ge: 1
           le: 200
-          description: Maximum number of candidates to return
+          description: Maximum number of candidates to return. Positional $4.
       returns:
         model_ref: PatternRow
         many: true
@@ -423,14 +445,19 @@ db_repository:
         WHERE status = 'validated'
           AND is_current = TRUE
           AND (
-            failure_streak >= :max_failure_streak
+            failure_streak >= $1
             OR (
-              injection_count_rolling_20 >= :min_injections
-              AND failure_count_rolling_20::float / NULLIF(injection_count_rolling_20, 0) >= :max_failure_rate
+              injection_count_rolling_20 >= $2
+              AND failure_count_rolling_20::float / NULLIF(injection_count_rolling_20, 0) >= $3
             )
           )
         ORDER BY failure_streak DESC, quality_score ASC, id ASC
-        LIMIT :limit
+        LIMIT $4
+      param_order:
+        - max_failure_streak
+        - min_injections
+        - max_failure_rate
+        - limit
       params:
         max_failure_streak:
           name: max_failure_streak
@@ -438,14 +465,14 @@ db_repository:
           required: false
           default: 3
           ge: 1
-          description: Failure streak threshold that triggers demotion consideration
+          description: Failure streak threshold that triggers demotion consideration. Positional $1.
         min_injections:
           name: min_injections
           param_type: integer
           required: false
           default: 5
           ge: 1
-          description: Minimum injection count required to evaluate failure rate
+          description: Minimum injection count required to evaluate failure rate. Positional $2.
         max_failure_rate:
           name: max_failure_rate
           param_type: number
@@ -453,7 +480,7 @@ db_repository:
           default: 0.5
           ge: 0.0
           le: 1.0
-          description: Maximum allowed failure rate before demotion consideration
+          description: Maximum allowed failure rate before demotion consideration. Positional $3.
         limit:
           name: limit
           param_type: integer
@@ -461,7 +488,7 @@ db_repository:
           default: 50
           ge: 1
           le: 200
-          description: Maximum number of candidates to return
+          description: Maximum number of candidates to return. Positional $4.
       returns:
         model_ref: PatternRow
         many: true
@@ -499,46 +526,62 @@ db_repository:
           is_current,
           supersedes
         ) VALUES (
-          :id,
-          :signature,
-          :signature_hash,
-          :domain_id,
-          :domain_version,
-          :domain_candidates,
-          :keywords,
-          :confidence,
-          :quality_score,
-          :status,
-          :source_session_ids,
-          :recurrence_count,
-          :version,
+          $1,
+          $2,
+          $3,
+          $4,
+          $5,
+          $6,
+          $7,
+          $8,
+          $9,
+          $10,
+          $11,
+          $12,
+          $13,
           TRUE,
-          :supersedes
+          $14
         )
         RETURNING id
+      param_order:
+        - id
+        - signature
+        - signature_hash
+        - domain_id
+        - domain_version
+        - domain_candidates
+        - keywords
+        - confidence
+        - quality_score
+        - status
+        - source_session_ids
+        - recurrence_count
+        - version
+        - supersedes
       params:
         id:
           name: id
           param_type: string
           required: true
-          description: Pattern UUID
+          description: Pattern UUID. Positional $1.
         signature:
           name: signature
           param_type: string
           required: true
-          description: Pattern signature text (raw, human-readable)
+          description: Pattern signature text (raw, human-readable). Positional $2.
         signature_hash:
           name: signature_hash
           param_type: string
           required: true
-          description: SHA256 hash of canonicalized signature for stable lineage identity
+          description: SHA256 hash of canonicalized signature for stable lineage identity. Positional
+            $3.
         domain_id:
           name: domain_id
           param_type: string
           required: true
           min_length: 1
           max_length: 50
-          description: Domain identifier for the pattern
+          description: Domain identifier for the pattern. Positional $4.
         domain_version:
           name: domain_version
           param_type: string
@@ -549,25 +592,25 @@ db_repository:
           description: |
             Schema version within a domain. Tracks domain schema evolution,
             not individual pattern versions (use `version` field for that).
-            Defaults to "1.0" for new patterns.
+            Defaults to "1.0" for new patterns. Positional $5.
         domain_candidates:
           name: domain_candidates
           param_type: string
           required: false
           default: "[]"
-          description: JSON array of domain candidates
+          description: JSON array of domain candidates. Positional $6.
         keywords:
           name: keywords
           param_type: string
           required: false
-          description: PostgreSQL array literal for keywords
+          description: PostgreSQL array literal for keywords. Positional $7.
         confidence:
           name: confidence
           param_type: number
           required: true
           ge: 0.5
           le: 1.0
-          description: Confidence score for the pattern (0.5-1.0)
+          description: Confidence score for the pattern (0.5-1.0). Positional $8.
         quality_score:
           name: quality_score
           param_type: number
@@ -575,37 +618,37 @@ db_repository:
           default: 0.5
           ge: 0.0
           le: 1.0
-          description: Initial quality score for the pattern
+          description: Initial quality score for the pattern. Positional $9.
         status:
           name: status
           param_type: string
           required: false
           default: "candidate"
-          description: Initial lifecycle status for the pattern
+          description: Initial lifecycle status for the pattern. Positional $10.
         source_session_ids:
           name: source_session_ids
           param_type: string
           required: true
-          description: PostgreSQL array literal for session UUIDs
+          description: PostgreSQL array literal for session UUIDs. Positional $11.
         recurrence_count:
           name: recurrence_count
           param_type: integer
           required: false
           default: 1
           ge: 1
-          description: Number of times this pattern has been observed
+          description: Number of times this pattern has been observed. Positional $12.
         version:
           name: version
           param_type: integer
           required: false
           default: 1
           ge: 1
-          description: Version number for this pattern within its lineage
+          description: Version number for this pattern within its lineage. Positional $13.
         supersedes:
           name: supersedes
           param_type: string
           required: false
-          description: UUID of pattern this supersedes
+          description: UUID of pattern this supersedes. Positional $14.
       returns:
         model_ref: IdResult
         many: false
@@ -622,27 +665,33 @@ db_repository:
       sql: |
         UPDATE learned_patterns
         SET is_current = FALSE,
-            superseded_by = :superseded_by
-        WHERE signature_hash = :signature_hash
-          AND domain_id = :domain_id
+            superseded_by = $3
+        WHERE signature_hash = $1
+          AND domain_id = $2
           AND is_current = TRUE
         RETURNING id
+      param_order:
+        - signature_hash
+        - domain_id
+        - superseded_by
       params:
         signature_hash:
           name: signature_hash
           param_type: string
           required: true
-          description: SHA256 hash of canonicalized signature for stable lineage identity
+          description: SHA256 hash of canonicalized signature for stable lineage identity. Positional
+            $1.
         domain_id:
           name: domain_id
           param_type: string
           required: true
-          description: Domain identifier to match
+          description: Domain identifier to match. Positional $2.
         superseded_by:
           name: superseded_by
           param_type: string
           required: false
-          description: UUID of new pattern version. Null when called before new version ID is known.
+          description: UUID of new pattern version. Null when called before new version ID is known. Positional
+            $3.
       returns:
         model_ref: IdResult
         many: true
@@ -655,28 +704,32 @@ db_repository:
       description: Update pattern status and related timestamps
       sql: |
         UPDATE learned_patterns
-        SET status = :new_status,
-            promoted_at = CASE WHEN :new_status = 'validated' THEN NOW() ELSE promoted_at END,
-            deprecated_at = CASE WHEN :new_status = 'deprecated' THEN NOW() ELSE deprecated_at END,
-            deprecation_reason = :deprecation_reason
-        WHERE id = :pattern_id
+        SET status = $2,
+            promoted_at = CASE WHEN $2 = 'validated' THEN NOW() ELSE promoted_at END,
+            deprecated_at = CASE WHEN $2 = 'deprecated' THEN NOW() ELSE deprecated_at END,
+            deprecation_reason = $3
+        WHERE id = $1
         RETURNING id
+      param_order:
+        - pattern_id
+        - new_status
+        - deprecation_reason
       params:
         pattern_id:
           name: pattern_id
           param_type: string
           required: true
-          description: Pattern UUID to update
+          description: Pattern UUID to update. Positional $1.
         new_status:
           name: new_status
           param_type: string
           required: true
-          description: New lifecycle status for the pattern
+          description: New lifecycle status for the pattern. Positional $2.
         deprecation_reason:
           name: deprecation_reason
           param_type: string
           required: false
-          description: Reason for deprecation (null for non-deprecated)
+          description: Reason for deprecation (null for non-deprecated). Positional $3.
       returns:
         model_ref: IdResult
         many: false
@@ -693,31 +746,34 @@ db_repository:
         UPDATE learned_patterns
         SET injection_count_rolling_20 = LEAST(injection_count_rolling_20 + 1, 20),
             success_count_rolling_20 = CASE
-              WHEN :success THEN LEAST(success_count_rolling_20 + 1, 20)
+              WHEN $2 THEN LEAST(success_count_rolling_20 + 1, 20)
               ELSE success_count_rolling_20
             END,
             failure_count_rolling_20 = CASE
-              WHEN NOT :success THEN LEAST(failure_count_rolling_20 + 1, 20)
+              WHEN NOT $2 THEN LEAST(failure_count_rolling_20 + 1, 20)
               ELSE failure_count_rolling_20
             END,
             failure_streak = CASE
-              WHEN :success THEN 0
+              WHEN $2 THEN 0
               ELSE failure_streak + 1
             END,
             last_seen_at = NOW()
-        WHERE id = :pattern_id
+        WHERE id = $1
         RETURNING id
+      param_order:
+        - pattern_id
+        - success
       params:
         pattern_id:
           name: pattern_id
           param_type: string
           required: true
-          description: Pattern UUID to record outcome for
+          description: Pattern UUID to record outcome for. Positional $1.
         success:
           name: success
           param_type: boolean
           required: true
-          description: Whether the injection was successful
+          description: Whether the injection was successful. Positional $2.
       returns:
         model_ref: IdResult
         many: false
@@ -730,28 +786,32 @@ db_repository:
       description: Store the compiled snippet after pattern compilation
       sql: |
         UPDATE learned_patterns
-        SET compiled_snippet = :snippet,
-            compiled_token_count = :token_count,
+        SET compiled_snippet = $2,
+            compiled_token_count = $3,
             compiled_at = NOW()
-        WHERE id = :pattern_id
+        WHERE id = $1
         RETURNING id
+      param_order:
+        - pattern_id
+        - snippet
+        - token_count
       params:
         pattern_id:
           name: pattern_id
           param_type: string
           required: true
-          description: Pattern UUID to store compiled snippet for
+          description: Pattern UUID to store compiled snippet for. Positional $1.
         snippet:
           name: snippet
           param_type: string
           required: true
-          description: Compiled pattern snippet for injection
+          description: Compiled pattern snippet for injection. Positional $2.
         token_count:
           name: token_count
           param_type: integer
           required: true
           ge: 1
-          description: Token count of compiled snippet
+          description: Token count of compiled snippet. Positional $3.
       returns:
         model_ref: IdResult
         many: false
@@ -775,26 +835,31 @@ db_repository:
       sql: |
         SELECT EXISTS(
           SELECT 1 FROM learned_patterns
-          WHERE domain_id = :domain_id
-            AND signature_hash = :signature_hash
-            AND version = :version
+          WHERE domain_id = $1
+            AND signature_hash = $2
+            AND version = $3
         ) AS exists
+      param_order:
+        - domain_id
+        - signature_hash
+        - version
       params:
         domain_id:
           name: domain_id
           param_type: string
           required: true
-          description: Domain identifier for lineage lookup
+          description: Domain identifier for lineage lookup. Positional $1.
         signature_hash:
           name: signature_hash
           param_type: string
           required: true
-          description: SHA256 hash of canonicalized signature for stable lineage identity
+          description: SHA256 hash of canonicalized signature for stable lineage identity. Positional
+            $2.
         version:
           name: version
           param_type: integer
           required: true
-          description: Version number to check existence for
+          description: Version number to check existence for. Positional $3.
       returns:
         model_ref: ExistsResult
         many: false
@@ -811,19 +876,23 @@ db_repository:
       sql: |
         SELECT id
         FROM learned_patterns
-        WHERE id = :pattern_id
-          AND signature_hash = :signature_hash
+        WHERE id = $1
+          AND signature_hash = $2
+      param_order:
+        - pattern_id
+        - signature_hash
       params:
         pattern_id:
           name: pattern_id
           param_type: string
           required: true
-          description: Pattern UUID to check existence for
+          description: Pattern UUID to check existence for. Positional $1.
         signature_hash:
           name: signature_hash
           param_type: string
           required: true
-          description: SHA256 hash of canonicalized signature for stable lineage identity
+          description: SHA256 hash of canonicalized signature for stable lineage identity. Positional
+            $2.
       returns:
         model_ref: IdResult
         many: false
@@ -840,19 +909,23 @@ db_repository:
       sql: |
         SELECT MAX(version) AS version
         FROM learned_patterns
-        WHERE domain_id = :domain_id
-          AND signature_hash = :signature_hash
+        WHERE domain_id = $1
+          AND signature_hash = $2
+      param_order:
+        - domain_id
+        - signature_hash
       params:
         domain_id:
           name: domain_id
           param_type: string
           required: true
-          description: Domain identifier for lineage lookup
+          description: Domain identifier for lineage lookup. Positional $1.
         signature_hash:
           name: signature_hash
           param_type: string
           required: true
-          description: SHA256 hash of canonicalized signature for stable lineage identity
+          description: SHA256 hash of canonicalized signature for stable lineage identity. Positional
+            $2.
       returns:
         model_ref: VersionResult
         many: false
@@ -868,13 +941,15 @@ db_repository:
       sql: |
         SELECT created_at
         FROM learned_patterns
-        WHERE id = :pattern_id
+        WHERE id = $1
+      param_order:
+        - pattern_id
       params:
         pattern_id:
           name: pattern_id
           param_type: string
           required: true
-          description: Pattern UUID to get timestamp for
+          description: Pattern UUID to get timestamp for. Positional $1.
       returns:
         model_ref: TimestampResult
         many: false
@@ -896,9 +971,9 @@ db_repository:
         WITH deactivated AS (
           UPDATE learned_patterns
           SET is_current = FALSE,
-              superseded_by = :id
-          WHERE signature_hash = :signature_hash
-            AND domain_id = :domain_id
+              superseded_by = $1
+          WHERE signature_hash = $3
+            AND domain_id = $4
             AND is_current = TRUE
           RETURNING id
         )
@@ -919,46 +994,61 @@ db_repository:
           is_current,
           supersedes
         ) VALUES (
-          :id,
-          :signature,
-          :signature_hash,
-          :domain_id,
-          :domain_version,
-          :domain_candidates,
-          :keywords,
-          :confidence,
-          :quality_score,
-          :status,
-          :source_session_ids,
-          :recurrence_count,
-          :version,
+          $1,
+          $2,
+          $3,
+          $4,
+          $5,
+          $6,
+          $7,
+          $8,
+          $9,
+          $10,
+          $11,
+          $12,
+          $13,
           TRUE,
           (SELECT id FROM deactivated LIMIT 1)
         )
         RETURNING id
+      param_order:
+        - id
+        - signature
+        - signature_hash
+        - domain_id
+        - domain_version
+        - domain_candidates
+        - keywords
+        - confidence
+        - quality_score
+        - status
+        - source_session_ids
+        - recurrence_count
+        - version
       params:
         id:
           name: id
           param_type: string
           required: true
-          description: Pattern UUID for the new version
+          description: Pattern UUID for the new version. Positional $1.
         signature:
           name: signature
           param_type: string
           required: true
-          description: Pattern signature text (raw, human-readable)
+          description: Pattern signature text (raw, human-readable). Positional $2.
         signature_hash:
           name: signature_hash
           param_type: string
           required: true
-          description: SHA256 hash of canonicalized signature for stable lineage identity
+          description: SHA256 hash of canonicalized signature for stable lineage identity. Positional
+            $3.
         domain_id:
           name: domain_id
           param_type: string
           required: true
           min_length: 1
           max_length: 50
-          description: Domain identifier (used for lineage lookup)
+          description: Domain identifier (used for lineage lookup). Positional $4.
         domain_version:
           name: domain_version
           param_type: string
@@ -969,25 +1059,25 @@ db_repository:
           description: |
             Schema version within a domain. Tracks domain schema evolution,
             not individual pattern versions (use `version` field for that).
-            Defaults to "1.0" for new patterns.
+            Defaults to "1.0" for new patterns. Positional $5.
         domain_candidates:
           name: domain_candidates
           param_type: string
           required: false
           default: "[]"
-          description: JSON array of domain candidates
+          description: JSON array of domain candidates. Positional $6.
         keywords:
           name: keywords
           param_type: string
           required: false
-          description: PostgreSQL array literal for keywords
+          description: PostgreSQL array literal for keywords. Positional $7.
         confidence:
           name: confidence
           param_type: number
           required: true
           ge: 0.5
           le: 1.0
-          description: Confidence score for the pattern (0.5-1.0)
+          description: Confidence score for the pattern (0.5-1.0). Positional $8.
         quality_score:
           name: quality_score
           param_type: number
@@ -995,31 +1085,31 @@ db_repository:
           default: 0.5
           ge: 0.0
           le: 1.0
-          description: Initial quality score for the pattern
+          description: Initial quality score for the pattern. Positional $9.
         status:
           name: status
           param_type: string
           required: false
           default: "candidate"
-          description: Initial lifecycle status for the pattern
+          description: Initial lifecycle status for the pattern. Positional $10.
         source_session_ids:
           name: source_session_ids
           param_type: string
           required: true
-          description: PostgreSQL array literal for session UUIDs
+          description: PostgreSQL array literal for session UUIDs. Positional $11.
         recurrence_count:
           name: recurrence_count
           param_type: integer
           required: false
           default: 1
           ge: 1
-          description: Number of times this pattern has been observed
+          description: Number of times this pattern has been observed. Positional $12.
         version:
           name: version
           param_type: integer
           required: true
           ge: 1
-          description: Version number for this pattern (must be > latest existing)
+          description: Version number for this pattern (must be > latest existing). Positional $13.
       returns:
         model_ref: IdResult
         many: false
@@ -1068,48 +1158,48 @@ db_repository:
           name: id
           param_type: string
           required: true
-          description: Pattern UUID
+          description: Pattern UUID. Positional $1.
         signature:
           name: signature
           param_type: string
           required: true
-          description: Pattern signature text
+          description: Pattern signature text. Positional $2.
         signature_hash:
           name: signature_hash
           param_type: string
           required: true
-          description: SHA256 hash of canonicalized signature
+          description: SHA256 hash of canonicalized signature. Positional $3.
         domain_id:
           name: domain_id
           param_type: string
           required: true
           min_length: 1
           max_length: 128
-          description: Domain identifier for the pattern
+          description: Domain identifier for the pattern. Positional $4.
         domain_version:
           name: domain_version
           param_type: string
           required: false
           default: "1.0.0"
-          description: Schema version within a domain
+          description: Schema version within a domain. Positional $5.
         confidence:
           name: confidence
           param_type: number
           required: true
           ge: 0.5
           le: 1.0
-          description: Confidence score for the pattern
+          description: Confidence score for the pattern. Positional $6.
         version:
           name: version
           param_type: integer
           required: true
           ge: 1
-          description: Version number for this pattern
+          description: Version number for this pattern. Positional $7.
         source_session_ids:
           name: source_session_ids
           param_type: string
           required: true
-          description: PostgreSQL array literal for session UUIDs
+          description: PostgreSQL array literal for session UUIDs. Positional $8.
       returns:
         model_ref: IdResult
         many: false

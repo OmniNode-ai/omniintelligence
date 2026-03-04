@@ -144,7 +144,8 @@ class TestStoreOperationsIncludeSignatureHash:
                 f"Columns found: {column_list.strip()}"
             )
 
-            # Check VALUES contains :signature_hash placeholder
+            # Check VALUES contains signature_hash positional placeholder ($N)
+            # OMN-3644: asyncpg uses $N positional syntax, not :named placeholders
             values_match = re.search(
                 r"VALUES\s*\(([^)]+)\)",
                 sql,
@@ -154,10 +155,12 @@ class TestStoreOperationsIncludeSignatureHash:
                 f"Operation '{op_name}': Could not find VALUES (...) pattern"
             )
 
-            values_list = values_match.group(1)
-            assert ":signature_hash" in values_list, (
-                f"Operation '{op_name}': VALUES list missing ':signature_hash' placeholder.\n"
-                f"Values found: {values_list.strip()}"
+            # Verify that param_order includes signature_hash, meaning one of
+            # the $N slots maps to it
+            param_order = operation.param_order or list(operation.params.keys())
+            assert "signature_hash" in param_order, (
+                f"Operation '{op_name}': param_order missing 'signature_hash'.\n"
+                f"param_order: {param_order}"
             )
 
 
@@ -194,14 +197,14 @@ class TestLineageOperationsWhereClauseUsesSignatureHash:
             assert where_match, f"Operation '{op_name}': Could not find WHERE clause"
 
             where_clause = where_match.group(1)
-            # Check for signature_hash = :signature_hash pattern
+            # Check for signature_hash = $N pattern (OMN-3644: asyncpg positional syntax)
             assert re.search(
-                r"signature_hash\s*=\s*:signature_hash",
+                r"signature_hash\s*=\s*\$\d+",
                 where_clause,
                 re.IGNORECASE,
             ), (
                 f"Operation '{op_name}': WHERE clause should use "
-                f"'signature_hash = :signature_hash' for lineage lookup.\n"
+                f"'signature_hash = $N' for lineage lookup.\n"
                 f"WHERE clause: {where_clause.strip()}"
             )
 
@@ -338,11 +341,12 @@ class TestCTEOperationsUseSignatureHash:
         )
 
         cte_where = cte_match.group(1)
+        # OMN-3644: asyncpg positional syntax ($N instead of :named)
         assert re.search(
-            r"signature_hash\s*=\s*:signature_hash",
+            r"signature_hash\s*=\s*\$\d+",
             cte_where,
             re.IGNORECASE,
         ), (
             "store_with_version_transition: CTE UPDATE WHERE clause should use "
-            f"'signature_hash = :signature_hash'.\nCTE WHERE: {cte_where.strip()}"
+            f"'signature_hash = $N'.\nCTE WHERE: {cte_where.strip()}"
         )
