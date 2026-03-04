@@ -317,9 +317,9 @@ class TestContractParamOrder:
         )
 
         # Must have param_order defined
-        assert (
-            op.param_order is not None
-        ), "upsert_pattern must define param_order for positional $N params."
+        assert op.param_order is not None, (
+            "upsert_pattern must define param_order for positional $N params."
+        )
 
         # param_order length must match max positional index
         max_index = max(int(m) for m in positional_matches)
