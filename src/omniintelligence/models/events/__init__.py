@@ -3,7 +3,7 @@
 
 """Event payload models for Kafka events.
 
-This module contains Pydantic models for Kafka event payloads used in
+Pydantic models for Kafka event payloads used in
 the OmniIntelligence event bus:
 
 Code analysis topics:

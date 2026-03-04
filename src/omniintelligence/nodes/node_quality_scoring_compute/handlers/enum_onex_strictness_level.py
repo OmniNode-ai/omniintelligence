@@ -3,7 +3,7 @@
 
 """ONEX strictness level enum.
 
-This module provides the OnexStrictnessLevel enum for quality scoring
+OnexStrictnessLevel enum for quality scoring
 configuration. The enum is separated following ONEX naming conventions
 for enum files (enum_*.py).
 

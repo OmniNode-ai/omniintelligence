@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """Process handler for Intelligence Reducer node.
 
-This module provides the handler function that builds ModelReducerOutput from
+Handler function that builds ModelReducerOutput from
 pattern lifecycle transition results. It encapsulates all the output building
 logic that was previously in the node class, following the ONEX declarative
 pattern where nodes are thin shells delegating to handlers.

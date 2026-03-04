@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """Handler functions for pattern projection snapshot publishing.
 
-This module implements the projection publish logic: querying all
+Projection publish logic: querying all
 validated/provisional patterns and publishing a full materialized snapshot
 to the pattern-projection Kafka topic.
 
@@ -49,21 +49,17 @@ A full snapshot queries all validated/provisional patterns. We paginate
 in chunks of 500 to avoid loading unbounded rows into memory in one call.
 Increase if the pattern store grows beyond this threshold.
 """
-
 _MIN_CONFIDENCE: float = 0.0
 """Minimum confidence for projection queries.
 
 Projection snapshots include all validated/provisional patterns regardless
 of confidence score — filtering is deferred to the consumer.
 """
-
 _PROJECTION_VERSION: int = 1
 """Current schema version for ModelPatternProjectionEvent.
 
 Increment when the snapshot schema changes incompatibly.
 """
-
-
 # =============================================================================
 # Handler
 # =============================================================================

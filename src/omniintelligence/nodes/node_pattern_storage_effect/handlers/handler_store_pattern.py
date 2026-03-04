@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """Handler for pattern storage operations.
 
-This module contains the handler function for persisting learned patterns
+Handler function for persisting learned patterns
 to storage with governance invariants, idempotency, and version tracking.
 
 Key Invariants:
@@ -553,7 +553,7 @@ async def handle_store_pattern(
 ) -> StorePatternResult:
     """Store a learned pattern with governance enforcement.
 
-    This handler implements the following invariants:
+    Following invariants:
         1. Governance: Reject if confidence < MIN_CONFIDENCE (0.5)
         2. Idempotency: If (pattern_id, signature_hash) exists, return existing
         3. Version Management: Set previous is_current = false

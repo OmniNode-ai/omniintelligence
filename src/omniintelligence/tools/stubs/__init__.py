@@ -4,7 +4,7 @@
 """
 Stub implementations for external dependencies.
 
-This module provides stub implementations for modules that are expected
+Stub implementations for modules that are expected
 to exist in external packages but are not yet available. These stubs
 allow the code to function while the actual implementations are being
 developed or migrated.

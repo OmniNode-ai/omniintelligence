@@ -3,7 +3,7 @@
 
 """Handler for success criteria matching computation.
 
-This module provides pure functions for matching execution outcomes against
+Pure functions for matching execution outcomes against
 success criteria. All functions are side-effect-free and suitable for use
 in compute nodes.
 

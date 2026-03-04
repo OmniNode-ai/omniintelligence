@@ -3,7 +3,7 @@
 
 """Domain models shared across omniintelligence.
 
-This module contains core domain models that are used across multiple nodes
+Core domain models that are used across multiple nodes
 and modules. Moving these here breaks circular import chains.
 """
 

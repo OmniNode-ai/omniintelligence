@@ -13,7 +13,7 @@ Core components:
     - ``CodemodGeneratorSpec``: Structured input for LLM-based generation (caller provides).
 
 Architecture:
-    This module contains only the pure-computation replay validation and
+    Only the pure-computation replay validation and
     violation detection logic. The LLM call for codemod generation is
     performed by the caller (Effect node) using ``CodemodGeneratorSpec`` as
     a structured prompt contract. The caller invokes the LLM, receives
@@ -48,11 +48,8 @@ logger = logging.getLogger(__name__)
 
 SANDBOX_TIMEOUT_SECONDS: int = 10
 """Maximum wall-clock time for a single codemod replay run."""
-
 MIN_REPLAY_PASS_FRACTION: float = 1.0
 """All historical cases must pass for a codemod to be marked ``validated``."""
-
-
 # ---------------------------------------------------------------------------
 # Data types
 # ---------------------------------------------------------------------------

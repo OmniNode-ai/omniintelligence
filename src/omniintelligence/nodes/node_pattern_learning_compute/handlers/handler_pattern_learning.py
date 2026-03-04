@@ -176,7 +176,7 @@ _PATTERN_TYPE_MAP: dict[str, EnumPatternType] = {
 class HandlerPatternLearning:
     """Handler for pattern learning pipeline orchestration.
 
-    This handler implements the pattern learning compute operation following the
+    Pattern learning compute operation following the
     ONEX declarative handler pattern. It provides:
 
     - Pure computation (no side effects)
@@ -306,7 +306,7 @@ class HandlerPatternLearning:
     ) -> PatternLearningResult:
         """Execute pattern learning from envelope (ProtocolHandler interface).
 
-        This method provides the standard handler interface for contract-driven
+        Standard handler interface for contract-driven
         invocation. It extracts the payload from the envelope and delegates to
         the handle() method.
 

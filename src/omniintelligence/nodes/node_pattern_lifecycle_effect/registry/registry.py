@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """Registry for Pattern Lifecycle Effect Node Dependencies.
 
-This module provides RegistryPatternLifecycleEffect, which creates a registry
+RegistryPatternLifecycleEffect, which creates a registry
 of handlers for the NodePatternLifecycleEffect node.
 
 Architecture:

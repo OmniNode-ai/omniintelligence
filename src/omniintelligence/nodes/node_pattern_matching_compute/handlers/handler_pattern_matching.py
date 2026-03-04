@@ -3,7 +3,7 @@
 
 """Pure pattern matching handler functions.
 
-This module provides pure functions for matching code against patterns.
+Pure functions for matching code against patterns.
 Handlers implement the computation logic following the ONEX "pure shell pattern"
 where nodes delegate to side-effect-free handler functions.
 

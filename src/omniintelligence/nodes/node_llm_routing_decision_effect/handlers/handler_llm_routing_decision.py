@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """Handler functions for LLM routing decision processing.
 
-This module implements the Bifrost feedback loop consumer: when omniclaude's
+Bifrost feedback loop consumer: when omniclaude's
 Bifrost LLM gateway makes a routing decision, it emits an LLM routing decision
 event. This handler:
 
@@ -94,7 +94,6 @@ ON CONFLICT (session_id, correlation_id)
 DO UPDATE SET
     processed_at = EXCLUDED.processed_at
 ;"""
-
 # =============================================================================
 # Handler Functions
 # =============================================================================

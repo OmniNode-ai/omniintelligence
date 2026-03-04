@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """ONEX Introspection Support for Pattern Promotion Effect Node.
 
-This module provides introspection capabilities for the pattern promotion
+Introspection capabilities for the pattern promotion
 effect node, enabling standardized node discovery, metadata exposure,
 and contract retrieval.
 
@@ -104,7 +104,7 @@ class PatternPromotionMetadataLoader:
 class PatternPromotionIntrospection(MixinNodeIntrospection):
     """Introspection support for pattern promotion effect node.
 
-    This class provides standardized introspection capabilities following
+    Standardized introspection capabilities following
     the ONEX pattern. It enables:
     - Node discovery through --introspect CLI flag
     - Contract and schema exposure

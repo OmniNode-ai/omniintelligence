@@ -3,7 +3,7 @@
 
 """Tool usage pattern extraction from session data.
 
-This module implements a pure functional handler for extracting tool usage
+Pure functional handler for extracting tool usage
 patterns from Claude Code session snapshots. It identifies three categories
 of patterns:
 
@@ -48,10 +48,8 @@ from omniintelligence.nodes.node_pattern_extraction_compute.handlers.utils impor
 
 BIGRAM_SEQUENCE_SIGNIFICANCE_FACTOR = 2
 """Tool bigrams: expect ~2 bigrams per session on average, so 2x sessions = full confidence."""
-
 TOOL_PREFERENCE_SIGNIFICANCE_FACTOR = 3
 """Tool preferences: expect multiple tool-type associations per session (3x sessions)."""
-
 SUCCESS_RATE_SIGNIFICANCE_FACTOR = 5
 """Success rates: require substantial sample size for statistical relevance (5x sessions)."""
 

@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """Registry for Pattern Feedback Effect Node Dependencies.
 
-This module provides RegistryPatternFeedbackEffect, which manages
+RegistryPatternFeedbackEffect, which manages
 handler registration and dependency injection for the NodePatternFeedbackEffect.
 
 Architecture:

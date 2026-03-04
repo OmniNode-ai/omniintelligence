@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """Registry for Pattern Promotion Node Dependencies.
 
-This module provides RegistryPatternPromotionEffect, which creates a registry
+RegistryPatternPromotionEffect, which creates a registry
 of handlers for the NodePatternPromotionEffect node.
 
 Architecture:

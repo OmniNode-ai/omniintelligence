@@ -12,7 +12,7 @@ PostgreSQL wire protocol:
     - ``"DELETE N"``       -- N rows deleted
     - ``"INSERT oid N"``   -- N rows inserted (oid is legacy, usually 0)
 
-This module provides a single helper to extract the trailing row count from
+Single helper to extract the trailing row count from
 these status strings, replacing the multiple private copies that previously
 existed across handler modules.
 """

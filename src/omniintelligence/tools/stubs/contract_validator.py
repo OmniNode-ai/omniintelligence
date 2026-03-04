@@ -4,7 +4,7 @@
 """
 Stub implementation of ProtocolContractValidator.
 
-This module provides a stub implementation of the ProtocolContractValidator
+Stub implementation of the ProtocolContractValidator
 that would normally be provided by omnibase_core.validation.contract_validator.
 The stub performs basic YAML structure validation for ONEX node contracts.
 

@@ -3,7 +3,7 @@
 
 """Semantic Analysis Compute Handlers.
 
-This module provides pure handler functions for semantic analysis operations.
+Pure handler functions for semantic analysis operations.
 Handlers implement the computation logic following the ONEX "pure shell pattern"
 where nodes delegate to side-effect-free handler functions.
 

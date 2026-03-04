@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """Registry module for pattern feedback effect node.
 
-This module provides the handler registry for dependency injection.
+Handler registry for dependency injection.
 """
 
 from omniintelligence.nodes.node_pattern_feedback_effect.registry.registry_pattern_feedback_effect import (

@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """Pure heuristic functions for contribution attribution.
 
-This module implements contribution heuristics for attributing session outcomes
+Contribution heuristics for attributing session outcomes
 to patterns. These are explicitly HEURISTICS, not causal attribution - multi-injection
 sessions make true causal attribution impossible without controlled experiments.
 

@@ -3,7 +3,7 @@
 
 """Handler for semantic analysis compute node.
 
-This module provides the main handler function for semantic analysis computation.
+Main handler function for semantic analysis computation.
 It bridges the pure analyze_semantics function (which returns TypedDicts) to the
 node's Pydantic input/output models.
 
@@ -70,7 +70,7 @@ def handle_semantic_analysis_compute(
         semantic features, and metadata.
 
     Note:
-        This function handles all error cases internally. Unknown enum values
+        All error cases internally. Unknown enum values
         are mapped to safe defaults with warnings logged.
     """
     # Extract parameters from input

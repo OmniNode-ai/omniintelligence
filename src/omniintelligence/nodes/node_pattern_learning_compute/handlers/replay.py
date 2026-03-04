@@ -3,7 +3,7 @@
 
 """Replay artifact emission for pattern learning handlers.
 
-This module provides a protocol for emitting structured replay artifacts
+Protocol for emitting structured replay artifacts
 during pattern learning operations. Artifacts enable replay comparison
 and debugging of clustering decisions.
 

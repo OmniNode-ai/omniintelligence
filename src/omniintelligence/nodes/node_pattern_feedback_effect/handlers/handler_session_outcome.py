@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """Handler functions for session outcome recording with rolling window metrics.
 
-This module implements the pattern feedback loop: when a Claude Code session
+Pattern feedback loop: when a Claude Code session
 completes (success or failure), we update the rolling metrics for all patterns
 that were injected during that session.
 
@@ -99,8 +99,6 @@ Database columns (injection_count_rolling_20, success_count_rolling_20,
 failure_count_rolling_20) use this value in their naming convention.
 Changing this constant requires a corresponding database migration.
 """
-
-
 # =============================================================================
 # SQL Queries
 # =============================================================================
@@ -114,7 +112,6 @@ WHERE session_id = $1
   AND outcome_recorded = FALSE
 ORDER BY injected_at ASC, injection_id ASC
 """
-
 # Query to mark injections as having their outcome recorded
 SQL_MARK_INJECTIONS_RECORDED = """
 UPDATE pattern_injections
@@ -126,7 +123,6 @@ SET
 WHERE session_id = $1
   AND outcome_recorded = FALSE
 """
-
 # SQL for updating rolling metrics on SUCCESS
 # - Increment injection_count (cap at $2 = ROLLING_WINDOW_SIZE)
 # - Increment success_count (cap at $2)
@@ -147,7 +143,6 @@ SET
     updated_at = NOW()
 WHERE id = ANY($1)
 """
-
 # SQL for updating rolling metrics on FAILURE
 # - Increment injection_count (cap at $2 = ROLLING_WINDOW_SIZE)
 # - Increment failure_count (cap at $2)
@@ -168,7 +163,6 @@ SET
     updated_at = NOW()
 WHERE id = ANY($1)
 """
-
 # SQL for updating contribution heuristics on a single injection
 # Idempotency: only update if contribution_heuristic IS NULL
 # This prevents retry overwrites and preserves debugging history
@@ -182,7 +176,6 @@ SET
 WHERE injection_id = $1
   AND contribution_heuristic IS NULL
 """
-
 # SQL for recomputing effectiveness score (quality_score) from rolling metrics
 # and returning the updated values in a single atomic operation.
 # Runs AFTER rolling metrics are updated so it reads the new values.
@@ -202,14 +195,11 @@ SET
 WHERE id = ANY($1)
 RETURNING id, quality_score
 """
-
 # Query to count all injections for a session (regardless of outcome_recorded status)
 # Used to distinguish "no injections exist" from "all injections already recorded"
 SQL_COUNT_SESSION_INJECTIONS = """
 SELECT COUNT(*) as count FROM pattern_injections WHERE session_id = $1
 """
-
-
 # =============================================================================
 # Type Definitions
 # =============================================================================
@@ -649,7 +639,7 @@ async def update_pattern_rolling_metrics(
 ) -> int:
     """Update rolling window metrics for a list of patterns.
 
-    This function implements the decay approximation for rolling windows.
+    Decay approximation for rolling windows.
     Instead of tracking per-injection timestamps, we maintain counters that
     decay the opposite bucket when at capacity (ROLLING_WINDOW_SIZE).
 

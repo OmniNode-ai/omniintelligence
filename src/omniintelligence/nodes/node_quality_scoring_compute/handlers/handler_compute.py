@@ -3,7 +3,7 @@
 
 """Handler for quality scoring compute node orchestration.
 
-This module provides the compute handler that orchestrates quality scoring
+Compute handler that orchestrates quality scoring
 operations at the node level. It bridges the gap between the node's typed
 input/output models and the pure scoring function.
 

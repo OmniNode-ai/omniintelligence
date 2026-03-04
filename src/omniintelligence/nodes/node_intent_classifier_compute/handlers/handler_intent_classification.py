@@ -3,7 +3,7 @@
 
 """Handler for TF-IDF based intent classification.
 
-This module implements a pure functional TF-IDF based intent classification
+Pure functional TF-IDF based intent classification
 algorithm ported from the legacy omniarchon implementation with extensions
 for intelligence-focused categories.
 
@@ -327,7 +327,7 @@ def classify_intent(
 ) -> ClassificationResultDict:
     """Classify user intent using TF-IDF scoring.
 
-    This function implements a TF-IDF based classification algorithm that
+    TF-IDF based classification algorithm that
     matches input text against predefined intent patterns. It supports both
     single-label and multi-label classification modes.
 

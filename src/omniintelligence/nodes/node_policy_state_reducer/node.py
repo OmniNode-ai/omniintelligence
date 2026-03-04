@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """NodePolicyStateReducer — durable policy lifecycle state management.
 
-This node implements the policy state machine from OMN-2361 design doc Section 8.
+Policy state machine from OMN-2361 design doc Section 8.
 
 It is a REDUCER node: consumes RewardAssignedEvent from Kafka, updates
 PostgreSQL policy_state, and emits PolicyStateUpdatedEvent.
@@ -77,7 +77,7 @@ class NodePolicyStateReducer:
     Processes RewardAssignedEvents and applies lifecycle transitions to
     policy entries in PostgreSQL.
 
-    This class implements the reduction logic directly rather than extending
+    Reduction logic directly rather than extending
     NodeReducer, to allow clean dependency injection for testing.
     Dependencies are injected via constructor (testable without DB/Kafka):
         - repository: ProtocolPolicyStateRepository (DB operations)

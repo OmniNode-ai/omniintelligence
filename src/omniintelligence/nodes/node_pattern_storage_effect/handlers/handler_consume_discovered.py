@@ -131,7 +131,7 @@ async def handle_consume_discovered(
 ) -> StorePatternResult:
     """Consume a pattern.discovered event and persist it via handle_store_pattern.
 
-    This handler provides a thin mapping layer between the external discovery
+    Thin mapping layer between the external discovery
     event schema and the internal pattern storage pipeline. All governance,
     idempotency, and version management is delegated to handle_store_pattern.
 

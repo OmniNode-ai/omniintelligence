@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """Handler functions for WatchdogEffect.
 
-This module implements the two handler entry points for the filesystem watcher:
+Two handler entry points for the filesystem watcher:
 
 1. ``start_watching()``
    Starts the OS-level filesystem observer (FSEvents/inotify/polling) for

@@ -3,7 +3,7 @@
 
 """Event extraction logic for Execution Trace Parser Compute.
 
-This module contains pure functions for extracting error events and
+Pure functions for extracting error events and
 state transitions from trace spans and logs.
 
 Correlation ID: Threaded through all functions for end-to-end tracing.

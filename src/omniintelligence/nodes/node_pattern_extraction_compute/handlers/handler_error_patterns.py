@@ -3,7 +3,7 @@
 
 """Error pattern extraction from session data.
 
-This module implements a pure functional handler for extracting error patterns
+Pure functional handler for extracting error patterns
 from Claude Code session snapshots. It identifies two categories of error
 patterns:
 

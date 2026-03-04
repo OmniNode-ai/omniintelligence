@@ -3,7 +3,7 @@
 
 """Insight merging for deduplication.
 
-This module provides functions for merging duplicate insights,
+Functions for merging duplicate insights,
 combining evidence and updating metadata when the same pattern
 is observed multiple times.
 """

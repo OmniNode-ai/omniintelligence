@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """Shared mock implementations for pattern storage testing.
 
-This module provides mock implementations of ProtocolPatternStore and
+Mock implementations of ProtocolPatternStore and
 ProtocolPatternStateManager for use in both unit and integration tests.
 These mocks simulate in-memory database operations for testing governance
 invariants and idempotency behavior without requiring real infrastructure.

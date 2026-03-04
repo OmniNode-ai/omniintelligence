@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """Handler functions for pattern promotion from provisional to validated status.
 
-This module implements the pattern promotion logic: checking provisional patterns
+Pattern promotion logic: checking provisional patterns
 against promotion gates and emitting lifecycle events for those that meet all
 criteria. Promotion decisions are based on rolling window metrics from the pattern
 feedback loop.
@@ -110,7 +110,6 @@ promoting patterns based on insufficient sample size.
 
 Database column: injection_count_rolling_20
 """
-
 MIN_SUCCESS_RATE: float = 0.6
 """Minimum success rate required for promotion (60%).
 
@@ -120,7 +119,6 @@ A pattern must demonstrate at least 60% success rate to be promoted from
 provisional to validated status. This threshold balances allowing useful
 patterns through while filtering out unreliable ones.
 """
-
 MAX_FAILURE_STREAK: int = 3
 """Maximum consecutive failures allowed for promotion eligibility.
 
@@ -138,7 +136,6 @@ Threshold Behavior:
 Note: The check is failure_streak < max_failure_streak, so with the default of 3,
 exactly 3 consecutive failures BLOCKS promotion.
 """
-
 # =============================================================================
 # SQL Queries
 # =============================================================================
@@ -162,8 +159,6 @@ WHERE lp.status = 'provisional'
 ORDER BY lp.created_at ASC
 LIMIT 500
 """
-
-
 # =============================================================================
 # Pure Functions
 # =============================================================================

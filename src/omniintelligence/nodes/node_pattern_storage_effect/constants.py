@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """State transition constants for pattern storage effect node.
 
-This module provides the canonical state transition rules and validation
+Canonical state transition rules and validation
 functions for pattern lifecycle management. These are governance constants
 that define the allowed state transitions in the pattern storage system.
 
@@ -106,8 +106,6 @@ Transitions:
     PROVISIONAL -> VALIDATED: Pattern meets all validation criteria
     VALIDATED -> (none): Terminal state, pattern is production-ready
 """
-
-
 # =============================================================================
 # Validation Functions
 # =============================================================================
@@ -172,7 +170,7 @@ def validate_promotion_transition(
 ) -> TransitionValidationResult:
     """Validate a state transition without performing it (dry-run).
 
-    This function provides a dry-run validation capability that allows callers
+    Dry-run validation capability that allows callers
     to check whether a transition would be valid before attempting it. Unlike
     is_valid_transition() which returns a simple boolean, this function returns
     a rich result with detailed error information and valid alternatives.

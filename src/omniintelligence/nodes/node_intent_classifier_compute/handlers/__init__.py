@@ -3,7 +3,7 @@
 
 """Intent Classifier Compute Handlers.
 
-This module provides handler functions for intent classification operations,
+Handler functions for intent classification operations,
 including TF-IDF based classification and semantic analysis.
 
 Handler Pattern:

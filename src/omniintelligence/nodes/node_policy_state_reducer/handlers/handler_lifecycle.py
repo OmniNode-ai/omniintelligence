@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """Policy lifecycle transition logic — table-driven, pure functions.
 
-This module implements the lifecycle state machine transitions:
+Lifecycle state machine transitions:
     CANDIDATE → VALIDATED when N runs with positive signal
     VALIDATED → PROMOTED  when statistical significance threshold met
     PROMOTED  → DEPRECATED when reliability falls below hard floor

@@ -3,7 +3,7 @@
 
 """Domain taxonomy enum for OmniIntelligence.
 
-This module contains the canonical domain taxonomy enumeration for pattern classification.
+Canonical domain taxonomy enumeration for pattern classification.
 Domains must come from this versioned enum, not derived dynamically, to ensure
 domain coherence as a quality gate for pattern promotion.
 

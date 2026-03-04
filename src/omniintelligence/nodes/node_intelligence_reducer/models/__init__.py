@@ -3,7 +3,7 @@
 
 """Models for Intelligence Reducer Node.
 
-This module provides type-safe input and output models for the intelligence reducer.
+Type-safe input and output models for the intelligence reducer.
 All models use strong typing with discriminated unions to eliminate dict[str, Any].
 
 ONEX Compliance:

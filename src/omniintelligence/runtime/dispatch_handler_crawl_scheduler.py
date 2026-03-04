@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """Dispatch bridge handlers for the CrawlSchedulerEffect node.
 
-This module provides bridge handlers that adapt between the MessageDispatchEngine
+Bridge handlers that adapt between the MessageDispatchEngine
 handler signature and the CrawlSchedulerEffect domain handlers.  It wires
 two subscribed topics to their respective handler functions:
 
@@ -52,11 +52,8 @@ logger = logging.getLogger(__name__)
 
 DISPATCH_ALIAS_CRAWL_REQUESTED = "onex.commands.omnimemory.crawl-requested.v1"
 """Dispatch-compatible alias for crawl-requested canonical topic."""
-
 DISPATCH_ALIAS_DOCUMENT_INDEXED = "onex.events.omnimemory.document-indexed.v1"
 """Dispatch-compatible alias for document-indexed canonical topic."""
-
-
 # =============================================================================
 # Bridge Handler: crawl-requested.v1
 # =============================================================================

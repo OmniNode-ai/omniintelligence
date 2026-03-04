@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """Dispatch handler for pattern learning commands.
 
-This module provides a bridge handler that processes PatternLearningRequested
+Bridge handler that processes PatternLearningRequested
 commands emitted by handle_stop() in the Claude hook event handler. It:
 
 1. Parses the session_id and correlation_id from the command envelope
@@ -67,7 +67,6 @@ logger = logging.getLogger(__name__)
 
 MAX_PATTERNS_PER_SESSION: int = 50
 """Hard cap on extracted patterns per session. Top-K by confidence if exceeded."""
-
 PUBLISH_BATCH_SIZE: int = 25
 """Maximum patterns to publish per Kafka batch.
 
@@ -75,7 +74,6 @@ Note: Events are published one at a time within each batch (no transport-level
 batch optimization). The batch grouping provides log grouping (batch_start/end
 in warnings) and error isolation -- a failed event does not abort the remaining
 events in the batch or subsequent batches."""
-
 try:
     _SESSION_QUERY_TIMEOUT_SECONDS: float = float(
         os.environ.get("INTELLIGENCE_SESSION_QUERY_TIMEOUT_SECONDS", "2.0")
@@ -86,14 +84,11 @@ except ValueError:
 
 Configurable via INTELLIGENCE_SESSION_QUERY_TIMEOUT_SECONDS environment variable.
 Defaults to 2.0 seconds."""
-
 _TAXONOMY_VERSION: str = "1.0.0"
 """Domain taxonomy version included in pattern metadata."""
-
 _DEFAULT_DOMAIN_ID: str = "general"
 """Default domain_id for all patterns. Insight type stored in metadata for
 later migration to a richer taxonomy."""
-
 # =============================================================================
 # SQL (READ-ONLY) for session enrichment
 # =============================================================================
@@ -115,7 +110,6 @@ WHERE session_id = $1
 ORDER BY created_at ASC
 LIMIT 500;
 """
-
 _SQL_SESSION_WORKFLOW_STEPS = """\
 SELECT
     step_name,
@@ -128,8 +122,6 @@ WHERE session_id = $1
 ORDER BY started_at ASC
 LIMIT 200;
 """
-
-
 # =============================================================================
 # Factory Function
 # =============================================================================

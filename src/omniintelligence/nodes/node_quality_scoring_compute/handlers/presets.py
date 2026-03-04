@@ -3,7 +3,7 @@
 
 """ONEX configuration presets for quality scoring.
 
-This module provides pre-configured weight sets and thresholds for different
+Pre-configured weight sets and thresholds for different
 ONEX compliance strictness levels. Presets enable users to quickly apply
 standardized quality requirements without manually configuring all parameters.
 
@@ -84,7 +84,6 @@ Emphasizes documentation and ONEX pattern adherence.
 Lower weight on temporal_relevance since production code
 should already have resolved TODO/FIXME items.
 """
-
 STANDARD_WEIGHTS: Final[dict[str, float]] = {
     "complexity": 0.20,
     "maintainability": 0.20,
@@ -98,7 +97,6 @@ STANDARD_WEIGHTS: Final[dict[str, float]] = {
 Equal emphasis across all quality dimensions.
 This matches the DEFAULT_WEIGHTS used when no preset is specified.
 """
-
 LENIENT_WEIGHTS: Final[dict[str, float]] = {
     "complexity": 0.25,  # More forgiving on complexity for prototypes
     "maintainability": 0.20,
@@ -116,7 +114,6 @@ documentation and patterns. Useful for:
 - Legacy code assessment
 - Learning exercises
 """
-
 # =============================================================================
 # Preset Thresholds
 # =============================================================================
@@ -127,21 +124,18 @@ STRICT_THRESHOLD: Final[float] = 0.8
 Code must score 0.8 or higher to be considered ONEX compliant.
 This is a high bar suitable for production deployments.
 """
-
 STANDARD_THRESHOLD: Final[float] = 0.7
 """ONEX compliance threshold for STANDARD preset.
 
 Code must score 0.7 or higher to be considered ONEX compliant.
 This is the default threshold providing a balanced quality gate.
 """
-
 LENIENT_THRESHOLD: Final[float] = 0.5
 """ONEX compliance threshold for LENIENT preset.
 
 Code must score 0.5 or higher to be considered ONEX compliant.
 This low bar is suitable for development and prototyping phases.
 """
-
 # =============================================================================
 # Mapping Dictionaries
 # =============================================================================
@@ -152,15 +146,12 @@ _PRESET_WEIGHTS: Final[dict[OnexStrictnessLevel, dict[str, float]]] = {
     OnexStrictnessLevel.LENIENT: LENIENT_WEIGHTS,
 }
 """Internal mapping from strictness level to weight configuration."""
-
 _PRESET_THRESHOLDS: Final[dict[OnexStrictnessLevel, float]] = {
     OnexStrictnessLevel.STRICT: STRICT_THRESHOLD,
     OnexStrictnessLevel.STANDARD: STANDARD_THRESHOLD,
     OnexStrictnessLevel.LENIENT: LENIENT_THRESHOLD,
 }
 """Internal mapping from strictness level to compliance threshold."""
-
-
 # =============================================================================
 # Helper Functions
 # =============================================================================

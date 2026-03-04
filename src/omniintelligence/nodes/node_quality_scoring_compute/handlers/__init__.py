@@ -3,7 +3,7 @@
 
 """Quality Scoring Compute Handlers.
 
-This module provides pure handler functions for quality scoring operations.
+Pure handler functions for quality scoring operations.
 Handlers implement the computation logic following the ONEX "pure shell pattern"
 where nodes delegate to side-effect-free handler functions.
 

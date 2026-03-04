@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """NodeScoringReducerCompute — deterministic gate + shaped reward evaluation.
 
-This node implements the core objective-function evaluation unit described in
+Core objective-function evaluation unit described in
 the OMN-2361 design doc (Section 6).
 
 It is a COMPUTE node: pure, deterministic, zero I/O, zero side effects.

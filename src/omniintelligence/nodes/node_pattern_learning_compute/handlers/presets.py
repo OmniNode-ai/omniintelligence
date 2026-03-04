@@ -3,7 +3,7 @@
 
 """Default configuration presets for pattern learning.
 
-This module provides default values and constants for pattern learning operations.
+Default values and constants for pattern learning operations.
 These are INPUTS (configurable defaults), not canonical constants.
 
 IMPORTANT:
@@ -48,7 +48,6 @@ Signature versions enable:
 
 Bump this version when signature computation changes.
 """
-
 SIGNATURE_NORMALIZATION: Final[str] = "lowercase_sort_dedupe"
 """Normalization method applied to signature inputs.
 
@@ -59,7 +58,6 @@ Current normalization:
 
 This ensures deterministic signatures regardless of declaration order.
 """
-
 # =============================================================================
 # Similarity Weights
 # =============================================================================
@@ -85,7 +83,6 @@ Weight rationale:
 
 Weights sum to 1.0.
 """
-
 # =============================================================================
 # Clustering Thresholds
 # =============================================================================
@@ -97,7 +94,6 @@ Patterns with similarity >= this threshold are grouped together.
 This is a reasonable starting point; actual threshold may be tuned
 based on dataset characteristics.
 """
-
 DEFAULT_DEDUPLICATION_THRESHOLD: Final[float] = 0.85
 """Default similarity threshold for deduplication.
 
@@ -107,14 +103,12 @@ and merged. Higher threshold = more conservative (fewer merges).
 POLICY NOTE: Prefer false negatives (keep separate) over false positives
 (merge incorrectly). You can merge later; you can't un-merge.
 """
-
 NEAR_THRESHOLD_MARGIN: Final[float] = 0.05
 """Margin around threshold for near-threshold warnings.
 
 When similarity is within this margin of the threshold, a warning
 is emitted for human review.
 """
-
 # =============================================================================
 # Promotion Thresholds
 # =============================================================================
@@ -129,7 +123,6 @@ Patterns with confidence >= this threshold are classified as "learned"
 This threshold is a starting point. Actual promotion decisions may
 involve additional criteria beyond raw confidence.
 """
-
 DEFAULT_MIN_FREQUENCY: Final[int] = 5
 """Default minimum frequency for full confidence contribution.
 
@@ -137,7 +130,6 @@ Clusters with fewer than this many members receive partial
 frequency_factor contribution. At or above this count,
 frequency_factor = 1.0.
 """
-
 # =============================================================================
 # ONEX Pattern Detection
 # =============================================================================
@@ -156,7 +148,6 @@ ONEX_BASE_CLASSES: Final[frozenset[str]] = frozenset(
 Used during feature extraction to identify ONEX pattern indicators
 through inheritance analysis.
 """
-
 ONEX_PATTERN_KEYWORDS: Final[frozenset[str]] = frozenset(
     {
         "frozen",
@@ -175,7 +166,6 @@ ONEX_PATTERN_KEYWORDS: Final[frozenset[str]] = frozenset(
 These identifiers, when present in code, suggest adherence to
 ONEX coding conventions.
 """
-
 __all__ = [
     "DEFAULT_CLUSTERING_THRESHOLD",
     "DEFAULT_DEDUPLICATION_THRESHOLD",

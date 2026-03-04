@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """Dispatch bridge handlers for Intelligence domain.
 
-This module provides bridge handlers that adapt between the MessageDispatchEngine
+Bridge handlers that adapt between the MessageDispatchEngine
 handler signature and existing Intelligence domain handlers. It also defines
 topic alias mappings needed because ONEX canonical topic naming uses ``.cmd.``
 and ``.evt.`` segments, which EnumMessageCategory.from_topic() does not yet
@@ -91,46 +91,34 @@ from omniintelligence.protocols import (
 
 DISPATCH_ALIAS_CLAUDE_HOOK = "onex.commands.omniintelligence.claude-hook-event.v1"
 """Dispatch-compatible alias for claude-hook-event canonical topic."""
-
 DISPATCH_ALIAS_SESSION_OUTCOME = "onex.commands.omniintelligence.session-outcome.v1"
 """Dispatch-compatible alias for session-outcome canonical topic."""
-
 DISPATCH_ALIAS_PATTERN_LIFECYCLE = (
     "onex.commands.omniintelligence.pattern-lifecycle-transition.v1"
 )
 """Dispatch-compatible alias for pattern-lifecycle canonical topic."""
-
 DISPATCH_ALIAS_PATTERN_LEARNED = "onex.events.omniintelligence.pattern-learned.v1"
 """Dispatch-compatible alias for pattern-learned canonical topic."""
-
 DISPATCH_ALIAS_PATTERN_DISCOVERED = "onex.events.pattern.discovered.v1"
 """Dispatch-compatible alias for pattern.discovered canonical topic."""
-
 DISPATCH_ALIAS_TOOL_CONTENT = "onex.commands.omniintelligence.tool-content.v1"
 """Dispatch-compatible alias for tool-content canonical topic."""
-
 DISPATCH_ALIAS_PATTERN_LEARNING_CMD = (
     "onex.commands.omniintelligence.pattern-learning.v1"
 )
 """Dispatch-compatible alias for pattern-learning canonical topic."""
-
 DISPATCH_ALIAS_COMPLIANCE_EVALUATE = (
     "onex.commands.omniintelligence.compliance-evaluate.v1"
 )
 """Dispatch-compatible alias for compliance-evaluate canonical topic (OMN-2339)."""
-
 DISPATCH_ALIAS_PATTERN_PROMOTED = "onex.events.omniintelligence.pattern-promoted.v1"
 """Dispatch-compatible alias for pattern-promoted canonical topic (OMN-2424)."""
-
 DISPATCH_ALIAS_PATTERN_LIFECYCLE_TRANSITIONED = (
     "onex.events.omniintelligence.pattern-lifecycle-transitioned.v1"
 )
 """Dispatch-compatible alias for pattern-lifecycle-transitioned canonical topic (OMN-2424)."""
-
 _FALLBACK_TOPIC_PATTERN_STORED = "onex.evt.omniintelligence.pattern-stored.v1"
 """Fallback publish topic when contract-resolved topic is unavailable."""
-
-
 # =============================================================================
 # Daemon Envelope Constants
 # =============================================================================
@@ -152,7 +140,6 @@ Used by ``_reshape_daemon_hook_payload_v1`` to split envelope keys from
 domain-specific payload keys.  Defined as a module-level frozenset to
 avoid reconstructing the set on every call.
 """
-
 _REQUIRED_ENVELOPE_KEYS: tuple[str, ...] = (
     "emitted_at",
     "event_type",
@@ -171,7 +158,6 @@ As of OMN-2423, only ``event_type`` is hard-required in
 fallbacks when absent or null.  Defined as a module-level tuple to
 avoid reconstructing on every call.
 """
-
 _MAX_DIAGNOSTIC_KEYS: int = 10
 """Maximum number of payload keys to include in error messages.
 

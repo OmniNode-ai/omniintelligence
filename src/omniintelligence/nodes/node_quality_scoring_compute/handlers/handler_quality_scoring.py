@@ -3,7 +3,7 @@
 
 """Handler for quality scoring computation.
 
-This module provides pure functions for scoring code quality based on
+Pure functions for scoring code quality based on
 ONEX-focused dimensions. All functions are side-effect-free and suitable
 for use in compute nodes.
 

@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """Pattern Promotion Effect node - OMN-1680, OMN-1757.
 
-This node handles automatic promotion of provisional patterns to validated
+Automatic promotion of provisional patterns to validated
 status based on rolling window success metrics. Supports dry_run mode for
 previewing promotions without committing changes.
 

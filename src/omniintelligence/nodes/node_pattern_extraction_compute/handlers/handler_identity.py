@@ -3,7 +3,7 @@
 
 """Insight identity key generation for deduplication.
 
-This module provides functions for generating unique identity keys
+Functions for generating unique identity keys
 for codebase insights, enabling deduplication across sessions and
 pattern extraction runs.
 

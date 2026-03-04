@@ -3,7 +3,7 @@
 
 """I/O Audit implementation for ONEX node purity enforcement.
 
-This module provides AST-based static analysis to detect I/O violations
+AST-based static analysis to detect I/O violations
 in ONEX nodes, enforcing the "pure compute / no I/O" architectural invariant.
 
 Forbidden patterns:

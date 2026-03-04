@@ -3,7 +3,7 @@
 
 """Evidence collection handler — extracts EvidenceItems and drives evaluation.
 
-This module implements the core logic for OMN-2578: constructing an
+Core logic for OMN-2578: constructing an
 EvidenceBundle from ChangeFrame check results at session end and feeding it
 into the objective evaluation pipeline.
 

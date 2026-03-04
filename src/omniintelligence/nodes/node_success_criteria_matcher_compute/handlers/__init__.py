@@ -3,7 +3,7 @@
 
 """Success Criteria Matcher Compute Handlers.
 
-This module provides pure handler functions for success criteria matching operations.
+Pure handler functions for success criteria matching operations.
 Handlers implement the computation logic following the ONEX "pure shell pattern"
 where nodes delegate to side-effect-free handler functions.
 

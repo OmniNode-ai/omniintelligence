@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """Handler for evidence-gated automatic pattern promotion (L2 Lifecycle Controller).
 
-This module implements the L2 Lifecycle Controller from OMN-2133. It extends the
+L2 Lifecycle Controller from OMN-2133. It extends the
 existing promotion system with evidence tier gating:
 
     CANDIDATE -> PROVISIONAL: requires evidence_tier >= OBSERVED
@@ -74,28 +74,21 @@ MIN_INJECTION_COUNT_PROVISIONAL: int = 3
 Lower threshold than PROVISIONAL -> VALIDATED because we want patterns
 to enter the provisional stage relatively quickly for further evaluation.
 """
-
 MIN_INJECTION_COUNT_VALIDATED: int = 5
 """Minimum injections for PROVISIONAL -> VALIDATED promotion.
 
 Same as existing MIN_INJECTION_COUNT in handler_promotion.py.
 """
-
 MIN_SUCCESS_RATE: float = 0.6
 """Minimum success rate required for any promotion (60%)."""
-
 MAX_FAILURE_STREAK: int = 3
 """Maximum consecutive failures allowed for promotion eligibility."""
-
 _VALID_EVIDENCE_TIERS: frozenset[str] = frozenset(
     {"unmeasured", "observed", "measured", "verified"}
 )
 """Valid evidence tier values matching EvidenceTierLiteral."""
-
 _VALID_RUN_RESULTS: frozenset[str] = frozenset({"success", "partial", "failure"})
 """Valid pipeline run result values matching EnumRunResult."""
-
-
 # =============================================================================
 # SQL Queries
 # =============================================================================
@@ -117,7 +110,6 @@ WHERE lp.status = 'candidate'
 ORDER BY lp.created_at ASC
 LIMIT 500
 """
-
 # Fetch provisional patterns eligible for PROVISIONAL -> VALIDATED promotion
 # Requires: evidence_tier >= MEASURED, sufficient metrics, not disabled
 SQL_FETCH_PROVISIONAL_PATTERNS_WITH_TIER = """
@@ -135,14 +127,12 @@ WHERE lp.status = 'provisional'
 ORDER BY lp.created_at ASC
 LIMIT 500
 """
-
 # Count measured attributions for a pattern (for gate snapshot)
 SQL_COUNT_ATTRIBUTIONS = """
 SELECT COUNT(*) as count
 FROM pattern_measured_attributions
 WHERE pattern_id = $1
 """
-
 # Get latest run result for a pattern (for gate snapshot)
 SQL_LATEST_RUN_RESULT = """
 SELECT measured_attribution_json->>'run_result' as run_result
@@ -152,8 +142,6 @@ WHERE pattern_id = $1
 ORDER BY created_at DESC
 LIMIT 1
 """
-
-
 # =============================================================================
 # Type Definitions
 # =============================================================================

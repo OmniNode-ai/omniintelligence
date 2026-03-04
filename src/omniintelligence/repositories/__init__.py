@@ -3,7 +3,7 @@
 
 """Repository contracts for omniintelligence.
 
-This module contains YAML contract files defining database repository
+YAML contract files defining database repository
 operations. Contracts are loaded and executed by PostgresRepositoryRuntime
 from omnibase_infra.
 

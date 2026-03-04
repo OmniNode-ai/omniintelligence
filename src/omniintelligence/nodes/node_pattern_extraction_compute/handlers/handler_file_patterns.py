@@ -3,7 +3,7 @@
 
 """File access pattern extraction from session data.
 
-This module implements a pure functional handler that extracts file access patterns
+Pure functional handler that extracts file access patterns
 from Claude Code session snapshots. It identifies three types of patterns that
 provide insights into codebase usage and developer workflows.
 
@@ -53,7 +53,6 @@ from omniintelligence.nodes.node_pattern_extraction_compute.handlers.protocols i
 
 CO_ACCESS_SIGNIFICANCE_FACTOR = 0.5
 """Co-access patterns: occurrence in 50% of sessions is considered highly significant."""
-
 MODIFICATION_CLUSTER_SIGNIFICANCE_FACTOR = 0.3
 """Modification clusters: occurrence in 30% of sessions is significant (rarer pattern)."""
 

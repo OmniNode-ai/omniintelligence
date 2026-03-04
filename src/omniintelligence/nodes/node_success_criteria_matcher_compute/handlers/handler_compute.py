@@ -3,7 +3,7 @@
 
 """Handler for success criteria matcher compute node orchestration.
 
-This module provides the compute handler that orchestrates criteria matching
+Compute handler that orchestrates criteria matching
 operations at the node level. It bridges the gap between the node's typed
 input/output models and the pure matching function.
 

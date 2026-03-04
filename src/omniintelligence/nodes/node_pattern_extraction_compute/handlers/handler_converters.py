@@ -3,7 +3,7 @@
 
 """Converter handlers for pattern extraction results.
 
-This module provides pure converter functions that transform raw pattern
+Pure converter functions that transform raw pattern
 extraction results into ModelCodebaseInsight objects. Converters are wired
 declaratively in the node's extractor registry.
 

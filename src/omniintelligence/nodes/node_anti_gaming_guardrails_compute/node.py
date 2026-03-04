@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """NodeAntiGamingGuardrailsCompute — structural defenses against metric gaming.
 
-This node implements four anti-gaming guardrails from OMN-2361 design doc
+Four anti-gaming guardrails from OMN-2361 design doc
 (Section 4 and Section 11):
 
   1. Goodhart's Law Detection — correlated metric pair divergence

@@ -3,7 +3,7 @@
 
 """Union-Find (Disjoint-Set) data structure for clustering operations.
 
-This module provides a reusable Union-Find implementation optimized for
+Reusable Union-Find implementation optimized for
 deterministic clustering operations. It supports path compression for
 efficient `find()` operations and guarantees deterministic behavior by
 always selecting the smaller index as the root during union operations.
@@ -61,7 +61,7 @@ from __future__ import annotations
 class UnionFind:
     """Disjoint-set data structure with deterministic ordering.
 
-    This class implements Union-Find with path compression and deterministic
+    Union-Find with path compression and deterministic
     union rules suitable for single-linkage clustering where reproducibility
     is critical.
 

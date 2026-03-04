@@ -3,7 +3,7 @@
 
 """Pattern deduplication handler for pattern learning compute node.
 
-This module provides pattern deduplication with versioned signatures and policy
+Pattern deduplication with versioned signatures and policy
 transparency. It removes overlapping patterns while maintaining deterministic
 ordering and explicit decision audit trails.
 
@@ -65,8 +65,6 @@ from omniintelligence.nodes.node_pattern_learning_compute.handlers.protocols imp
 
 _SIGNATURE_MAX_KEYWORDS: Final[int] = 20
 """Maximum number of keywords to include in signature (per ticket spec)."""
-
-
 # =============================================================================
 # Public API
 # =============================================================================

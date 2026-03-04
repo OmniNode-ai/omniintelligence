@@ -3,7 +3,7 @@
 
 """Pattern lifecycle status enum for OmniIntelligence.
 
-This module contains the canonical pattern lifecycle status enumeration
+Canonical pattern lifecycle status enumeration
 for tracking learned patterns through their promotion/demotion lifecycle.
 
 ONEX Compliance:

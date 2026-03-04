@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """ScoringReducer evaluation handler — deterministic gate + shaped reward.
 
-This module implements the core algorithmic unit of the objective architecture.
+Core algorithmic unit of the objective architecture.
 
 Two-stage evaluation pipeline:
     Stage 1 — Hard gates:

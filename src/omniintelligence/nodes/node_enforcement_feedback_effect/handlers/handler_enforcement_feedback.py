@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """Handler functions for enforcement feedback processing.
 
-This module implements the enforcement feedback loop: when omniclaude's
+Enforcement feedback loop: when omniclaude's
 PostToolUse hook detects pattern violations, it emits an enforcement event.
 This handler consumes those events and applies conservative confidence
 adjustments to violated patterns.
@@ -76,8 +76,6 @@ This value is intentionally conservative:
 
 The adjustment is ALWAYS negative (quality decreases on violations).
 """
-
-
 # =============================================================================
 # SQL Queries
 # =============================================================================
@@ -93,7 +91,6 @@ SET
     updated_at = NOW()
 WHERE id = $1
 """
-
 # =============================================================================
 # Handler Functions
 # =============================================================================

@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """ONEX Introspection Support for Pattern Demotion Effect Node.
 
-This module provides introspection capabilities for the pattern demotion
+Introspection capabilities for the pattern demotion
 effect node, enabling standardized node discovery, metadata exposure,
 and contract retrieval.
 
@@ -104,7 +104,7 @@ class PatternDemotionMetadataLoader:
 class PatternDemotionIntrospection(MixinNodeIntrospection):
     """Introspection support for pattern demotion effect node.
 
-    This class provides standardized introspection capabilities following
+    Standardized introspection capabilities following
     the ONEX pattern. It enables:
     - Node discovery through --introspect CLI flag
     - Contract and schema exposure

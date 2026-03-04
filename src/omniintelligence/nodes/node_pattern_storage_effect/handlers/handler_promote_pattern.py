@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """Pattern state promotion handler for pattern storage effect node.
 
-This module provides the handler for pattern state transitions with a complete
+Handler for pattern state transitions with a complete
 audit trail. Patterns progress through states: CANDIDATE -> PROVISIONAL -> VALIDATED.
 
 State Transition Rules:
@@ -106,7 +106,6 @@ PromotionValidationResult = TransitionValidationResult
 This alias is provided for backwards compatibility. New code should use
 TransitionValidationResult from constants.py directly.
 """
-
 # Metrics Snapshot Design Decision:
 # ---------------------------------
 # The metrics_snapshot parameter in handle_promote_pattern can be None.
@@ -239,7 +238,6 @@ class PatternNotFoundError(Exception):
 # Error codes for structured error results
 ERROR_CODE_PATTERN_NOT_FOUND: Final[str] = "PATTERN_NOT_FOUND"
 """Error code when a pattern does not exist in the state manager."""
-
 ERROR_CODE_INVALID_TRANSITION: Final[str] = "INVALID_TRANSITION"
 """Error code when a state transition violates governance rules."""
 

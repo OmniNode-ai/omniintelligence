@@ -3,7 +3,7 @@
 
 """ONEX Introspection Support for Pattern Learning Compute Node.
 
-This module provides introspection capabilities for the pattern learning
+Introspection capabilities for the pattern learning
 compute node, enabling standardized node discovery, metadata exposure,
 and contract retrieval.
 
@@ -98,7 +98,7 @@ class PatternLearningMetadataLoader:
 class PatternLearningIntrospection(MixinNodeIntrospection):
     """Introspection support for pattern learning compute node.
 
-    This class provides standardized introspection capabilities following
+    Standardized introspection capabilities following
     the ONEX pattern. It enables:
     - Node discovery through --introspect CLI flag
     - Contract and schema exposure

@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """Registry for Pattern Demotion Node Dependencies.
 
-This module provides RegistryPatternDemotionEffect, which creates a registry
+RegistryPatternDemotionEffect, which creates a registry
 of handlers for the NodePatternDemotionEffect node.
 
 Architecture:

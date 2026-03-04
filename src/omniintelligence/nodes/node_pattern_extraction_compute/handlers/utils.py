@@ -3,7 +3,7 @@
 
 """Shared utility functions for pattern extraction handlers.
 
-This module provides common utility functions used across multiple
+Common utility functions used across multiple
 pattern extraction handlers, following DRY principles.
 
 ONEX Compliance:

@@ -3,7 +3,7 @@
 
 """Input models for Intelligence Reducer.
 
-This module provides type-safe input models for the intelligence reducer node.
+Type-safe input models for the intelligence reducer node.
 Payload types are discriminated by FSM type to ensure full type safety without
 relying on dict[str, Any].
 

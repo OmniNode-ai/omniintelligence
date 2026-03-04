@@ -3,7 +3,7 @@
 
 """Handler for semantic analysis computation.
 
-This module provides pure functions for extracting semantic information from
+Pure functions for extracting semantic information from
 Python source code using AST analysis. All functions are side-effect-free
 and suitable for use in compute nodes.
 

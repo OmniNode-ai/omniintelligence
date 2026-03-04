@@ -3,7 +3,7 @@
 
 """FSM-related enums for OmniIntelligence.
 
-This module contains canonical FSM type enumerations for the intelligence system.
+Canonical FSM type enumerations for the intelligence system.
 These enums provide type safety for FSM operations in reducer and orchestrator nodes.
 
 ONEX Compliance:

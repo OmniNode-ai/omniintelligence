@@ -3,7 +3,7 @@
 
 """Pattern clustering handler for pattern learning compute node.
 
-This module provides the core clustering functionality for the pattern learning
+Core clustering functionality for the pattern learning
 pipeline. It computes similarity between extracted features and clusters similar
 patterns together using single-linkage clustering.
 

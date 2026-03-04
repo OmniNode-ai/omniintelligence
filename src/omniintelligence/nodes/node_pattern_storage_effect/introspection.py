@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """ONEX Introspection Support for Pattern Storage Effect Node.
 
-This module provides introspection capabilities for the pattern storage
+Introspection capabilities for the pattern storage
 effect node, enabling standardized node discovery, metadata exposure,
 and contract retrieval.
 
@@ -109,7 +109,7 @@ class PatternStorageMetadataLoader:
 class PatternStorageIntrospection(MixinNodeIntrospection):
     """Introspection support for pattern storage effect node.
 
-    This class provides standardized introspection capabilities following
+    Standardized introspection capabilities following
     the ONEX pattern. It enables:
     - Node discovery through --introspect CLI flag
     - Contract and schema exposure

@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """Registry for Claude Hook Event Effect Node Dependencies.
 
-This module provides RegistryClaudeHookEventEffect, which creates and registers
+RegistryClaudeHookEventEffect, which creates and registers
 handler instances for the NodeClaudeHookEventEffect node.
 
 Architecture:

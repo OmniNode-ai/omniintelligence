@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """Handler for PATTERN_LIFECYCLE FSM transitions in the Intelligence Reducer.
 
-This module implements pure FSM transition logic for pattern lifecycle states:
+Pure FSM transition logic for pattern lifecycle states:
     CANDIDATE -> VALIDATED -> DEPRECATED
 
 Note: PROVISIONAL is a LEGACY status - only outbound transitions allowed.

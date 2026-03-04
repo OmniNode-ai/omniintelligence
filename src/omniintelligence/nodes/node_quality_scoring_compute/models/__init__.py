@@ -3,7 +3,7 @@
 
 """Models for Quality Scoring Compute Node.
 
-This module provides type-safe input and output models for quality scoring.
+Type-safe input and output models for quality scoring.
 All models use strong typing to eliminate dict[str, Any].
 """
 

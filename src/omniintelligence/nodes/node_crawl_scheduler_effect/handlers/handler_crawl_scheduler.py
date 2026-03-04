@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """Handler functions for CrawlSchedulerEffect.
 
-This module implements the two handler entry points for the crawl scheduler:
+Two handler entry points for the crawl scheduler:
 
 1. ``schedule_crawl_tick()``
    Called by RuntimeScheduler on a periodic tick.  Iterates over configured

@@ -3,7 +3,7 @@
 
 """Handler for full pattern extraction workflow.
 
-This handler implements the main pattern extraction logic as a pure function.
+Main pattern extraction logic as a pure function.
 It coordinates all extractor functions and handles the complete workflow:
 - Input validation
 - Reference time resolution
@@ -19,7 +19,6 @@ and all business logic lives in handler functions.
 Ticket: OMN-1402
 
 Memory Considerations for Large Session Sets (OMN-1586)
-========================================================
 All extractors are in-memory accumulators: they build Counter and defaultdict
 structures that grow proportionally to the number of unique files, directories,
 tool names, and error messages observed across all input sessions. There is no

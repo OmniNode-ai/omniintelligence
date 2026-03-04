@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """Handler functions for pattern demotion from validated to deprecated status.
 
-This module implements the pattern demotion logic: checking validated patterns
+Pattern demotion logic: checking validated patterns
 against demotion gates and emitting lifecycle events for those that meet failure
 criteria. Demotion decisions are based on rolling window metrics from the pattern
 feedback loop.
@@ -133,7 +133,6 @@ requires more evidence.
 
 Database column: injection_count_rolling_20
 """
-
 MAX_SUCCESS_RATE_FOR_DEMOTION: float = 0.40
 """Maximum success rate threshold for demotion (40%).
 
@@ -148,7 +147,6 @@ The 20% gap between promotion (60%) and demotion (40%) ensures:
     - Random variance doesn't cause flip-flopping between states
     - Only definitively failing patterns get deprecated
 """
-
 MIN_FAILURE_STREAK_FOR_DEMOTION: int = 5
 """Minimum consecutive failures required for demotion.
 
@@ -159,7 +157,6 @@ This is HIGHER than promotion's max_failure_streak (3) because:
     - Promotion blocks on 3 consecutive failures (pattern is struggling)
     - Demotion requires 5 consecutive failures (pattern is definitively broken)
 """
-
 DEFAULT_COOLDOWN_HOURS: int = 24
 """Default cooldown period in hours since promotion.
 
@@ -170,7 +167,6 @@ patterns time to stabilize after promotion.
 Can be overridden per-request if allow_threshold_override=True.
 Manual disable BYPASSES this cooldown entirely.
 """
-
 # Threshold bounds for validation
 SUCCESS_RATE_THRESHOLD_MIN: float = 0.10
 """Minimum allowed value for max_success_rate override.
@@ -178,29 +174,24 @@ SUCCESS_RATE_THRESHOLD_MIN: float = 0.10
 Prevents setting demotion threshold below 10% which would only catch
 catastrophically failing patterns. Too permissive.
 """
-
 SUCCESS_RATE_THRESHOLD_MAX: float = 0.60
 """Maximum allowed value for max_success_rate override.
 
 Prevents setting demotion threshold at or above promotion threshold (60%)
 which would cause immediate demotion of marginal patterns.
 """
-
 FAILURE_STREAK_THRESHOLD_MIN: int = 3
 """Minimum allowed value for min_failure_streak override.
 
 Prevents setting failure streak requirement below 3 which would demote
 patterns too aggressively on small runs of bad luck.
 """
-
 FAILURE_STREAK_THRESHOLD_MAX: int = 20
 """Maximum allowed value for min_failure_streak override.
 
 Prevents setting failure streak requirement above 20 which would be
 too permissive - 20 consecutive failures is definitive.
 """
-
-
 # =============================================================================
 # Type Definitions
 # =============================================================================
@@ -265,8 +256,6 @@ WHERE lp.status = 'validated'
 ORDER BY lp.created_at ASC
 LIMIT 500
 """
-
-
 # =============================================================================
 # Pure Functions
 # =============================================================================

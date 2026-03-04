@@ -63,7 +63,7 @@ class NodeEnforcementFeedbackEffect(NodeEffect):
     Dependency Injection:
         The process_enforcement_feedback handler is invoked by callers with
         its dependencies (repository protocol for database operations).
-        This node contains NO instance variables for handlers or repositories.
+        NO instance variables for handlers or repositories.
 
     Example:
         ```python

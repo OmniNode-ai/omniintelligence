@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """Pattern storage operation router - contract-driven dispatch.
 
-This module provides the entry point for contract-driven handler routing as
+Entry point for contract-driven handler routing as
 defined in contract.yaml. The route_storage_operation function is the main
 entry point that dispatches to the appropriate handler based on operation type.
 
@@ -179,7 +179,7 @@ class StorageOperationResult:
 class PatternStorageRouter:
     """Contract-driven router for pattern storage operations.
 
-    This class provides a dependency-injectable router for pattern storage
+    Dependency-injectable router for pattern storage
     operations. It maintains references to the pattern store and state manager,
     and routes operations to the appropriate handlers.
 
@@ -228,7 +228,7 @@ class PatternStorageRouter:
     ) -> StorageOperationResult:
         """Route operation to the appropriate handler.
 
-        This method implements the routing logic defined in contract.yaml:
+        Routing logic defined in contract.yaml:
             - store_pattern -> handle_store_pattern
             - promote_pattern -> handle_promote_pattern
             - default -> handle_store_pattern

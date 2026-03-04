@@ -3,7 +3,7 @@
 
 """Handler for pattern matching compute node orchestration.
 
-This module provides the compute handler that orchestrates pattern matching
+Compute handler that orchestrates pattern matching
 operations at the node level. It bridges the gap between the node's typed
 input/output models and the pure matching function.
 

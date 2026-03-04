@@ -3,7 +3,7 @@
 
 """Pattern assembly handler for Pattern Assembler Orchestrator.
 
-This module implements the final step (step 4) of the workflow:
+Final step (step 4) of the workflow:
 assembling the pattern from all component results.
 
 The assembly process:

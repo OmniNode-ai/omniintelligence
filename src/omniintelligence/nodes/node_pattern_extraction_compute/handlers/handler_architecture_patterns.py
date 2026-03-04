@@ -3,7 +3,7 @@
 
 """Architecture pattern extraction from session data.
 
-This module implements a pure functional architecture pattern extraction
+Pure functional architecture pattern extraction
 algorithm that analyzes Claude Code session snapshots to identify:
 
 1. Module boundaries: Directory clusters that are accessed together,

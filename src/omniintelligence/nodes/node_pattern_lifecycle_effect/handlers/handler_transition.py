@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """Handler functions for pattern lifecycle status transitions.
 
-This module implements the pattern lifecycle transition logic: applying
+Pattern lifecycle transition logic: applying
 status changes atomically with audit trail and idempotency guarantees.
 
 This is the ONLY code path that may update learned_patterns.status.
@@ -105,8 +105,6 @@ logger = logging.getLogger(__name__)
 
 PROVISIONAL_STATUS: EnumPatternLifecycleStatus = EnumPatternLifecycleStatus.PROVISIONAL
 """Legacy status that new transitions are not allowed to target."""
-
-
 # =============================================================================
 # SQL Queries
 # =============================================================================
@@ -119,7 +117,6 @@ SET status = $2,
 WHERE id = $1
   AND status = $4
 """
-
 # Insert audit record into lifecycle transitions table
 SQL_INSERT_LIFECYCLE_TRANSITION = """
 INSERT INTO pattern_lifecycle_transitions (
@@ -136,15 +133,12 @@ INSERT INTO pattern_lifecycle_transitions (
     correlation_id
 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 """
-
 # Check if pattern exists, get current status and evidence tier
 SQL_GET_PATTERN_STATUS = """
 SELECT id, status, evidence_tier
 FROM learned_patterns
 WHERE id = $1
 """
-
-
 # =============================================================================
 # Handler Functions
 # =============================================================================

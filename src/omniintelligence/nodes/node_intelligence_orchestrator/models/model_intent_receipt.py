@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """Intent receipt model for Intelligence Orchestrator.
 
-This module provides the structured result returned when the orchestrator
+Structured result returned when the orchestrator
 receives and processes an intent emitted by the intelligence reducer.
 
 The receipt confirms that the intent was received, logged, and recorded,

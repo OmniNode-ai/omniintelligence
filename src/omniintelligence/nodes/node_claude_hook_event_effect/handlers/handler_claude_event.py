@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """Handler for Claude Code hook event processing.
 
-This module provides HandlerClaudeHookEvent, a handler class that processes
+HandlerClaudeHookEvent, a handler class that processes
 Claude Code hook events with explicit dependency injection via constructor.
 
 Design Principles:

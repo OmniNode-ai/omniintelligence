@@ -3,7 +3,7 @@
 
 """Stub launcher for ONEX node containers.
 
-This module provides a minimal health-check-only process for containerized
+Minimal health-check-only process for containerized
 nodes that are awaiting RuntimeHostProcess integration from omnibase_infra.
 
 Usage:

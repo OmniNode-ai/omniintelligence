@@ -3,7 +3,7 @@
 
 """Handler for semantic enrichment (pure computation).
 
-This module provides semantic analysis for intent classification enrichment.
+Semantic analysis for intent classification enrichment.
 Unlike the original HTTP-based implementation, this is a PURE COMPUTE handler
 with no external service dependencies.
 

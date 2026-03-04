@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """Handlers for Intelligence Reducer Node.
 
-This module provides handler functions for FSM transitions in the intelligence
+Handler functions for FSM transitions in the intelligence
 reducer. Each FSM type (INGESTION, PATTERN_LEARNING, QUALITY_ASSESSMENT,
 PATTERN_LIFECYCLE) has dedicated handler logic.
 

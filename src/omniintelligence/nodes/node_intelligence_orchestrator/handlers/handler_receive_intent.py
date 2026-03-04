@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """Handler for receiving and logging intents from the intelligence reducer.
 
-This handler implements the orchestrator side of the reducer-to-orchestrator
+Orchestrator side of the reducer-to-orchestrator
 intent channel. When the reducer emits ModelIntent objects as part of its
 state transition output, the orchestrator receives them through this handler.
 

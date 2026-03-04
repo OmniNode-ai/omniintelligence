@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """Intelligence domain handler wiring for kernel initialization.
 
-This module provides the wire_intelligence_handlers function that instantiates
+Wire_intelligence_handlers function that instantiates
 and registers intelligence domain handlers during plugin initialization.
 
 The wiring follows the domain-driven design principle where Intelligence-specific

@@ -3,7 +3,7 @@
 
 """Pure trace parsing logic for Execution Trace Parser Compute.
 
-This module contains pure functions for parsing execution traces.
+Pure functions for parsing execution traces.
 No I/O operations, no global state mutations.
 
 Error Handling: Returns structured errors instead of raising exceptions.
