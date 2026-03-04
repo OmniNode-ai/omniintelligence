@@ -1046,14 +1046,23 @@ db_repository:
           status, is_current
         )
         VALUES (
-          :id, :signature, :signature_hash, :domain_id,
-          :domain_version, :confidence, :version,
-          :source_session_ids,
+          $1, $2, $3, $4,
+          $5, $6, $7,
+          $8,
           'candidate', FALSE
         )
         ON CONFLICT (pattern_signature, domain_id, version)
         DO NOTHING
         RETURNING id
+      param_order:
+        - id
+        - signature
+        - signature_hash
+        - domain_id
+        - domain_version
+        - confidence
+        - version
+        - source_session_ids
       params:
         id:
           name: id

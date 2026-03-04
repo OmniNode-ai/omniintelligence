@@ -284,6 +284,51 @@ class TestContractParamOrder:
             )
 
     @pytest.mark.unit
+    def test_upsert_pattern_uses_positional_params(self) -> None:
+        """Verify upsert_pattern SQL uses $N positional syntax, not :named.
+
+        OMN-3592: asyncpg requires positional $1/$2 syntax. Named :param
+        placeholders cause PostgresSyntaxError and silently drop
+        PatternLearned events.
+        """
+        import re
+
+        from omniintelligence.repositories.adapter_pattern_store import load_contract
+
+        contract = load_contract()
+        op = contract.ops["upsert_pattern"]
+        sql = op.sql
+
+        # Must NOT contain named :param placeholders (excluding ::type casts)
+        named_pattern = re.compile(r"(?<!:):([a-z_][a-z0-9_]*)")
+        named_matches = named_pattern.findall(sql)
+        assert not named_matches, (
+            f"upsert_pattern SQL still uses named :param placeholders: "
+            f"{[f':{m}' for m in named_matches]}. "
+            f"asyncpg requires positional $1/$2 syntax."
+        )
+
+        # Must contain positional $N placeholders
+        positional_pattern = re.compile(r"\$(\d+)")
+        positional_matches = positional_pattern.findall(sql)
+        assert positional_matches, (
+            "upsert_pattern SQL has no positional $N placeholders. "
+            "asyncpg requires $1, $2, ... syntax."
+        )
+
+        # Must have param_order defined
+        assert (
+            op.param_order is not None
+        ), "upsert_pattern must define param_order for positional $N params."
+
+        # param_order length must match max positional index
+        max_index = max(int(m) for m in positional_matches)
+        assert len(op.param_order) == max_index, (
+            f"upsert_pattern param_order has {len(op.param_order)} entries "
+            f"but SQL uses up to ${max_index}."
+        )
+
+    @pytest.mark.unit
     def test_contract_loads_successfully(self) -> None:
         """Verify the contract YAML loads and validates without errors.
 
