@@ -36,6 +36,13 @@ class ModelPatternSummary(BaseModel):
     )
     domain_id: str = Field(..., max_length=50, description="Domain identifier")
 
+    # Project scope (OMN-1607)
+    project_scope: str | None = Field(
+        default=None,
+        max_length=255,
+        description="Optional project scope (e.g., 'omniclaude'). NULL means global.",
+    )
+
     # Quality metrics
     quality_score: float | None = Field(
         default=0.5,

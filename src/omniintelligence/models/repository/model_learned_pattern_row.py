@@ -46,6 +46,13 @@ class ModelLearnedPatternRow(BaseModel):
     domain_id: str = Field(..., max_length=50, description="Domain identifier")
     domain_version: str = Field(..., max_length=20, description="Domain version")
 
+    # Project scope (OMN-1607)
+    project_scope: str | None = Field(
+        default=None,
+        max_length=255,
+        description="Optional project scope (e.g., 'omniclaude'). NULL means global.",
+    )
+
     # Classification
     domain_candidates: list[ModelDomainCandidate] = Field(
         default_factory=list,

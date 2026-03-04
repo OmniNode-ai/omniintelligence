@@ -422,6 +422,7 @@ class AdapterPatternStore:
         confidence: float,
         version: int,
         source_session_ids: list[UUID],
+        project_scope: str | None = None,
     ) -> UUID | None:
         """Idempotently insert a pattern via ON CONFLICT DO NOTHING.
 
@@ -437,6 +438,7 @@ class AdapterPatternStore:
             confidence: Confidence score (0.5-1.0).
             version: Version number for this pattern.
             source_session_ids: Session UUIDs that produced this pattern.
+            project_scope: Optional project scope (OMN-1607). NULL means global.
 
         Returns:
             The pattern UUID if inserted, None if duplicate (conflict).
@@ -448,18 +450,22 @@ class AdapterPatternStore:
             else "{}"
         )
 
+        provided: dict[str, Any] = {
+            "id": str(pattern_id),
+            "signature": signature,
+            "signature_hash": signature_hash,
+            "domain_id": domain_id,
+            "domain_version": domain_version,
+            "confidence": confidence,
+            "version": version,
+            "source_session_ids": session_ids_literal,
+        }
+        if project_scope is not None:
+            provided["project_scope"] = project_scope
+
         args = self._build_positional_args(
             "upsert_pattern",
-            {
-                "id": str(pattern_id),
-                "signature": signature,
-                "signature_hash": signature_hash,
-                "domain_id": domain_id,
-                "domain_version": domain_version,
-                "confidence": confidence,
-                "version": version,
-                "source_session_ids": session_ids_literal,
-            },
+            provided,
         )
 
         result = await self._runtime.call("upsert_pattern", *args)
@@ -477,6 +483,7 @@ class AdapterPatternStore:
         min_confidence: float = 0.7,
         limit: int = 50,
         offset: int = 0,
+        project_scope: str | None = None,
     ) -> list[dict[str, Any]]:
         """Query validated/provisional patterns by domain, language, and confidence.
 
@@ -495,6 +502,8 @@ class AdapterPatternStore:
             min_confidence: Minimum confidence threshold (0.0-1.0, default 0.7).
             limit: Maximum number of patterns to return (1-200, default 50).
             offset: Number of patterns to skip for pagination (default 0).
+            project_scope: Optional project scope filter (OMN-1607). NULL returns
+                all patterns. Non-null returns global + project-specific patterns.
 
         Returns:
             List of pattern dicts matching the query criteria.
@@ -507,6 +516,7 @@ class AdapterPatternStore:
                 "min_confidence": min_confidence,
                 "limit": limit,
                 "offset": offset,
+                "project_scope": project_scope,
             },
         )
         result = await self._runtime.call("query_patterns", *args)

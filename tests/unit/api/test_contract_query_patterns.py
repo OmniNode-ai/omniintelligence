@@ -161,8 +161,8 @@ class TestQueryPatternsContract:
             },
         )
 
-        # Verify positional order: domain_id=$1, language=$2, min_confidence=$3, limit=$4, offset=$5
-        assert args == ("python", "Python", 0.85, 10, 20)
+        # Verify positional order: domain_id=$1, language=$2, min_confidence=$3, limit=$4, offset=$5, project_scope=$6
+        assert args == ("python", "Python", 0.85, 10, 20, None)
 
     def test_query_patterns_positional_args_with_defaults(self, contract) -> None:
         """_build_positional_args applies contract defaults for omitted optional params."""
@@ -180,5 +180,5 @@ class TestQueryPatternsContract:
         args = adapter._build_positional_args("query_patterns", {})
 
         # All params are optional with defaults or nullable:
-        # domain_id=None, language=None, min_confidence=0.7, limit=50, offset=0
-        assert args == (None, None, 0.7, 50, 0)
+        # domain_id=None, language=None, min_confidence=0.7, limit=50, offset=0, project_scope=None
+        assert args == (None, None, 0.7, 50, 0, None)

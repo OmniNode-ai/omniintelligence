@@ -241,6 +241,7 @@ db_repository:
           pattern_signature,
           signature_hash,
           domain_id,
+          project_scope,
           quality_score,
           confidence,
           status,
@@ -302,12 +303,15 @@ db_repository:
         applicable patterns before checking code.
         Only returns validated/provisional, current patterns.
         Ordered by status (validated first), then confidence DESC.
+        OMN-1607: Added project_scope filter. NULL project_scope returns
+        global patterns; non-null returns project-specific + global patterns.
       sql: |
         SELECT
           id,
           pattern_signature,
           signature_hash,
           domain_id,
+          project_scope,
           quality_score,
           confidence,
           status,
@@ -320,6 +324,7 @@ db_repository:
           AND confidence >= $3
           AND ($1::text IS NULL OR domain_id = $1::text)
           AND ($2::text IS NULL OR $2::text = ANY(keywords))
+          AND ($6::text IS NULL OR project_scope IS NULL OR project_scope = $6::text)
         ORDER BY
           CASE WHEN status = 'validated' THEN 0 ELSE 1 END,
           confidence DESC,
@@ -332,6 +337,7 @@ db_repository:
         - min_confidence
         - limit
         - offset
+        - project_scope
       params:
         domain_id:
           name: domain_id
@@ -369,6 +375,16 @@ db_repository:
           default: 0
           ge: 0
           description: Number of patterns to skip for pagination. Positional $5.
+        project_scope:
+          name: project_scope
+          param_type: string
+          required: false
+          max_length: 255
+          description: |
+            Optional project scope filter (e.g., "omniclaude"). Positional $6.
+            NULL returns all patterns (global + project-specific).
+            Non-null returns global patterns (project_scope IS NULL) plus
+            patterns matching the specified project scope. (OMN-1607)
       returns:
         model_ref: PatternSummary
         many: true
@@ -524,7 +540,8 @@ db_repository:
           recurrence_count,
           version,
           is_current,
-          supersedes
+          supersedes,
+          project_scope
         ) VALUES (
           $1,
           $2,
@@ -540,7 +557,8 @@ db_repository:
           $12,
           $13,
           TRUE,
-          $14
+          $14,
+          $15
         )
         RETURNING id
       param_order:
@@ -558,6 +576,7 @@ db_repository:
         - recurrence_count
         - version
         - supersedes
+        - project_scope
       params:
         id:
           name: id
@@ -649,6 +668,12 @@ db_repository:
           param_type: string
           required: false
           description: UUID of pattern this supersedes. Positional $14.
+        project_scope:
+          name: project_scope
+          param_type: string
+          required: false
+          max_length: 255
+          description: Optional project scope (e.g., "omniclaude"). NULL means global. Positional $15. (OMN-1607)
       returns:
         model_ref: IdResult
         many: false
@@ -992,7 +1017,8 @@ db_repository:
           recurrence_count,
           version,
           is_current,
-          supersedes
+          supersedes,
+          project_scope
         ) VALUES (
           $1,
           $2,
@@ -1008,7 +1034,8 @@ db_repository:
           $12,
           $13,
           TRUE,
-          (SELECT id FROM deactivated LIMIT 1)
+          (SELECT id FROM deactivated LIMIT 1),
+          $14
         )
         RETURNING id
       param_order:
@@ -1025,6 +1052,7 @@ db_repository:
         - source_session_ids
         - recurrence_count
         - version
+        - project_scope
       params:
         id:
           name: id
@@ -1110,6 +1138,12 @@ db_repository:
           required: true
           ge: 1
           description: Version number for this pattern (must be > latest existing). Positional $13.
+        project_scope:
+          name: project_scope
+          param_type: string
+          required: false
+          max_length: 255
+          description: Optional project scope (e.g., "omniclaude"). NULL means global. Positional $14. (OMN-1607)
       returns:
         model_ref: IdResult
         many: false
@@ -1133,13 +1167,15 @@ db_repository:
           id, pattern_signature, signature_hash, domain_id,
           domain_version, confidence, version,
           source_session_ids,
-          status, is_current
+          status, is_current,
+          project_scope
         )
         VALUES (
           $1, $2, $3, $4,
           $5, $6, $7,
           $8,
-          'candidate', FALSE
+          'candidate', FALSE,
+          $9
         )
         ON CONFLICT (pattern_signature, domain_id, version)
         DO NOTHING
@@ -1153,6 +1189,7 @@ db_repository:
         - confidence
         - version
         - source_session_ids
+        - project_scope
       params:
         id:
           name: id
@@ -1200,6 +1237,12 @@ db_repository:
           param_type: string
           required: true
           description: PostgreSQL array literal for session UUIDs. Positional $8.
+        project_scope:
+          name: project_scope
+          param_type: string
+          required: false
+          max_length: 255
+          description: Optional project scope (e.g., "omniclaude"). NULL means global. Positional $9. (OMN-1607)
       returns:
         model_ref: IdResult
         many: false
