@@ -258,8 +258,9 @@ repos:
       - id: yamlfmt
         # Per-hook exclusion (Tier 2) - see "EXCLUSION PATTERN STRATEGY" section above
         # Workflows excluded: YAML syntax conflicts (${{ }}, multiline strings, run:)
+        # uv.lock excluded: Not YAML but yamlfmt processes all file types
         # Global exclusions (_legacy/, migration_sources/) applied automatically
-        exclude: ^\.github/workflows/
+        exclude: ^(\.github/workflows/|uv\.lock$)
 
   # ============================================================================
   # FILE HYGIENE - Essential file formatting (standard across ecosystem)
@@ -395,8 +396,8 @@ repos:
       - id: no-env-file
         name: Reject committed .env files (except .env.example)
         entry: >-
-          bash -c 'ENV_FILES=$(git diff --cached --name-only | grep -E "(^|/)\\.env([._-].+)?$" | grep -v "\\.env\\.example");
-          if [ -n "$ENV_FILES" ]; then
+          bash -c 'ENV_FILES=$(git diff --cached --name-only | grep -E "(^|/)\\.env([._-].+)?$" | grep
+          -v "\\.env\\.example"); if [ -n "$ENV_FILES" ]; then
             echo "BLOCKED: .env file(s) staged — use ~/.omnibase/.env instead. Run: git reset HEAD <file>";
             exit 1;
           fi'
