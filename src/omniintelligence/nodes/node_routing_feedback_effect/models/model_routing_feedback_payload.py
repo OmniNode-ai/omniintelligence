@@ -44,7 +44,7 @@ class ModelRoutingFeedbackPayload(BaseModel):
         outcome: Session outcome (success, failed, abandoned, unknown).
         feedback_status: Whether reinforcement was produced or skipped.
         skip_reason: Why reinforcement was skipped. None when produced.
-        correlation_id: Optional correlation ID for distributed tracing.
+        correlation_id: Correlation ID for distributed tracing (required).
         emitted_at: Timestamp when the event was emitted (UTC).
     """
 
@@ -79,9 +79,9 @@ class ModelRoutingFeedbackPayload(BaseModel):
             "Why reinforcement was skipped. None when feedback_status is 'produced'. [OMN-2622]"
         ),
     )
-    correlation_id: UUID | None = Field(
-        default=None,
-        description="Correlation ID for distributed tracing. Optional.",
+    correlation_id: UUID = Field(
+        ...,
+        description="Correlation ID for distributed tracing.",
     )
     emitted_at: AwareDatetime = Field(
         ...,

@@ -30,6 +30,7 @@ Reference:
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from uuid import UUID
 
 import pytest
 
@@ -210,11 +211,13 @@ class TestSkippedEvents:
         sample_session_id: str,
     ) -> None:
         """A produced and skipped event for the same session ID: produced upserts, skipped does not."""
+        _cid = UUID("12345678-1234-5678-1234-567812345678")
         produced_event = ModelRoutingFeedbackPayload(
             session_id=sample_session_id,
             outcome="success",
             feedback_status="produced",
             skip_reason=None,
+            correlation_id=_cid,
             emitted_at=datetime(2026, 2, 28, 12, 0, 0, tzinfo=UTC),
         )
         skipped_event = ModelRoutingFeedbackPayload(
@@ -222,6 +225,7 @@ class TestSkippedEvents:
             outcome="unknown",
             feedback_status="skipped",
             skip_reason="UNCLEAR_OUTCOME",
+            correlation_id=_cid,
             emitted_at=datetime(2026, 2, 28, 12, 0, 1, tzinfo=UTC),
         )
 
@@ -282,11 +286,13 @@ class TestIdempotency:
         mock_repository: MockRoutingFeedbackRepository,
     ) -> None:
         """Different session_ids produce distinct rows (idempotency key = session_id)."""
+        _cid = UUID("12345678-1234-5678-1234-567812345678")
         event_a = ModelRoutingFeedbackPayload(
             session_id="session-a",
             outcome="success",
             feedback_status="produced",
             skip_reason=None,
+            correlation_id=_cid,
             emitted_at=datetime(2026, 2, 28, 12, 0, 0, tzinfo=UTC),
         )
         event_b = ModelRoutingFeedbackPayload(
@@ -294,6 +300,7 @@ class TestIdempotency:
             outcome="failed",
             feedback_status="produced",
             skip_reason=None,
+            correlation_id=_cid,
             emitted_at=datetime(2026, 2, 28, 12, 0, 1, tzinfo=UTC),
         )
 
@@ -710,6 +717,7 @@ class TestModelValidation:
                 outcome="success",
                 feedback_status="produced",
                 skip_reason=None,
+                correlation_id=UUID("12345678-1234-5678-1234-567812345678"),
                 emitted_at=datetime(2026, 2, 28, 12, 0, 0, tzinfo=UTC),
             )
 
@@ -723,6 +731,20 @@ class TestModelValidation:
                 outcome="success",
                 feedback_status="invalid_status",  # type: ignore[arg-type]
                 skip_reason=None,
+                correlation_id=UUID("12345678-1234-5678-1234-567812345678"),
+                emitted_at=datetime(2026, 2, 28, 12, 0, 0, tzinfo=UTC),
+            )
+
+    def test_event_rejects_missing_correlation_id(self) -> None:
+        """ModelRoutingFeedbackPayload rejects missing correlation_id (OMN-3739)."""
+        import pydantic
+
+        with pytest.raises(pydantic.ValidationError, match="correlation_id"):
+            ModelRoutingFeedbackPayload(  # type: ignore[call-arg]
+                session_id="test-session",
+                outcome="success",
+                feedback_status="produced",
+                skip_reason=None,
                 emitted_at=datetime(2026, 2, 28, 12, 0, 0, tzinfo=UTC),
             )
 
@@ -734,6 +756,7 @@ class TestModelValidation:
                 "outcome": "success",
                 "feedback_status": "produced",
                 "skip_reason": None,
+                "correlation_id": "12345678-1234-5678-1234-567812345678",
                 "emitted_at": "2026-02-28T12:00:00+00:00",
                 "unknown_future_field": "some_value",
                 "another_unknown_field": 42,
@@ -752,6 +775,7 @@ class TestModelValidation:
             outcome="unknown",
             feedback_status="skipped",
             skip_reason="NO_INJECTION",
+            correlation_id=UUID("12345678-1234-5678-1234-567812345678"),
             emitted_at=datetime(2026, 2, 28, 12, 0, 0, tzinfo=UTC),
         )
 

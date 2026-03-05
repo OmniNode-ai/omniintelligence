@@ -19,6 +19,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any
+from uuid import UUID
 
 import pytest
 
@@ -203,8 +204,15 @@ def sample_session_id() -> str:
 
 
 @pytest.fixture
+def sample_correlation_id() -> UUID:
+    """Fixed correlation ID for deterministic tests."""
+    return UUID("12345678-1234-5678-1234-567812345678")
+
+
+@pytest.fixture
 def sample_routing_feedback_event_produced(
     sample_session_id: str,
+    sample_correlation_id: UUID,
 ) -> ModelRoutingFeedbackPayload:
     """Routing-feedback event with feedback_status='produced'."""
     return ModelRoutingFeedbackPayload(
@@ -212,6 +220,7 @@ def sample_routing_feedback_event_produced(
         outcome="success",
         feedback_status="produced",
         skip_reason=None,
+        correlation_id=sample_correlation_id,
         emitted_at=datetime(2026, 2, 28, 12, 0, 0, tzinfo=UTC),
     )
 
@@ -219,6 +228,7 @@ def sample_routing_feedback_event_produced(
 @pytest.fixture
 def sample_routing_feedback_event_skipped(
     sample_session_id: str,
+    sample_correlation_id: UUID,
 ) -> ModelRoutingFeedbackPayload:
     """Routing-feedback event with feedback_status='skipped'."""
     return ModelRoutingFeedbackPayload(
@@ -226,6 +236,7 @@ def sample_routing_feedback_event_skipped(
         outcome="unknown",
         feedback_status="skipped",
         skip_reason="NO_INJECTION",
+        correlation_id=sample_correlation_id,
         emitted_at=datetime(2026, 2, 28, 12, 0, 0, tzinfo=UTC),
     )
 
@@ -242,6 +253,7 @@ def sample_routing_feedback_event_success(
 @pytest.fixture
 def sample_routing_feedback_event_failed(
     sample_session_id: str,
+    sample_correlation_id: UUID,
 ) -> ModelRoutingFeedbackPayload:
     """Routing-feedback event with outcome='failed' and feedback_status='produced'."""
     return ModelRoutingFeedbackPayload(
@@ -249,5 +261,6 @@ def sample_routing_feedback_event_failed(
         outcome="failed",
         feedback_status="produced",
         skip_reason=None,
+        correlation_id=sample_correlation_id,
         emitted_at=datetime(2026, 2, 28, 12, 0, 0, tzinfo=UTC),
     )

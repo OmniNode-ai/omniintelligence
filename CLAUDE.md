@@ -418,7 +418,7 @@ omnimemory (Graph Storage)
 
 ### Kafka Topics
 
-**Topic Naming**: `{env}.onex.{kind}.{producer}.{event-name}.v{version}`
+**Topic Naming**: `onex.{kind}.{producer}.{event-name}.v{version}`
 - `kind=cmd` for commands/inputs
 - `kind=evt` for events/outputs
 
@@ -785,36 +785,36 @@ tests/
 
 | Topic | Consumed By |
 |-------|-------------|
-| `{env}.onex.cmd.omniintelligence.claude-hook-event.v1` | `NodeClaudeHookEventEffect` |
-| `{env}.onex.cmd.omniintelligence.tool-content.v1` | `NodeClaudeHookEventEffect` |
-| `{env}.onex.cmd.omniintelligence.code-analysis.v1` | `NodeIntelligenceOrchestrator` |
-| `{env}.onex.cmd.omniintelligence.document-ingestion.v1` | `NodeIntelligenceOrchestrator` |
-| `{env}.onex.cmd.omniintelligence.pattern-learning.v1` | `NodeIntelligenceOrchestrator`, `NodePatternLearningEffect` |
-| `{env}.onex.cmd.omniintelligence.quality-assessment.v1` | `NodeIntelligenceOrchestrator` |
-| `{env}.onex.cmd.omniintelligence.session-outcome.v1` | `NodePatternFeedbackEffect` |
-| `{env}.onex.cmd.omniintelligence.pattern-lifecycle-transition.v1` | `NodePatternLifecycleEffect` |
-| `{env}.onex.evt.omniintelligence.pattern-learned.v1` | `NodePatternStorageEffect` |
-| `{env}.onex.evt.pattern.discovered.v1` | `NodePatternStorageEffect` (producer segment intentionally omitted — multi-producer domain event from external systems, e.g. omniclaude) |
+| `onex.cmd.omniintelligence.claude-hook-event.v1` | `NodeClaudeHookEventEffect` |
+| `onex.cmd.omniintelligence.tool-content.v1` | `NodeClaudeHookEventEffect` |
+| `onex.cmd.omniintelligence.code-analysis.v1` | `NodeIntelligenceOrchestrator` |
+| `onex.cmd.omniintelligence.document-ingestion.v1` | `NodeIntelligenceOrchestrator` |
+| `onex.cmd.omniintelligence.pattern-learning.v1` | `NodeIntelligenceOrchestrator`, `NodePatternLearningEffect` |
+| `onex.cmd.omniintelligence.quality-assessment.v1` | `NodeIntelligenceOrchestrator` |
+| `onex.cmd.omniintelligence.session-outcome.v1` | `NodePatternFeedbackEffect` |
+| `onex.cmd.omniintelligence.pattern-lifecycle-transition.v1` | `NodePatternLifecycleEffect` |
+| `onex.evt.omniintelligence.pattern-learned.v1` | `NodePatternStorageEffect` |
+| `onex.evt.pattern.discovered.v1` | `NodePatternStorageEffect` (producer segment intentionally omitted — multi-producer domain event from external systems, e.g. omniclaude) |
 
 ### Published Topics (outputs)
 
 | Topic | Published By |
 |-------|-------------|
-| `{env}.onex.evt.omniintelligence.intent-classified.v1` | `NodeClaudeHookEventEffect` |
-| `{env}.onex.evt.omniintelligence.pattern-learned.v1` | `NodePatternLearningEffect` |
-| `{env}.onex.evt.omniintelligence.pattern-stored.v1` | `NodePatternStorageEffect` |
-| `{env}.onex.evt.omniintelligence.pattern-promoted.v1` | `NodePatternStorageEffect`, `NodePatternPromotionEffect` |
-| `{env}.onex.evt.omniintelligence.pattern-deprecated.v1` | `NodePatternDemotionEffect` |
-| `{env}.onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1` | `NodePatternLifecycleEffect` |
-| `{env}.onex.evt.omniintelligence.code-analysis-completed.v1` | `NodeIntelligenceOrchestrator` |
-| `{env}.onex.evt.omniintelligence.code-analysis-failed.v1` | `NodeIntelligenceOrchestrator` |
-| `{env}.onex.evt.omniintelligence.document-ingestion-completed.v1` | `NodeIntelligenceOrchestrator` |
-| `{env}.onex.evt.omniintelligence.document-ingestion-failed.v1` | `NodeIntelligenceOrchestrator` |
-| `{env}.onex.evt.omniintelligence.pattern-learning-completed.v1` | `NodeIntelligenceOrchestrator` |
-| `{env}.onex.evt.omniintelligence.pattern-learning-failed.v1` | `NodeIntelligenceOrchestrator` |
-| `{env}.onex.evt.omniintelligence.quality-assessment-completed.v1` | `NodeIntelligenceOrchestrator` |
-| `{env}.onex.evt.omniintelligence.quality-assessment-failed.v1` | `NodeIntelligenceOrchestrator` |
-| `{env}.onex.cmd.omniintelligence.pattern-lifecycle-transition.v1` | `NodePatternPromotionEffect`, `NodePatternDemotionEffect` (command forwarded to trigger `NodePatternLifecycleEffect`) |
+| `onex.evt.omniintelligence.intent-classified.v1` | `NodeClaudeHookEventEffect` |
+| `onex.evt.omniintelligence.pattern-learned.v1` | `NodePatternLearningEffect` |
+| `onex.evt.omniintelligence.pattern-stored.v1` | `NodePatternStorageEffect` |
+| `onex.evt.omniintelligence.pattern-promoted.v1` | `NodePatternStorageEffect`, `NodePatternPromotionEffect` |
+| `onex.evt.omniintelligence.pattern-deprecated.v1` | `NodePatternDemotionEffect` |
+| `onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1` | `NodePatternLifecycleEffect` |
+| `onex.evt.omniintelligence.code-analysis-completed.v1` | `NodeIntelligenceOrchestrator` |
+| `onex.evt.omniintelligence.code-analysis-failed.v1` | `NodeIntelligenceOrchestrator` |
+| `onex.evt.omniintelligence.document-ingestion-completed.v1` | `NodeIntelligenceOrchestrator` |
+| `onex.evt.omniintelligence.document-ingestion-failed.v1` | `NodeIntelligenceOrchestrator` |
+| `onex.evt.omniintelligence.pattern-learning-completed.v1` | `NodeIntelligenceOrchestrator` |
+| `onex.evt.omniintelligence.pattern-learning-failed.v1` | `NodeIntelligenceOrchestrator` |
+| `onex.evt.omniintelligence.quality-assessment-completed.v1` | `NodeIntelligenceOrchestrator` |
+| `onex.evt.omniintelligence.quality-assessment-failed.v1` | `NodeIntelligenceOrchestrator` |
+| `onex.cmd.omniintelligence.pattern-lifecycle-transition.v1` | `NodePatternPromotionEffect`, `NodePatternDemotionEffect` (command forwarded to trigger `NodePatternLifecycleEffect`) |
 
 **DLQ pattern**: All effect nodes route failed messages to `{topic}.dlq` with original envelope, error message, timestamp, retry count, and secrets sanitized via `LogSanitizer`.
 
