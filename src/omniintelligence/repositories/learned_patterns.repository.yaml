@@ -673,7 +673,8 @@ db_repository:
           param_type: string
           required: false
           max_length: 255
-          description: Optional project scope (e.g., "omniclaude"). NULL means global. Positional $15. (OMN-1607)
+          description: Optional project scope (e.g., "omniclaude"). NULL means global. Positional $15.
+            (OMN-1607)
       returns:
         model_ref: IdResult
         many: false
@@ -1143,7 +1144,8 @@ db_repository:
           param_type: string
           required: false
           max_length: 255
-          description: Optional project scope (e.g., "omniclaude"). NULL means global. Positional $14. (OMN-1607)
+          description: Optional project scope (e.g., "omniclaude"). NULL means global. Positional $14.
+            (OMN-1607)
       returns:
         model_ref: IdResult
         many: false
@@ -1242,7 +1244,8 @@ db_repository:
           param_type: string
           required: false
           max_length: 255
-          description: Optional project scope (e.g., "omniclaude"). NULL means global. Positional $9. (OMN-1607)
+          description: Optional project scope (e.g., "omniclaude"). NULL means global. Positional $9.
+            (OMN-1607)
       returns:
         model_ref: IdResult
         many: false
