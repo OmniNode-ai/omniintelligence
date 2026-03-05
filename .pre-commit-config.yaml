@@ -387,6 +387,25 @@ repos:
         stages: [pre-commit]
 
       # --------------------------------------------------------------------------
+      # No-env-file Hook - Prevent committing .env files
+      # Validates: No .env files are staged for commit (except .env.example)
+      # Scope: Triggered on all commits
+      # Purpose: Enforces use of ~/.omnibase/.env instead of repo-level .env files
+      # --------------------------------------------------------------------------
+      - id: no-env-file
+        name: Reject committed .env files (except .env.example)
+        entry: >-
+          bash -c 'ENV_FILES=$(git diff --cached --name-only | grep -E "(^|/)\\.env([._-].+)?$" | grep -v "\\.env\\.example");
+          if [ -n "$ENV_FILES" ]; then
+            echo "BLOCKED: .env file(s) staged — use ~/.omnibase/.env instead. Run: git reset HEAD <file>";
+            exit 1;
+          fi'
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+      # --------------------------------------------------------------------------
       # Contract Linter - ONEX contract YAML validation
       # Validates: Node contracts against canonical Pydantic models
       # Scope: Main contracts (*_contract.yaml) and FSM files (fsm_*.yaml)
