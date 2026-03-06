@@ -534,7 +534,7 @@ repos:
           "ERROR: Hardcoded Kafka bootstrap fallback detected:"; echo "$MATCHES"; echo ""; echo "FIX:
           Replace os.getenv(\"KAFKA_...\", \"fallback\") with os.environ[\"KAFKA_BOOTSTRAP_SERVERS\"]
           or os.getenv(\"KAFKA_BOOTSTRAP_SERVERS\") or add kafka-fallback-ok comment"; FAILED=1; fi; IP_MATCHES=$(grep
-          -rn --include="*.py" --exclude-dir=.venv --exclude-dir=__pycache__ -E "192\.168\.[0-9]+\.[0-9]+:(9092|19092|29092|29093)" # cloud-bus-ok OMN-3777
+          -rn --include="*.py" --exclude-dir=.venv --exclude-dir=__pycache__ -E "192\.168\.[0-9]+\.[0-9]+:(9092|19092|2909[23])"
           . 2>/dev/null | grep -v "kafka-fallback-ok" | grep -v "noqa" | grep -v "onex-allow-internal-ip");
           if [ -n "$IP_MATCHES" ]; then echo "ERROR: Hardcoded private-IP Kafka broker address in Python
           file:"; echo "$IP_MATCHES"; echo ""; echo "FIX: Use KAFKA_BOOTSTRAP_SERVERS env var or add kafka-fallback-ok
