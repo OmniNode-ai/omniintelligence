@@ -116,7 +116,7 @@ class TestClassifyApiConstraint:
 
     def test_kafka_bootstrap_servers(self) -> None:
         chunk = _make_chunk(
-            "KAFKA_BOOTSTRAP_SERVERS=192.168.86.200:29092"  # kafka-fallback-ok — testing detection of stale M2 Ultra Kafka address
+            "KAFKA_BOOTSTRAP_SERVERS=192.168.86.200:29092"  # cloud-bus-ok OMN-3777 kafka-fallback-ok — testing detection of stale M2 Ultra Kafka address
         )
         assert (
             _classify_chunk_v1(

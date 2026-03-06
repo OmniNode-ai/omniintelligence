@@ -534,7 +534,7 @@ repos:
           "ERROR: Hardcoded Kafka bootstrap fallback detected:"; echo "$MATCHES"; echo ""; echo "FIX:
           Replace os.getenv(\"KAFKA_...\", \"fallback\") with os.environ[\"KAFKA_BOOTSTRAP_SERVERS\"]
           or os.getenv(\"KAFKA_BOOTSTRAP_SERVERS\") or add kafka-fallback-ok comment"; FAILED=1; fi; IP_MATCHES=$(grep
-          -rn --include="*.py" --exclude-dir=.venv --exclude-dir=__pycache__ -E "192\.168\.[0-9]+\.[0-9]+:(9092|19092|29092|29093)"
+          -rn --include="*.py" --exclude-dir=.venv --exclude-dir=__pycache__ -E "192\.168\.[0-9]+\.[0-9]+:(9092|19092|2909[23])"
           . 2>/dev/null | grep -v "kafka-fallback-ok" | grep -v "noqa" | grep -v "onex-allow-internal-ip");
           if [ -n "$IP_MATCHES" ]; then echo "ERROR: Hardcoded private-IP Kafka broker address in Python
           file:"; echo "$IP_MATCHES"; echo ""; echo "FIX: Use KAFKA_BOOTSTRAP_SERVERS env var or add kafka-fallback-ok
@@ -542,6 +542,15 @@ repos:
         language: system
         pass_filenames: false
         types: [python]
+        stages: [pre-commit]
+
+      # OMN-3777: Block cloud bus references in source code
+      - id: no-cloud-bus
+        name: Block cloud bus references
+        entry: bash scripts/check_no_cloud_bus_wrapper.sh
+        language: system
+        pass_filenames: false
+        always_run: true
         stages: [pre-commit]
 
       # OMN-3619: Block planning docs from being committed to this repo
