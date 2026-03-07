@@ -34,12 +34,10 @@ status: "active"
 
 # Description
 description: >
-  Effect node for routing completed compute events to appropriate storage backends.
-  Consumes vectorization.completed, entity.extraction-completed, and pattern.matched
-  events, then routes them to Qdrant (vectors), Memgraph (graphs), or PostgreSQL
-  (patterns) respectively. Handles storage failures with retry logic and DLQ routing.
-  Publishes storage.completed or storage.failed events for downstream consumers.
-
+  Effect node for routing completed compute events to appropriate storage backends. Consumes vectorization.completed,
+  entity.extraction-completed, and pattern.matched events, then routes them to Qdrant (vectors), Memgraph
+  (graphs), or PostgreSQL (patterns) respectively. Handles storage failures with retry logic and DLQ routing.
+  Publishes storage.completed or storage.failed events for downstream consumers. #magic___^_^___line
 # Strongly typed I/O models
 input_model:
   name: "ModelStorageRouteInput"
@@ -145,15 +143,15 @@ published_events:
     full_topic_pattern: "onex.evt.omniintelligence.storage-completed.v1"
     event_type: "StorageCompleted"
     trigger: "Compute event successfully stored in target backend"
-    description: "Emitted when a compute event is successfully routed and stored. Contains
-      event ID, target backend, and routing metadata."
+    description: "Emitted when a compute event is successfully routed and stored. Contains event ID, target
+      backend, and routing metadata."
 
   - topic_suffix: "onex.evt.omniintelligence.storage-failed.v1"
     full_topic_pattern: "onex.evt.omniintelligence.storage-failed.v1"
     event_type: "StorageFailed"
     trigger: "Storage operation failed or event is unroutable"
-    description: "Emitted when a storage operation fails or the event type has no routing
-      rule. Contains error details and retry count."
+    description: "Emitted when a storage operation fails or the event type has no routing rule. Contains
+      error details and retry count."
 
 # =============================================================================
 # EVENT BUS SUBCONTRACT - Runtime Routing Layer
@@ -217,16 +215,16 @@ dependencies:
     type: "protocol"
     class_name: "ProtocolDlqPublisher"
     module: "omniintelligence.nodes.node_storage_router_effect.handlers.handler_route_storage"
-    description: "DLQ publisher for failed storage events. Optional - events are logged but
-      not re-queued when absent."
+    description: "DLQ publisher for failed storage events. Optional - events are logged but not re-queued
+      when absent."
     required: false
 
   - name: "kafka_producer"
     type: "protocol"
     class_name: "ProtocolKafkaPublisher"
     module: "omniintelligence.protocols"
-    description: "Kafka publisher for emitting storage routing events. Not injected into handlers
-      - RuntimeHostProcess publishes returned events to declared publish_topics automatically."
+    description: "Kafka publisher for emitting storage routing events. Not injected into handlers - RuntimeHostProcess
+      publishes returned events to declared publish_topics automatically."
     required: false
 
 # =============================================================================
@@ -289,9 +287,8 @@ idempotency:
   enabled: true
   strategy: "event_id_tracking"
   hash_fields: ["event_id"]
-  description: "Each routing request is keyed by event_id. Re-processing the same
-    compute-completed event is idempotent - duplicate events are deduplicated via
-    event_id lookup."
+  description: "Each routing request is keyed by event_id. Re-processing the same compute-completed event
+    is idempotent - duplicate events are deduplicated via event_id lookup."
 
 # =============================================================================
 # HEALTH CHECK
