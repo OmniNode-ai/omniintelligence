@@ -1,0 +1,322 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 OmniNode Team
+#
+# ONEX Node Contract
+# Node: NodeStorageRouterEffect
+#
+# This contract defines the interface for the storage router effect node.
+# The node routes completed compute events to appropriate storage backends
+# (Qdrant, Memgraph, PostgreSQL) based on event type.
+#
+# Reference: OMN-371 - Storage Router Effect Node
+
+# Contract identifiers
+name: "node_storage_router_effect"
+contract_name: "storage_router_effect"
+node_name: "storage_router_effect"
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+# Node type
+node_type: "EFFECT_GENERIC"
+
+# Status
+status: "active"
+
+# Description
+description: >
+  Effect node for routing completed compute events to appropriate storage backends.
+  Consumes vectorization.completed, entity.extraction-completed, and pattern.matched
+  events, then routes them to Qdrant (vectors), Memgraph (graphs), or PostgreSQL
+  (patterns) respectively. Handles storage failures with retry logic and DLQ routing.
+  Publishes storage.completed or storage.failed events for downstream consumers.
+
+# Strongly typed I/O models
+input_model:
+  name: "ModelStorageRouteInput"
+  module: "omniintelligence.nodes.node_storage_router_effect.models"
+  description: "Input model containing a compute-completed event to be routed to storage."
+
+output_model:
+  name: "ModelStorageRouteOutput"
+  module: "omniintelligence.nodes.node_storage_router_effect.models"
+  description: "Output model with routing result including target backend and status."
+
+# =============================================================================
+# HANDLER ROUTING (Event-Type-Based Dispatch)
+# =============================================================================
+# Routes compute events to storage backends based on event_type field.
+# The handler resolves the target backend using a routing table.
+#
+# Execution Flow:
+#   1. Receive compute-completed event from Kafka
+#   2. Resolve target storage backend from event_type
+#   3. Execute storage via appropriate client
+#   4. Emit storage.completed or storage.failed event
+#   5. On exhausted retries, route to DLQ
+# =============================================================================
+handler_routing:
+  routing_strategy: "event_type_match"
+  entry_point:
+    function: "handle_route_storage"
+    module: "omniintelligence.nodes.node_storage_router_effect.handlers.handler_route_storage"
+    type: "async"
+    description: "Main entry point that routes compute events to appropriate storage backends"
+  handlers:
+    - operation: "route_vectorization"
+      handler:
+        function: "handle_route_storage"
+        module: "omniintelligence.nodes.node_storage_router_effect.handlers.handler_route_storage"
+        type: "async"
+      description: "Route vectorization.completed events to Qdrant"
+      actions:
+        - "resolve backend (qdrant)"
+        - "store vectors"
+        - "emit storage.completed"
+
+    - operation: "route_entity_extraction"
+      handler:
+        function: "handle_route_storage"
+        module: "omniintelligence.nodes.node_storage_router_effect.handlers.handler_route_storage"
+        type: "async"
+      description: "Route entity.extraction-completed events to Memgraph"
+      actions:
+        - "resolve backend (memgraph)"
+        - "store entities"
+        - "emit storage.completed"
+
+    - operation: "route_pattern_match"
+      handler:
+        function: "handle_route_storage"
+        module: "omniintelligence.nodes.node_storage_router_effect.handlers.handler_route_storage"
+        type: "async"
+      description: "Route pattern.matched events to PostgreSQL"
+      actions:
+        - "resolve backend (postgresql)"
+        - "store patterns"
+        - "emit storage.completed"
+
+  default_handler:
+    function: "handle_route_storage"
+    module: "omniintelligence.nodes.node_storage_router_effect.handlers.handler_route_storage"
+    type: "async"
+    description: "Default handler for all event types - resolves backend from routing table"
+
+# =============================================================================
+# IO OPERATIONS
+# =============================================================================
+io_operations:
+  - operation: "route_storage"
+    description: "Route a compute-completed event to the appropriate storage backend"
+    input_model: "ModelStorageRouteInput"
+    output_model: "ModelStorageRouteOutput"
+    output_topic: "onex.evt.omniintelligence.storage-completed.v1"
+    input_fields:
+      - event_id
+      - event_type
+      - correlation_id
+      - payload
+      - source_node
+      - produced_at
+      - retry_count
+    output_fields:
+      - event_id
+      - correlation_id
+      - target_backend
+      - status
+      - routed_at
+      - error_message
+      - retry_count
+
+# =============================================================================
+# PUBLISHED EVENTS (Kafka) - Documentation Layer
+# =============================================================================
+published_events:
+  - topic_suffix: "onex.evt.omniintelligence.storage-completed.v1"
+    full_topic_pattern: "onex.evt.omniintelligence.storage-completed.v1"
+    event_type: "StorageCompleted"
+    trigger: "Compute event successfully stored in target backend"
+    description: "Emitted when a compute event is successfully routed and stored. Contains
+      event ID, target backend, and routing metadata."
+
+  - topic_suffix: "onex.evt.omniintelligence.storage-failed.v1"
+    full_topic_pattern: "onex.evt.omniintelligence.storage-failed.v1"
+    event_type: "StorageFailed"
+    trigger: "Storage operation failed or event is unroutable"
+    description: "Emitted when a storage operation fails or the event type has no routing
+      rule. Contains error details and retry count."
+
+# =============================================================================
+# EVENT BUS SUBCONTRACT - Runtime Routing Layer
+# =============================================================================
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  event_bus_enabled: true
+
+  # Topics this node subscribes to (receives events from)
+  subscribe_topics:
+    - "onex.evt.omniintelligence.vectorization-completed.v1"
+    - "onex.evt.omniintelligence.entity-extraction-completed.v1"
+    - "onex.evt.omniintelligence.pattern-matched.v1"
+
+  # Topics this node publishes to (sends events to)
+  publish_topics:
+    - "onex.evt.omniintelligence.storage-completed.v1"
+    - "onex.evt.omniintelligence.storage-failed.v1"
+
+  # Metadata for subscribed topics
+  subscribe_topic_metadata:
+    "onex.evt.omniintelligence.vectorization-completed.v1":
+      schema_ref: "omniintelligence.nodes.node_storage_router_effect.models.ModelStorageRouteInput"
+      description: "Vectorization completed events from the embedding generation pipeline."
+      content_type: "application/json"
+    "onex.evt.omniintelligence.entity-extraction-completed.v1":
+      schema_ref: "omniintelligence.nodes.node_storage_router_effect.models.ModelStorageRouteInput"
+      description: "Entity extraction completed events from the semantic analysis pipeline."
+      content_type: "application/json"
+    "onex.evt.omniintelligence.pattern-matched.v1":
+      schema_ref: "omniintelligence.nodes.node_storage_router_effect.models.ModelStorageRouteInput"
+      description: "Pattern matched events from the pattern matching compute pipeline."
+      content_type: "application/json"
+
+  # Metadata for published topics
+  publish_topic_metadata:
+    "onex.evt.omniintelligence.storage-completed.v1":
+      schema_ref: "omniintelligence.nodes.node_storage_router_effect.models.ModelStorageRouteOutput"
+      description: "Storage routing confirmation with target backend and status"
+      content_type: "application/json"
+    "onex.evt.omniintelligence.storage-failed.v1":
+      schema_ref: "omniintelligence.nodes.node_storage_router_effect.models.ModelStorageRouteOutput"
+      description: "Storage routing failure with error details and retry count"
+      content_type: "application/json"
+
+# =============================================================================
+# DEPENDENCIES
+# =============================================================================
+dependencies:
+  - name: "storage_client_registry"
+    type: "protocol"
+    class_name: "StorageClientRegistry"
+    module: "omniintelligence.nodes.node_storage_router_effect.handlers.handler_route_storage"
+    description: "Registry of storage backend clients for routing compute events"
+    required: true
+
+  - name: "dlq_publisher"
+    type: "protocol"
+    class_name: "ProtocolDlqPublisher"
+    module: "omniintelligence.nodes.node_storage_router_effect.handlers.handler_route_storage"
+    description: "DLQ publisher for failed storage events. Optional - events are logged but
+      not re-queued when absent."
+    required: false
+
+  - name: "kafka_producer"
+    type: "protocol"
+    class_name: "ProtocolKafkaPublisher"
+    module: "omniintelligence.protocols"
+    description: "Kafka publisher for emitting storage routing events. Not injected into handlers
+      - RuntimeHostProcess publishes returned events to declared publish_topics automatically."
+    required: false
+
+# =============================================================================
+# ERROR HANDLING
+# =============================================================================
+error_handling:
+  retry_policy:
+    max_retries: 3
+    initial_delay_ms: 100
+    max_delay_ms: 5000
+    exponential_base: 2
+    retry_on:
+      - "ConnectionError"
+      - "TimeoutError"
+      - "StorageUnavailableError"
+
+  error_types:
+    - name: "StorageRoutingError"
+      error_code: "STROUTE_001"
+      description: "Failed to route event to storage backend"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+    - name: "StorageClientUnavailableError"
+      error_code: "STROUTE_002"
+      description: "Storage backend client is not available"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+    - name: "UnroutableEventError"
+      error_code: "STROUTE_003"
+      description: "Event type has no configured routing rule"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "DlqPublishError"
+      error_code: "STROUTE_004"
+      description: "Failed to publish failed event to DLQ"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+
+# =============================================================================
+# CAPABILITIES
+# =============================================================================
+capabilities:
+  - name: "storage_router.route_vectorization"
+    description: "Route vectorization.completed events to Qdrant"
+    version: "1.0.0"
+  - name: "storage_router.route_entity_extraction"
+    description: "Route entity.extraction-completed events to Memgraph"
+    version: "1.0.0"
+  - name: "storage_router.route_pattern_match"
+    description: "Route pattern.matched events to PostgreSQL"
+    version: "1.0.0"
+  - name: "storage_router.dlq_routing"
+    description: "Route failed events to dead letter queue after retry exhaustion"
+    version: "1.0.0"
+
+# =============================================================================
+# IDEMPOTENCY
+# =============================================================================
+idempotency:
+  enabled: true
+  strategy: "event_id_tracking"
+  hash_fields: ["event_id"]
+  description: "Each routing request is keyed by event_id. Re-processing the same
+    compute-completed event is idempotent - duplicate events are deduplicated via
+    event_id lookup."
+
+# =============================================================================
+# HEALTH CHECK
+# =============================================================================
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+
+# =============================================================================
+# METADATA
+# =============================================================================
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-03-07"
+  updated: "2026-03-07"
+  tags:
+    - effect
+    - storage-routing
+    - kafka
+    - qdrant
+    - memgraph
+    - postgresql
+  references:
+    - ticket: "OMN-371"
+      url: "https://linear.app/omninode/issue/OMN-371"
+      description: "Storage Router Effect Node"
