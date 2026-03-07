@@ -15,6 +15,9 @@ from omniintelligence.clients.embedding_client import (
     EmbeddingConnectionError,
     EmbeddingTimeoutError,
 )
+from omniintelligence.clients.embedding_client_local_openai import (
+    EmbeddingClientLocalOpenAI,
+)
 from omniintelligence.clients.plan_reviewer_gemini_client import (
     ModelPlanReviewerGeminiConfig,
     PlanReviewerGeminiAuthError,
@@ -33,6 +36,7 @@ from omniintelligence.clients.plan_reviewer_z_ai_client import (
 __all__ = [
     "EmbeddingClient",
     "EmbeddingClientError",
+    "EmbeddingClientLocalOpenAI",
     "EmbeddingConnectionError",
     "EmbeddingTimeoutError",
     "ModelPlanReviewerGeminiConfig",

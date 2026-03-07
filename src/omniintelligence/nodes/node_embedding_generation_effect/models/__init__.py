@@ -4,6 +4,9 @@
 
 from __future__ import annotations
 
+from omniintelligence.nodes.node_embedding_generation_effect.models.enum_embedding_provider import (
+    EnumEmbeddingProvider,
+)
 from omniintelligence.nodes.node_embedding_generation_effect.models.model_embedded_chunk import (
     ModelEmbeddedChunk,
 )
@@ -18,6 +21,7 @@ from omniintelligence.nodes.node_embedding_generation_effect.models.model_embedd
 )
 
 __all__ = [
+    "EnumEmbeddingProvider",
     "ModelEmbeddedChunk",
     "ModelEmbeddingClientConfig",
     "ModelEmbeddingGenerateInput",

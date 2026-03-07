@@ -1,11 +1,16 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2025 OmniNode Team
-"""Handler for EmbeddingGenerationEffect — batch chunk embedding via Qwen3-Embedding.
+"""Handler for EmbeddingGenerationEffect — batch chunk embedding.
+
+Supports multiple embedding providers:
+  - QWEN3: Custom /embed endpoint (Qwen3-Embedding-8B-4bit server)
+  - LOCAL_OPENAI: OpenAI-compatible /v1/embeddings endpoint (MLX server)
 
 Behavior:
   - Receives classified chunks from ChunkClassifierCompute
   - Skips chunks with empty content (logs warning)
-  - Generates 1024-dimensional embeddings via EmbeddingClient.get_embeddings_batch
+  - Selects embedding client based on input_data.embedding_provider
+  - Generates embeddings via client.get_embeddings_batch
   - On partial batch failure: retries failed chunks individually
   - On persistent failure: dead-letters chunk (logs warning, increments failed_chunks)
   - Attaches embedding vector to each successfully embedded chunk
@@ -17,19 +22,26 @@ Error handling:
   - Persistent individual failure: dead-letter (counted in failed_chunks)
   - Connection/timeout errors propagate (batch-level failure, dead-letter entire document)
 
-Ticket: OMN-2392
+Ticket: OMN-2392, OMN-368
 """
 
 from __future__ import annotations
 
 import logging
+from typing import Protocol, runtime_checkable
 
 from omniintelligence.clients.embedding_client import (
     EmbeddingClient,
     EmbeddingClientError,
 )
+from omniintelligence.clients.embedding_client_local_openai import (
+    EmbeddingClientLocalOpenAI,
+)
 from omniintelligence.nodes.node_chunk_classifier_compute.models.model_classified_chunk import (
     ModelClassifiedChunk,
+)
+from omniintelligence.nodes.node_embedding_generation_effect.models.enum_embedding_provider import (
+    EnumEmbeddingProvider,
 )
 from omniintelligence.nodes.node_embedding_generation_effect.models.model_embedded_chunk import (
     ModelEmbeddedChunk,
@@ -45,6 +57,19 @@ from omniintelligence.nodes.node_embedding_generation_effect.models.model_embedd
 )
 
 logger = logging.getLogger(__name__)
+
+
+@runtime_checkable
+class ProtocolEmbeddingClient(Protocol):
+    """Protocol for embedding clients used by the handler.
+
+    Both EmbeddingClient and EmbeddingClientLocalOpenAI satisfy this protocol.
+    """
+
+    async def connect(self) -> None: ...
+    async def close(self) -> None: ...
+    async def get_embedding(self, text: str) -> list[float]: ...
+    async def get_embeddings_batch(self, texts: list[str]) -> list[list[float]]: ...
 
 
 def _chunk_to_embedded(
@@ -73,24 +98,48 @@ def _chunk_to_embedded(
     )
 
 
+def _create_client_for_provider(
+    provider: EnumEmbeddingProvider,
+    config: ModelEmbeddingClientConfig,
+) -> ProtocolEmbeddingClient:
+    """Create the appropriate embedding client for the given provider.
+
+    Args:
+        provider: Which embedding backend to use.
+        config: Client configuration (base_url, timeout, retries, etc.).
+
+    Returns:
+        An embedding client instance matching the provider.
+
+    Raises:
+        ValueError: If the provider is not supported.
+    """
+    if provider == EnumEmbeddingProvider.QWEN3:
+        return EmbeddingClient(config)
+    if provider == EnumEmbeddingProvider.LOCAL_OPENAI:
+        return EmbeddingClientLocalOpenAI(config)
+    raise ValueError(f"Unsupported embedding provider: {provider}")
+
+
 async def handle_embedding_generate(
     input_data: ModelEmbeddingGenerateInput,
     *,
-    client: EmbeddingClient | None = None,
+    client: ProtocolEmbeddingClient | None = None,
 ) -> ModelEmbeddingGenerateOutput:
     """Generate embeddings for all classified chunks in the input.
 
     Algorithm:
       1. Separate chunks into embeddable (non-empty content) and skip (empty).
-      2. Attempt batch embedding via client.get_embeddings_batch.
-      3. On batch failure, retry each embeddable chunk individually.
-      4. Chunks that fail individually are dead-lettered (counted in failed_chunks).
-      5. Return output with embedded_chunks, skipped_chunks, failed_chunks counts.
+      2. Select embedding client based on input_data.embedding_provider.
+      3. Attempt batch embedding via client.get_embeddings_batch.
+      4. On batch failure, retry each embeddable chunk individually.
+      5. Chunks that fail individually are dead-lettered (counted in failed_chunks).
+      6. Return output with embedded_chunks, skipped_chunks, failed_chunks counts.
 
     Args:
         input_data: Embedding request with classified chunks and server URL.
-        client: Optional pre-configured EmbeddingClient (for testing).
-                If None, a new client is created from input_data.embedding_url.
+        client: Optional pre-configured embedding client (for testing).
+                If None, a new client is created based on input_data.embedding_provider.
 
     Returns:
         ModelEmbeddingGenerateOutput with embedded chunks and error counts.
@@ -125,7 +174,11 @@ async def handle_embedding_generate(
     # Create client if not injected (production path)
     config = ModelEmbeddingClientConfig(base_url=input_data.embedding_url)
     own_client = client is None
-    active_client = client if client is not None else EmbeddingClient(config)
+    active_client = (
+        client
+        if client is not None
+        else _create_client_for_provider(input_data.embedding_provider, config)
+    )
 
     try:
         if own_client:
@@ -173,4 +226,4 @@ async def handle_embedding_generate(
     )
 
 
-__all__ = ["handle_embedding_generate"]
+__all__ = ["ProtocolEmbeddingClient", "handle_embedding_generate"]

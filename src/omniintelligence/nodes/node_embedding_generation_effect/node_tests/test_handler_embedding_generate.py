@@ -13,8 +13,11 @@ Test coverage:
     - Ordering: embedded_chunks order matches input order
     - Correlation ID propagation
     - Embedding dimension: tuple length matches client return
+    - Provider selection: QWEN3 and LOCAL_OPENAI (OMN-368)
+    - Provider-based client creation (OMN-368)
+    - EmbeddingClientLocalOpenAI response parsing (OMN-368)
 
-Ticket: OMN-2392
+Ticket: OMN-2392, OMN-368
 """
 
 from __future__ import annotations
@@ -27,6 +30,9 @@ from omniintelligence.clients.embedding_client import (
     EmbeddingClient,
     EmbeddingClientError,
 )
+from omniintelligence.clients.embedding_client_local_openai import (
+    EmbeddingClientLocalOpenAI,
+)
 from omniintelligence.nodes.node_chunk_classifier_compute.models.enum_context_item_type import (
     EnumContextItemType,
 )
@@ -34,7 +40,14 @@ from omniintelligence.nodes.node_chunk_classifier_compute.models.model_classifie
     ModelClassifiedChunk,
 )
 from omniintelligence.nodes.node_embedding_generation_effect.handlers.handler_embedding_generate import (
+    _create_client_for_provider,
     handle_embedding_generate,
+)
+from omniintelligence.nodes.node_embedding_generation_effect.models.enum_embedding_provider import (
+    EnumEmbeddingProvider,
+)
+from omniintelligence.nodes.node_embedding_generation_effect.models.model_embedding_client_config import (
+    ModelEmbeddingClientConfig,
 )
 from omniintelligence.nodes.node_embedding_generation_effect.models.model_embedding_generate_input import (
     ModelEmbeddingGenerateInput,
@@ -82,10 +95,12 @@ def _make_input(
     chunks: list[ModelClassifiedChunk],
     source_ref: str = "docs/CLAUDE.md",
     correlation_id: str | None = "test-corr-01",
+    embedding_provider: EnumEmbeddingProvider = EnumEmbeddingProvider.QWEN3,
 ) -> ModelEmbeddingGenerateInput:
     return ModelEmbeddingGenerateInput(
         classified_chunks=tuple(chunks),
         embedding_url=_EMBEDDING_URL,
+        embedding_provider=embedding_provider,
         source_ref=source_ref,
         correlation_id=correlation_id,
     )
@@ -434,12 +449,245 @@ class TestClientLifecycle:
 
         with patch(
             "omniintelligence.nodes.node_embedding_generation_effect."
-            "handlers.handler_embedding_generate.EmbeddingClient"
-        ) as MockClientClass:
+            "handlers.handler_embedding_generate._create_client_for_provider"
+        ) as mock_create:
             mock_instance = _make_mock_client(batch_result=[_FAKE_EMBEDDING])
-            MockClientClass.return_value = mock_instance
+            mock_create.return_value = mock_instance
 
             await handle_embedding_generate(_make_input([chunk]))
 
             mock_instance.connect.assert_called_once()  # type: ignore[attr-defined]
             mock_instance.close.assert_called_once()  # type: ignore[attr-defined]
+
+
+# ---------------------------------------------------------------------------
+# Provider selection tests (OMN-368)
+# ---------------------------------------------------------------------------
+
+
+class TestProviderSelection:
+    """Test that the correct client is created based on embedding_provider."""
+
+    def test_create_client_qwen3(self) -> None:
+        config = ModelEmbeddingClientConfig(base_url="http://localhost:8100")
+        client = _create_client_for_provider(EnumEmbeddingProvider.QWEN3, config)
+        assert isinstance(client, EmbeddingClient)
+
+    def test_create_client_local_openai(self) -> None:
+        config = ModelEmbeddingClientConfig(base_url="http://localhost:8100")
+        client = _create_client_for_provider(EnumEmbeddingProvider.LOCAL_OPENAI, config)
+        assert isinstance(client, EmbeddingClientLocalOpenAI)
+
+    @pytest.mark.asyncio
+    async def test_handler_creates_qwen3_client_by_default(self) -> None:
+        """Default provider is QWEN3."""
+        chunk = _make_classified_chunk()
+
+        with patch(
+            "omniintelligence.nodes.node_embedding_generation_effect."
+            "handlers.handler_embedding_generate._create_client_for_provider"
+        ) as mock_create:
+            mock_instance = _make_mock_client(batch_result=[_FAKE_EMBEDDING])
+            mock_create.return_value = mock_instance
+
+            await handle_embedding_generate(_make_input([chunk]))
+
+            mock_create.assert_called_once()
+            args = mock_create.call_args
+            assert args[0][0] == EnumEmbeddingProvider.QWEN3
+
+    @pytest.mark.asyncio
+    async def test_handler_creates_local_openai_client(self) -> None:
+        """When LOCAL_OPENAI provider is specified, correct client is created."""
+        chunk = _make_classified_chunk()
+
+        with patch(
+            "omniintelligence.nodes.node_embedding_generation_effect."
+            "handlers.handler_embedding_generate._create_client_for_provider"
+        ) as mock_create:
+            mock_instance = _make_mock_client(batch_result=[_FAKE_EMBEDDING])
+            mock_create.return_value = mock_instance
+
+            await handle_embedding_generate(
+                _make_input(
+                    [chunk],
+                    embedding_provider=EnumEmbeddingProvider.LOCAL_OPENAI,
+                )
+            )
+
+            mock_create.assert_called_once()
+            args = mock_create.call_args
+            assert args[0][0] == EnumEmbeddingProvider.LOCAL_OPENAI
+
+    @pytest.mark.asyncio
+    async def test_local_openai_happy_path(self) -> None:
+        """LOCAL_OPENAI provider with injected mock client works end-to-end."""
+        chunk = _make_classified_chunk()
+        mock_client = _make_mock_client(batch_result=[_FAKE_EMBEDDING])
+
+        result = await handle_embedding_generate(
+            _make_input(
+                [chunk],
+                embedding_provider=EnumEmbeddingProvider.LOCAL_OPENAI,
+            ),
+            client=mock_client,
+        )
+
+        assert result.total_chunks == 1
+        assert result.skipped_chunks == 0
+        assert result.failed_chunks == 0
+        assert len(result.embedded_chunks) == 1
+
+    def test_input_model_defaults_to_qwen3(self) -> None:
+        """ModelEmbeddingGenerateInput defaults to QWEN3 provider."""
+        input_data = ModelEmbeddingGenerateInput(
+            classified_chunks=(),
+            embedding_url="http://localhost:8100",
+            source_ref="test.md",
+        )
+        assert input_data.embedding_provider == EnumEmbeddingProvider.QWEN3
+
+    def test_input_model_accepts_local_openai(self) -> None:
+        """ModelEmbeddingGenerateInput accepts LOCAL_OPENAI provider."""
+        input_data = ModelEmbeddingGenerateInput(
+            classified_chunks=(),
+            embedding_url="http://localhost:8100",
+            embedding_provider=EnumEmbeddingProvider.LOCAL_OPENAI,
+            source_ref="test.md",
+        )
+        assert input_data.embedding_provider == EnumEmbeddingProvider.LOCAL_OPENAI
+
+    def test_input_model_accepts_string_provider(self) -> None:
+        """ModelEmbeddingGenerateInput accepts string values for provider."""
+        input_data = ModelEmbeddingGenerateInput(
+            classified_chunks=(),
+            embedding_url="http://localhost:8100",
+            embedding_provider="local_openai",  # type: ignore[arg-type]
+            source_ref="test.md",
+        )
+        assert input_data.embedding_provider == EnumEmbeddingProvider.LOCAL_OPENAI
+
+
+# ---------------------------------------------------------------------------
+# EmbeddingClientLocalOpenAI unit tests (OMN-368)
+# ---------------------------------------------------------------------------
+
+
+class TestEmbeddingClientLocalOpenAI:
+    """Test EmbeddingClientLocalOpenAI response parsing and endpoints."""
+
+    def test_embeddings_url(self) -> None:
+        config = ModelEmbeddingClientConfig(base_url="http://localhost:8100")
+        client = EmbeddingClientLocalOpenAI(config)
+        assert client.embeddings_url == "http://localhost:8100/v1/embeddings"
+
+    def test_embeddings_url_trailing_slash(self) -> None:
+        config = ModelEmbeddingClientConfig(base_url="http://localhost:8100/")
+        client = EmbeddingClientLocalOpenAI(config)
+        assert client.embeddings_url == "http://localhost:8100/v1/embeddings"
+
+    def test_parse_openai_response_valid(self) -> None:
+        config = ModelEmbeddingClientConfig(
+            base_url="http://localhost:8100",
+            embedding_dimension=3,
+        )
+        client = EmbeddingClientLocalOpenAI(config)
+
+        response = {
+            "data": [
+                {"embedding": [0.1, 0.2, 0.3], "index": 0},
+            ],
+            "model": "test-model",
+            "usage": {"prompt_tokens": 5, "total_tokens": 5},
+        }
+
+        result = client._parse_openai_response(response, expected_count=1)
+        assert len(result) == 1
+        assert result[0] == [0.1, 0.2, 0.3]
+
+    def test_parse_openai_response_multiple_sorted_by_index(self) -> None:
+        config = ModelEmbeddingClientConfig(
+            base_url="http://localhost:8100",
+            embedding_dimension=2,
+        )
+        client = EmbeddingClientLocalOpenAI(config)
+
+        response = {
+            "data": [
+                {"embedding": [0.3, 0.4], "index": 1},
+                {"embedding": [0.1, 0.2], "index": 0},
+            ],
+            "model": "test-model",
+            "usage": {},
+        }
+
+        result = client._parse_openai_response(response, expected_count=2)
+        assert len(result) == 2
+        # Should be sorted by index
+        assert result[0] == [0.1, 0.2]
+        assert result[1] == [0.3, 0.4]
+
+    def test_parse_openai_response_invalid_format(self) -> None:
+        config = ModelEmbeddingClientConfig(base_url="http://localhost:8100")
+        client = EmbeddingClientLocalOpenAI(config)
+
+        with pytest.raises(EmbeddingClientError, match="Unexpected response format"):
+            client._parse_openai_response({"result": []}, expected_count=1)
+
+    def test_parse_openai_response_count_mismatch(self) -> None:
+        config = ModelEmbeddingClientConfig(base_url="http://localhost:8100")
+        client = EmbeddingClientLocalOpenAI(config)
+
+        response = {
+            "data": [
+                {"embedding": [0.1] * 1024, "index": 0},
+            ],
+        }
+
+        with pytest.raises(EmbeddingClientError, match="Expected 2 embeddings"):
+            client._parse_openai_response(response, expected_count=2)
+
+    @pytest.mark.asyncio
+    async def test_get_embedding_empty_text_raises(self) -> None:
+        config = ModelEmbeddingClientConfig(base_url="http://localhost:8100")
+        client = EmbeddingClientLocalOpenAI(config)
+
+        with pytest.raises(EmbeddingClientError, match="Text cannot be empty"):
+            await client.get_embedding("")
+
+    @pytest.mark.asyncio
+    async def test_get_embeddings_batch_empty_returns_empty(self) -> None:
+        config = ModelEmbeddingClientConfig(base_url="http://localhost:8100")
+        client = EmbeddingClientLocalOpenAI(config)
+
+        result = await client.get_embeddings_batch([])
+        assert result == []
+
+    def test_not_connected_initially(self) -> None:
+        config = ModelEmbeddingClientConfig(base_url="http://localhost:8100")
+        client = EmbeddingClientLocalOpenAI(config)
+        assert not client.is_connected
+
+    def test_custom_model_name(self) -> None:
+        config = ModelEmbeddingClientConfig(base_url="http://localhost:8100")
+        client = EmbeddingClientLocalOpenAI(config, model_name="my-model")
+        assert client._model_name == "my-model"
+
+
+# ---------------------------------------------------------------------------
+# Enum tests (OMN-368)
+# ---------------------------------------------------------------------------
+
+
+class TestEnumEmbeddingProvider:
+    """Test EnumEmbeddingProvider values."""
+
+    def test_qwen3_value(self) -> None:
+        assert EnumEmbeddingProvider.QWEN3 == "qwen3"
+
+    def test_local_openai_value(self) -> None:
+        assert EnumEmbeddingProvider.LOCAL_OPENAI == "local_openai"
+
+    def test_enum_is_str(self) -> None:
+        assert isinstance(EnumEmbeddingProvider.QWEN3, str)
+        assert isinstance(EnumEmbeddingProvider.LOCAL_OPENAI, str)
