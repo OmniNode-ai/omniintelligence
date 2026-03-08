@@ -34,11 +34,10 @@ status: "active"
 
 # Description
 description: >
-  Effect node for executing protocol-specific operations via handler implementations.
-  Routes operations to the appropriate protocol handler (HttpRestHandler, BoltHandler,
-  PostgresHandler, KafkaHandler) based on the protocol field in the input model.
-  Each handler manages its own connection lifecycle, pooling, and retry logic.
-
+  Effect node for executing protocol-specific operations via handler implementations. Routes operations
+  to the appropriate protocol handler (HttpRestHandler, BoltHandler, PostgresHandler, KafkaHandler) based
+  on the protocol field in the input model. Each handler manages its own connection lifecycle, pooling,
+  and retry logic. #magic___^_^___line
 # Strongly typed I/O models
 input_model:
   name: "ModelProtocolHandlerInput"
@@ -155,8 +154,8 @@ published_events:
     full_topic_pattern: "onex.evt.omniintelligence.protocol-executed.v1"
     event_type: "ProtocolExecuted"
     trigger: "Protocol operation completed (success or failure)"
-    description: "Emitted when a protocol operation completes. Contains operation
-      result, status, timing, and error details if applicable."
+    description: "Emitted when a protocol operation completes. Contains operation result, status, timing,
+      and error details if applicable."
 
 # =============================================================================
 # EVENT BUS SUBCONTRACT - Runtime Routing Layer
@@ -201,8 +200,8 @@ dependencies:
     type: "protocol"
     class_name: "ProtocolKafkaPublisher"
     module: "omniintelligence.protocols"
-    description: "Kafka publisher for emitting protocol execution events. Not injected into handlers - RuntimeHostProcess
-      publishes returned events to declared publish_topics automatically."
+    description: "Kafka publisher for emitting protocol execution events. Not injected into handlers -
+      RuntimeHostProcess publishes returned events to declared publish_topics automatically."
     required: false
 
 # =============================================================================
@@ -264,8 +263,8 @@ idempotency:
   enabled: true
   strategy: "correlation_id_tracking"
   hash_fields: ["correlation_id", "protocol", "operation"]
-  description: "Each protocol operation request is keyed by correlation_id + protocol + operation.
-    Re-processing the same request is idempotent."
+  description: "Each protocol operation request is keyed by correlation_id + protocol + operation. Re-processing
+    the same request is idempotent."
 
 # =============================================================================
 # HEALTH CHECK

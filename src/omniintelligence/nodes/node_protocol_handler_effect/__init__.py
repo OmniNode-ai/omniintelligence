@@ -16,20 +16,20 @@ Key Components:
     - EnumHandlerStatus: Operation status codes
     - ProtocolHandler: Base protocol interface for all handlers
     - ProtocolHandlerRegistry: Registry for handler lookup
-    - HttpRestHandler: HTTP/REST via httpx
-    - BoltHandler: Neo4j/Memgraph via Bolt protocol
-    - PostgresHandler: PostgreSQL via asyncpg
-    - KafkaHandler: Kafka via confluent-kafka
+
+Concrete handler implementations (HttpRestHandler, BoltHandler,
+PostgresHandler, KafkaHandler) live in omniintelligence.adapters to
+comply with ONEX I/O audit and cross-repo validation policies.
 
 Usage (Declarative Pattern):
     from omniintelligence.nodes.node_protocol_handler_effect import (
         NodeProtocolHandlerEffect,
         handle_protocol_execute,
         ProtocolHandlerRegistry,
-        HttpRestHandler,
         EnumProtocolType,
         ModelProtocolHandlerInput,
     )
+    from omniintelligence.adapters import HttpRestHandler
 
     # Wire handlers
     http_handler = HttpRestHandler()
@@ -54,10 +54,6 @@ Reference:
 """
 
 from omniintelligence.nodes.node_protocol_handler_effect.handlers import (
-    BoltHandler,
-    HttpRestHandler,
-    KafkaHandler,
-    PostgresHandler,
     ProtocolHandler,
     ProtocolHandlerRegistry,
     handle_protocol_execute,
@@ -73,15 +69,11 @@ from omniintelligence.nodes.node_protocol_handler_effect.node import (
 )
 
 __all__ = [
-    "BoltHandler",
     "EnumHandlerStatus",
     "EnumProtocolType",
-    "HttpRestHandler",
-    "KafkaHandler",
     "ModelProtocolHandlerInput",
     "ModelProtocolHandlerOutput",
     "NodeProtocolHandlerEffect",
-    "PostgresHandler",
     "ProtocolHandler",
     "ProtocolHandlerRegistry",
     "handle_protocol_execute",
