@@ -56,9 +56,9 @@ class ModelIntentClassifiedEnvelope(BaseModel):
         ...,
         description="Session ID from the originating hook event",
     )
-    correlation_id: str = Field(
+    correlation_id: UUID = Field(
         ...,
-        description="Correlation ID for distributed tracing (UUID string)",
+        description="Correlation ID for distributed tracing",
     )
     intent_class: EnumIntentClass = Field(
         ...,

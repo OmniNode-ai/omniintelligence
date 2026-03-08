@@ -36,7 +36,13 @@ with contextlib.suppress(ImportError):  # pragma: no cover
         score_code_quality,
     )
 
-__version__ = "0.9.1"
+# Do not hardcode versions here; version is sourced from distribution metadata.
+from importlib.metadata import PackageNotFoundError, version
+
+try:
+    __version__ = version("omninode-intelligence")
+except PackageNotFoundError:
+    __version__ = "0.0.0-dev"
 
 __all__ = [
     # Configuration
