@@ -1,0 +1,407 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# =============================================================================
+# DEBUG STORE REPOSITORY CONTRACT
+# =============================================================================
+#
+# Contract for the debug intelligence tables. Defines all read/write operations
+# for CI failure tracking, streak management, trigger records, and fix records.
+#
+# All SQL uses asyncpg $N positional syntax (OMN-3644).
+# Each operation declares params in declaration order mapping $1..$N.
+#
+# Tables:
+#   failure_streaks         — source of truth for consecutive failure streaks
+#   ci_failure_events       — individual failure event log (snapshot, not source of truth)
+#   debug_trigger_records   — created when streak threshold is crossed
+#   debug_fix_records       — created when CI recovers after a trigger exists
+#
+# Streak invariant:
+#   NEVER compute consecutive count from ci_failure_events row count.
+#   failure_streaks.streak_count is the ONLY source of truth.
+#
+# =============================================================================
+# ONEX CONTRACT ENVELOPE (required by contracts validator)
+# =============================================================================
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_type: "SERVICE"
+
+db_repository:
+  name: debug_store
+  engine: postgres
+  database_ref: omniintelligence
+  description: |
+    Repository for the debug intelligence subsystem.
+    Manages CI failure streaks, trigger records, and fix records.
+    Ticket: OMN-3556
+
+  # Tables this contract is allowed to access
+  tables:
+    - failure_streaks
+    - ci_failure_events
+    - debug_trigger_records
+    - debug_fix_records
+
+  # =============================================================================
+  # OPERATIONS
+  # =============================================================================
+  ops:
+    # -------------------------------------------------------------------------
+    # WRITE: Upsert failure streak (insert or increment)
+    # -------------------------------------------------------------------------
+    upsert_streak:
+      mode: write
+      description: |
+        Insert a new streak row for (repo, branch) or increment the existing
+        streak_count. Updates last_sha and updated_at_utc on each call.
+        Returns the updated row via RETURNING *.
+
+        Streak invariant: This is the ONLY operation that increments streak_count.
+        Never compute streak by counting ci_failure_events rows.
+      sql: |
+        INSERT INTO failure_streaks (repo, branch, streak_count, last_sha, started_at_utc, updated_at_utc)
+        VALUES ($1, $2, 1, $3, now(), now())
+        ON CONFLICT (repo, branch) DO UPDATE
+          SET streak_count = failure_streaks.streak_count + 1,
+              last_sha = EXCLUDED.last_sha,
+              updated_at_utc = now()
+        RETURNING *
+      params:
+        repo:
+          name: repo
+          param_type: string
+          required: true
+          description: Repository identifier (e.g. OmniNode-ai/omniintelligence). Positional $1.
+        branch:
+          name: branch
+          param_type: string
+          required: true
+          description: Branch name (e.g. main). Positional $2.
+        sha:
+          name: sha
+          param_type: string
+          required: true
+          description: Git SHA of the failing run. Positional $3.
+      returns:
+        many: false
+
+    # -------------------------------------------------------------------------
+    # WRITE: Reset failure streak to zero
+    # -------------------------------------------------------------------------
+    reset_streak:
+      mode: write
+      description: |
+        Reset streak_count to 0 for (repo, branch) on CI recovery.
+        Sets updated_at_utc to now(). Noop if no row exists.
+      sql: |
+        UPDATE failure_streaks
+        SET streak_count = 0,
+            updated_at_utc = now()
+        WHERE repo = $1
+          AND branch = $2
+      params:
+        repo:
+          name: repo
+          param_type: string
+          required: true
+          description: Repository identifier. Positional $1.
+        branch:
+          name: branch
+          param_type: string
+          required: true
+          description: Branch name. Positional $2.
+      returns:
+        many: false
+
+    # -------------------------------------------------------------------------
+    # READ: Get current streak for (repo, branch)
+    # -------------------------------------------------------------------------
+    get_streak:
+      mode: read
+      description: |
+        Retrieve the current streak row for (repo, branch).
+        Returns None if no streak row exists (first-ever run for this branch).
+      sql: |
+        SELECT *
+        FROM failure_streaks
+        WHERE repo = $1
+          AND branch = $2
+      params:
+        repo:
+          name: repo
+          param_type: string
+          required: true
+          description: Repository identifier. Positional $1.
+        branch:
+          name: branch
+          param_type: string
+          required: true
+          description: Branch name. Positional $2.
+      returns:
+        many: false
+
+    # -------------------------------------------------------------------------
+    # WRITE: Insert a CI failure event record
+    # -------------------------------------------------------------------------
+    insert_ci_failure_event:
+      mode: write
+      description: |
+        Insert a single CI failure event log entry.
+        streak_snapshot must be copied from failure_streaks.streak_count at call time —
+        it is a historical snapshot, not the live count.
+        Returns the inserted row via RETURNING *.
+      sql: |
+        INSERT INTO ci_failure_events
+          (repo, branch, sha, pr_number, error_fingerprint, error_classification, streak_snapshot)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING *
+      params:
+        repo:
+          name: repo
+          param_type: string
+          required: true
+          description: Repository identifier. Positional $1.
+        branch:
+          name: branch
+          param_type: string
+          required: true
+          description: Branch name. Positional $2.
+        sha:
+          name: sha
+          param_type: string
+          required: true
+          description: Git SHA of the failing run. Positional $3.
+        pr_number:
+          name: pr_number
+          param_type: integer
+          required: false
+          description: PR number if applicable, NULL otherwise. Positional $4.
+        error_fingerprint:
+          name: error_fingerprint
+          param_type: string
+          required: true
+          description: SHA-256 fingerprint of the error. Positional $5.
+        error_classification:
+          name: error_classification
+          param_type: string
+          required: false
+          default: "unknown"
+          description: Error taxonomy classification. Positional $6.
+        streak_snapshot:
+          name: streak_snapshot
+          param_type: integer
+          required: false
+          default: 0
+          description: Snapshot of failure_streaks.streak_count at insertion time. Positional $7.
+      returns:
+        many: false
+
+    # -------------------------------------------------------------------------
+    # WRITE: Insert a debug trigger record
+    # -------------------------------------------------------------------------
+    insert_trigger_record:
+      mode: write
+      description: |
+        Create a TriggerRecord when streak threshold is crossed.
+        observed_bad_sha is the SHA present when threshold was crossed — NOT
+        the first bad commit. Phase 1 label: Phase 2 will add bisect result.
+        Returns the inserted row via RETURNING *.
+      sql: |
+        INSERT INTO debug_trigger_records
+          (repo, branch, failure_fingerprint, error_classification, observed_bad_sha, streak_count_at_trigger)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING *
+      params:
+        repo:
+          name: repo
+          param_type: string
+          required: true
+          description: Repository identifier. Positional $1.
+        branch:
+          name: branch
+          param_type: string
+          required: true
+          description: Branch name. Positional $2.
+        failure_fingerprint:
+          name: failure_fingerprint
+          param_type: string
+          required: true
+          description: SHA-256 fingerprint of the failure. Positional $3.
+        error_classification:
+          name: error_classification
+          param_type: string
+          required: false
+          default: "unknown"
+          description: Error taxonomy classification. Positional $4.
+        observed_bad_sha:
+          name: observed_bad_sha
+          param_type: string
+          required: true
+          description: SHA observed when streak threshold was crossed. Positional $5.
+        streak_count_at_trigger:
+          name: streak_count_at_trigger
+          param_type: integer
+          required: true
+          description: Streak count at the time the trigger was created. Positional $6.
+      returns:
+        many: false
+
+    # -------------------------------------------------------------------------
+    # READ: Find the most recent open trigger record for (repo, branch)
+    # -------------------------------------------------------------------------
+    find_open_trigger_record:
+      mode: read
+      description: |
+        Find the most recent unresolved TriggerRecord for (repo, branch).
+        Returns None if no open trigger exists — noop for fix record handler.
+        ORDER BY created_at_utc DESC ensures we get the newest open trigger.
+      sql: |
+        SELECT *
+        FROM debug_trigger_records
+        WHERE repo = $1
+          AND branch = $2
+          AND resolved = FALSE
+        ORDER BY created_at_utc DESC
+        LIMIT 1
+      params:
+        repo:
+          name: repo
+          param_type: string
+          required: true
+          description: Repository identifier. Positional $1.
+        branch:
+          name: branch
+          param_type: string
+          required: true
+          description: Branch name. Positional $2.
+      returns:
+        many: false
+
+    # -------------------------------------------------------------------------
+    # WRITE: Atomically mark trigger record resolved and link fix record
+    # -------------------------------------------------------------------------
+    try_mark_trigger_resolved:
+      mode: write
+      description: |
+        Atomically mark a TriggerRecord as resolved and store the fix_record_id.
+        Uses WHERE resolved = FALSE to prevent double-resolution race conditions.
+        Returns the updated row if successful, or NULL if the race was lost.
+        Application layer treats NULL result as "race lost — orphaned fix record".
+      sql: |
+        UPDATE debug_trigger_records
+        SET resolved = TRUE,
+            fix_record_id = $2
+        WHERE id = $1
+          AND resolved = FALSE
+        RETURNING id
+      params:
+        trigger_record_id:
+          name: trigger_record_id
+          param_type: string
+          required: true
+          description: UUID of the trigger record to mark resolved. Positional $1.
+        fix_record_id:
+          name: fix_record_id
+          param_type: string
+          required: true
+          description: UUID of the associated fix record. Positional $2.
+      returns:
+        many: false
+
+    # -------------------------------------------------------------------------
+    # WRITE: Insert a debug fix record
+    # -------------------------------------------------------------------------
+    insert_fix_record:
+      mode: write
+      description: |
+        Create a FixRecord when CI recovers after an open TriggerRecord exists.
+        regression_test_added is a Phase 1 heuristic: true if PR touches tests/
+        and modifies a test file. Returns the inserted row via RETURNING *.
+      sql: |
+        INSERT INTO debug_fix_records
+          (trigger_record_id, repo, sha, pr_number, regression_test_added)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING *
+      params:
+        trigger_record_id:
+          name: trigger_record_id
+          param_type: string
+          required: true
+          description: UUID of the associated trigger record. Positional $1.
+        repo:
+          name: repo
+          param_type: string
+          required: true
+          description: Repository identifier. Positional $2.
+        sha:
+          name: sha
+          param_type: string
+          required: true
+          description: Git SHA of the fixing commit. Positional $3.
+        pr_number:
+          name: pr_number
+          param_type: integer
+          required: false
+          description: PR number if applicable, NULL otherwise. Positional $4.
+        regression_test_added:
+          name: regression_test_added
+          param_type: boolean
+          required: false
+          default: false
+          description: Heuristic — true if tests/ was modified in this PR. Positional $5.
+      returns:
+        many: false
+
+    # -------------------------------------------------------------------------
+    # READ: Query fix records with time-decay ordering
+    # -------------------------------------------------------------------------
+    query_fix_records:
+      mode: read
+      description: |
+        Retrieve fix records for a given error fingerprint, ordered by recency
+        (most recent first). Used by node_debug_retrieval_compute for time-decayed
+        retrieval of past fixes for similar failures.
+
+        Joins to debug_trigger_records to verify the FK relationship (fix_record_id
+        must point back to this fix record — guards against orphaned fix records
+        from races in try_mark_trigger_resolved).
+      sql: |
+        SELECT
+          fr.id,
+          fr.trigger_record_id,
+          fr.repo,
+          fr.sha,
+          fr.pr_number,
+          fr.regression_test_added,
+          fr.created_at_utc,
+          tr.failure_fingerprint,
+          tr.error_classification,
+          tr.observed_bad_sha,
+          tr.streak_count_at_trigger
+        FROM debug_fix_records fr
+        JOIN debug_trigger_records tr
+          ON tr.id = fr.trigger_record_id
+          AND tr.fix_record_id = fr.id
+        WHERE tr.failure_fingerprint = $1
+        ORDER BY fr.created_at_utc DESC
+        LIMIT $2
+      params:
+        failure_fingerprint:
+          name: failure_fingerprint
+          param_type: string
+          required: true
+          description: SHA-256 fingerprint to look up past fixes for. Positional $1.
+        limit:
+          name: limit
+          param_type: integer
+          required: false
+          default: 10
+          ge: 1
+          le: 100
+          description: Maximum number of fix records to return. Positional $2.
+      returns:
+        many: true

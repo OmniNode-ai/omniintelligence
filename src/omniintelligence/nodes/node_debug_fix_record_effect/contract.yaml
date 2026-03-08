@@ -1,0 +1,27 @@
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+name: "node_debug_fix_record_effect"
+node_type: "EFFECT_GENERIC"
+description: |
+  Effect node that consumes CI recovery events. Finds the open TriggerRecord
+  for the repo+branch, inserts a FixRecord, and atomically marks the
+  TriggerRecord resolved. Race-safe via try_mark_trigger_resolved CAS operation.
+
+event_bus:
+  event_bus_enabled: true
+  subscribe_topics:
+    - "onex.cmd.omniintelligence.ci-recovery-detected.v1"
+  publish_topics:
+    - "onex.evt.omniintelligence.debug-fix-record-created.v1"
+
+dependencies:
+  - name: debug_store
+    type: protocol
+    class_name: "ProtocolDebugStore"
+    required: true

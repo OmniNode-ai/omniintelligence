@@ -1,0 +1,29 @@
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+name: "node_ci_error_classifier_compute"
+node_type: "COMPUTE_GENERIC"
+description: |
+  Pure compute node that normalizes and validates LLM classification output.
+  Handles confidence clamping and list coercion for malformed LLM responses.
+  No I/O — pure function, no logging.
+
+input_model:
+  name: "ModelCiErrorClassifierInput"
+  module: "omniintelligence.nodes.node_ci_error_classifier_compute.models.model_input"
+  description: "Error fingerprint and raw failure output."
+
+output_model:
+  name: "ModelCiErrorClassifierOutput"
+  module: "omniintelligence.nodes.node_ci_error_classifier_compute.models.model_output"
+  description: "Normalized classification, confidence, evidence, and unknowns."
+
+event_bus:
+  event_bus_enabled: false
+
+dependencies: []

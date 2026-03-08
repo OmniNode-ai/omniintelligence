@@ -1,0 +1,33 @@
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+name: "node_debug_retrieval_compute"
+node_type: "COMPUTE_GENERIC"
+description: |
+  Compute node for time-decayed retrieval of past CI fix records.
+  Queries confirmed fix records for a failure fingerprint and annotates
+  each with an exponential time-decay weight (half-life 30 days).
+
+input_model:
+  name: "ModelDebugRetrievalInput"
+  module: "omniintelligence.nodes.node_debug_retrieval_compute.models.model_input"
+  description: "Failure fingerprint and max fix records to retrieve."
+
+output_model:
+  name: "ModelDebugRetrievalOutput"
+  module: "omniintelligence.nodes.node_debug_retrieval_compute.models.model_output"
+  description: "Fix records annotated with time_decay_weight."
+
+event_bus:
+  event_bus_enabled: false
+
+dependencies:
+  - name: debug_store
+    type: protocol
+    class_name: "ProtocolDebugStore"
+    required: true

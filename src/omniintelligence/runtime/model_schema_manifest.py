@@ -24,8 +24,12 @@ OMNIINTELLIGENCE_SCHEMA_MANIFEST = ModelSchemaManifest(
     owner_service="omniintelligence",
     schema_name="public",
     tables=(
+        "ci_failure_events",
         "db_metadata",
+        "debug_fix_records",
+        "debug_trigger_records",
         "domain_taxonomy",
+        "failure_streaks",
         "fsm_state",
         "fsm_state_history",
         "idempotency_records",  # owned and migrated by omnibase_infra, not this repo's migrations; expected to exist at service start
