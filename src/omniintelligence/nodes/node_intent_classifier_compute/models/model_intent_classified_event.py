@@ -53,9 +53,9 @@ class ModelIntentClassifiedEvent(BaseModel):
         ...,
         description="Session ID from the originating hook event",
     )
-    correlation_id: str = Field(
+    correlation_id: UUID = Field(
         ...,
-        description="Correlation ID for distributed tracing (UUID string)",
+        description="Correlation ID for distributed tracing",
     )
     intent_class: EnumIntentClass = Field(
         ...,
@@ -132,7 +132,7 @@ class ModelIntentClassifiedEvent(BaseModel):
         """
         return cls(
             session_id=session_id,
-            correlation_id=str(correlation_id),
+            correlation_id=correlation_id,
             intent_class=intent_class,
             confidence=confidence,
             fallback=fallback,
