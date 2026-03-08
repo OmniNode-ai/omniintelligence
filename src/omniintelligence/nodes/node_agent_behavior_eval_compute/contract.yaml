@@ -16,9 +16,16 @@ node_version:
 name: "node_agent_behavior_eval_compute"
 node_type: "COMPUTE_GENERIC"
 description: >-
-  Compute node for evaluating AGENT_EXECUTION failure modes via LLM judge.
-  Evaluates 5 failure modes: unsafe_tool_sequencing, false_completion_claims,
-  stale_memory_obedience, refusal_drift, and spec_rewriting.
+  Compute node for evaluating AGENT_EXECUTION failure modes via LLM judge. Evaluates 5 failure modes:
+  unsafe_tool_sequencing, false_completion_claims, stale_memory_obedience, refusal_drift, and spec_rewriting.
+input_model:
+  name: "ModelEvalScenario"
+  module: "omniintelligence.nodes.node_bloom_eval_orchestrator.models.model_eval_scenario"
+  description: "Evaluation scenario for a specific AGENT_EXECUTION failure mode."
+output_model:
+  name: "ModelEvalSuiteResult"
+  module: "omniintelligence.nodes.node_bloom_eval_orchestrator.models.model_eval_result"
+  description: "Aggregated suite result containing per-scenario evaluation results."
 operations:
   - name: "evaluate_agent_behavior"
     description: "Evaluate agent output for AGENT_EXECUTION failure modes"
