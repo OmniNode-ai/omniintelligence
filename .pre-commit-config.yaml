@@ -288,14 +288,10 @@ repos:
       - id: check-added-large-files
         args: [--maxkb=1000]
   # ============================================================================
-  # ONEX String Version Anti-Pattern Detection (from omnibase_core)
-  # Prevents hardcoded __version__ in __init__.py and string version anti-patterns
+  # ONEX String Version Anti-Pattern Detection
   # ============================================================================
-  - repo: https://github.com/OmniNode-ai/omnibase_core
-    rev: c93cfdd53baa280468b99a3d28c1812d9683dd83  # TODO: bump to v0.25.0 once tagged
-    hooks:
-      - id: validate-string-versions
-        name: ONEX String Version Anti-Pattern Detection
+  # TODO(OMN-3832-followup): Re-enable once validate-string-versions is packaged as a
+  # proper Python CLI entrypoint in omnibase_core (currently only works as a local script).
 
   # ============================================================================
   # ONEX Python Development Hooks (local - matching omnibase_core pattern)
