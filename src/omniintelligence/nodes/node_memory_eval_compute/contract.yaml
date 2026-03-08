@@ -1,0 +1,75 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# ONEX Node Contract - Memory Eval Compute Node
+# =============================================================================
+# Tracking: OMN-4026
+# =============================================================================
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+name: "node_memory_eval_compute"
+node_type: "COMPUTE_GENERIC"
+description: >-
+  Compute node that evaluates MEMORY_SYSTEM failure modes via LLM judge.
+  Evaluates 5 failure modes: regression_amnesia, over_trust_prior_context,
+  cross_task_contamination, failure_to_surface_memory, incorrect_suppression.
+input_model:
+  name: "ModelMemoryEvalInput"
+  module: "omniintelligence.nodes.node_memory_eval_compute.models"
+  description: "Input carrying evaluation scenarios, memory output, and judge_caller."
+output_model:
+  name: "ModelEvalSuiteResult"
+  module: "omniintelligence.nodes.node_bloom_eval_orchestrator.models"
+  description: "Aggregated evaluation results for the memory domain."
+operations:
+  - name: "evaluate_memory"
+    description: "Evaluate MEMORY_SYSTEM failure modes via LLM judge"
+    input_fields:
+      - scenarios
+      - memory_output
+      - memory_context
+      - judge_caller
+    output_fields:
+      - suite_id
+      - spec_id
+      - failure_mode
+      - results
+      - total_scenarios
+      - passed_count
+handler_routing:
+  routing_strategy: "single_handler"
+  handlers:
+    - operation: "evaluate_memory"
+      handler:
+        function: "handle_memory_evaluation"
+        module: "omniintelligence.nodes.node_memory_eval_compute.handlers"
+        type: "async"
+dependencies: []
+error_handling:
+  error_types:
+    - name: "MemoryEvalValidationError"
+      error_code: "MEMORY_EVAL_001"
+      description: "Empty scenarios list passed to handler"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "MemoryEvalJudgeError"
+      error_code: "MEMORY_EVAL_002"
+      description: "LLM judge returned unexpected response structure"
+      recoverable: true
+      retry_strategy: "immediate_retry"
+metadata:
+  author: "OmniNode Team"
+  created: "2026-03-08"
+  updated: "2026-03-08"
+  tags:
+    - "ONEX"
+    - "compute"
+    - "eval"
+    - "memory"
+    - "bloom-eval"
