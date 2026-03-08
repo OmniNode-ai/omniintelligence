@@ -43,7 +43,9 @@ class TestEnumIntentCategoryParity:
     def test_every_pattern_key_is_an_enum_member(self) -> None:
         """Every key in INTENT_PATTERNS must be an EnumIntentCategory member."""
         pattern_keys = set(INTENT_PATTERNS.keys())
-        enum_values = {m.value for m in EnumIntentCategory if m != EnumIntentCategory.UNKNOWN}
+        enum_values = {
+            m.value for m in EnumIntentCategory if m != EnumIntentCategory.UNKNOWN
+        }
 
         missing_from_enum = {str(k) for k in pattern_keys} - enum_values
         assert not missing_from_enum, (
@@ -53,7 +55,9 @@ class TestEnumIntentCategoryParity:
 
     def test_every_enum_member_except_unknown_has_a_pattern(self) -> None:
         """Every EnumIntentCategory (except UNKNOWN) must have a matching INTENT_PATTERNS entry."""
-        enum_values = {m.value for m in EnumIntentCategory if m != EnumIntentCategory.UNKNOWN}
+        enum_values = {
+            m.value for m in EnumIntentCategory if m != EnumIntentCategory.UNKNOWN
+        }
         pattern_keys = {str(k) for k in INTENT_PATTERNS}
 
         missing_from_patterns = enum_values - pattern_keys
@@ -137,7 +141,9 @@ class TestTypedClassMappingCoverage:
     def test_every_intent_category_has_typed_class_mapping(self) -> None:
         """Every EnumIntentCategory (except UNKNOWN) must appear in the typed-class mapping."""
         mapping = get_category_to_typed_class_mapping()
-        enum_values = {m.value for m in EnumIntentCategory if m != EnumIntentCategory.UNKNOWN}
+        enum_values = {
+            m.value for m in EnumIntentCategory if m != EnumIntentCategory.UNKNOWN
+        }
 
         missing = enum_values - set(mapping.keys())
         assert not missing, (
