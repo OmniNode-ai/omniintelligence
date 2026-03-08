@@ -43,6 +43,9 @@ from omniintelligence.nodes.node_intent_classifier_compute.models import (
     ModelIntentClassificationOutput,
     SecondaryIntentDict,
 )
+from omniintelligence.nodes.node_intent_classifier_compute.models.enum_intent_category import (
+    EnumIntentCategory,
+)
 
 if TYPE_CHECKING:
     from typing import TypedDict
@@ -75,9 +78,11 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 # Original patterns from legacy implementation
-INTENT_PATTERNS: dict[str, list[str]] = {
+# Keys use EnumIntentCategory for type safety; values use frozenset for immutability.
+# StrEnum values serialize as plain strings, so dict lookups remain backwards-compatible.
+INTENT_PATTERNS: dict[EnumIntentCategory, frozenset[str]] = {
     # Original 6 categories from legacy omniarchon
-    "code_generation": [
+    EnumIntentCategory.CODE_GENERATION: frozenset({
         "generate",
         "create",
         "implement",
@@ -94,8 +99,8 @@ INTENT_PATTERNS: dict[str, list[str]] = {
         "update",
         "configuration",
         "config",
-    ],
-    "debugging": [
+    }),
+    EnumIntentCategory.DEBUGGING: frozenset({
         "debug",
         "fix",
         "error",
@@ -109,8 +114,8 @@ INTENT_PATTERNS: dict[str, list[str]] = {
         "authentication",
         "token",
         "expiration",
-    ],
-    "refactoring": [
+    }),
+    EnumIntentCategory.REFACTORING: frozenset({
         "refactor",
         "improve",
         "optimize",
@@ -123,8 +128,8 @@ INTENT_PATTERNS: dict[str, list[str]] = {
         "await",
         "pattern",
         "performance",
-    ],
-    "testing": [
+    }),
+    EnumIntentCategory.TESTING: frozenset({
         "test",
         "validate",
         "verify",
@@ -135,8 +140,8 @@ INTENT_PATTERNS: dict[str, list[str]] = {
         "coverage",
         "unit",
         "comprehensive",
-    ],
-    "documentation": [
+    }),
+    EnumIntentCategory.DOCUMENTATION: frozenset({
         "documentation",
         "documenting",
         "explain",
@@ -150,8 +155,8 @@ INTENT_PATTERNS: dict[str, list[str]] = {
         "comments",
         "add",
         "comprehensive",
-    ],
-    "analysis": [
+    }),
+    EnumIntentCategory.ANALYSIS: frozenset({
         "analyze",
         "review",
         "inspect",
@@ -160,9 +165,9 @@ INTENT_PATTERNS: dict[str, list[str]] = {
         "assess",
         "audit",
         "investigate",
-    ],
+    }),
     # Intelligence-focused categories for OmniIntelligence
-    "pattern_learning": [
+    EnumIntentCategory.PATTERN_LEARNING: frozenset({
         "learn",
         "pattern",
         "training",
@@ -175,8 +180,8 @@ INTENT_PATTERNS: dict[str, list[str]] = {
         "recognition",
         "extract",
         "features",
-    ],
-    "quality_assessment": [
+    }),
+    EnumIntentCategory.QUALITY_ASSESSMENT: frozenset({
         "quality",
         "assess",
         "score",
@@ -189,8 +194,8 @@ INTENT_PATTERNS: dict[str, list[str]] = {
         "grade",
         "rating",
         "evaluation",
-    ],
-    "semantic_analysis": [
+    }),
+    EnumIntentCategory.SEMANTIC_ANALYSIS: frozenset({
         "semantic",
         "analyze",
         "extract",
@@ -203,9 +208,9 @@ INTENT_PATTERNS: dict[str, list[str]] = {
         "interpret",
         "nlp",
         "language",
-    ],
+    }),
     # Domain-specific categories (aligned with DOMAIN_TO_INTENT_MAP)
-    "api_design": [
+    EnumIntentCategory.API_DESIGN: frozenset({
         "api",
         "rest",
         "restful",
@@ -223,8 +228,8 @@ INTENT_PATTERNS: dict[str, list[str]] = {
         "grpc",
         "rpc",
         "service",
-    ],
-    "architecture": [
+    }),
+    EnumIntentCategory.ARCHITECTURE: frozenset({
         "architecture",
         "design",
         "structure",
@@ -239,8 +244,8 @@ INTENT_PATTERNS: dict[str, list[str]] = {
         "dependency",
         "coupling",
         "cohesion",
-    ],
-    "database": [
+    }),
+    EnumIntentCategory.DATABASE: frozenset({
         "database",
         "sql",
         "nosql",
@@ -257,8 +262,8 @@ INTENT_PATTERNS: dict[str, list[str]] = {
         "mysql",
         "mongodb",
         "redis",
-    ],
-    "devops": [
+    }),
+    EnumIntentCategory.DEVOPS: frozenset({
         "deploy",
         "deployment",
         "ci",
@@ -276,8 +281,8 @@ INTENT_PATTERNS: dict[str, list[str]] = {
         "azure",
         "cloud",
         "infrastructure",
-    ],
-    "security": [
+    }),
+    EnumIntentCategory.SECURITY: frozenset({
         "security",
         "secure",
         "vulnerability",
@@ -293,12 +298,13 @@ INTENT_PATTERNS: dict[str, list[str]] = {
         "tls",
         "https",
         "sanitize",
-    ],
+    }),
 }
 
 # Pre-normalized patterns for performance (computed once at module load)
+# Converts frozenset values to sorted lists for iteration order stability.
 _NORMALIZED_PATTERNS: dict[str, list[str]] = {
-    intent: [kw.lower() for kw in keywords]
+    str(intent): sorted(kw.lower() for kw in keywords)
     for intent, keywords in INTENT_PATTERNS.items()
 }
 
@@ -435,7 +441,7 @@ def classify_intent(
 
         if not tokens:
             result: ClassificationResultDict = {
-                "intent_category": "unknown",
+                "intent_category": EnumIntentCategory.UNKNOWN,
                 "confidence": 0.0,
                 "keywords": [],
                 "all_scores": {},
@@ -502,7 +508,7 @@ def classify_intent(
         )
         # Return graceful degradation result
         error_result: ClassificationResultDict = {
-            "intent_category": "unknown",
+            "intent_category": EnumIntentCategory.UNKNOWN,
             "confidence": 0.0,
             "keywords": [],
             "all_scores": {},
@@ -635,7 +641,7 @@ def _build_single_label_result(
 
     # Below threshold - return unknown
     return {
-        "intent_category": "unknown",
+        "intent_category": EnumIntentCategory.UNKNOWN,
         "confidence": 0.0,
         "keywords": [],
         "all_scores": normalized_scores,
@@ -673,7 +679,7 @@ def _build_multi_label_result(
 
     if not filtered_intents:
         return {
-            "intent_category": "unknown",
+            "intent_category": EnumIntentCategory.UNKNOWN,
             "confidence": 0.0,
             "keywords": [],
             "all_scores": normalized_scores,
@@ -732,7 +738,7 @@ def _build_error_response(
     processing_time = (time.perf_counter() - start_time) * 1000
     return ModelIntentClassificationOutput(
         success=False,
-        intent_category="unknown",
+        intent_category=EnumIntentCategory.UNKNOWN,
         confidence=0.0,
         secondary_intents=[],
         keywords=[],
@@ -923,6 +929,7 @@ def handle_intent_classification(
 
 __all__ = [
     "DEFAULT_CLASSIFICATION_CONFIG",
+    "EnumIntentCategory",
     "INTENT_PATTERNS",
     "classify_intent",
     "handle_intent_classification",

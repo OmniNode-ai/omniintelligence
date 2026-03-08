@@ -47,6 +47,9 @@ from typing import TYPE_CHECKING, Any, Final, cast
 from omniintelligence.nodes.node_intent_classifier_compute.models import (
     ModelSemanticAnalysisConfig,
 )
+from omniintelligence.nodes.node_intent_classifier_compute.models.enum_semantic_domain import (
+    EnumSemanticDomain,
+)
 
 if TYPE_CHECKING:
     from typing import TypedDict
@@ -85,9 +88,10 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 # Domain indicators and their associated keywords
-# Each domain maps to keywords that suggest that domain
-DOMAIN_KEYWORDS: Final[dict[str, list[str]]] = {
-    "api_design": [
+# Each domain maps to keywords that suggest that domain.
+# Keys use EnumSemanticDomain for type safety; values use frozenset for immutability.
+DOMAIN_KEYWORDS: Final[dict[EnumSemanticDomain, frozenset[str]]] = {
+    EnumSemanticDomain.API_DESIGN: frozenset({
         "api",
         "rest",
         "restful",
@@ -112,8 +116,8 @@ DOMAIN_KEYWORDS: Final[dict[str, list[str]]] = {
         "grpc",
         "rpc",
         "service",
-    ],
-    "code_generation": [
+    }),
+    EnumSemanticDomain.CODE_GENERATION: frozenset({
         "generate",
         "create",
         "implement",
@@ -133,8 +137,8 @@ DOMAIN_KEYWORDS: Final[dict[str, list[str]]] = {
         "feature",
         "logic",
         "algorithm",
-    ],
-    "testing": [
+    }),
+    EnumSemanticDomain.TESTING: frozenset({
         "test",
         "unit",
         "integration",
@@ -155,8 +159,8 @@ DOMAIN_KEYWORDS: Final[dict[str, list[str]]] = {
         "quality",
         "verification",
         "validation",
-    ],
-    "debugging": [
+    }),
+    EnumSemanticDomain.DEBUGGING: frozenset({
         "debug",
         "fix",
         "bug",
@@ -175,8 +179,8 @@ DOMAIN_KEYWORDS: Final[dict[str, list[str]]] = {
         "investigate",
         "resolve",
         "patch",
-    ],
-    "refactoring": [
+    }),
+    EnumSemanticDomain.REFACTORING: frozenset({
         "refactor",
         "restructure",
         "reorganize",
@@ -193,8 +197,8 @@ DOMAIN_KEYWORDS: Final[dict[str, list[str]]] = {
         "abstract",
         "generalize",
         "performance",
-    ],
-    "documentation": [
+    }),
+    EnumSemanticDomain.DOCUMENTATION: frozenset({
         "document",
         "documentation",
         "docs",
@@ -210,8 +214,8 @@ DOMAIN_KEYWORDS: Final[dict[str, list[str]]] = {
         "specification",
         "wiki",
         "markdown",
-    ],
-    "architecture": [
+    }),
+    EnumSemanticDomain.ARCHITECTURE: frozenset({
         "architecture",
         "design",
         "pattern",
@@ -228,8 +232,8 @@ DOMAIN_KEYWORDS: Final[dict[str, list[str]]] = {
         "dependency",
         "coupling",
         "cohesion",
-    ],
-    "database": [
+    }),
+    EnumSemanticDomain.DATABASE: frozenset({
         "database",
         "sql",
         "nosql",
@@ -247,8 +251,8 @@ DOMAIN_KEYWORDS: Final[dict[str, list[str]]] = {
         "mysql",
         "mongodb",
         "redis",
-    ],
-    "devops": [
+    }),
+    EnumSemanticDomain.DEVOPS: frozenset({
         "deploy",
         "deployment",
         "ci",
@@ -267,8 +271,8 @@ DOMAIN_KEYWORDS: Final[dict[str, list[str]]] = {
         "azure",
         "cloud",
         "infrastructure",
-    ],
-    "security": [
+    }),
+    EnumSemanticDomain.SECURITY: frozenset({
         "security",
         "secure",
         "vulnerability",
@@ -287,8 +291,8 @@ DOMAIN_KEYWORDS: Final[dict[str, list[str]]] = {
         "https",
         "sanitize",
         "validate",
-    ],
-    "analysis": [
+    }),
+    EnumSemanticDomain.ANALYSIS: frozenset({
         "analyze",
         "analysis",
         "review",
@@ -303,8 +307,8 @@ DOMAIN_KEYWORDS: Final[dict[str, list[str]]] = {
         "benchmark",
         "compare",
         "statistics",
-    ],
-    "pattern_learning": [
+    }),
+    EnumSemanticDomain.PATTERN_LEARNING: frozenset({
         "pattern",
         "learn",
         "learning",
@@ -321,8 +325,8 @@ DOMAIN_KEYWORDS: Final[dict[str, list[str]]] = {
         "regression",
         "neural",
         "deep",
-    ],
-    "quality_assessment": [
+    }),
+    EnumSemanticDomain.QUALITY_ASSESSMENT: frozenset({
         "quality",
         "assessment",
         "score",
@@ -337,8 +341,8 @@ DOMAIN_KEYWORDS: Final[dict[str, list[str]]] = {
         "code-review",
         "smell",
         "technical-debt",
-    ],
-    "semantic_analysis": [
+    }),
+    EnumSemanticDomain.SEMANTIC_ANALYSIS: frozenset({
         "semantic",
         "meaning",
         "context",
@@ -353,7 +357,7 @@ DOMAIN_KEYWORDS: Final[dict[str, list[str]]] = {
         "theme",
         "sentiment",
         "classification",
-    ],
+    }),
 }
 
 # Theme patterns - broader categories that group related domains
@@ -578,9 +582,11 @@ def analyze_semantics(
         processing_time_ms = (time.perf_counter() - start_time) * 1000
 
         logger.debug(
-            f"Semantic analysis completed in {processing_time_ms:.2f}ms: "
-            f"{len(concepts)} concepts, {len(themes)} themes, "
-            f"{len(domains)} domains"
+            "Semantic analysis completed in %.2fms: %d concepts, %d themes, %d domains",
+            processing_time_ms,
+            len(concepts),
+            len(themes),
+            len(domains),
         )
 
         return SemanticResult(
@@ -902,6 +908,7 @@ def _detect_themes(
 
 __all__ = [
     "DEFAULT_SEMANTIC_CONFIG",
+    "EnumSemanticDomain",
     "SemanticResult",
     "analyze_semantics",
     "create_empty_semantic_result",
