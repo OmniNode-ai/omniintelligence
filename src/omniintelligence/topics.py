@@ -8,9 +8,9 @@ No hardcoded topic strings should appear in producer or consumer code; use
 these enum values instead.
 
 Topics:
-    INTENT_DRIFT_DETECTED  — Execution diverged from declared intent.
-    INTENT_OUTCOME_LABELED — Intent outcome labeled after completion.
-    INTENT_PATTERN_PROMOTED — Intent pattern promoted to learned patterns.
+    INTENT_DRIFT_DETECTED  -- Execution diverged from declared intent.
+    INTENT_OUTCOME_LABELED -- Intent outcome labeled after completion.
+    INTENT_PATTERN_PROMOTED -- Intent pattern promoted to learned patterns.
 
 Note:
     The classified-intent topic (``onex.evt.omniintelligence.intent-classified.v1``)
@@ -21,6 +21,11 @@ ONEX Compliance:
     - Topic names are immutable StrEnum values (no hardcoded strings elsewhere).
     - All `emitted_at` fields in envelope models must be injected by callers.
     - No datetime.now() defaults permitted.
+
+Migration (OMN-3253):
+    Previous topic names used ``intent`` as the producer segment instead of
+    ``omniintelligence``. The old names are preserved as ``INTENT_TOPIC_ALIASES``
+    for one release cycle to allow consumers to migrate.
 
 Reference: OMN-2487
 """
@@ -36,8 +41,8 @@ from omnibase_core.utils.util_str_enum_base import StrValueHelper
 class IntentTopic(StrValueHelper, str, Enum):
     """Canonical Kafka topic names for the Intent Intelligence Framework.
 
-    All topics use ``onex.evt.intent.*`` as the producer namespace
-    (producer: ``intent``, kind: ``evt``).
+    All topics use ``onex.evt.omniintelligence.*`` as the producer namespace
+    (producer: ``omniintelligence``, kind: ``evt``).
 
     Values:
         INTENT_DRIFT_DETECTED: Fired when execution diverges from the declared
@@ -48,14 +53,25 @@ class IntentTopic(StrValueHelper, str, Enum):
             promoted into the learned-patterns corpus.
     """
 
-    INTENT_DRIFT_DETECTED = "onex.evt.intent.drift.detected.v1"
+    INTENT_DRIFT_DETECTED = "onex.evt.omniintelligence.intent-drift-detected.v1"
     """Execution diverged from declared intent."""
 
-    INTENT_OUTCOME_LABELED = "onex.evt.intent.outcome.labeled.v1"
+    INTENT_OUTCOME_LABELED = "onex.evt.omniintelligence.intent-outcome-labeled.v1"
     """Intent outcome labeled after completion."""
 
-    INTENT_PATTERN_PROMOTED = "onex.evt.intent.pattern.promoted.v1"
+    INTENT_PATTERN_PROMOTED = "onex.evt.omniintelligence.intent-pattern-promoted.v1"
     """Intent pattern promoted to learned patterns."""
 
 
-__all__ = ["IntentTopic"]
+# OMN-3253: Migration aliases for one release cycle.
+# Consumers should subscribe to BOTH old and new topic names during migration,
+# then drop the old names in the next release.
+INTENT_TOPIC_ALIASES: dict[str, str] = {
+    "onex.evt.intent.drift.detected.v1": IntentTopic.INTENT_DRIFT_DETECTED.value,
+    "onex.evt.intent.outcome.labeled.v1": IntentTopic.INTENT_OUTCOME_LABELED.value,
+    "onex.evt.intent.pattern.promoted.v1": IntentTopic.INTENT_PATTERN_PROMOTED.value,
+}
+"""Map from deprecated topic name to canonical topic name (OMN-3253)."""
+
+
+__all__ = ["IntentTopic", "INTENT_TOPIC_ALIASES"]

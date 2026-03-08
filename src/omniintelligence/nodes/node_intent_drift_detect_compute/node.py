@@ -8,7 +8,7 @@ Detects when tool calls or file changes diverge from the declared intent class.
 Returns a frozen ModelIntentDriftSignal when drift is detected, or None when clean.
 
 Detection is observational only — it NEVER blocks execution.
-Signals should be emitted to onex.evt.intent.drift.detected.v1 by the caller
+Signals should be emitted to onex.evt.omniintelligence.intent-drift-detected.v1 by the caller
 (e.g. an orchestrator or effect node).
 
 Reference: OMN-2489

@@ -575,7 +575,7 @@ error_handling:
 # =============================================================================
 # PURPOSE: Machine-readable configuration of WHERE events are routed.
 #
-# The reducer subscribes to onex.evt.intent.outcome.labeled.v1 to receive
+# The reducer subscribes to onex.evt.omniintelligence.intent-outcome-labeled.v1 to receive
 # labeled session outcomes and drive FSM state transitions for intent tracking.
 # This wires the intent pipeline output side (OMN-2938).
 # =============================================================================
@@ -588,16 +588,16 @@ event_bus:
 
   # Topics this node subscribes to (receives events from)
   subscribe_topics:
-    - "onex.evt.intent.outcome.labeled.v1"
+    - "onex.evt.omniintelligence.intent-outcome-labeled.v1"
 
-  # This reducer publishes one Kafka event: onex.evt.intent.pattern.promoted.v1
+  # This reducer publishes one Kafka event: onex.evt.omniintelligence.intent-pattern-promoted.v1
   # emitted via the FSM entry_action "emit_pattern_promoted_event" when a pattern
   # transitions to the "validated" state. All other intents are sent to the orchestrator.
   publish_topics:
-    - "onex.evt.intent.pattern.promoted.v1"
+    - "onex.evt.omniintelligence.intent-pattern-promoted.v1"
 
   publish_topic_metadata:
-    "onex.evt.intent.pattern.promoted.v1":
+    "onex.evt.omniintelligence.intent-pattern-promoted.v1":
       schema_ref: "omniintelligence.models.events.model_intent_event_envelopes.ModelIntentPatternPromotedEnvelope"
       description: "Intent-derived pattern promoted to learned-patterns corpus. Emitted by FSM entry_action
         emit_pattern_promoted_event when pattern transitions to 'validated' state. Consumed by node_pattern_projection_effect
@@ -605,7 +605,7 @@ event_bus:
       content_type: "application/json"
 
   subscribe_topic_metadata:
-    "onex.evt.intent.outcome.labeled.v1":
+    "onex.evt.omniintelligence.intent-outcome-labeled.v1":
       schema_ref: "omniintelligence.models.events.model_intent_event_envelopes.ModelIntentOutcomeLabeledEnvelope"
       description: "Session outcome labeled event. Drives FSM state transition for intent tracking — updates
         success rates and pattern confidence scores."

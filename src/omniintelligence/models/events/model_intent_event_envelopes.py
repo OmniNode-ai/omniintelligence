@@ -5,9 +5,9 @@
 Defines frozen Pydantic envelope models for all 4 Intent Intelligence topics:
 
     - ModelIntentClassifiedEnvelope  → onex.evt.omniintelligence.intent-classified.v1
-    - ModelIntentDriftDetectedEnvelope → onex.evt.intent.drift.detected.v1
-    - ModelIntentOutcomeLabeledEnvelope → onex.evt.intent.outcome.labeled.v1
-    - ModelIntentPatternPromotedEnvelope → onex.evt.intent.pattern.promoted.v1
+    - ModelIntentDriftDetectedEnvelope → onex.evt.omniintelligence.intent-drift-detected.v1
+    - ModelIntentOutcomeLabeledEnvelope → onex.evt.omniintelligence.intent-outcome-labeled.v1
+    - ModelIntentPatternPromotedEnvelope → onex.evt.omniintelligence.intent-pattern-promoted.v1
 
 Schema Rules:
     - frozen=True (events are immutable after emission)
@@ -84,7 +84,7 @@ class ModelIntentClassifiedEnvelope(BaseModel):
 
 
 class ModelIntentDriftDetectedEnvelope(BaseModel):
-    """Frozen event envelope for onex.evt.intent.drift.detected.v1.
+    """Frozen event envelope for onex.evt.omniintelligence.intent-drift-detected.v1.
 
     Published when execution diverges from the declared intent class.
     Consumers may trigger alerts or model updates.
@@ -137,7 +137,7 @@ class ModelIntentDriftDetectedEnvelope(BaseModel):
 
 
 class ModelIntentOutcomeLabeledEnvelope(BaseModel):
-    """Frozen event envelope for onex.evt.intent.outcome.labeled.v1.
+    """Frozen event envelope for onex.evt.omniintelligence.intent-outcome-labeled.v1.
 
     Published when a session outcome is labeled as successful or failed.
     Used to update intent graph success rates and pattern confidence scores.
@@ -189,7 +189,7 @@ class ModelIntentOutcomeLabeledEnvelope(BaseModel):
 
 
 class ModelIntentPatternPromotedEnvelope(BaseModel):
-    """Frozen event envelope for onex.evt.intent.pattern.promoted.v1.
+    """Frozen event envelope for onex.evt.omniintelligence.intent-pattern-promoted.v1.
 
     Published when an intent-derived pattern is promoted into the learned-patterns
     corpus. Consumers may use this to refresh projection caches or update indices.

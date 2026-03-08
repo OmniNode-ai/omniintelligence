@@ -1,4 +1,4 @@
-"""Event envelope for onex.evt.intent.classified.v1.
+"""Event envelope for onex.evt.omniintelligence.intent-classified.v1.
 
 This frozen event model is published to the intent-classified topic
 whenever classification runs. It is preview-safe: no full prompt text
@@ -24,7 +24,7 @@ from omniintelligence.nodes.node_intent_classifier_compute.models.enum_intent_cl
 
 
 class ModelIntentClassifiedEvent(BaseModel):
-    """Frozen event envelope for onex.evt.intent.classified.v1.
+    """Frozen event envelope for onex.evt.omniintelligence.intent-classified.v1.
 
     Published whenever the intent classifier produces a typed result.
     Preview-safe: contains no full prompt text.
