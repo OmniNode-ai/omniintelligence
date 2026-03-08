@@ -1,0 +1,297 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 OmniNode Team
+#
+# ONEX Node Contract
+# Node: NodeProtocolHandlerEffect
+#
+# This contract defines the interface for the protocol handler effect node.
+# The node provides protocol-specific handler implementations (HTTP, Bolt,
+# PostgreSQL, Kafka) for declarative effect nodes.
+#
+# Reference: OMN-373 - Protocol handlers for declarative effect nodes
+
+# Contract identifiers
+name: "node_protocol_handler_effect"
+contract_name: "protocol_handler_effect"
+node_name: "protocol_handler_effect"
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+# Node type
+node_type: "EFFECT_GENERIC"
+
+# Status
+status: "active"
+
+# Description
+description: >
+  Effect node for executing protocol-specific operations via handler implementations.
+  Routes operations to the appropriate protocol handler (HttpRestHandler, BoltHandler,
+  PostgresHandler, KafkaHandler) based on the protocol field in the input model.
+  Each handler manages its own connection lifecycle, pooling, and retry logic.
+
+# Strongly typed I/O models
+input_model:
+  name: "ModelProtocolHandlerInput"
+  module: "omniintelligence.nodes.node_protocol_handler_effect.models"
+  description: "Input model specifying protocol type, operation, config, and parameters."
+
+output_model:
+  name: "ModelProtocolHandlerOutput"
+  module: "omniintelligence.nodes.node_protocol_handler_effect.models"
+  description: "Output model with operation status, result data, and timing."
+
+# =============================================================================
+# HANDLER ROUTING (Protocol-Type-Based Dispatch)
+# =============================================================================
+# Routes protocol operations to handlers based on the protocol field.
+# The handler resolves the concrete protocol handler from the registry.
+#
+# Execution Flow:
+#   1. Receive protocol operation request
+#   2. Resolve handler from ProtocolHandlerRegistry by protocol type
+#   3. Execute operation via handler (connect/execute/disconnect)
+#   4. Return structured result with timing metadata
+# =============================================================================
+handler_routing:
+  routing_strategy: "operation_match"
+  entry_point:
+    function: "handle_protocol_execute"
+    module: "omniintelligence.nodes.node_protocol_handler_effect.handlers.handler_protocol"
+    type: "async"
+    description: "Main entry point that resolves and executes protocol operations"
+  handlers:
+    - operation: "execute_http_rest"
+      handler:
+        function: "handle_protocol_execute"
+        module: "omniintelligence.nodes.node_protocol_handler_effect.handlers.handler_protocol"
+        type: "async"
+      description: "Execute HTTP/REST operations (GET, POST, PUT, DELETE)"
+      actions:
+        - "resolve handler (http_rest)"
+        - "execute HTTP request"
+        - "return response"
+
+    - operation: "execute_bolt"
+      handler:
+        function: "handle_protocol_execute"
+        module: "omniintelligence.nodes.node_protocol_handler_effect.handlers.handler_protocol"
+        type: "async"
+      description: "Execute Bolt protocol operations (query, write)"
+      actions:
+        - "resolve handler (bolt)"
+        - "execute Cypher query"
+        - "return records"
+
+    - operation: "execute_postgresql"
+      handler:
+        function: "handle_protocol_execute"
+        module: "omniintelligence.nodes.node_protocol_handler_effect.handlers.handler_protocol"
+        type: "async"
+      description: "Execute PostgreSQL operations (query, execute)"
+      actions:
+        - "resolve handler (postgresql)"
+        - "execute SQL"
+        - "return rows"
+
+    - operation: "execute_kafka"
+      handler:
+        function: "handle_protocol_execute"
+        module: "omniintelligence.nodes.node_protocol_handler_effect.handlers.handler_protocol"
+        type: "async"
+      description: "Execute Kafka operations (produce, consume)"
+      actions:
+        - "resolve handler (kafka)"
+        - "produce/consume message"
+        - "return delivery status"
+
+  default_handler:
+    function: "handle_protocol_execute"
+    module: "omniintelligence.nodes.node_protocol_handler_effect.handlers.handler_protocol"
+    type: "async"
+    description: "Default handler for all protocol operations"
+
+# =============================================================================
+# IO OPERATIONS
+# =============================================================================
+io_operations:
+  - operation: "execute_protocol"
+    description: "Execute a protocol operation via the appropriate handler"
+    input_model: "ModelProtocolHandlerInput"
+    output_model: "ModelProtocolHandlerOutput"
+    output_topic: "onex.evt.omniintelligence.protocol-executed.v1"
+    input_fields:
+      - correlation_id
+      - protocol
+      - operation
+      - config
+      - params
+      - retry_count
+    output_fields:
+      - correlation_id
+      - protocol
+      - operation
+      - status
+      - result
+      - error_message
+      - executed_at
+      - duration_ms
+      - retry_count
+
+# =============================================================================
+# PUBLISHED EVENTS (Kafka) - Documentation Layer
+# =============================================================================
+published_events:
+  - topic_suffix: "onex.evt.omniintelligence.protocol-executed.v1"
+    full_topic_pattern: "onex.evt.omniintelligence.protocol-executed.v1"
+    event_type: "ProtocolExecuted"
+    trigger: "Protocol operation completed (success or failure)"
+    description: "Emitted when a protocol operation completes. Contains operation
+      result, status, timing, and error details if applicable."
+
+# =============================================================================
+# EVENT BUS SUBCONTRACT - Runtime Routing Layer
+# =============================================================================
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  event_bus_enabled: true
+
+  subscribe_topics:
+    - "onex.cmd.omniintelligence.protocol-execute.v1"
+
+  publish_topics:
+    - "onex.evt.omniintelligence.protocol-executed.v1"
+
+  subscribe_topic_metadata:
+    "onex.cmd.omniintelligence.protocol-execute.v1":
+      schema_ref: "omniintelligence.nodes.node_protocol_handler_effect.models.ModelProtocolHandlerInput"
+      description: "Protocol operation execution requests from orchestrator or other nodes."
+      content_type: "application/json"
+
+  publish_topic_metadata:
+    "onex.evt.omniintelligence.protocol-executed.v1":
+      schema_ref: "omniintelligence.nodes.node_protocol_handler_effect.models.ModelProtocolHandlerOutput"
+      description: "Protocol operation execution results with status and timing"
+      content_type: "application/json"
+
+# =============================================================================
+# DEPENDENCIES
+# =============================================================================
+dependencies:
+  - name: "handler_registry"
+    type: "protocol"
+    class_name: "ProtocolHandlerRegistry"
+    module: "omniintelligence.nodes.node_protocol_handler_effect.handlers.handler_protocol"
+    description: "Registry of protocol handler implementations for resolving handlers by protocol type"
+    required: true
+
+  - name: "kafka_producer"
+    type: "protocol"
+    class_name: "ProtocolKafkaPublisher"
+    module: "omniintelligence.protocols"
+    description: "Kafka publisher for emitting protocol execution events. Not injected into handlers - RuntimeHostProcess
+      publishes returned events to declared publish_topics automatically."
+    required: false
+
+# =============================================================================
+# ERROR HANDLING
+# =============================================================================
+error_handling:
+  retry_policy:
+    max_retries: 3
+    initial_delay_ms: 100
+    max_delay_ms: 5000
+    exponential_base: 2
+    retry_on:
+      - "ConnectionError"
+      - "TimeoutError"
+
+  error_types:
+    - name: "ProtocolConnectionError"
+      error_code: "PHAND_001"
+      description: "Failed to connect to protocol backend"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+    - name: "ProtocolTimeoutError"
+      error_code: "PHAND_002"
+      description: "Protocol operation timed out"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+    - name: "ProtocolNotRegisteredError"
+      error_code: "PHAND_003"
+      description: "No handler registered for the requested protocol type"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "ProtocolOperationError"
+      error_code: "PHAND_004"
+      description: "Protocol operation failed"
+      recoverable: true
+      retry_strategy: "exponential_backoff"
+
+# =============================================================================
+# CAPABILITIES
+# =============================================================================
+capabilities:
+  - name: "protocol_handler.http_rest"
+    description: "Execute HTTP/REST operations (GET, POST, PUT, DELETE) via httpx"
+    version: "1.0.0"
+  - name: "protocol_handler.bolt"
+    description: "Execute Neo4j/Memgraph Bolt operations (query, write) via neo4j driver"
+    version: "1.0.0"
+  - name: "protocol_handler.postgresql"
+    description: "Execute PostgreSQL operations (query, execute) via asyncpg"
+    version: "1.0.0"
+  - name: "protocol_handler.kafka"
+    description: "Execute Kafka operations (produce, consume) via confluent-kafka"
+    version: "1.0.0"
+
+# =============================================================================
+# IDEMPOTENCY
+# =============================================================================
+idempotency:
+  enabled: true
+  strategy: "correlation_id_tracking"
+  hash_fields: ["correlation_id", "protocol", "operation"]
+  description: "Each protocol operation request is keyed by correlation_id + protocol + operation.
+    Re-processing the same request is idempotent."
+
+# =============================================================================
+# HEALTH CHECK
+# =============================================================================
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+
+# =============================================================================
+# METADATA
+# =============================================================================
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-03-07"
+  updated: "2026-03-07"
+  tags:
+    - effect
+    - protocol-handler
+    - http
+    - bolt
+    - postgresql
+    - kafka
+    - declarative
+  references:
+    - ticket: "OMN-373"
+      url: "https://linear.app/omninode/issue/OMN-373"
+      description: "Protocol handlers for declarative effect nodes"
