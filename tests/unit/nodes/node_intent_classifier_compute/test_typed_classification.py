@@ -508,7 +508,7 @@ class TestModelIntentClassifiedEvent:
 
         assert event.event_type == "IntentClassified"
         assert event.session_id == "session-abc"
-        assert event.correlation_id == str(correlation_id)
+        assert event.correlation_id == correlation_id
         assert event.intent_class == EnumIntentClass.MIGRATION
         assert event.confidence == 0.75
         assert event.fallback is False

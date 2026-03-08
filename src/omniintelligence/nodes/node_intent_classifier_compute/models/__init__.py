@@ -3,8 +3,14 @@
 
 """Models for Intent Classifier Compute Node."""
 
+from omniintelligence.nodes.node_intent_classifier_compute.models.enum_intent_category import (
+    EnumIntentCategory,
+)
 from omniintelligence.nodes.node_intent_classifier_compute.models.enum_intent_class import (
     EnumIntentClass,
+)
+from omniintelligence.nodes.node_intent_classifier_compute.models.enum_semantic_domain import (
+    EnumSemanticDomain,
 )
 from omniintelligence.nodes.node_intent_classifier_compute.models.model_classification_config import (
     ModelClassificationConfig,
@@ -44,7 +50,9 @@ from omniintelligence.nodes.node_intent_classifier_compute.models.model_typed_in
 
 __all__ = [
     "INTENT_CLASS_CONFIG_TABLE",
+    "EnumIntentCategory",
     "EnumIntentClass",
+    "EnumSemanticDomain",
     "IntentContextDict",
     "IntentMetadataDict",
     "ModelClassificationConfig",

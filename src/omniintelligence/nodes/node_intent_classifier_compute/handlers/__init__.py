@@ -78,7 +78,7 @@ Example:
     >>> result["intent_category"]
     'code_generation'
     >>> len(INTENT_PATTERNS)
-    9
+    15
 """
 
 from omniintelligence.nodes.node_intent_classifier_compute.handlers.exceptions import (
@@ -97,11 +97,13 @@ from omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_adap
 from omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_intent_classification import (
     DEFAULT_CLASSIFICATION_CONFIG,
     INTENT_PATTERNS,
+    EnumIntentCategory,
     classify_intent,
     handle_intent_classification,
 )
 from omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_langextract import (
     DEFAULT_SEMANTIC_CONFIG,
+    EnumSemanticDomain,
     SemanticResult,
     analyze_semantics,
     create_empty_semantic_result,
@@ -117,6 +119,8 @@ __all__ = [
     "DEFAULT_CLASSIFICATION_CONFIG",
     "DEFAULT_SEMANTIC_CONFIG",
     "DEFAULT_TYPED_CONFIDENCE_THRESHOLD",
+    "EnumIntentCategory",
+    "EnumSemanticDomain",
     "INTENT_PATTERNS",
     "IntentClassificationComputeError",
     "IntentClassificationError",
