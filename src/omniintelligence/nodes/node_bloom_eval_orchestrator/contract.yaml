@@ -1,0 +1,117 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# ONEX Node Contract
+# Node: NodeBloomEvalOrchestrator
+#
+# Orchestrates agent behavior evaluation across domains: CONTRACT_CREATION,
+# AGENT_EXECUTION, and MEMORY_SYSTEM. Receives bloom-eval-run commands,
+# dispatches eval scenarios via EvalLLMClient, aggregates results into
+# ModelEvalSuiteResult, and emits bloom-eval-completed events.
+#
+# Reference:
+#   - OMN-4016: [Epic] Bloom Eval system
+
+# =============================================================================
+# IDENTIFIERS
+# =============================================================================
+name: "node_bloom_eval_orchestrator"
+contract_name: "node_bloom_eval_orchestrator"
+node_name: "node_bloom_eval_orchestrator"
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+# Node type
+node_type: "ORCHESTRATOR"
+
+# Status
+status: "active"
+
+# Description
+description: >-
+  Orchestrator node for the Bloom Eval system. Subscribes to bloom-eval-run
+  commands, drives per-scenario evaluation across the BehaviorSpec catalog,
+  aggregates ModelEvalResult entries into ModelEvalSuiteResult, and publishes
+  bloom-eval-completed events for downstream consumers (omnidash, audit). #magic___^_^___line
+
+# =============================================================================
+# I/O MODELS
+# =============================================================================
+input_model:
+  name: "ModelEventEnvelope"
+  module: "omnibase_core.models.events.model_event_envelope"
+  description: "Event envelope containing a bloom-eval-run command payload."
+
+output_model:
+  name: "ModelEventEnvelope"
+  module: "omnibase_core.models.events.model_event_envelope"
+  description: "Event envelope containing a bloom-eval-completed event payload."
+
+# =============================================================================
+# HANDLER ROUTING
+# =============================================================================
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    - operation: "run_eval"
+      handler:
+        module: "omniintelligence.nodes.node_bloom_eval_orchestrator"
+        function: "handle_bloom_eval_run"
+        type: "async"
+      description: "Run the full bloom eval suite and emit results"
+
+# =============================================================================
+# EVENT BUS SUBCONTRACT
+# =============================================================================
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  event_bus_enabled: true
+
+  # Topics this node subscribes to (receives commands from)
+  subscribe_topics:
+    - "onex.cmd.omniintelligence.bloom-eval-run.v1"
+
+  # Topics this node publishes to (emits results to)
+  publish_topics:
+    - "onex.evt.omniintelligence.bloom-eval-completed.v1"
+
+  subscribe_topic_metadata:
+    "onex.cmd.omniintelligence.bloom-eval-run.v1":
+      description: "Command to trigger a bloom eval suite run."
+      content_type: "application/json"
+
+  publish_topic_metadata:
+    "onex.evt.omniintelligence.bloom-eval-completed.v1":
+      description: "Emitted after each bloom eval suite run with aggregated results."
+      content_type: "application/json"
+
+# =============================================================================
+# DEPENDENCIES
+# =============================================================================
+dependencies:
+  - name: "kafka_producer"
+    type: "protocol"
+    class_name: "ProtocolKafkaProducer"
+    module: "omnibase_infra.protocols.protocol_kafka_producer"
+    description: "Kafka producer for emitting bloom-eval-completed events"
+    required: false
+
+# =============================================================================
+# METADATA
+# =============================================================================
+metadata:
+  ticket: "OMN-4016"
+  epic: "OMN-4016"
+  author: "omninode"
+  created_at: "2026-03-08"
+  realm: "omniintelligence"
+  topic: "bloom_eval"

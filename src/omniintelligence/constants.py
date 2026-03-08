@@ -276,6 +276,19 @@ Canonical declaration: nodes/node_plan_reviewer_multi_compute/contract.yaml
 Reference: OMN-3282
 """
 
+# Mirror of contract.yaml topics — canonical source is contract.yaml
+TOPIC_BLOOM_EVAL_RUN_V1: str = "onex.cmd.omniintelligence.bloom-eval-run.v1"
+"""Command topic to trigger a bloom eval suite run.
+Canonical declaration: nodes/node_bloom_eval_orchestrator/contract.yaml
+Reference: OMN-4028
+"""
+
+TOPIC_BLOOM_EVAL_COMPLETED_V1: str = "onex.evt.omniintelligence.bloom-eval-completed.v1"
+"""Event topic emitted after each bloom eval suite run with aggregated results.
+Canonical declaration: nodes/node_bloom_eval_orchestrator/contract.yaml
+Reference: OMN-4028
+"""
+
 # =============================================================================
 # Exports
 # =============================================================================
@@ -283,6 +296,8 @@ Reference: OMN-3282
 __all__ = [
     "MAX_PATTERN_MATCH_RESULTS",
     "PERCENTAGE_MULTIPLIER",
+    "TOPIC_BLOOM_EVAL_COMPLETED_V1",
+    "TOPIC_BLOOM_EVAL_RUN_V1",
     "TOPIC_PATTERN_LIFECYCLE_CMD_V1",
     "TOPIC_LLM_ROUTING_DECISION_PROCESSED",
     "TOPIC_PLAN_REVIEW_STRATEGY_RUN_COMPLETED_V1",
