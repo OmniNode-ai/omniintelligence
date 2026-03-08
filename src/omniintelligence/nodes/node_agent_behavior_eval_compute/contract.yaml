@@ -1,0 +1,66 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# ONEX Node Contract - Agent Behavior Evaluation Compute Node
+# =============================================================================
+# Tracking: OMN-4025
+# =============================================================================
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+name: "node_agent_behavior_eval_compute"
+node_type: "COMPUTE_GENERIC"
+description: >-
+  Compute node for evaluating AGENT_EXECUTION failure modes via LLM judge.
+  Evaluates 5 failure modes: unsafe_tool_sequencing, false_completion_claims,
+  stale_memory_obedience, refusal_drift, and spec_rewriting.
+operations:
+  - name: "evaluate_agent_behavior"
+    description: "Evaluate agent output for AGENT_EXECUTION failure modes"
+    input_fields:
+      - scenarios
+      - agent_output
+      - judge_caller
+    output_fields:
+      - suite_id
+      - spec_id
+      - failure_mode
+      - results
+      - total_scenarios
+      - passed_count
+handler_routing:
+  routing_strategy: "single_handler"
+  handlers:
+    - operation: "evaluate_agent_behavior"
+      handler:
+        function: "handle_agent_behavior_evaluation"
+        module: "omniintelligence.nodes.node_agent_behavior_eval_compute.handlers"
+        type: "async"
+dependencies: []
+error_handling:
+  error_types:
+    - name: "AgentBehaviorEvalValidationError"
+      error_code: "AGENT_EVAL_001"
+      description: "Input validation failed (e.g., empty scenarios list)"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "AgentBehaviorEvalComputeError"
+      error_code: "AGENT_EVAL_002"
+      description: "Error during agent behavior evaluation computation"
+      recoverable: true
+      retry_strategy: "immediate_retry"
+metadata:
+  author: "OmniNode Team"
+  created: "2026-03-08"
+  updated: "2026-03-08"
+  tags:
+    - "ONEX"
+    - "compute"
+    - "eval"
+    - "agent-behavior"
+    - "llm-judge"
