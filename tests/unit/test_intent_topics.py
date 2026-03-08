@@ -30,14 +30,18 @@ class TestIntentTopicEnum:
         """INTENT_DRIFT_DETECTED topic name matches ONEX canonical format."""
         from omniintelligence.topics import IntentTopic
 
-        assert IntentTopic.INTENT_DRIFT_DETECTED == "onex.evt.omniintelligence.intent-drift-detected.v1"
+        assert (
+            IntentTopic.INTENT_DRIFT_DETECTED
+            == "onex.evt.omniintelligence.intent-drift-detected.v1"
+        )
 
     def test_intent_outcome_labeled_topic_value(self) -> None:
         """INTENT_OUTCOME_LABELED topic name matches ONEX canonical format."""
         from omniintelligence.topics import IntentTopic
 
         assert (
-            IntentTopic.INTENT_OUTCOME_LABELED == "onex.evt.omniintelligence.intent-outcome-labeled.v1"
+            IntentTopic.INTENT_OUTCOME_LABELED
+            == "onex.evt.omniintelligence.intent-outcome-labeled.v1"
         )
 
     def test_intent_pattern_promoted_topic_value(self) -> None:
@@ -45,7 +49,8 @@ class TestIntentTopicEnum:
         from omniintelligence.topics import IntentTopic
 
         assert (
-            IntentTopic.INTENT_PATTERN_PROMOTED == "onex.evt.omniintelligence.intent-pattern-promoted.v1"
+            IntentTopic.INTENT_PATTERN_PROMOTED
+            == "onex.evt.omniintelligence.intent-pattern-promoted.v1"
         )
 
     def test_all_topics_are_three(self) -> None:
@@ -84,12 +89,17 @@ class TestIntentTopicEnum:
         """IntentTopic members compare equal to their string values."""
         from omniintelligence.topics import IntentTopic
 
-        assert IntentTopic.INTENT_DRIFT_DETECTED == "onex.evt.omniintelligence.intent-drift-detected.v1"
         assert (
-            IntentTopic.INTENT_OUTCOME_LABELED == "onex.evt.omniintelligence.intent-outcome-labeled.v1"
+            IntentTopic.INTENT_DRIFT_DETECTED
+            == "onex.evt.omniintelligence.intent-drift-detected.v1"
         )
         assert (
-            IntentTopic.INTENT_PATTERN_PROMOTED == "onex.evt.omniintelligence.intent-pattern-promoted.v1"
+            IntentTopic.INTENT_OUTCOME_LABELED
+            == "onex.evt.omniintelligence.intent-outcome-labeled.v1"
+        )
+        assert (
+            IntentTopic.INTENT_PATTERN_PROMOTED
+            == "onex.evt.omniintelligence.intent-pattern-promoted.v1"
         )
 
     def test_intent_topic_importable_from_package(self) -> None:

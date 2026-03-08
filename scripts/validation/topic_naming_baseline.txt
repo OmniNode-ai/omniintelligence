@@ -15,7 +15,8 @@
 #     dispatch_handler_crawl_scheduler.py
 #   onex.dlq.omniintelligence.v1 — 4-segment DLQ topic (missing event slug)
 #
-#   onex.evt.intent.*.v1 — RESOLVED by OMN-3253 (renamed to onex.evt.omniintelligence.intent-*.v1)
+#   onex.evt.intent.*.v1 — OMN-3253 migration aliases (legacy names retained in INTENT_TOPIC_ALIASES
+#     for one release cycle; remove after consumer migration is complete)
 #
 onex.commands.omnimemory.crawl-requested.v1
 onex.events.omnimemory.document-indexed.v1
@@ -30,3 +31,7 @@ onex.commands.omniintelligence.compliance-evaluate.v1
 onex.events.omniintelligence.pattern-promoted.v1
 onex.events.omniintelligence.pattern-lifecycle-transitioned.v1
 onex.dlq.omniintelligence.v1
+# OMN-3253 migration aliases (remove after consumer migration):
+onex.evt.intent.drift.detected.v1
+onex.evt.intent.outcome.labeled.v1
+onex.evt.intent.pattern.promoted.v1
