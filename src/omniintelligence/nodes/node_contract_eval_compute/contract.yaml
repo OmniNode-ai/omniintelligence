@@ -1,0 +1,186 @@
+---
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 OmniNode Team
+#
+# ONEX Node Contract
+# Node: NodeContractEvalCompute
+#
+# Two-layer contract evaluation: hard validators (schema, trace_coverage,
+# reference_integrity) always run first, then LLM judge runs second regardless
+# of hard validator results. eval_passed requires schema_pass=True.
+#
+# Reference: OMN-4024, OMN-4016
+
+# Contract identifiers
+name: "node_contract_eval_compute"
+contract_name: "contract_eval_compute"
+node_name: "contract_eval_compute"
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+# Node type
+node_type: "COMPUTE_GENERIC"
+# Status
+status: "active"
+# Description
+description: >
+  Compute node that orchestrates two-layer contract evaluation. Layer 1: hard validators
+  (validate_schema, validate_trace_coverage, validate_reference_integrity) run synchronously
+  with no I/O. Layer 2: LLM judge (DeepSeek-R1 via injected judge_caller) always runs
+  regardless of hard validator results. eval_passed is False when schema_pass is False.
+  Pure compute — judge_caller is injected by the caller. #magic___^_^___line
+# Strongly typed I/O models
+input_model:
+  name: "ModelContractEvalInput"
+  module: "omniintelligence.nodes.node_contract_eval_compute"
+  description: "Contract dict, evaluation scenario, ticket requirements, and judge_caller."
+output_model:
+  name: "ModelEvalResult"
+  module: "omniintelligence.nodes.node_bloom_eval_orchestrator.models.model_eval_result"
+  description: "Populated ModelEvalResult from both hard validators and LLM judge output."
+# =============================================================================
+# HANDLER ROUTING
+# =============================================================================
+handler_routing:
+  routing_strategy: "operation_match"
+  entry_point:
+    function: "handle_contract_evaluation"
+    module: "omniintelligence.nodes.node_contract_eval_compute.handlers.handler_contract_eval"
+    type: "async"
+    description: "Main entry point: run hard validators then LLM judge"
+  handlers:
+    - operation: "evaluate_contract"
+      handler:
+        function: "handle_contract_evaluation"
+        module: "omniintelligence.nodes.node_contract_eval_compute.handlers.handler_contract_eval"
+        type: "async"
+      description: "Two-layer contract evaluation"
+      actions:
+        - "run validate_schema(contract_dict) — synchronous"
+        - "run validate_trace_coverage(contract_dict, ticket_requirements) — synchronous"
+        - "run validate_reference_integrity(contract_dict) — synchronous"
+        - "call judge_caller(scenario.input_text, description, failure_indicators) — async"
+        - "merge hard validator booleans with LLM soft scores into ModelEvalResult"
+  default_handler:
+    function: "handle_contract_evaluation"
+    module: "omniintelligence.nodes.node_contract_eval_compute.handlers.handler_contract_eval"
+    type: "async"
+    description: "Default to evaluate_contract operation"
+# =============================================================================
+# IO OPERATIONS
+# =============================================================================
+io_operations:
+  - operation: "evaluate_contract"
+    description: "Run two-layer evaluation: hard validators + LLM judge"
+    input_model: "ModelContractEvalInput"
+    output_model: "ModelEvalResult"
+    input_fields:
+      - contract_dict
+      - scenario
+      - ticket_requirements
+      - judge_caller
+    output_fields:
+      - schema_pass
+      - trace_coverage_pct
+      - missing_acceptance_criteria
+      - invented_requirements
+      - ambiguity_flags
+      - reference_integrity_pass
+      - metamorphic_stability_score
+      - compliance_theater_risk
+      - failure_mode
+      - scenario_id
+      - eval_passed
+# =============================================================================
+# EVALUATION LAYERS
+# =============================================================================
+evaluation_layers:
+  layer_1_hard_validators:
+    description: "Pure synchronous validators — no I/O, no LLM"
+    always_runs: true
+    validators:
+      - name: "validate_schema"
+        module: "omniintelligence.nodes.node_contract_eval_compute.handlers.validators"
+        description: "Checks required keys (node_type, contract_id, title, description, io, environment_variables) and types"
+      - name: "validate_trace_coverage"
+        module: "omniintelligence.nodes.node_contract_eval_compute.handlers.validators"
+        description: "Returns float ratio of ticket_requirements matched in contract text"
+      - name: "validate_reference_integrity"
+        module: "omniintelligence.nodes.node_contract_eval_compute.handlers.validators"
+        description: "Checks for dangling references in io.input_fields and io.output_fields"
+
+  layer_2_llm_judge:
+    description: "Async LLM soft evaluation — always runs regardless of layer 1 results"
+    always_runs: true
+    judge_caller_signature: "async (prompt: str, output: str, failure_indicators: list[str]) -> dict[str, Any]"
+    expected_output_keys:
+      - metamorphic_stability_score
+      - compliance_theater_risk
+      - ambiguity_flags
+      - invented_requirements
+      - missing_acceptance_criteria
+# =============================================================================
+# EVAL_PASSED PREDICATE
+# =============================================================================
+eval_passed_predicate:
+  description: >
+    eval_passed is a computed_field on ModelEvalResult:
+    schema_pass AND trace_coverage_pct >= 0.8 AND reference_integrity_pass.
+    A schema-failing contract produces eval_passed=False even with perfect LLM scores.
+# =============================================================================
+# ERROR HANDLING
+# =============================================================================
+error_handling:
+  retry_policy:
+    max_retries: 0
+    description: "Hard validators are pure sync — no retries. LLM judge retries handled by judge_caller."
+  error_types:
+    - name: "JudgeCallerError"
+      error_code: "CONTRACTEVAL_001"
+      description: "judge_caller raised an exception — propagated to caller"
+      recoverable: false
+      retry_strategy: "none"
+# =============================================================================
+# IDEMPOTENCY
+# =============================================================================
+idempotency:
+  enabled: true
+  description: >
+    Hard validators are pure functions — deterministic on same input.
+    LLM judge output may vary; idempotency is approximated at the hard-validator level.
+# =============================================================================
+# HEALTH CHECK
+# =============================================================================
+health_check:
+  enabled: false
+  description: "Compute node — no health check needed"
+# =============================================================================
+# METADATA
+# =============================================================================
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-03-08"
+  updated: "2026-03-08"
+  tags:
+    - compute
+    - bloom-eval
+    - contract-eval
+    - llm-judge
+    - hard-validators
+    - two-layer
+  references:
+    - ticket: "OMN-4024"
+      url: "https://linear.app/omninode/issue/OMN-4024"
+      description: "Implement contract LLM judge + NodeContractEvalCompute"
+    - ticket: "OMN-4023"
+      url: "https://linear.app/omninode/issue/OMN-4023"
+      description: "Implement contract hard validators"
+    - ticket: "OMN-4016"
+      url: "https://linear.app/omninode/issue/OMN-4016"
+      description: "Bloom eval framework parent epic"
