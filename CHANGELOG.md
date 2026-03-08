@@ -5,6 +5,33 @@ All notable changes to OmniIntelligence will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-03-07
+
+### Added
+- Protocol handlers for declarative effect nodes (OMN-373, #314)
+- NodeStorageRouterEffect for storage coordination (OMN-371, #313)
+- LOCAL_OPENAI embedding provider for MLX server (OMN-368, #312)
+- `project_scope` field to learned patterns (OMN-1607, #303)
+
+### Fixed
+- Pin actions/checkout@v4 and actions/setup-python@v5 (OMN-3804, #311)
+- Remove `{env}.` topic prefix from CLAUDE.md, make correlation_id required (OMN-3739, #309)
+- Remove boilerplate_docstring AI-slop violations across 100 files (OMN-3667, #305)
+- Convert all :named SQL placeholders to $N positional syntax (OMN-3644, #302)
+- Convert upsert_pattern SQL to asyncpg positional syntax (OMN-3592, #301)
+
+### Changed
+- CI resilience fixes (OMN-3662, #304)
+- Relax ONEX version bounds, raise core lower bound to >=0.23.0 (#308)
+- Add cloud bus guard pre-commit hook (OMN-3777, #310)
+- Add no-env-file pre-commit hook (OMN-3705, #307)
+- Add no-planning-docs pre-commit hook (OMN-3619, #300)
+
+### Dependencies
+- `omnibase-core` pinned to `0.24.0`
+- `omnibase-spi` pinned to `0.15.1`
+- `omnibase-infra` pinned to `0.16.0`
+
 ## [0.9.2] - 2026-03-03
 
 ### Dependencies
@@ -320,6 +347,7 @@ hook processing as a kernel domain plugin.
 - `omnibase_spi` ^0.9.0
 - Python >=3.12
 
+[0.10.0]: https://github.com/OmniNode-ai/omniintelligence/compare/v0.9.4...v0.10.0
 [0.6.0]: https://github.com/OmniNode-ai/omniintelligence/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/OmniNode-ai/omniintelligence/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/OmniNode-ai/omniintelligence/compare/v0.3.0...v0.4.0
