@@ -292,7 +292,7 @@ repos:
   # Prevents hardcoded __version__ in __init__.py and string version anti-patterns
   # ============================================================================
   - repo: https://github.com/OmniNode-ai/omnibase_core
-    rev: v0.24.0  # Pin to latest tag; bump during coordinated releases
+    rev: c93cfdd53baa280468b99a3d28c1812d9683dd83  # TODO: bump to v0.25.0 once tagged
     hooks:
       - id: validate-string-versions
         name: ONEX String Version Anti-Pattern Detection
