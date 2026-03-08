@@ -16,9 +16,8 @@ node_version:
 name: "node_memory_eval_compute"
 node_type: "COMPUTE_GENERIC"
 description: >-
-  Compute node that evaluates MEMORY_SYSTEM failure modes via LLM judge.
-  Evaluates 5 failure modes: regression_amnesia, over_trust_prior_context,
-  cross_task_contamination, failure_to_surface_memory, incorrect_suppression.
+  Compute node that evaluates MEMORY_SYSTEM failure modes via LLM judge. Evaluates 5 failure modes: regression_amnesia,
+  over_trust_prior_context, cross_task_contamination, failure_to_surface_memory, incorrect_suppression.
 input_model:
   name: "ModelMemoryEvalInput"
   module: "omniintelligence.nodes.node_memory_eval_compute.models"
