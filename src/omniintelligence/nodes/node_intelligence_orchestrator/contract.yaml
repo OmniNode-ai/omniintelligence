@@ -143,7 +143,7 @@ consumed_events:
     event_type: "PatternLearningRequested"
   - topic: "onex.cmd.omniintelligence.quality-assessment.v1"
     event_type: "QualityAssessmentRequested"
-  - topic: "onex.evt.intent.drift.detected.v1"
+  - topic: "onex.evt.omniintelligence.intent-drift-detected.v1"
     event_type: "IntentDriftDetected"
 # Published Events
 # ================
@@ -220,7 +220,7 @@ event_bus:
     - "onex.cmd.omniintelligence.document-ingestion.v1"
     - "onex.cmd.omniintelligence.pattern-learning.v1"
     - "onex.cmd.omniintelligence.quality-assessment.v1"
-    - "onex.evt.intent.drift.detected.v1"
+    - "onex.evt.omniintelligence.intent-drift-detected.v1"
 
   publish_topics:
     - "onex.evt.omniintelligence.code-analysis-completed.v1"
@@ -266,7 +266,7 @@ event_bus:
         repo: "external"
         module: "unregistered"
         topic_constant: "onex.cmd.omniintelligence.quality-assessment.v1"
-    "onex.evt.intent.drift.detected.v1":
+    "onex.evt.omniintelligence.intent-drift-detected.v1":
       schema_ref: "omniintelligence.models.events.model_intent_event_envelopes.ModelIntentDriftDetectedEnvelope"
       description: "Intent drift signal from node_intent_drift_detect_compute. Orchestrator routes alerts
         and may trigger model updates."

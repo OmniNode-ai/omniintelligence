@@ -3,7 +3,7 @@
 This model carries the resolved intent class, confidence score, and the
 per-class config (model hint, temperature, validator set, sandbox flag).
 It is produced by the intent_classifier_compute node and emitted to
-``onex.evt.intent.classified.v1``.
+``onex.evt.omniintelligence.intent-classified.v1``.
 """
 
 from __future__ import annotations

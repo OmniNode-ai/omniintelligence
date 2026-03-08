@@ -454,7 +454,7 @@ class TestModelTypedIntent:
 
 @pytest.mark.unit
 class TestModelIntentClassifiedEvent:
-    """Tests for the frozen event envelope for onex.evt.intent.classified.v1."""
+    """Tests for the frozen event envelope for onex.evt.omniintelligence.intent-classified.v1."""
 
     def test_event_is_preview_safe(self) -> None:
         """Event model must not have a prompt text field."""

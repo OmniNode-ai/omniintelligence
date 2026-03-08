@@ -15,7 +15,7 @@ node_type: "COMPUTE_GENERIC"
 description: >-
   Pure compute node that detects when tool calls or file changes diverge from the declared intent class.
   Returns a ModelIntentDriftSignal when drift is detected, or None when clean. Detection is observational
-  only and never blocks execution. Signals are emitted to onex.evt.intent.drift.detected.v1 by the orchestrator.
+  only and never blocks execution. Signals are emitted to onex.evt.omniintelligence.intent-drift-detected.v1 by the orchestrator.
 input_model:
   name: "ModelIntentDriftInput"
   module: "omniintelligence.nodes.node_intent_drift_detect_compute.models"
@@ -54,7 +54,7 @@ handler_routing:
         module: "omniintelligence.nodes.node_intent_drift_detect_compute.handlers"
         type: "sync"
 # No event_bus section — this is a pure compute node (no Kafka I/O).
-# The orchestrator emits the returned signal to onex.evt.intent.drift.detected.v1.
+# The orchestrator emits the returned signal to onex.evt.omniintelligence.intent-drift-detected.v1.
 dependencies: []
 error_handling:
   error_types:

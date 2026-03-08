@@ -90,7 +90,7 @@ def update_baseline(
     """Record a completed session's token and latency observations into the baseline.
 
     Mutates the baseline in place. Called after each session completion
-    (triggered by onex.evt.intent.outcome.labeled.v1).
+    (triggered by onex.evt.omniintelligence.intent-outcome-labeled.v1).
 
     Args:
         baseline: The mutable baseline to update.

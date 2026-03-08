@@ -12,10 +12,10 @@ Code analysis topics:
 - ModelCodeAnalysisFailedPayload: Failed analysis error events
 
 Intent Intelligence topics (OMN-2487):
-- ModelIntentClassifiedEnvelope: onex.evt.intent.classified.v1
-- ModelIntentDriftDetectedEnvelope: onex.evt.intent.drift.detected.v1
-- ModelIntentOutcomeLabeledEnvelope: onex.evt.intent.outcome.labeled.v1
-- ModelIntentPatternPromotedEnvelope: onex.evt.intent.pattern.promoted.v1
+- ModelIntentClassifiedEnvelope: onex.evt.omniintelligence.intent-classified.v1
+- ModelIntentDriftDetectedEnvelope: onex.evt.omniintelligence.intent-drift-detected.v1
+- ModelIntentOutcomeLabeledEnvelope: onex.evt.omniintelligence.intent-outcome-labeled.v1
+- ModelIntentPatternPromotedEnvelope: onex.evt.omniintelligence.intent-pattern-promoted.v1
 
 Migration Note:
     Code analysis models were extracted from the monolithic

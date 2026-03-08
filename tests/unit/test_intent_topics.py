@@ -30,14 +30,14 @@ class TestIntentTopicEnum:
         """INTENT_DRIFT_DETECTED topic name matches ONEX canonical format."""
         from omniintelligence.topics import IntentTopic
 
-        assert IntentTopic.INTENT_DRIFT_DETECTED == "onex.evt.intent.drift.detected.v1"
+        assert IntentTopic.INTENT_DRIFT_DETECTED == "onex.evt.omniintelligence.intent-drift-detected.v1"
 
     def test_intent_outcome_labeled_topic_value(self) -> None:
         """INTENT_OUTCOME_LABELED topic name matches ONEX canonical format."""
         from omniintelligence.topics import IntentTopic
 
         assert (
-            IntentTopic.INTENT_OUTCOME_LABELED == "onex.evt.intent.outcome.labeled.v1"
+            IntentTopic.INTENT_OUTCOME_LABELED == "onex.evt.omniintelligence.intent-outcome-labeled.v1"
         )
 
     def test_intent_pattern_promoted_topic_value(self) -> None:
@@ -45,7 +45,7 @@ class TestIntentTopicEnum:
         from omniintelligence.topics import IntentTopic
 
         assert (
-            IntentTopic.INTENT_PATTERN_PROMOTED == "onex.evt.intent.pattern.promoted.v1"
+            IntentTopic.INTENT_PATTERN_PROMOTED == "onex.evt.omniintelligence.intent-pattern-promoted.v1"
         )
 
     def test_all_topics_are_three(self) -> None:
@@ -54,13 +54,13 @@ class TestIntentTopicEnum:
 
         assert len(IntentTopic) == 3
 
-    def test_all_topics_start_with_onex_evt_intent(self) -> None:
-        """All intent topics follow the onex.evt.intent.* producer namespace."""
+    def test_all_topics_start_with_onex_evt_omniintelligence(self) -> None:
+        """All intent topics follow the onex.evt.omniintelligence.* producer namespace."""
         from omniintelligence.topics import IntentTopic
 
         for topic in IntentTopic:
-            assert str(topic).startswith("onex.evt.intent."), (
-                f"Topic {topic!r} does not start with 'onex.evt.intent.'"
+            assert str(topic).startswith("onex.evt.omniintelligence."), (
+                f"Topic {topic!r} does not start with 'onex.evt.omniintelligence.'"
             )
 
     def test_all_topics_end_with_v1(self) -> None:
@@ -78,18 +78,18 @@ class TestIntentTopicEnum:
 
         value = IntentTopic.INTENT_DRIFT_DETECTED
         assert isinstance(str(value), str)
-        assert str(value) == "onex.evt.intent.drift.detected.v1"
+        assert str(value) == "onex.evt.omniintelligence.intent-drift-detected.v1"
 
     def test_topic_equality_with_string(self) -> None:
         """IntentTopic members compare equal to their string values."""
         from omniintelligence.topics import IntentTopic
 
-        assert IntentTopic.INTENT_DRIFT_DETECTED == "onex.evt.intent.drift.detected.v1"
+        assert IntentTopic.INTENT_DRIFT_DETECTED == "onex.evt.omniintelligence.intent-drift-detected.v1"
         assert (
-            IntentTopic.INTENT_OUTCOME_LABELED == "onex.evt.intent.outcome.labeled.v1"
+            IntentTopic.INTENT_OUTCOME_LABELED == "onex.evt.omniintelligence.intent-outcome-labeled.v1"
         )
         assert (
-            IntentTopic.INTENT_PATTERN_PROMOTED == "onex.evt.intent.pattern.promoted.v1"
+            IntentTopic.INTENT_PATTERN_PROMOTED == "onex.evt.omniintelligence.intent-pattern-promoted.v1"
         )
 
     def test_intent_topic_importable_from_package(self) -> None:
@@ -104,6 +104,30 @@ class TestIntentTopicEnum:
 
         values = [str(t) for t in IntentTopic]
         assert len(values) == len(set(values)), "Duplicate topic values detected"
+
+    def test_migration_aliases_map_old_to_new(self) -> None:
+        """INTENT_TOPIC_ALIASES maps deprecated topic names to canonical names (OMN-3253)."""
+        from omniintelligence.topics import INTENT_TOPIC_ALIASES, IntentTopic
+
+        assert {
+            "onex.evt.intent.drift.detected.v1": IntentTopic.INTENT_DRIFT_DETECTED.value,
+            "onex.evt.intent.outcome.labeled.v1": IntentTopic.INTENT_OUTCOME_LABELED.value,
+            "onex.evt.intent.pattern.promoted.v1": IntentTopic.INTENT_PATTERN_PROMOTED.value,
+        } == INTENT_TOPIC_ALIASES
+
+    def test_migration_aliases_all_keys_are_deprecated_format(self) -> None:
+        """All alias keys use the old 'intent' producer segment."""
+        from omniintelligence.topics import INTENT_TOPIC_ALIASES
+
+        for old_topic in INTENT_TOPIC_ALIASES:
+            assert "intent." in old_topic and "omniintelligence" not in old_topic
+
+    def test_migration_aliases_all_values_are_canonical_format(self) -> None:
+        """All alias values use the new 'omniintelligence' producer segment."""
+        from omniintelligence.topics import INTENT_TOPIC_ALIASES
+
+        for new_topic in INTENT_TOPIC_ALIASES.values():
+            assert "omniintelligence" in new_topic
 
 
 # ============================================================================
@@ -207,7 +231,7 @@ class TestModelIntentClassifiedEnvelope:
 
 @pytest.mark.unit
 class TestModelIntentDriftDetectedEnvelope:
-    """Tests for ModelIntentDriftDetectedEnvelope (onex.evt.intent.drift.detected.v1)."""
+    """Tests for ModelIntentDriftDetectedEnvelope (onex.evt.omniintelligence.intent-drift-detected.v1)."""
 
     def _make_envelope(self, **overrides: object) -> object:
         from omniintelligence.models.events.model_intent_event_envelopes import (
@@ -287,7 +311,7 @@ class TestModelIntentDriftDetectedEnvelope:
 
 @pytest.mark.unit
 class TestModelIntentOutcomeLabeledEnvelope:
-    """Tests for ModelIntentOutcomeLabeledEnvelope (onex.evt.intent.outcome.labeled.v1)."""
+    """Tests for ModelIntentOutcomeLabeledEnvelope (onex.evt.omniintelligence.intent-outcome-labeled.v1)."""
 
     def _make_envelope(self, **overrides: object) -> object:
         from omniintelligence.models.events.model_intent_event_envelopes import (
@@ -381,7 +405,7 @@ class TestModelIntentOutcomeLabeledEnvelope:
 
 @pytest.mark.unit
 class TestModelIntentPatternPromotedEnvelope:
-    """Tests for ModelIntentPatternPromotedEnvelope (onex.evt.intent.pattern.promoted.v1)."""
+    """Tests for ModelIntentPatternPromotedEnvelope (onex.evt.omniintelligence.intent-pattern-promoted.v1)."""
 
     def _make_envelope(self, **overrides: object) -> object:
         from omniintelligence.models.events.model_intent_event_envelopes import (

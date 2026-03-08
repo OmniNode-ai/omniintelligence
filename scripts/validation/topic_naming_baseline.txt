@@ -13,8 +13,9 @@
 #   onex.commands.* / onex.events.* — legacy 'commands'/'events' kind segments
 #     (should be 'cmd'/'evt'); found in dispatch_handlers.py and
 #     dispatch_handler_crawl_scheduler.py
-#   onex.evt.intent.*.v1 — 6-segment topics in topics.py (IntentTopic enum)
 #   onex.dlq.omniintelligence.v1 — 4-segment DLQ topic (missing event slug)
+#
+#   onex.evt.intent.*.v1 — RESOLVED by OMN-3253 (renamed to onex.evt.omniintelligence.intent-*.v1)
 #
 onex.commands.omnimemory.crawl-requested.v1
 onex.events.omnimemory.document-indexed.v1
@@ -29,6 +30,3 @@ onex.commands.omniintelligence.compliance-evaluate.v1
 onex.events.omniintelligence.pattern-promoted.v1
 onex.events.omniintelligence.pattern-lifecycle-transitioned.v1
 onex.dlq.omniintelligence.v1
-onex.evt.intent.drift.detected.v1
-onex.evt.intent.outcome.labeled.v1
-onex.evt.intent.pattern.promoted.v1

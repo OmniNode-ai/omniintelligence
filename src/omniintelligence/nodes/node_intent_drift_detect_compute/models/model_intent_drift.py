@@ -13,7 +13,7 @@ Schema Rules:
     - from_attributes=True (pytest-xdist worker compatibility)
     - No datetime.now() defaults
 
-Drift signal emitted to: onex.evt.intent.drift.detected.v1
+Drift signal emitted to: onex.evt.omniintelligence.intent-drift-detected.v1
 
 Reference: OMN-2489
 """
@@ -71,7 +71,7 @@ class ModelIntentDriftInput(BaseModel):
 class ModelIntentDriftSignal(BaseModel):
     """Frozen drift signal emitted when tool behaviour diverges from declared intent.
 
-    Published to onex.evt.intent.drift.detected.v1 when drift threshold is exceeded.
+    Published to onex.evt.omniintelligence.intent-drift-detected.v1 when drift threshold is exceeded.
     Detection is observational only — it never blocks execution.
 
     Severity levels:
