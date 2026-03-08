@@ -35,10 +35,9 @@ status: "active"
 
 # Description
 description: >-
-  Orchestrator node for the Bloom Eval system. Subscribes to bloom-eval-run
-  commands, drives per-scenario evaluation across the BehaviorSpec catalog,
-  aggregates ModelEvalResult entries into ModelEvalSuiteResult, and publishes
-  bloom-eval-completed events for downstream consumers (omnidash, audit). #magic___^_^___line
+  Orchestrator node for the Bloom Eval system. Subscribes to bloom-eval-run commands, drives per-scenario
+  evaluation across the BehaviorSpec catalog, aggregates ModelEvalResult entries into ModelEvalSuiteResult,
+  and publishes bloom-eval-completed events for downstream consumers (omnidash, audit). #magic___^_^___line
 
 # =============================================================================
 # I/O MODELS
