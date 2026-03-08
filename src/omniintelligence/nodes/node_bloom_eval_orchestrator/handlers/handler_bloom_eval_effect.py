@@ -19,6 +19,7 @@ Reference: OMN-4027 - Task 11: Build NodeBloomEvalEffect + Kafka topics
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Callable, Coroutine
 from datetime import UTC, datetime
@@ -50,6 +51,10 @@ logger = logging.getLogger(__name__)
 _BLOOM_COMPLETED_TOPIC = "onex.evt.omniintelligence.bloom-eval-completed.v1"
 _DEFAULT_SCENARIOS_PER_SPEC = 5
 _PASS_SCORE_THRESHOLD = 0.5
+
+# Module-level set keeps strong references to background publish tasks so the
+# event loop cannot GC them before they complete. Tasks remove themselves on done.
+_background_tasks: set[asyncio.Task[None]] = set()
 
 
 class ModelBloomEvalRunCommand(BaseModel):
@@ -172,21 +177,23 @@ _DOMAIN_DISPATCH: dict[EnumEvalDomain, _DomainHandler] = {
 async def run_bloom_eval(
     command: ModelBloomEvalRunCommand,
     *,
-    producer: ProtocolKafkaPublisher,
+    producer: ProtocolKafkaPublisher | None = None,
     llm_client: EvalLLMClient,
 ) -> None:
     """Orchestrate a bloom assessment suite and publish the result.
 
     Routes to the correct domain handler based on command.failure_mode.domain,
-    then publishes the ModelEvalSuiteResult payload to Kafka.
-
-    Does NOT return a typed result - all output is published via producer.
+    then fire-and-forgets the ModelEvalSuiteResult payload to Kafka when a
+    producer is available. The handler completes successfully even when no
+    producer is injected (Kafka is optional for effect nodes).
 
     Args:
         command: Bloom run command specifying failure_mode and parameters.
-        producer: Kafka publisher for emitting bloom-eval-completed events.
+        producer: Optional Kafka publisher for emitting bloom-eval-completed
+            events. When None, the publish step is skipped.
         llm_client: LLM client for scenario generation and judgment.
     """
+    correlation_id = command.correlation_id
     domain = FAILURE_MODE_DOMAIN[command.failure_mode]
     domain_handler = _DOMAIN_DISPATCH[domain]
 
@@ -195,6 +202,7 @@ async def run_bloom_eval(
         command.suite_id,
         command.failure_mode.value,
         domain.value,
+        extra={"correlation_id": correlation_id},
     )
 
     results: list[ModelEvalResult] = await domain_handler(command, llm_client)
@@ -204,31 +212,45 @@ async def run_bloom_eval(
         results=results,
     )
 
-    payload: dict[str, object] = {
-        "event_type": "BloomEvalCompleted",
-        "suite_id": str(suite_result.suite_id),
-        "spec_id": str(suite_result.spec_id),
-        "failure_mode": suite_result.failure_mode.value,
-        "total_scenarios": suite_result.total_scenarios,
-        "passed_count": suite_result.passed_count,
-        "failure_rate": suite_result.failure_rate,
-        "passed_threshold": suite_result.passed_threshold,
-        "correlation_id": command.correlation_id,
-        "emitted_at": datetime.now(UTC).isoformat(),
-    }
-
-    await producer.publish(
-        topic=command.publish_topic,
-        key=str(command.suite_id),
-        value=payload,
-    )
-
     logger.info(
         "bloom_eval: completed suite=%s failure_rate=%.2f passed_threshold=%s",
         command.suite_id,
         suite_result.failure_rate,
         suite_result.passed_threshold,
+        extra={"correlation_id": correlation_id},
     )
+
+    if producer is not None:
+        payload: dict[str, object] = {
+            "event_type": "BloomEvalCompleted",
+            "suite_id": str(suite_result.suite_id),
+            "spec_id": str(suite_result.spec_id),
+            "failure_mode": suite_result.failure_mode.value,
+            "total_scenarios": suite_result.total_scenarios,
+            "passed_count": suite_result.passed_count,
+            "failure_rate": suite_result.failure_rate,
+            "passed_threshold": suite_result.passed_threshold,
+            "correlation_id": correlation_id,
+            "emitted_at": datetime.now(UTC).isoformat(),
+        }
+
+        async def _publish() -> None:
+            try:
+                await producer.publish(
+                    topic=command.publish_topic,
+                    key=str(command.suite_id),
+                    value=payload,
+                )
+            except Exception:
+                logger.exception(
+                    "bloom_eval: publish failed suite=%s",
+                    command.suite_id,
+                    extra={"correlation_id": correlation_id},
+                )
+
+        _task = asyncio.create_task(_publish())
+        _background_tasks.add(_task)
+        _task.add_done_callback(_background_tasks.discard)
 
 
 __all__ = [

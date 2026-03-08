@@ -5,13 +5,15 @@
 
 Validates:
 - Domain routing (CONTRACT_CREATION, AGENT_EXECUTION, MEMORY_SYSTEM)
-- Kafka producer called with correct topic and payload shape
+- Kafka producer called with correct topic and payload shape (fire-and-forget)
 - Payload contains required fields (event_type, suite_id, failure_mode, etc.)
 - No os.getenv / os.environ in the handler module (ARCH-002)
+- run_bloom_eval completes successfully when no producer is injected
 """
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
@@ -78,12 +80,14 @@ def _make_command(
 
 @pytest.mark.unit
 async def test_run_bloom_eval_calls_producer_with_correct_topic() -> None:
-    """run_bloom_eval must publish to the command's publish_topic."""
+    """run_bloom_eval must publish to the command's publish_topic (fire-and-forget)."""
     command = _make_command()
     producer = _make_producer()
     llm = _make_llm_client()
 
     await run_bloom_eval(command, producer=producer, llm_client=llm)
+    # Yield to the event loop so the background publish task runs.
+    await asyncio.sleep(0)
 
     producer.publish.assert_awaited_once()
     call_kwargs = producer.publish.call_args
@@ -98,6 +102,7 @@ async def test_run_bloom_eval_payload_contains_required_fields() -> None:
     llm = _make_llm_client()
 
     await run_bloom_eval(command, producer=producer, llm_client=llm)
+    await asyncio.sleep(0)
 
     payload: dict[str, Any] = producer.publish.call_args.kwargs["value"]
     assert payload["event_type"] == "BloomEvalCompleted"
@@ -120,6 +125,7 @@ async def test_run_bloom_eval_suite_id_matches_command() -> None:
     llm = _make_llm_client()
 
     await run_bloom_eval(command, producer=producer, llm_client=llm)
+    await asyncio.sleep(0)
 
     payload = producer.publish.call_args.kwargs["value"]
     assert payload["suite_id"] == str(command.suite_id)
@@ -133,6 +139,7 @@ async def test_run_bloom_eval_key_is_suite_id() -> None:
     llm = _make_llm_client()
 
     await run_bloom_eval(command, producer=producer, llm_client=llm)
+    await asyncio.sleep(0)
 
     call_kwargs = producer.publish.call_args.kwargs
     assert call_kwargs["key"] == str(command.suite_id)
@@ -163,6 +170,7 @@ async def test_agent_execution_domain_routes_correctly() -> None:
     llm = _make_llm_client()
 
     await run_bloom_eval(command, producer=producer, llm_client=llm)
+    await asyncio.sleep(0)
 
     producer.publish.assert_awaited_once()
     payload = producer.publish.call_args.kwargs["value"]
@@ -177,6 +185,7 @@ async def test_memory_system_domain_routes_correctly() -> None:
     llm = _make_llm_client()
 
     await run_bloom_eval(command, producer=producer, llm_client=llm)
+    await asyncio.sleep(0)
 
     producer.publish.assert_awaited_once()
     payload = producer.publish.call_args.kwargs["value"]
@@ -196,6 +205,7 @@ async def test_scenarios_per_spec_passed_to_llm_client() -> None:
     llm = _make_llm_client(scenarios=["s1", "s2", "s3"])
 
     await run_bloom_eval(command, producer=producer, llm_client=llm)
+    await asyncio.sleep(0)
 
     gen_call = llm.generate_scenarios.call_args
     assert gen_call.kwargs.get("n") == 3 or gen_call.args[1] == 3
@@ -210,6 +220,7 @@ async def test_total_scenarios_matches_returned_results() -> None:
     llm = _make_llm_client(scenarios=scenarios)
 
     await run_bloom_eval(command, producer=producer, llm_client=llm)
+    await asyncio.sleep(0)
 
     payload = producer.publish.call_args.kwargs["value"]
     assert payload["total_scenarios"] == len(scenarios)
@@ -238,6 +249,7 @@ async def test_all_passing_results_sets_passed_threshold_true() -> None:
     )
 
     await run_bloom_eval(command, producer=producer, llm_client=llm)
+    await asyncio.sleep(0)
 
     payload = producer.publish.call_args.kwargs["value"]
     assert payload["passed_threshold"] is True
@@ -261,6 +273,7 @@ async def test_all_failing_results_sets_passed_threshold_false() -> None:
     )
 
     await run_bloom_eval(command, producer=producer, llm_client=llm)
+    await asyncio.sleep(0)
 
     payload = producer.publish.call_args.kwargs["value"]
     assert payload["passed_threshold"] is False
@@ -283,9 +296,21 @@ async def test_correlation_id_propagated_to_payload() -> None:
     llm = _make_llm_client(scenarios=["s1"])
 
     await run_bloom_eval(command, producer=producer, llm_client=llm)
+    await asyncio.sleep(0)
 
     payload = producer.publish.call_args.kwargs["value"]
     assert payload["correlation_id"] == "test-correlation-123"
+
+
+@pytest.mark.unit
+async def test_run_bloom_eval_succeeds_without_producer() -> None:
+    """run_bloom_eval must complete without error when no producer is injected."""
+    command = _make_command()
+    llm = _make_llm_client()
+
+    # Should not raise even without a producer.
+    await run_bloom_eval(command, llm_client=llm)
+    await asyncio.sleep(0)
 
 
 # ---------------------------------------------------------------------------
