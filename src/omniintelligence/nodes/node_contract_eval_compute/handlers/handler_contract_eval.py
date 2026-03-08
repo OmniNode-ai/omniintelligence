@@ -32,6 +32,10 @@ from omniintelligence.nodes.node_contract_eval_compute.handlers.validators impor
 )
 
 
+class JudgeCallerError(RuntimeError):
+    """Raised when the injected judge_caller raises an exception (CONTRACTEVAL_001)."""
+
+
 async def handle_contract_evaluation(
     contract_dict: dict[str, Any],
     scenario: ModelEvalScenario,
@@ -70,23 +74,33 @@ async def handle_contract_evaluation(
     description = str(contract_dict.get("description", ""))
     failure_indicators = _get_failure_indicators(scenario.failure_mode)
 
-    judge_output = await judge_caller(
-        scenario.input_text,
-        description,
-        failure_indicators,
-    )
+    try:
+        judge_output = await judge_caller(
+            scenario.input_text,
+            description,
+            failure_indicators,
+        )
+    except Exception as exc:
+        # judge_caller raised — wrap as JudgeCallerError (CONTRACTEVAL_001) and re-raise.
+        # Hard validator results are preserved in the exception for callers to inspect.
+        raise JudgeCallerError(
+            f"CONTRACTEVAL_001: judge_caller failed for scenario {scenario.scenario_id}: "
+            f"{type(exc).__name__}: {exc}"
+        ) from exc
 
-    # Extract soft scores from judge output
-    metamorphic_stability_score = float(
-        judge_output.get("metamorphic_stability_score", 0.0)
+    # Extract soft scores from judge output with safe coercions
+    metamorphic_stability_score = _safe_float(
+        judge_output.get("metamorphic_stability_score"), default=0.0
     )
-    compliance_theater_risk = float(judge_output.get("compliance_theater_risk", 0.0))
-    ambiguity_flags: list[str] = list(judge_output.get("ambiguity_flags", []))
-    invented_requirements: list[str] = list(
-        judge_output.get("invented_requirements", [])
+    compliance_theater_risk = _safe_float(
+        judge_output.get("compliance_theater_risk"), default=0.0
     )
-    missing_acceptance_criteria: list[str] = list(
-        judge_output.get("missing_acceptance_criteria", [])
+    ambiguity_flags: list[str] = _safe_list(judge_output.get("ambiguity_flags"))
+    invented_requirements: list[str] = _safe_list(
+        judge_output.get("invented_requirements")
+    )
+    missing_acceptance_criteria: list[str] = _safe_list(
+        judge_output.get("missing_acceptance_criteria")
     )
 
     return ModelEvalResult(
@@ -101,6 +115,27 @@ async def handle_contract_evaluation(
         failure_mode=scenario.failure_mode,
         scenario_id=scenario.scenario_id,
     )
+
+
+def _safe_float(value: object, *, default: float = 0.0) -> float:
+    """Safely coerce a judge output value to float, returning default on failure."""
+    if value is None:
+        return default
+    try:
+        return float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return default
+
+
+def _safe_list(value: object) -> list[str]:
+    """Safely coerce a judge output value to list[str], wrapping single strings."""
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(item) for item in value]
+    if isinstance(value, str):
+        return [value]
+    return []
 
 
 def _get_failure_indicators(failure_mode: EnumFailureMode) -> list[str]:
@@ -138,4 +173,4 @@ def _get_failure_indicators(failure_mode: EnumFailureMode) -> list[str]:
     return _INDICATORS.get(failure_mode, ["evaluation failure", "unexpected output"])
 
 
-__all__ = ["handle_contract_evaluation"]
+__all__ = ["JudgeCallerError", "handle_contract_evaluation"]

@@ -27,6 +27,7 @@ from omniintelligence.nodes.node_bloom_eval_orchestrator.models.model_eval_scena
     ModelEvalScenario,
 )
 from omniintelligence.nodes.node_contract_eval_compute.handlers.handler_contract_eval import (
+    JudgeCallerError,
     handle_contract_evaluation,
 )
 
@@ -268,3 +269,29 @@ async def test_failure_mode_propagated() -> None:
         judge_caller=_make_judge(),
     )
     assert result.failure_mode == EnumFailureMode.INVENTED_REQUIREMENTS
+
+
+# ---------------------------------------------------------------------------
+# test_judge_caller_error_raises_judge_caller_error
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_judge_caller_error_raises_judge_caller_error() -> None:
+    """When judge_caller raises, JudgeCallerError (CONTRACTEVAL_001) is raised."""
+
+    async def failing_judge(
+        _prompt: str,
+        _output: str,
+        _indicators: list[str],
+    ) -> dict[str, Any]:
+        raise ValueError("LLM endpoint unavailable")
+
+    with pytest.raises(JudgeCallerError, match="CONTRACTEVAL_001"):
+        await handle_contract_evaluation(
+            contract_dict=_VALID_CONTRACT,
+            scenario=_make_scenario(),
+            ticket_requirements=[],
+            judge_caller=failing_judge,
+        )

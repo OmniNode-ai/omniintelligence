@@ -29,11 +29,10 @@ node_type: "COMPUTE_GENERIC"
 status: "active"
 # Description
 description: >
-  Compute node that orchestrates two-layer contract evaluation. Layer 1: hard validators
-  (validate_schema, validate_trace_coverage, validate_reference_integrity) run synchronously
-  with no I/O. Layer 2: LLM judge (DeepSeek-R1 via injected judge_caller) always runs
-  regardless of hard validator results. eval_passed is False when schema_pass is False.
-  Pure compute — judge_caller is injected by the caller. #magic___^_^___line
+  Compute node that orchestrates two-layer contract evaluation. Layer 1: hard validators (validate_schema,
+  validate_trace_coverage, validate_reference_integrity) run synchronously with no I/O. Layer 2: LLM judge
+  (DeepSeek-R1 via injected judge_caller) always runs regardless of hard validator results. eval_passed
+  is False when schema_pass is False. Pure compute — judge_caller is injected by the caller.
 # Strongly typed I/O models
 input_model:
   name: "ModelContractEvalInput"
@@ -106,7 +105,8 @@ evaluation_layers:
     validators:
       - name: "validate_schema"
         module: "omniintelligence.nodes.node_contract_eval_compute.handlers.validators"
-        description: "Checks required keys (node_type, contract_id, title, description, io, environment_variables) and types"
+        description: "Checks required keys (node_type, contract_id, title, description, io, environment_variables)
+          and types"
       - name: "validate_trace_coverage"
         module: "omniintelligence.nodes.node_contract_eval_compute.handlers.validators"
         description: "Returns float ratio of ticket_requirements matched in contract text"
@@ -117,7 +117,8 @@ evaluation_layers:
   layer_2_llm_judge:
     description: "Async LLM soft evaluation — always runs regardless of layer 1 results"
     always_runs: true
-    judge_caller_signature: "async (prompt: str, output: str, failure_indicators: list[str]) -> dict[str, Any]"
+    judge_caller_signature: "async (prompt: str, output: str, failure_indicators: list[str]) -> dict[str,
+      Any]"
     expected_output_keys:
       - metamorphic_stability_score
       - compliance_theater_risk
@@ -129,9 +130,9 @@ evaluation_layers:
 # =============================================================================
 eval_passed_predicate:
   description: >
-    eval_passed is a computed_field on ModelEvalResult:
-    schema_pass AND trace_coverage_pct >= 0.8 AND reference_integrity_pass.
-    A schema-failing contract produces eval_passed=False even with perfect LLM scores.
+    eval_passed is a computed_field on ModelEvalResult: schema_pass AND trace_coverage_pct >= 0.8 AND
+    reference_integrity_pass. A schema-failing contract produces eval_passed=False even with perfect LLM
+    scores.
 # =============================================================================
 # ERROR HANDLING
 # =============================================================================
@@ -151,8 +152,8 @@ error_handling:
 idempotency:
   enabled: true
   description: >
-    Hard validators are pure functions — deterministic on same input.
-    LLM judge output may vary; idempotency is approximated at the hard-validator level.
+    Hard validators are pure functions — deterministic on same input. LLM judge output may vary; idempotency
+    is approximated at the hard-validator level.
 # =============================================================================
 # HEALTH CHECK
 # =============================================================================
