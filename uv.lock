@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.12, <4.0"
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -2108,7 +2108,7 @@ wheels = [
 
 [[package]]
 name = "omnibase-core"
-version = "0.24.0"
+version = "0.24.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "blake3" },
@@ -2123,14 +2123,14 @@ dependencies = [
     { name = "pyyaml" },
     { name = "ruamel-yaml" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/1d/e1/cfb4ebf5c47f4bd85056ab8202f8fe23e075b8e83b75735dcf3cd32b473e/omnibase_core-0.24.0.tar.gz", hash = "sha256:d22abc951a258d47f5fee669c1cd9b966359c2166ebb99a39027a8375a6dcb2e", size = 7870589, upload-time = "2026-03-07T22:49:02.706Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f0/2e/09f504b93d64456db1eec8a93b791d85b65bac86be5fd0ad5e58cd936d9b/omnibase_core-0.24.1.tar.gz", hash = "sha256:09a2eb9cd6e8d513be20a77f3004c1adaa5400f8c8a944ea6f28e6178278a404", size = 7904598, upload-time = "2026-03-08T21:27:46.31Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/71/5e/bff9504627edd60ea4cc8f860a58741109c31ab4676eadf14cb3978baa58/omnibase_core-0.24.0-py3-none-any.whl", hash = "sha256:8873c9543155897cc8bc870e2f98e4ae07e5e0b835554a4ad5f5f33b6f728a17", size = 5100067, upload-time = "2026-03-07T22:49:05.836Z" },
+    { url = "https://files.pythonhosted.org/packages/c4/01/12bb8eb9b3951627548b634572573252d440e2fcf5480c87576de0bc989f/omnibase_core-0.24.1-py3-none-any.whl", hash = "sha256:1a6e441ab8a32c04c9c12011f6b210889d29c382d1ee7c2f89c8ab1d9306eca6", size = 5127083, upload-time = "2026-03-08T21:27:44.162Z" },
 ]
 
 [[package]]
 name = "omnibase-infra"
-version = "0.16.0"
+version = "0.16.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiofiles" },
@@ -2165,7 +2165,6 @@ dependencies = [
     { name = "psycopg2-binary" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
-    { name = "python-consul2" },
     { name = "pyyaml" },
     { name = "qdrant-client" },
     { name = "redis" },
@@ -2176,10 +2175,11 @@ dependencies = [
     { name = "tenacity" },
     { name = "textual" },
     { name = "uvicorn" },
+    { name = "watchdog" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/36/8a/7189928a783a1851086ecd7aeaa727cd1a6ea6bca4fb702a791bae6dc684/omnibase_infra-0.16.0.tar.gz", hash = "sha256:66e5493a9a7de316b583d9c50b17bc16c7a732de0ba253629cd8795073c2750e", size = 6184841, upload-time = "2026-03-08T01:43:25.319Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/67/e5/d7a9f0fe10d761f98f146bcbadb3a981e1235c13a5032d8fc052b7945b5b/omnibase_infra-0.16.1.tar.gz", hash = "sha256:5bdf309f5edaad05dd88b32a131bc1a0841d9120537f8c969f191a39d45283c9", size = 6400514, upload-time = "2026-03-09T20:59:56.541Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/78/8c/cb7beea293b051a9f3cd1bb284e843e5a2640935c47121ed655572236caf/omnibase_infra-0.16.0-py3-none-any.whl", hash = "sha256:6ebd1c3ab870fc8b48b61573791db70095220e493fa1158492e7901afd109846", size = 3626517, upload-time = "2026-03-08T01:43:23.251Z" },
+    { url = "https://files.pythonhosted.org/packages/a9/7f/1e983066eb84b62e5e429fdd8992164d3fde4338fc775945f88ecbbe20e2/omnibase_infra-0.16.1-py3-none-any.whl", hash = "sha256:cfd052e36b725b2644064638645c60049ac652a983ff71ab8c47b65595b6f663", size = 3759575, upload-time = "2026-03-09T20:59:54.688Z" },
 ]
 
 [[package]]
@@ -2315,7 +2315,7 @@ requires-dist = [
     { name = "adaptive-classifier", specifier = ">=0.1.2" },
     { name = "confluent-kafka", specifier = ">=2.12.0,<3.0.0" },
     { name = "httpx", specifier = ">=0.28.1" },
-    { name = "omnibase-infra", specifier = "==0.16.0" },
+    { name = "omnibase-infra", specifier = "==0.16.1" },
     { name = "pydantic", specifier = ">=2.12.5,<3.0.0" },
     { name = "pydantic-settings", specifier = ">=2.7.0,<3.0.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
@@ -2338,8 +2338,8 @@ all = [
     { name = "markdown", specifier = ">=3.8" },
     { name = "mypy", specifier = ">=1.17.0" },
     { name = "neo4j", specifier = ">=5.28.2" },
-    { name = "omnibase-core", specifier = "==0.24.0" },
-    { name = "omnibase-infra", specifier = "==0.16.0" },
+    { name = "omnibase-core", specifier = "==0.24.1" },
+    { name = "omnibase-infra", specifier = "==0.16.1" },
     { name = "omnibase-spi", specifier = "==0.15.1" },
     { name = "openai", specifier = ">=1.71.0" },
     { name = "pdfplumber", specifier = ">=0.11.6" },
@@ -2380,8 +2380,8 @@ core = [
     { name = "logfire", specifier = ">=0.30.0" },
     { name = "markdown", specifier = ">=3.8" },
     { name = "neo4j", specifier = ">=5.28.2" },
-    { name = "omnibase-core", specifier = "==0.24.0" },
-    { name = "omnibase-infra", specifier = "==0.16.0" },
+    { name = "omnibase-core", specifier = "==0.24.1" },
+    { name = "omnibase-infra", specifier = "==0.16.1" },
     { name = "omnibase-spi", specifier = "==0.15.1" },
     { name = "openai", specifier = ">=1.71.0" },
     { name = "pdfplumber", specifier = ">=0.11.6" },
@@ -3324,19 +3324,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/78/b4/439b179d1ff526791eb921115fca8e44e596a13efeda518b9d845a619450/pytest_xdist-3.8.0.tar.gz", hash = "sha256:7e578125ec9bc6050861aa93f2d59f1d8d085595d6551c2c90b6f4fad8d3a9f1", size = 88069, upload-time = "2025-07-01T13:30:59.346Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ca/31/d4e37e9e550c2b92a9cbc2e4d0b7420a27224968580b5a447f420847c975/pytest_xdist-3.8.0-py3-none-any.whl", hash = "sha256:202ca578cfeb7370784a8c33d6d05bc6e13b4f25b5053c30a152269fd10f0b88", size = 46396, upload-time = "2025-07-01T13:30:56.632Z" },
-]
-
-[[package]]
-name = "python-consul2"
-version = "0.1.5"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "requests" },
-    { name = "six" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/a8/a3/bc0bdf7e0a68a1fa8e7a2302491e1931438a6d08ed21bd6830ba1595671b/python-consul2-0.1.5.tar.gz", hash = "sha256:29c859de73e17f36ab99be831fdc1d924f16e8772233277a28ef92b7b99995cd", size = 31445, upload-time = "2020-10-20T06:19:54.982Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/ff/52/5230ba94ededbfafa9df95c19f1272cf03916b6d33fce341936e3c74dd86/python_consul2-0.1.5-py2.py3-none-any.whl", hash = "sha256:ff8c6642c5a8d5f13a072e90adbad44cde824fc46fb2ab76b40dd1c77d6c0c41", size = 30002, upload-time = "2020-10-20T06:19:53.7Z" },
 ]
 
 [[package]]
