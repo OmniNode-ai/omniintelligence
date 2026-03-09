@@ -17,6 +17,16 @@ description: |
   Security: This node handles webhook payloads from self-hosted runners.
   Runner tokens are scoped to repositories and must not be logged.
 
+input_model:
+  name: "ModelCiFailureDetectedV1"
+  module: "omniintelligence.nodes.node_ci_failure_tracker_effect.models.model_events"
+  description: "Payload for ci-failure-detected.v1 event."
+
+output_model:
+  name: "ModelDebugTriggerRecordCreatedV1"
+  module: "omniintelligence.nodes.node_ci_failure_tracker_effect.models.model_events"
+  description: "Payload emitted when a debug trigger record is created."
+
 event_bus:
   event_bus_enabled: true
   subscribe_topics:

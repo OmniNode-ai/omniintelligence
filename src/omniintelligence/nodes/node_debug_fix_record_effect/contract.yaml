@@ -14,6 +14,16 @@ description: |
   for the repo+branch, inserts a FixRecord, and atomically marks the
   TriggerRecord resolved. Race-safe via try_mark_trigger_resolved CAS operation.
 
+input_model:
+  name: "ModelCiRecoveryDetectedV1"
+  module: "omniintelligence.nodes.node_ci_failure_tracker_effect.models.model_events"
+  description: "Payload for ci-recovery-detected.v1 event."
+
+output_model:
+  name: "ModelDebugFixRecordCreatedV1"
+  module: "omniintelligence.nodes.node_ci_failure_tracker_effect.models.model_events"
+  description: "Payload emitted when a debug fix record is created."
+
 event_bus:
   event_bus_enabled: true
   subscribe_topics:
