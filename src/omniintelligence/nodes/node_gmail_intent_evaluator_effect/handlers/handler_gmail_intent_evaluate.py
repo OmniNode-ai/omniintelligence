@@ -296,7 +296,7 @@ _SYSTEM_PROMPT = """You are an integration evaluator for OmniNode — an AI agen
 ONEX (Python, Kafka/Redpanda, PostgreSQL, Qdrant, Pydantic, asyncio).
 
 Current stack: ONEX nodes (EFFECT/COMPUTE/REDUCER/ORCHESTRATOR), Kafka event bus, \
-PostgreSQL, Qdrant vector store, Valkey cache, Consul, Infisical secrets, \
+PostgreSQL, Qdrant vector store, Valkey cache, Infisical secrets, \
 Redpanda, httpx async HTTP, omniintelligence (LLM evaluation), omnimemory \
 (semantic retrieval), omniclaude (Claude Code agent plugin).
 
