@@ -249,7 +249,7 @@ fail_fast: true
 repos:
   # Stub implementation detection — sourced from omnibase_core (OMN-4473)
   - repo: https://github.com/OmniNode-ai/omnibase_core
-    rev: 30a06f85bb5849902d33c8d0bdb90fc6cba0c346
+    rev: 30a06f85bb5849902d33c8d0bdb90fc6cba0c346  # pragma: allowlist secret
     hooks:
       - id: check-stub-implementations
   # ============================================================================
