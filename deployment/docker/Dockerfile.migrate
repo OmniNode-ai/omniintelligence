@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 OmniNode Team
+#
+# Dockerfile.migrate — omniintelligence database migration image
+#
+# Ownership: omniintelligence repo owns all migration SQL artifacts.
+# This image is pulled by the k8s/migrations/omniintelligence-migrate.yaml
+# initContainer and used by the omniintelligence migration Job.
+#
+# Build context: repo root (docker build -f deployment/docker/Dockerfile.migrate .)
+#
+# Note: omniintelligence migrations are at deployment/database/migrations/ (no forward/ subdir).
+
+FROM alpine:3.19
+
+COPY deployment/database/migrations/*.sql /migrations/
+COPY deployment/database/migrations/rollback/ /migrations/rollback/
