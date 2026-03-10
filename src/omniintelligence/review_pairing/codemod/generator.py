@@ -277,7 +277,7 @@ class CodemodReplayValidator:
             ...
     """
 
-    def validate(
+    def validate(  # stub-ok: codemod-validator-deferred
         self,
         codemod: CodemodDefinition,
         replay_cases: list[ReplayCase],

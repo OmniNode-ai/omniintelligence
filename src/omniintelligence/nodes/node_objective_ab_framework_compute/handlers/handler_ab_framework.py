@@ -182,7 +182,7 @@ def check_upgrade_ready(
     return win_rate >= (1.0 - registry.significance_threshold)
 
 
-def _evaluate_variant_against_bundle(
+def _evaluate_variant_against_bundle(  # stub-ok: ab-framework-variant-eval-deferred
     variant: ModelObjectiveVariant,
     evidence_bundle: dict[str, Any],
 ) -> ModelVariantEvaluationResult:

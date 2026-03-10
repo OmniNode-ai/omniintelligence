@@ -290,7 +290,7 @@ class _ProtocolObjectiveEvaluator:
         Returns:
             ModelEvaluationResult instance.
         """
-        raise NotImplementedError
+        raise NotImplementedError  # stub-ok: evidence-evaluate-deferred
 
 
 def _get_default_objective_spec() -> Any:

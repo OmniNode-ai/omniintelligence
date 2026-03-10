@@ -247,6 +247,11 @@
 fail_fast: true
 
 repos:
+  # Stub implementation detection — sourced from omnibase_core (OMN-4473)
+  - repo: https://github.com/OmniNode-ai/omnibase_core
+    rev: 30a06f85bb5849902d33c8d0bdb90fc6cba0c346
+    hooks:
+      - id: check-stub-implementations
   # ============================================================================
   # YAML FORMATTING - Standard across ONEX ecosystem
   # ============================================================================

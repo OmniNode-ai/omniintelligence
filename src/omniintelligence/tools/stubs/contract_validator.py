@@ -99,7 +99,7 @@ class ProtocolContractValidator:
         "performance",
     )
 
-    def __init__(self) -> None:
+    def __init__(self) -> None:  # stub-ok: contract-validator-stub-init
         """Initialize the contract validator."""
         pass
 

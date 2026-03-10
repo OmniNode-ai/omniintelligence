@@ -95,7 +95,7 @@ from omniintelligence.review_pairing.adapters.base import PROBABILISTIC
 from omniintelligence.review_pairing.models import ReviewFindingObserved
 
 
-def parse_raw(
+def parse_raw(  # stub-ok: ai-reviewer-parse-raw-deferred
     raw: str | dict[str, Any],  # noqa: ARG001
     *,
     repo: str,  # noqa: ARG001

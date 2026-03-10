@@ -911,7 +911,9 @@ def _compute_documentation_score(tree: ast.AST, content: str) -> float:
     return docstring_score * 0.7 + comment_score * 0.3
 
 
-def _compute_temporal_relevance_score(content: str) -> float:
+def _compute_temporal_relevance_score(  # stub-ok: temporal-relevance-todo-in-docstring
+    content: str,
+) -> float:
     """Compute temporal relevance score based on code freshness indicators.
 
     Checks for staleness indicators such as TODO/FIXME comments and

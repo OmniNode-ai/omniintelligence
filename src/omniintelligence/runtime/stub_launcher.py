@@ -91,7 +91,9 @@ def _run_health_server(
     return server
 
 
-async def run_stub(node_type: str, node_name: str | None = None) -> None:
+async def run_stub(  # stub-ok: stub-launcher-name-not-unimplemented
+    node_type: str, node_name: str | None = None
+) -> None:
     """Run stub node process with health check endpoint."""
     service_name = f"intelligence-{node_type}"
     if node_name:
@@ -139,7 +141,7 @@ async def run_stub(node_type: str, node_name: str | None = None) -> None:
         logger.info("%s shutdown complete", service_name)
 
 
-def main() -> None:
+def main() -> None:  # stub-ok: stub-launcher-name-not-unimplemented
     """Parse arguments and run the stub launcher."""
     parser = argparse.ArgumentParser(description="ONEX node stub launcher")
     parser.add_argument(

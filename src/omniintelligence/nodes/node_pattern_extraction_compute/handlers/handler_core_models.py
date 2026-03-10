@@ -100,7 +100,9 @@ _INSIGHT_TO_KIND: dict[EnumInsightType, EnumPatternKind] = {
 # ---------------------------------------------------------------------------
 
 
-def handle_pattern_extraction_core(input_data: CoreInput) -> CoreOutput:
+def handle_pattern_extraction_core(  # stub-ok: pattern-extraction-core-deferred
+    input_data: CoreInput,
+) -> CoreOutput:
     """Extract patterns using core models from omnibase_core.
 
     This handler bridges the canonical core input/output models to the existing

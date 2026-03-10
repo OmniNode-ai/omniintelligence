@@ -69,7 +69,7 @@ def get_node_type(
     return "unknown"
 
 
-def check_is_stub(file_path: Path) -> bool:
+def check_is_stub(file_path: Path) -> bool:  # stub-ok: function-name-contains-stub-not-unimplemented
     """Check if node file contains is_stub: ClassVar[bool] = True.
 
     Uses AST parsing for accurate detection, avoiding false positives that
