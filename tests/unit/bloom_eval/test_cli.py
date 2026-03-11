@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Unit tests for bloom_eval_cli.
 
 Tests list-specs and run subcommands without calling real LLM endpoints.

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Canonical Kafka topic registry for the Intent Intelligence Framework.
 
 Defines the 3 Intent Intelligence Kafka topics as a StrEnum. All topic names

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Auto-remediation pipeline for the Code Intelligence Review Bot."""
 
 from omniintelligence.review_bot.remediation.bot_pr_creator import BotPrCreator

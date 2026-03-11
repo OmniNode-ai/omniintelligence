@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Bot PR creator for the Code Intelligence Review Bot auto-remediation.
 
 Creates isolated bot PRs targeting the same base branch as the source PR.

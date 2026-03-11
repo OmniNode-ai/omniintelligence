@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Event envelope for onex.evt.omniintelligence.intent-classified.v1.
 
 This frozen event model is published to the intent-classified topic

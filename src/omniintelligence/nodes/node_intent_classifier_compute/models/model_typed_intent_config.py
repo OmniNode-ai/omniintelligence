@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Typed intent config table for the 8-class classification system.
 
 Per-class configuration drives downstream behavior: model selection,

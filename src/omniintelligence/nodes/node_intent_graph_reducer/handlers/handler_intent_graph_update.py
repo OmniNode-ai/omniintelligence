@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Pure graph update handlers for the Intent Graph Reducer.
 
 Implements transition accumulation logic for the directed intent graph.

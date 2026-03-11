@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Mutable in-memory intent graph state.
 
 Holds the accumulated directed graph of intent transitions across sessions.

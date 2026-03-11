@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """ModelTypedIntent — typed intent classification output for the 8-class system.
 
 This model carries the resolved intent class, confidence score, and the
