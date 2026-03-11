@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Async LLM client for Bloom evaluation framework.
 
 Provides scenario generation (Qwen3-14B via generator_url) and

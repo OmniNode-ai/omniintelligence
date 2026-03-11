@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 from enum import Enum
 
 from omniintelligence.nodes.node_bloom_eval_orchestrator.models.enum_eval_domain import (

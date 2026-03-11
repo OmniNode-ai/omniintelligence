@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Patch applicator for the Code Intelligence Review Bot.
 
 Safely applies git diff patches from ReviewFinding objects.

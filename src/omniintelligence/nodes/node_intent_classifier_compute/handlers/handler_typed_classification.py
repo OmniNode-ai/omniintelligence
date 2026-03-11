@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Handler for typed 8-class intent classification.
 
 Maps legacy TF-IDF intent categories to the typed 8-class system

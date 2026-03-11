@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Bloom eval CLI — list-specs and run subcommands."""
 
 from __future__ import annotations

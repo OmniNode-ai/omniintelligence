@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """OBS-001: Pattern pipeline health smoke test — pytest variant.
 
 Validates the pattern extraction compute pipeline end-to-end by injecting

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Intent Graph Reducer Node.
 
 Accumulates directed intent transition statistics across sessions.

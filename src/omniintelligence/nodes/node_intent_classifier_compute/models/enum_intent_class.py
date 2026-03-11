@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Typed intent class enum for the 8-class classification system."""
 
 from __future__ import annotations

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """CLI entry point for pattern_extraction_compute node.
 
 Provides standalone execution of the pattern extraction compute node,

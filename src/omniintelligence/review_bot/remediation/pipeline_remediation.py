@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Auto-remediation pipeline for the Code Intelligence Review Bot.
 
 Orchestrates the full auto-remediation flow:

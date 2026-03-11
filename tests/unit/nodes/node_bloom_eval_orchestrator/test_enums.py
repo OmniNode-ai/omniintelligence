@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 import pytest
 
 from omniintelligence.nodes.node_bloom_eval_orchestrator.models.enum_eval_domain import (

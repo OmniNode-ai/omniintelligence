@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Unit tests for auto-remediation pipeline.
 
 Tests cover OMN-2498 acceptance criteria:

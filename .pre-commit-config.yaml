@@ -564,6 +564,16 @@ repos:
         always_run: true
         stages: [pre-commit]
 
+      # OMN-4383: SPDX header enforcement
+      - id: validate-spdx-headers
+        name: ONEX SPDX Header Requirement
+        entry: uv run onex spdx validate
+        language: system
+        pass_filenames: true
+        files: ^(src|tests|scripts|examples)/.*\.(py|sh|bash|yml|yaml|toml)$
+        exclude: ^(archived/|archive/|_legacy/|migration_sources/)
+        stages: [pre-commit]
+
       # OMN-3619: Block planning docs from being committed to this repo
       # Planning docs belong in omni_home/docs/plans/, not in individual repos
       - id: no-planning-docs

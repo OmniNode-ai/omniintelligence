@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
 """Unit tests for radon-based complexity scoring (OMN-1452).
 
 Tests the optional radon integration for accurate McCabe cyclomatic complexity
