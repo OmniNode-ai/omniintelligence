@@ -1,3 +1,11 @@
+## v0.13.0 (2026-03-12)
+
+### Features
+- feat(spdx): add validate-spdx-headers pre-commit hook and stamp all Python files [OMN-4383] (#348)
+
+### Other Changes
+- chore(deps): bump omnibase_infra to 0.17.0 (#346)
+
 # Changelog
 
 All notable changes to OmniIntelligence will be documented in this file.
