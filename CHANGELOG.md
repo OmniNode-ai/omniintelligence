@@ -1,3 +1,8 @@
+## v0.13.1 (2026-03-13)
+
+### Other Changes
+- chore(deps): bump omnibase_infra to 0.18.0 (#349)
+
 ## v0.13.0 (2026-03-12)
 
 ### Features
