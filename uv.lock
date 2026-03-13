@@ -2108,7 +2108,7 @@ wheels = [
 
 [[package]]
 name = "omnibase-core"
-version = "0.25.1"
+version = "0.26.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "blake3" },
@@ -2123,14 +2123,14 @@ dependencies = [
     { name = "pyyaml" },
     { name = "ruamel-yaml" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/37/3c/5cc0d4e722d62e464d8602db79811019e4e2421a68a567c48c1f9c7bebbf/omnibase_core-0.25.1.tar.gz", hash = "sha256:74c1c50f6014ca16dc13f7e11d8308df404be9660851a75bb6dad0b17bece812", size = 8460933, upload-time = "2026-03-12T13:14:27.899Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/19/75/2bbc00abdcab28ac37fc5eebe8301ffbcfaa11de9a69b01f2aba2145dcc1/omnibase_core-0.26.0.tar.gz", hash = "sha256:6352356afa7bfe9c2bf6a10cad5d2eac067033575aa5c83ed5becd5ec02c1675", size = 8464492, upload-time = "2026-03-13T12:22:29.908Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/17/49/594664b59269ecd0af7017954720dc6fefbe0b06bb5ffe3aff95991c5228/omnibase_core-0.25.1-py3-none-any.whl", hash = "sha256:4351e8c69aaba9c547cfff0b88eca1fef747be1d24a8a3bdfb9515363efa5842", size = 5168555, upload-time = "2026-03-12T13:14:31.182Z" },
+    { url = "https://files.pythonhosted.org/packages/a2/02/4f3e7b31ebf641ccbf51f79aff3312359b742fe24d01a296422e88366174/omnibase_core-0.26.0-py3-none-any.whl", hash = "sha256:0e3d5e37fa131bb16d7039cb358d17e3265deadf4d9883ebd9c038f69bebb13b", size = 5170062, upload-time = "2026-03-13T12:22:33.146Z" },
 ]
 
 [[package]]
 name = "omnibase-infra"
-version = "0.18.0"
+version = "0.19.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiofiles" },
@@ -2177,9 +2177,9 @@ dependencies = [
     { name = "uvicorn" },
     { name = "watchdog" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d1/17/9e63292f0014289b4586bb8cf8035fc7d902cae0b4577105da1a4073793b/omnibase_infra-0.18.0.tar.gz", hash = "sha256:49e29ae12f95389f70ce3a59eff0ac0c740a7315f0e7d6af8182114dde10e2ec", size = 6454576, upload-time = "2026-03-12T13:43:37.839Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a4/77/3844bc23931cb1e47e18d11a24dacbdf4b64b3fc4010efb5a5dde0a35d07/omnibase_infra-0.19.0.tar.gz", hash = "sha256:950c94fac13ff045e52250b4eaf6876e1e3cdde731edd3cff1d9ce3e1589d2c7", size = 6471466, upload-time = "2026-03-13T13:11:57.069Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/41/8c/f57c503c63e695e15ce510322c69756e24f5fc20e14cc5535d81553094dd/omnibase_infra-0.18.0-py3-none-any.whl", hash = "sha256:af34114148073a20e0cd256b633f9dd1303be68ff140630d03f442310f7a86bb", size = 3809231, upload-time = "2026-03-12T13:43:40.421Z" },
+    { url = "https://files.pythonhosted.org/packages/9b/1c/e2c86e0d84affb732017764157ddccef46cdf7fa204bd0d8f0313895be4d/omnibase_infra-0.19.0-py3-none-any.whl", hash = "sha256:6973efa1d901e2fb343fda26d2576f61bbdaf57a7fbfc00388bdaef6f70005a3", size = 3809222, upload-time = "2026-03-13T13:11:54.874Z" },
 ]
 
 [[package]]
@@ -2198,7 +2198,7 @@ wheels = [
 
 [[package]]
 name = "omninode-intelligence"
-version = "0.13.0"
+version = "0.13.1"
 source = { editable = "." }
 dependencies = [
     { name = "adaptive-classifier" },
@@ -2315,7 +2315,7 @@ requires-dist = [
     { name = "adaptive-classifier", specifier = ">=0.1.2" },
     { name = "confluent-kafka", specifier = ">=2.12.0,<3.0.0" },
     { name = "httpx", specifier = ">=0.28.1" },
-    { name = "omnibase-infra", specifier = "==0.18.0" },
+    { name = "omnibase-infra", specifier = "==0.19.0" },
     { name = "pydantic", specifier = ">=2.12.5,<3.0.0" },
     { name = "pydantic-settings", specifier = ">=2.7.0,<3.0.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
@@ -2338,8 +2338,8 @@ all = [
     { name = "markdown", specifier = ">=3.8" },
     { name = "mypy", specifier = ">=1.17.0" },
     { name = "neo4j", specifier = ">=5.28.2" },
-    { name = "omnibase-core", specifier = "==0.25.1" },
-    { name = "omnibase-infra", specifier = "==0.18.0" },
+    { name = "omnibase-core", specifier = "==0.26.0" },
+    { name = "omnibase-infra", specifier = "==0.19.0" },
     { name = "omnibase-spi", specifier = "==0.16.1" },
     { name = "openai", specifier = ">=1.71.0" },
     { name = "pdfplumber", specifier = ">=0.11.6" },
@@ -2380,8 +2380,8 @@ core = [
     { name = "logfire", specifier = ">=0.30.0" },
     { name = "markdown", specifier = ">=3.8" },
     { name = "neo4j", specifier = ">=5.28.2" },
-    { name = "omnibase-core", specifier = "==0.25.1" },
-    { name = "omnibase-infra", specifier = "==0.18.0" },
+    { name = "omnibase-core", specifier = "==0.26.0" },
+    { name = "omnibase-infra", specifier = "==0.19.0" },
     { name = "omnibase-spi", specifier = "==0.16.1" },
     { name = "openai", specifier = ">=1.71.0" },
     { name = "pdfplumber", specifier = ">=0.11.6" },
