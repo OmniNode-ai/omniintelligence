@@ -1,3 +1,8 @@
+## v0.13.2 (2026-03-13)
+
+### Other Changes
+- chore(deps): bump omnibase_core to 0.27.0, omnibase_infra to 0.20.0 (#351)
+
 ## v0.13.1 (2026-03-13)
 
 ### Other Changes
