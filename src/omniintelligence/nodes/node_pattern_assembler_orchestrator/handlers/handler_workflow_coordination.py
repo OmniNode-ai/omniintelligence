@@ -372,7 +372,9 @@ async def _execute_trace_parsing(
             success=result.success,
             parsed_events=[e.model_dump(mode="json") for e in result.parsed_events],
             error_events=[e.model_dump(mode="json") for e in result.error_events],
-            timing_data=result.timing_data.model_dump(mode="json") if result.timing_data else {},
+            timing_data=result.timing_data.model_dump(mode="json")
+            if result.timing_data
+            else {},
             metadata=result.metadata.model_dump(mode="json") if result.metadata else {},
             duration_ms=elapsed_time_ms(start_time),
         )
