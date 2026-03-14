@@ -370,10 +370,10 @@ async def _execute_trace_parsing(
 
         return TraceParsingResultDict(
             success=result.success,
-            parsed_events=[e.model_dump() for e in result.parsed_events],
-            error_events=[e.model_dump() for e in result.error_events],
-            timing_data=result.timing_data.model_dump() if result.timing_data else {},
-            metadata=result.metadata.model_dump() if result.metadata else {},
+            parsed_events=[e.model_dump(mode="json") for e in result.parsed_events],
+            error_events=[e.model_dump(mode="json") for e in result.error_events],
+            timing_data=result.timing_data.model_dump(mode="json") if result.timing_data else {},
+            metadata=result.metadata.model_dump(mode="json") if result.metadata else {},
             duration_ms=elapsed_time_ms(start_time),
         )
 
