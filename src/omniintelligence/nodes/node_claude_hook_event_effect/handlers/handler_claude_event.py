@@ -321,7 +321,7 @@ async def handle_stop(
             correlation_id=str(resolved_correlation_id),
             timestamp=datetime.now(UTC).isoformat(),
         )
-        command_payload = command.model_dump()
+        command_payload = command.model_dump(mode="json")
 
         try:
             await kafka_producer.publish(
