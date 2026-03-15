@@ -68,6 +68,7 @@ ALLOWED_ROOT_FILES: frozenset[str] = frozenset(
         "SECURITY.md",
         # ONEX-specific
         "CLAUDE.md",
+        "AGENT.md",
         # Environment
         ".env",
         ".env.example",
