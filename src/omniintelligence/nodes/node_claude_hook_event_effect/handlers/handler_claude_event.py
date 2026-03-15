@@ -1052,12 +1052,7 @@ async def _classify_intent(
         ],
         "success": result.success,
         "processing_time_ms": result.processing_time_ms,
-        # ModelIntentClassificationOutput does not expose classifier_version as a
-        # top-level field — it lives inside result.metadata["classifier_version"].
-        # Accessing result.classifier_version raises AttributeError which was
-        # silently caught by the caller, leaving success=False and confidence=0.0
-        # for every session (OMN-5056).
-        "classifier_version": (result.metadata or {}).get("classifier_version", "unknown"),
+        "classifier_version": result.classifier_version,
     }
 
 
