@@ -588,6 +588,14 @@ repos:
         always_run: true
         stages: [pre-commit]
 
+      # OMN-5063: Block untyped metadata dict fields
+      - id: no-untyped-metadata
+        name: No untyped metadata dict fields
+        language: python
+        entry: python scripts/check_no_untyped_metadata.py
+        types: [python]
+        exclude: ^tests/|^examples/|^scripts/
+
 # Default stage for hooks (commit, not push)
 default_stages: [pre-commit]
 
