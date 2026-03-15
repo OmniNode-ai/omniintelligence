@@ -9,8 +9,6 @@ Alert events are emitted to:
 
 from __future__ import annotations
 
-from typing import Union
-
 from pydantic import BaseModel, ConfigDict, Field
 
 from omniintelligence.nodes.node_anti_gaming_guardrails_compute.models.enum_alert_type import (
@@ -106,12 +104,12 @@ class ModelDiversityConstraintViolation(BaseModel):
 
 
 # Union type for all anti-gaming alert events
-ModelAntiGamingAlertUnion = Union[
-    ModelGoodhartViolationAlert,
-    ModelRewardHackingAlert,
-    ModelDistributionalShiftAlert,
-    ModelDiversityConstraintViolation,
-]
+ModelAntiGamingAlertUnion = (
+    ModelGoodhartViolationAlert
+    | ModelRewardHackingAlert
+    | ModelDistributionalShiftAlert
+    | ModelDiversityConstraintViolation
+)
 
 __all__ = [
     "ModelAntiGamingAlertUnion",

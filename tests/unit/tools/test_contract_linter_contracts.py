@@ -11,7 +11,6 @@ Note: These tests require omnibase_core to be installed.
 """
 
 from pathlib import Path
-from typing import Union
 
 import pytest
 
@@ -19,7 +18,7 @@ import pytest
 pytestmark = pytest.mark.unit
 
 
-def _safe_relative_path(path: Path, base: Path) -> Union[Path, str]:
+def _safe_relative_path(path: Path, base: Path) -> Path | str:
     """Safely compute relative path, falling back to absolute path if not possible.
 
     Args:
