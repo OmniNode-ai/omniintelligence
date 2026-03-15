@@ -18,6 +18,7 @@ from omniintelligence.nodes.node_claude_hook_event_effect.models.enum_kafka_emis
     EnumKafkaEmissionStatus,
 )
 from omniintelligence.nodes.node_claude_hook_event_effect.models.model_claude_hook_result import (
+    ClaudeHookResultMetadataDict,
     ModelClaudeHookResult,
 )
 from omniintelligence.nodes.node_claude_hook_event_effect.models.model_input import (
@@ -34,6 +35,7 @@ from omniintelligence.nodes.node_claude_hook_event_effect.models.model_pattern_l
 
 __all__ = [
     # Input models (canonical from omnibase_core)
+    "ClaudeHookResultMetadataDict",
     "EnumClaudeCodeHookEventType",
     # Output models (local to omniintelligence)
     "EnumHookProcessingStatus",

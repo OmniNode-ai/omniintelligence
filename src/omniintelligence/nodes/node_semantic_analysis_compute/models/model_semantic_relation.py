@@ -5,11 +5,24 @@
 
 from __future__ import annotations
 
+from typing import TypedDict
+
 from pydantic import BaseModel, Field, field_validator
 
 from omniintelligence.nodes.node_semantic_analysis_compute.models.enum_semantic_relation_type import (
     EnumSemanticRelationType,
 )
+
+
+class SemanticRelationMetadataDict(TypedDict, total=False):
+    """Typed metadata for semantic relations.
+
+    All fields are optional (total=False). Currently no standard keys;
+    add keys here as relation metadata is enriched.
+    """
+
+    line_number: int
+    context: str
 
 
 class ModelSemanticRelation(BaseModel):
@@ -39,9 +52,9 @@ class ModelSemanticRelation(BaseModel):
         le=1.0,
         description="Confidence score for the relation (0.0 to 1.0)",
     )
-    metadata: dict[str, object] = Field(  # ONEX_EXCLUDE: dict_str_any
-        default_factory=dict,
-        description="Additional metadata about the relation (e.g., line number, context)",
+    metadata: SemanticRelationMetadataDict = Field(
+        default_factory=lambda: SemanticRelationMetadataDict(),
+        description="Typed metadata about the relation (e.g., line number, context)",
     )
 
     @field_validator("confidence")
@@ -55,4 +68,4 @@ class ModelSemanticRelation(BaseModel):
     model_config = {"frozen": True, "extra": "forbid"}
 
 
-__all__ = ["ModelSemanticRelation"]
+__all__ = ["ModelSemanticRelation", "SemanticRelationMetadataDict"]

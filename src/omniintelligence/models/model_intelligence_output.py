@@ -85,6 +85,9 @@ class OutputMetadataDict(TypedDict, total=False):
     retry_count: int
     max_retries: int
 
+    # Classifier provenance
+    classifier_version: str
+
 
 class ModelIntelligenceOutput(BaseModel):
     """Output model for intelligence operations.

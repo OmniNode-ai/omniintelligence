@@ -39,6 +39,9 @@ from omniintelligence.nodes.node_claude_hook_event_effect.models import (
     ModelIntentResult,
     ModelPatternLearningCommand,
 )
+from omniintelligence.nodes.node_claude_hook_event_effect.models.model_claude_hook_result import (
+    ClaudeHookResultMetadataDict,
+)
 from omniintelligence.nodes.node_evidence_collection_effect.handlers.handler_evidence_collection import (
     fire_and_forget_evaluate,
 )
@@ -230,7 +233,7 @@ async def route_hook_event(
         resolved_correlation_id: UUID = (
             event.correlation_id if event.correlation_id is not None else uuid4()
         )
-        error_metadata: dict[str, object] = {  # ONEX_EXCLUDE: dict_str_any
+        error_metadata: ClaudeHookResultMetadataDict = {
             "exception_type": type(e).__name__,
             "exception_message": sanitized_error,
         }
@@ -260,7 +263,7 @@ def handle_no_op(event: ModelClaudeCodeHookEvent) -> ModelClaudeHookResult:
     resolved_correlation_id: UUID = (
         event.correlation_id if event.correlation_id is not None else uuid4()
     )
-    noop_metadata: dict[str, object] = {  # ONEX_EXCLUDE: dict_str_any
+    noop_metadata: ClaudeHookResultMetadataDict = {
         "handler": "no_op",
         "reason": "event_type not yet implemented",
     }
@@ -302,7 +305,7 @@ async def handle_stop(
         - OMN-2210: Wire intelligence nodes into registration + pattern extraction
     """
     start_time = time.perf_counter()
-    metadata: dict[str, object] = {  # ONEX_EXCLUDE: dict_str_any
+    metadata: ClaudeHookResultMetadataDict = {
         "handler": "stop_trigger_pattern_learning"
     }
 
@@ -516,9 +519,7 @@ async def handle_post_tool_use(
     resolved_correlation_id: UUID = (
         event.correlation_id if event.correlation_id is not None else uuid4()
     )
-    metadata: dict[str, object] = {  # ONEX_EXCLUDE: dict_str_any
-        "handler": "post_tool_use"
-    }
+    metadata: ClaudeHookResultMetadataDict = {"handler": "post_tool_use"}
 
     if repository is None:
         metadata["db_write"] = "skipped_no_repository"
@@ -672,10 +673,10 @@ async def _route_to_dlq(
     *,
     producer: ProtocolKafkaPublisher,
     topic: str,
-    envelope: dict[str, object],  # ONEX_EXCLUDE: dict_str_any
+    envelope: dict[str, object],
     error_message: str,
     session_id: str,
-    metadata: dict[str, object],  # ONEX_EXCLUDE: dict_str_any
+    metadata: ClaudeHookResultMetadataDict,
 ) -> None:
     """Route a failed message to the dead-letter queue.
 
@@ -859,9 +860,7 @@ async def handle_user_prompt_submit(
     Returns:
         ModelClaudeHookResult with intent classification results.
     """
-    metadata: dict[str, object] = {  # ONEX_EXCLUDE: dict_str_any
-        "handler": "user_prompt_submit"
-    }
+    metadata: ClaudeHookResultMetadataDict = {"handler": "user_prompt_submit"}
 
     # Resolve correlation_id: use event's if present, generate one otherwise
     if event.correlation_id is not None:

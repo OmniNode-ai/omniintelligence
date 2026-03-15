@@ -6,9 +6,19 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field
+
+
+class TopicMetadataDict(TypedDict, total=False):
+    """Typed metadata for an individual event bus topic.
+
+    Loaded from ONEX contract YAML. All fields are optional since
+    contracts may define arbitrary subsets of these keys.
+    """
+
+    schema_ref: str
 
 
 class EventBusConfig(BaseModel):
@@ -19,8 +29,8 @@ class EventBusConfig(BaseModel):
         event_bus_enabled: Whether event bus is enabled.
         subscribe_topics: Topics this node subscribes to.
         publish_topics: Topics this node publishes to.
-        subscribe_topic_metadata: Metadata for subscribed topics.
-        publish_topic_metadata: Metadata for published topics.
+        subscribe_topic_metadata: Per-topic metadata for subscribed topics.
+        publish_topic_metadata: Per-topic metadata for published topics.
     """
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -31,13 +41,9 @@ class EventBusConfig(BaseModel):
     event_bus_enabled: bool = True
     subscribe_topics: list[str] = Field(default_factory=list)
     publish_topics: list[str] = Field(default_factory=list)
-    subscribe_topic_metadata: dict[str, dict[str, Any]] = (
-        Field(  # any-ok: YAML-loaded contract data is dynamically typed
-            default_factory=dict
-        )
+    subscribe_topic_metadata: dict[str, TopicMetadataDict] = Field(
+        default_factory=dict,
     )
-    publish_topic_metadata: dict[str, dict[str, Any]] = (
-        Field(  # any-ok: YAML-loaded contract data is dynamically typed
-            default_factory=dict
-        )
+    publish_topic_metadata: dict[str, TopicMetadataDict] = Field(
+        default_factory=dict,
     )

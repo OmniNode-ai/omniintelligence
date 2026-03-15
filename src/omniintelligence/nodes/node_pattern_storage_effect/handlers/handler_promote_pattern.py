@@ -64,6 +64,7 @@ from omniintelligence.nodes.node_pattern_storage_effect.constants import (
 from omniintelligence.nodes.node_pattern_storage_effect.handlers.model_state_transition import (
     DEFAULT_ACTOR,
     ModelStateTransition,
+    StateTransitionMetadataDict,
 )
 from omniintelligence.nodes.node_pattern_storage_effect.handlers.protocol_pattern_state_manager import (
     ProtocolPatternStateManager,
@@ -288,7 +289,7 @@ async def handle_promote_pattern(
     correlation_id: UUID | None = None,
     domain: str | None = None,
     signature_hash: str | None = None,
-    metadata: dict[str, object] | None = None,  # ONEX_EXCLUDE: dict_str_any
+    metadata: StateTransitionMetadataDict | None = None,
 ) -> PromotePatternResult:
     """Handle pattern state promotion with audit trail.
 

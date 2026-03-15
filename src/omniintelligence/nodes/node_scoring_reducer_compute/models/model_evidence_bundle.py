@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Any
+from typing import TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -31,6 +31,42 @@ KNOWN_EVIDENCE_SOURCES: frozenset[str] = frozenset(
         "benchmark_result",
     }
 )
+
+
+class EvidenceItemMetadataDict(TypedDict, total=False):
+    """Typed metadata for an evidence item.
+
+    All fields are optional (total=False) since different evidence sources
+    populate different metadata keys.
+    """
+
+    # Gate check metadata
+    gate_id: str
+    passed: bool
+    check_count: int
+    pass_count: int
+
+    # Test run metadata
+    test_suite: str
+    total_tests: int
+    passed_tests: int
+    failed_tests: int
+    error_tests: int
+    duration_seconds: float
+
+    # Static analysis metadata
+    tool: str
+    files_checked: int
+    error_count: int
+    warning_count: int
+
+    # Cost telemetry metadata
+    cost_usd: float
+    normalization_max_usd: float
+
+    # Latency telemetry metadata
+    latency_seconds: float
+    normalization_max_seconds: float
 
 
 class ModelEvidenceItem(BaseModel):
@@ -56,9 +92,9 @@ class ModelEvidenceItem(BaseModel):
         le=1.0,
         description="Normalized evidence value in [0.0, 1.0].",
     )
-    metadata: dict[str, Any] = Field(  # ONEX_EXCLUDE: dict_str_any
-        default_factory=dict,
-        description="Optional structured metadata about this evidence item.",
+    metadata: EvidenceItemMetadataDict = Field(
+        default_factory=lambda: EvidenceItemMetadataDict(),
+        description="Typed structured metadata about this evidence item.",
     )
 
     @field_validator("source")
@@ -127,4 +163,4 @@ class ModelEvidenceBundle(BaseModel):
         return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
 
-__all__ = ["ModelEvidenceBundle", "ModelEvidenceItem"]
+__all__ = ["EvidenceItemMetadataDict", "ModelEvidenceBundle", "ModelEvidenceItem"]

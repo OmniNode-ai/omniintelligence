@@ -24,10 +24,7 @@ Usage:
 from __future__ import annotations
 
 import logging
-from typing import (  # any-ok: cast to dict[str, Any] needed for Pydantic model compatibility with TypedDict
-    Any,
-    cast,
-)
+from typing import cast
 
 from omniintelligence.nodes.node_semantic_analysis_compute.handlers.handler_semantic_analysis import (
     ANALYSIS_VERSION_STR,
@@ -46,6 +43,9 @@ from omniintelligence.nodes.node_semantic_analysis_compute.models import (
     ModelSemanticRelation,
     SemanticAnalysisMetadataDict,
     SemanticFeaturesDict,
+)
+from omniintelligence.nodes.node_semantic_analysis_compute.models.model_semantic_entity import (
+    SemanticEntityMetadataDict,
 )
 
 logger = logging.getLogger(__name__)
@@ -151,8 +151,8 @@ def _convert_entity_dict_to_model(entity: EntityDict) -> ModelSemanticEntity:
         line_end=entity["line_end"],
         decorators=entity["decorators"],
         docstring=entity["docstring"],
-        # Cast TypedDict union to dict[str, Any] for Pydantic model compatibility
-        metadata=cast(dict[str, Any], entity["metadata"]),
+        # Cast handler TypedDict union to flattened SemanticEntityMetadataDict
+        metadata=cast(SemanticEntityMetadataDict, entity["metadata"]),
     )
 
 

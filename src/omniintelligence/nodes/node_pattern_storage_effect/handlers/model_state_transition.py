@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import TypedDict
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -17,6 +18,20 @@ from omniintelligence.nodes.node_pattern_storage_effect.models.model_pattern_sta
 
 DEFAULT_ACTOR: str = "system"
 """Default actor for state transitions when not specified."""
+
+
+class StateTransitionMetadataDict(TypedDict, total=False):
+    """Typed metadata for pattern state transitions.
+
+    All fields are optional (total=False) since different transition
+    types carry different context.
+    """
+
+    operation: str
+    promotion_reason: str
+    metrics_snapshot_id: str
+    source_system: str
+    correlation_id: str
 
 
 class ModelStateTransition(BaseModel):
@@ -82,9 +97,9 @@ class ModelStateTransition(BaseModel):
         default_factory=uuid4,
         description="Idempotency key for deduplication",
     )
-    metadata: dict[str, object] = Field(  # ONEX_EXCLUDE: dict_str_any
-        default_factory=dict,
-        description="Additional context as key-value pairs",
+    metadata: StateTransitionMetadataDict = Field(
+        default_factory=lambda: StateTransitionMetadataDict(),
+        description="Typed additional context for the transition",
     )
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
