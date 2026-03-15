@@ -331,7 +331,7 @@ def _convert_defaults_to_schema_value(
     ) -> dict[str, Any]:  # any-ok: YAML values are dynamically typed
         """Convert a plain value to ModelSchemaValue dict format."""
         schema_value = ModelSchemaValue.from_value(value)
-        return schema_value.model_dump()
+        return schema_value.model_dump(mode="json")
 
     # Deep copy to avoid mutating input
     result = copy.deepcopy(contract_dict)

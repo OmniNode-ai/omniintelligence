@@ -455,7 +455,7 @@ async def _emit_to_kafka(
         await kafka_publisher.publish(
             topic=topic,
             key=event.run_id,
-            value=event.model_dump(),
+            value=event.model_dump(mode="json"),
         )
         return True
     except Exception:
