@@ -226,7 +226,9 @@ class AdapterPatternStore:
                 "status": state.value,
                 # Pass as Python list[UUID] — asyncpg maps to PostgreSQL UUID[] natively.
                 # String literal "{uuid}" causes "a sized iterable container expected" errors.
-                "source_session_ids": [UUID(str(correlation_id))] if correlation_id else [],
+                "source_session_ids": [UUID(str(correlation_id))]
+                if correlation_id
+                else [],
                 # recurrence_count: omitted - uses contract default 1
                 "version": version,
                 # supersedes: omitted - optional with no default, will be None
@@ -448,7 +450,9 @@ class AdapterPatternStore:
         # Previously this used a "{uuid1,uuid2}" string literal which
         # caused "a sized iterable container expected (got type 'str')"
         # errors because asyncpg rejects string literals for UUID[] params.
-        session_ids_list = [UUID(str(sid)) for sid in source_session_ids] if source_session_ids else []
+        session_ids_list = (
+            [UUID(str(sid)) for sid in source_session_ids] if source_session_ids else []
+        )
 
         provided: dict[str, Any] = {
             "id": str(pattern_id),
@@ -624,7 +628,9 @@ class AdapterPatternStore:
                 "status": state.value,
                 # Pass as Python list[UUID] — asyncpg maps to PostgreSQL UUID[] natively.
                 # String literal "{uuid}" causes "a sized iterable container expected" errors.
-                "source_session_ids": [UUID(str(correlation_id))] if correlation_id else [],
+                "source_session_ids": [UUID(str(correlation_id))]
+                if correlation_id
+                else [],
                 # recurrence_count: omitted - uses contract default 1
                 "version": version,
             },
