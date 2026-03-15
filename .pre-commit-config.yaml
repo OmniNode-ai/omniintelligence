@@ -588,6 +588,7 @@ repos:
         always_run: true
         stages: [pre-commit]
 
+
 # Default stage for hooks (commit, not push)
 default_stages: [pre-commit]
 

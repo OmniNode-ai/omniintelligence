@@ -1,0 +1,17 @@
+{
+    "ignorePatterns": [
+        {"pattern": "^https://linear\\.app"},
+        {"pattern": "^https://github\\.com/OmniNode-ai"},
+        {"pattern": "^http://localhost"},
+        {"pattern": "^https://localhost"}
+    ],
+    "excludeFiles": [
+        ".pytest_cache/**",
+        ".venv/**",
+        "venv/**",
+        "node_modules/**",
+        "archived/**"
+    ],
+    "checkExternal": false,
+    "externalTimeout": 5000
+}
