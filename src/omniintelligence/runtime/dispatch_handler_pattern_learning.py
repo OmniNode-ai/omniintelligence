@@ -583,7 +583,9 @@ def _transform_insights_to_pattern_events(
             source_session_ids.append(session_id)
 
         # Build metadata with insight_type for future taxonomy migration
-        event_metadata: dict[str, object] = {
+        event_metadata: dict[
+            str, object
+        ] = {  # ONEX_EXCLUDE: dict_str_any - wire-format event payload serialized to Kafka
             "insight_type": insight.insight_type.value,
             "taxonomy_version": _TAXONOMY_VERSION,
             "insight_id": insight.insight_id,

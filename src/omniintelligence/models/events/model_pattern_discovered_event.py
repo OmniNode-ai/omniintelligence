@@ -49,14 +49,18 @@ class ModelPatternDiscoveredEvent(BaseModel):
     source_agent: str | None = None  # Optional agent identifier
     correlation_id: UUID  # Distributed tracing
     discovered_at: datetime  # MUST be timezone-aware
-    metadata: dict[str, object] = Field(
-        default_factory=dict,
-        description=(
-            "Arbitrary key-value pairs. Only string values are propagated "
-            "to pattern storage; non-string values are silently dropped."
-            " Known keys: context, insight_type, taxonomy_version, insight_id,"
-            " occurrence_count, evidence_files, working_directory."
-        ),
+    metadata: dict[
+        str, object
+    ] = (  # ONEX_EXCLUDE: dict_str_any - extensible wire-format metadata from external producers
+        Field(
+            default_factory=dict,
+            description=(
+                "Arbitrary key-value pairs. Only string values are propagated "
+                "to pattern storage; non-string values are silently dropped."
+                " Known keys: context, insight_type, taxonomy_version, insight_id,"
+                " occurrence_count, evidence_files, working_directory."
+            ),
+        )
     )
 
     @field_validator("discovered_at")
