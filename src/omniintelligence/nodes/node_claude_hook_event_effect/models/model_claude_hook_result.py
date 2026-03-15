@@ -9,6 +9,7 @@ Reference: OMN-1456
 from __future__ import annotations
 
 from datetime import datetime
+from typing import TypedDict
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -19,6 +20,53 @@ from omniintelligence.nodes.node_claude_hook_event_effect.models.enum_hook_proce
 from omniintelligence.nodes.node_claude_hook_event_effect.models.model_intent_result import (
     ModelIntentResult,
 )
+
+
+class ClaudeHookResultMetadataDict(TypedDict, total=False):
+    """Typed metadata for Claude hook event processing results.
+
+    All fields are optional (total=False) since different handlers
+    populate different subsets of metadata keys.
+    """
+
+    # Handler identification
+    handler: str
+    reason: str
+
+    # Intent classification
+    classification_source: str
+    classification_error: str
+
+    # Kafka emission
+    kafka_emission: str
+    kafka_emission_error: str
+    kafka_publish_warning: str
+    kafka_topic: str
+
+    # Pattern learning
+    pattern_learning_emission: str
+    pattern_learning_topic: str
+    pattern_learning_error: str
+    pattern_learning_dlq: str
+
+    # Database writes
+    db_write: str
+    db_write_error: str
+
+    # Tool use
+    action_type: str
+    tool_name: str
+
+    # Correlation / prompt
+    correlation_id_generated: bool
+    prompt_extraction_source: str
+
+    # Error context
+    exception_type: str
+    exception_message: str
+
+    # Evaluation
+    objective_evaluation: str
 
 
 class ModelClaudeHookResult(BaseModel):
@@ -38,7 +86,8 @@ class ModelClaudeHookResult(BaseModel):
         processing_time_ms: Time taken to process the event.
         processed_at: When processing completed.
         error_message: Error details if status is failed.
-        metadata: Additional processing metadata.
+        metadata: Typed processing metadata. Add new keys to
+            ClaudeHookResultMetadataDict.
     """
 
     model_config = ConfigDict(
@@ -79,10 +128,10 @@ class ModelClaudeHookResult(BaseModel):
         default=None,
         description="Error details if status is failed",
     )
-    metadata: dict[str, object] = Field(
-        default_factory=dict,
-        description="Additional processing metadata",
+    metadata: ClaudeHookResultMetadataDict = Field(
+        default_factory=lambda: ClaudeHookResultMetadataDict(),
+        description="Typed processing metadata. Add new keys to ClaudeHookResultMetadataDict.",
     )
 
 
-__all__ = ["ModelClaudeHookResult"]
+__all__ = ["ClaudeHookResultMetadataDict", "ModelClaudeHookResult"]
