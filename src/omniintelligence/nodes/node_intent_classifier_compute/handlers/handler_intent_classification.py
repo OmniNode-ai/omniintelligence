@@ -904,6 +904,7 @@ def handle_intent_classification(
             secondary_intents=secondary_intents,
             keywords=primary_keywords,
             processing_time_ms=processing_time,
+            classifier_version=config.classifier_version,
             metadata=metadata,
             typed_intent=typed_intent,
         )

@@ -87,6 +87,11 @@ class ModelIntentClassificationOutput(BaseModel):
         description="Time taken to process the classification in milliseconds. "
         "Contract alignment: operations.classify_intent.output_fields.processing_time_ms",
     )
+    classifier_version: str = Field(
+        default="unknown",
+        description="Semantic version of the classifier algorithm that produced this result. "
+        "Populated from ModelClassificationConfig.classifier_version at classification time.",
+    )
     metadata: IntentMetadataDict | None = Field(
         default=None,
         description="Additional metadata about the classification. Uses IntentMetadataDict "
