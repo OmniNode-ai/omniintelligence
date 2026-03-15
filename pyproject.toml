@@ -136,44 +136,125 @@ all = [
 ]
 
 [tool.ruff]
-line-length = 88
 target-version = "py312"
+line-length = 88
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
 
 [tool.ruff.lint]
-select = [
-    "E",     # pycodestyle errors
-    "F",     # pyflakes
-    "I",     # isort (import sorting)
-    "W",     # pycodestyle warnings
-    "N",     # pep8-naming
-    "UP",    # pyupgrade
-    "B",     # flake8-bugbear
-    "C4",    # flake8-comprehensions
-    "SIM",   # flake8-simplify
-    "ARG",   # flake8-unused-arguments
-    "RUF",   # Ruff-specific rules
-]
+select = ["E", "F", "W", "C90", "I", "N", "UP", "YTT", "S", "BLE", "FBT", "B", "A", "COM", "C4", "DTZ", "T10", "EM", "EXE", "ISC", "ICN", "G", "INP", "PIE", "T20", "PT", "Q", "RSE", "RET", "SLF", "SIM", "TID", "TCH", "ARG", "PTH", "ERA", "PD", "PGH", "PL", "TRY", "NPY", "RUF"]
 ignore = [
-    "S101",   # Allow assert statements in tests
-    "E501",   # Allow line length violations (line length handled by ruff format)
-    "E402",   # Allow imports not at top (tests need sys.path setup, legacy emits warnings)
-    "B904",   # Allow raise without from in exception handlers
-    "B019",   # Allow lru_cache on methods (used carefully for singleton patterns)
-    "B007",   # Allow unused loop control variables
-    "N812",   # Allow lowercase imported as non-lowercase
-    "N815",   # Allow mixedCase variables
-    "N806",   # Allow non-lowercase variable in function
-    "N805",   # Allow cls as first argument
-    "UP007",  # Allow Union syntax
-    "UP042",  # Allow (str, Enum) inheritance (20 existing classes, migrate to StrEnum later)
-    "SIM117", # Allow nested with statements
-    "SIM102", # Allow nested if statements (sometimes clearer than combining)
-    "SIM103", # Allow explicit if/else returns (sometimes clearer)
-    "B008",   # Allow function call defaults
-    "F841",   # Allow unused variables
-    "ARG002", # Allow unused method arguments (common in test fixtures)
-    "RUF012", # Allow mutable class attributes
-    "RUF022", # Allow unsorted __all__ (manual ordering preferred for readability)
+    # ==========================================================================
+    # DESIGN CHOICES (intentionally ignored)
+    # ==========================================================================
+    "S101",      # Allow assert in tests
+    "ISC001",    # Implicit string concat conflicts with formatter
+    "COM812",    # Trailing comma conflicts with formatter
+
+    # ==========================================================================
+    # PRE-EXISTING TECHNICAL DEBT (suppress to unblock standardization)
+    # Tracked for incremental cleanup in separate tickets.
+    # ==========================================================================
+    "E501",      # Line too long (pre-existing, 900+ violations)
+    "E402",      # Imports not at top
+    "B904",      # Raise without from in except
+    "B019",      # lru_cache on methods
+    "B007",      # Unused loop variable
+    "B008",      # Function call defaults
+    "N812",      # Lowercase imported as non-lowercase
+    "N815",      # mixedCase variables
+    "N806",      # Non-lowercase variable in function
+    "N805",      # First arg not cls
+    "UP042",     # (str, Enum) inheritance — 20 classes to migrate
+    "SIM117",    # Nested with statements
+    "SIM102",    # Nested if statements
+    "SIM103",    # Explicit if/else returns
+    "F841",      # Unused variables
+    "ARG002",    # Unused method arguments
+    "RUF012",    # Mutable class attrs should be ClassVar
+    "RUF022",    # __all__ not sorted
+    "BLE001",    # Blind exception catching
+    "EM101",     # Exception string literal
+    "EM102",     # Exception f-string
+    "TRY003",    # Long exception messages
+    "TRY300",    # Consider moving to else
+    "TRY301",    # Abstract raise to inner function
+    "TRY400",    # logging.exception instead of error
+    "FBT001",    # Boolean positional arg
+    "FBT002",    # Boolean default positional
+    "ARG001",    # Unused function argument
+    "SLF001",    # Private member access
+    "C901",      # Function complexity
+    "PLR0911",   # Too many return statements
+    "PLR0912",   # Too many branches
+    "PLR0913",   # Too many arguments
+    "PLR0915",   # Too many statements
+    "PLR2004",   # Magic values
+    "RET504",    # Unnecessary assign before return
+    "RET505",    # Unnecessary elif after return
+    "ERA001",    # Commented-out code
+    "PTH123",    # Use Path.open()
+    "G004",      # Logging uses f-string
+    "PGH003",    # Blanket type-ignore
+    "S311",      # Random not suitable for crypto
+    "T201",      # Print statements (enforced via per-file-ignores for CLIs)
+    "INP001",    # Implicit namespace package
+    "DTZ001",    # call-datetime-without-tzinfo
+    "DTZ003",    # call-datetime-utcnow
+    "A002",      # Function arg shadows builtin
+    "S110",      # try-except-pass
+    "TC003",     # Typing-only stdlib import
+    "RUF005",    # Consider unpacking
+    "PIE790",    # Unnecessary placeholder
+    "TID252",    # Prefer absolute imports
+    "PLC0415",   # Import outside top-level
+    "UP017",     # datetime.UTC alias
+    "RUF059",    # Unused unpacked variable
+    "TC001",     # Typing-only first-party import (290+ violations)
+    "TC002",     # Typing-only third-party import
+    "TC005",     # Empty type-checking block
+    "TC006",     # Runtime cast value
+    "FBT003",    # Boolean positional value in call
+    "PT018",     # Composite assertion in pytest
+    "PT023",     # Incorrect mark parentheses
+    "PT006",     # Parametrize names wrong type
+    "PT001",     # Fixture parentheses style
+    "PT012",     # Multiple statements in raises
+    "PT017",     # Assert in except
+    "PLW0108",   # Unnecessary lambda
+    "PLW0603",   # Global statement
+    "PLW1510",   # subprocess.run without check
+    "PLW2901",   # Redefined loop name
+    "TRY004",    # Prefer TypeError
+    "TRY201",    # Verbose raise
+    "S108",      # Hardcoded temp file
+    "S310",      # Suspicious URL open
+    "S607",      # Start process with partial path
+    "S603",      # Subprocess without shell
+    "S102",      # exec builtin
+    "S104",      # Hardcoded bind all interfaces
+    "S608",      # Hardcoded SQL
+    "G201",      # Logging exc_info
+    "TRY401",    # Verbose log message
+    "DTZ005",    # datetime.now without tzinfo
+    "DTZ007",    # strptime without zone
+    "DTZ011",    # date.today
+    "PTH100",    # os.path.abspath
+    "PTH111",    # os.path.expanduser
+    "PTH117",    # os.path.isabs
+    "PTH120",    # os.path.dirname
+    "PTH201",    # Path constructor current directory
+    "PIE807",    # Reimplemented container builtin
+    "PIE810",    # Multiple starts-ends-with
+    "PLR1714",   # Repeated equality comparison
+    "PLR5501",   # Collapsible else-if
+    "PLC0207",   # Missing maxsplit arg
+    "TRY203",    # Useless try-except
+    "RUF100",    # Unused noqa
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -186,37 +267,74 @@ ignore = [
 "src/omniintelligence/tools/__init__.py" = ["F401"]
 # Test intentionally catches broad exceptions for validation error testing
 "tests/nodes/pattern_extraction_compute/test_handlers.py" = ["B017"]
+# Test files — relaxed rules
+"tests/**" = ["S101", "S603", "PLR2004", "SLF001", "PT011", "S105", "B017"]
+"src/**/node_tests/**" = ["S101", "S603", "PLR2004", "SLF001", "PT011", "S105", "B017"]
+# Scripts — may use print() and subprocess
+"scripts/**" = ["T201", "S603", "S607", "INP001"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["omniintelligence"]
 
-[tool.ruff.format]
-quote-style = "double"
-indent-style = "space"
-skip-magic-trailing-comma = false
-line-ending = "auto"
-
 [tool.mypy]
 python_version = "3.12"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = false
-disallow_any_unimported = false
-no_implicit_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_no_return = true
-check_untyped_defs = true
+strict = true
+plugins = ["pydantic.mypy"]
+mypy_path = "src"
+namespace_packages = true
+explicit_package_bases = true
+
+# Third-party libraries without stubs — per-module overrides
+[[tool.mypy.overrides]]
+module = [
+    "confluent_kafka.*",
+    "adaptive_classifier.*",
+    "watchdog.*",
+    "qdrant_client.*",
+    "neo4j.*",
+    "asyncpg.*",
+    "tiktoken.*",
+    "sentence_transformers.*",
+    "torch.*",
+    "transformers.*",
+    "cachetools.*",
+    "tenacity.*",
+    "logfire.*",
+    "structlog.*",
+    "prometheus_client.*",
+    "psutil.*",
+    "radon.*",
+    "pydantic_settings.*",
+    "omnibase_core.*",
+    "omnibase_spi.*",
+    "omnibase_infra.*",
+    "pkg_resources",
+]
 ignore_missing_imports = true
+
+# Modules not yet strict-ready — relax incrementally
+[[tool.mypy.overrides]]
+module = [
+    "omniintelligence.*",
+]
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
 
 [tool.pytest.ini_options]
 minversion = "8.0"
 testpaths = ["tests", "src/omniintelligence/nodes"]
+pythonpath = ["src", "."]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 asyncio_mode = "auto"
-addopts = "-v --tb=short"
+asyncio_default_fixture_loop_scope = "function"
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "-ra",
+    "--tb=short",
+]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests",
