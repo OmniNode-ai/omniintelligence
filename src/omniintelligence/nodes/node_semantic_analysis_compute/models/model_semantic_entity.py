@@ -47,7 +47,7 @@ class ModelSemanticEntity(BaseModel):
         default=None,
         description="Docstring associated with this entity, if present",
     )
-    metadata: dict[str, object] = Field(
+    metadata: dict[str, object] = Field(  # ONEX_EXCLUDE: dict_str_any
         default_factory=dict,
         description="Additional metadata about the entity (e.g., arguments, return type)",
     )

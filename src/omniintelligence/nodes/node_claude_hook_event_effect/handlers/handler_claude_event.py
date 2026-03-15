@@ -230,7 +230,7 @@ async def route_hook_event(
         resolved_correlation_id: UUID = (
             event.correlation_id if event.correlation_id is not None else uuid4()
         )
-        error_metadata: dict[str, object] = {
+        error_metadata: dict[str, object] = {  # ONEX_EXCLUDE: dict_str_any
             "exception_type": type(e).__name__,
             "exception_message": sanitized_error,
         }
@@ -260,7 +260,7 @@ def handle_no_op(event: ModelClaudeCodeHookEvent) -> ModelClaudeHookResult:
     resolved_correlation_id: UUID = (
         event.correlation_id if event.correlation_id is not None else uuid4()
     )
-    noop_metadata: dict[str, object] = {
+    noop_metadata: dict[str, object] = {  # ONEX_EXCLUDE: dict_str_any
         "handler": "no_op",
         "reason": "event_type not yet implemented",
     }
@@ -302,7 +302,9 @@ async def handle_stop(
         - OMN-2210: Wire intelligence nodes into registration + pattern extraction
     """
     start_time = time.perf_counter()
-    metadata: dict[str, object] = {"handler": "stop_trigger_pattern_learning"}
+    metadata: dict[str, object] = {  # ONEX_EXCLUDE: dict_str_any
+        "handler": "stop_trigger_pattern_learning"
+    }
 
     # Resolve correlation_id to a non-None UUID for downstream calls that
     # require UUID (not UUID | None).
@@ -514,7 +516,9 @@ async def handle_post_tool_use(
     resolved_correlation_id: UUID = (
         event.correlation_id if event.correlation_id is not None else uuid4()
     )
-    metadata: dict[str, object] = {"handler": "post_tool_use"}
+    metadata: dict[str, object] = {  # ONEX_EXCLUDE: dict_str_any
+        "handler": "post_tool_use"
+    }
 
     if repository is None:
         metadata["db_write"] = "skipped_no_repository"
@@ -668,10 +672,10 @@ async def _route_to_dlq(
     *,
     producer: ProtocolKafkaPublisher,
     topic: str,
-    envelope: dict[str, object],
+    envelope: dict[str, object],  # ONEX_EXCLUDE: dict_str_any
     error_message: str,
     session_id: str,
-    metadata: dict[str, object],
+    metadata: dict[str, object],  # ONEX_EXCLUDE: dict_str_any
 ) -> None:
     """Route a failed message to the dead-letter queue.
 
@@ -855,7 +859,9 @@ async def handle_user_prompt_submit(
     Returns:
         ModelClaudeHookResult with intent classification results.
     """
-    metadata: dict[str, object] = {"handler": "user_prompt_submit"}
+    metadata: dict[str, object] = {  # ONEX_EXCLUDE: dict_str_any
+        "handler": "user_prompt_submit"
+    }
 
     # Resolve correlation_id: use event's if present, generate one otherwise
     if event.correlation_id is not None:

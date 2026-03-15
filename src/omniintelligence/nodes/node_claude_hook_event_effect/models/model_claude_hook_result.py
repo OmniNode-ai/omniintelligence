@@ -79,7 +79,7 @@ class ModelClaudeHookResult(BaseModel):
         default=None,
         description="Error details if status is failed",
     )
-    metadata: dict[str, object] = Field(
+    metadata: dict[str, object] = Field(  # ONEX_EXCLUDE: dict_str_any
         default_factory=dict,
         description="Additional processing metadata",
     )

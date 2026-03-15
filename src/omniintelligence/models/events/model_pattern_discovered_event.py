@@ -49,7 +49,7 @@ class ModelPatternDiscoveredEvent(BaseModel):
     source_agent: str | None = None  # Optional agent identifier
     correlation_id: UUID  # Distributed tracing
     discovered_at: datetime  # MUST be timezone-aware
-    metadata: dict[str, object] = Field(
+    metadata: dict[str, object] = Field(  # ONEX_EXCLUDE: dict_str_any
         default_factory=dict,
         description=(
             "Arbitrary key-value pairs. Only string values are propagated "

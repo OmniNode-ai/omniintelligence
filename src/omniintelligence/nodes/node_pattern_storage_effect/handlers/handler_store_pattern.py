@@ -489,7 +489,7 @@ class PatternStateTransition:
     actor: str | None
     correlation_id: UUID | None
     transitioned_at: datetime
-    metadata: dict[str, object] | None = None
+    metadata: dict[str, object] | None = None  # ONEX_EXCLUDE: dict_str_any
 
 
 def create_initial_storage_transition(

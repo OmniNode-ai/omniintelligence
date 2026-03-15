@@ -34,10 +34,10 @@ class TraceParsingResultDict(TypedDict, total=False):
     """
 
     success: bool
-    parsed_events: list[dict[str, object]]
-    error_events: list[dict[str, object]]
-    timing_data: dict[str, object]
-    metadata: dict[str, object]
+    parsed_events: list[dict[str, object]]  # ONEX_EXCLUDE: dict_str_any
+    error_events: list[dict[str, object]]  # ONEX_EXCLUDE: dict_str_any
+    timing_data: dict[str, object]  # ONEX_EXCLUDE: dict_str_any
+    metadata: dict[str, object]  # ONEX_EXCLUDE: dict_str_any
     duration_ms: float
     error_message: str
 
@@ -52,7 +52,7 @@ class IntentClassificationResultDict(TypedDict, total=False):
     primary_intent: str
     confidence: float
     secondary_intents: list[str]
-    classification_metadata: dict[str, object]
+    classification_metadata: dict[str, object]  # ONEX_EXCLUDE: dict_str_any
     duration_ms: float
     error_message: str
 
@@ -68,7 +68,7 @@ class CriteriaMatchingResultDict(TypedDict, total=False):
     criteria_failed: list[str]
     match_score: float
     overall_success: bool
-    metadata: dict[str, object]
+    metadata: dict[str, object]  # ONEX_EXCLUDE: dict_str_any
     duration_ms: float
     error_message: str
 

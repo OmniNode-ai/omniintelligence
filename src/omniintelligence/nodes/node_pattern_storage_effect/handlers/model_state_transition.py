@@ -82,7 +82,7 @@ class ModelStateTransition(BaseModel):
         default_factory=uuid4,
         description="Idempotency key for deduplication",
     )
-    metadata: dict[str, object] = Field(
+    metadata: dict[str, object] = Field(  # ONEX_EXCLUDE: dict_str_any
         default_factory=dict,
         description="Additional context as key-value pairs",
     )

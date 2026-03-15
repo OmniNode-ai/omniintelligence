@@ -288,7 +288,7 @@ async def handle_promote_pattern(
     correlation_id: UUID | None = None,
     domain: str | None = None,
     signature_hash: str | None = None,
-    metadata: dict[str, object] | None = None,
+    metadata: dict[str, object] | None = None,  # ONEX_EXCLUDE: dict_str_any
 ) -> PromotePatternResult:
     """Handle pattern state promotion with audit trail.
 

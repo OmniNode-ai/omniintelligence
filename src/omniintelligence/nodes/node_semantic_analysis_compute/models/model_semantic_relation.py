@@ -39,7 +39,7 @@ class ModelSemanticRelation(BaseModel):
         le=1.0,
         description="Confidence score for the relation (0.0 to 1.0)",
     )
-    metadata: dict[str, object] = Field(
+    metadata: dict[str, object] = Field(  # ONEX_EXCLUDE: dict_str_any
         default_factory=dict,
         description="Additional metadata about the relation (e.g., line number, context)",
     )

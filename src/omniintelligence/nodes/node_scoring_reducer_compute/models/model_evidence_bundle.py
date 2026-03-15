@@ -56,7 +56,7 @@ class ModelEvidenceItem(BaseModel):
         le=1.0,
         description="Normalized evidence value in [0.0, 1.0].",
     )
-    metadata: dict[str, Any] = Field(
+    metadata: dict[str, Any] = Field(  # ONEX_EXCLUDE: dict_str_any
         default_factory=dict,
         description="Optional structured metadata about this evidence item.",
     )
