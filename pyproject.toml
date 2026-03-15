@@ -76,6 +76,8 @@ dev = [
     "pre-commit>=4.5.0",
     # Optional radon dependency included in dev for test coverage of radon code path
     "radon>=6.0.0",
+    # Centralized governance hooks (OMN-5135)
+    "onex-change-control>=0.1.0",
 ]
 
 # Core node system dependencies
@@ -134,6 +136,9 @@ all = [
     {include-group = "core"},
     {include-group = "dev"},
 ]
+
+[tool.uv.sources]
+onex-change-control = { git = "https://github.com/OmniNode-ai/onex_change_control.git", branch = "main" }
 
 [tool.ruff]
 target-version = "py312"
