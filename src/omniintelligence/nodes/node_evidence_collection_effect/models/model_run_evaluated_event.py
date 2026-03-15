@@ -31,6 +31,7 @@ class ModelRunEvaluatedEvent(BaseModel):
     Attributes:
         run_id: The run that was evaluated (same as EvidenceBundle.run_id).
         session_id: The Claude Code session identifier.
+        agent_name: Name of the agent that executed the run (for dashboard grouping).
         task_class: Task class for which the evaluation was performed.
         bundle_fingerprint: SHA-256 fingerprint of the evidence bundle.
         passed: True if all hard gates passed; False otherwise.
@@ -52,6 +53,14 @@ class ModelRunEvaluatedEvent(BaseModel):
     )
     session_id: str = Field(
         description="Claude Code session identifier (opaque string from upstream API)."
+    )
+    agent_name: str = Field(
+        default="unknown",
+        description=(
+            "Name of the agent that executed the run (e.g. 'agent-api', 'agent-frontend'). "
+            "Used by omnidash to group evaluations by agent. Defaults to 'unknown' for "
+            "backward compatibility with events produced before OMN-5048."
+        ),
     )
     correlation_id: str = Field(
         default="",

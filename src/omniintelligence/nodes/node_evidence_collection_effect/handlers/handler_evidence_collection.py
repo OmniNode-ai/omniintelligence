@@ -544,6 +544,7 @@ async def collect_and_evaluate(
     check_results: ModelSessionCheckResults,
     *,
     task_class: str | None = None,
+    agent_name: str | None = None,
     kafka_publisher: ProtocolKafkaPublisher | None = None,
     db_conn: Any | None = None,
     objective_spec: Any | None = None,
@@ -573,6 +574,7 @@ async def collect_and_evaluate(
     Args:
         check_results: Structured check results from the agent session.
         task_class: Optional task class for ObjectiveSpec selection.
+        agent_name: Optional agent name for dashboard grouping (OMN-5048).
         kafka_publisher: Optional Kafka publisher for RunEvaluatedEvent emission.
         db_conn: Optional DB connection for EvaluationResult storage.
         objective_spec: Optional pre-constructed ObjectiveSpec. If None, the
@@ -686,6 +688,7 @@ async def collect_and_evaluate(
         run_event = ModelRunEvaluatedEvent(
             run_id=run_id,
             session_id=session_id,
+            agent_name=agent_name or "unknown",
             task_class=resolved_task_class,
             bundle_fingerprint=bundle_fingerprint,
             passed=evaluation_result.passed,
@@ -742,6 +745,7 @@ async def fire_and_forget_evaluate(
     check_results: ModelSessionCheckResults,
     *,
     task_class: str | None = None,
+    agent_name: str | None = None,
     kafka_publisher: ProtocolKafkaPublisher | None = None,
     db_conn: Any | None = None,
     objective_spec: Any | None = None,
@@ -755,6 +759,7 @@ async def fire_and_forget_evaluate(
     Args:
         check_results: Structured check results from the agent session.
         task_class: Optional task class for ObjectiveSpec selection.
+        agent_name: Optional agent name for dashboard grouping (OMN-5048).
         kafka_publisher: Optional Kafka publisher.
         db_conn: Optional DB connection.
         objective_spec: Optional pre-constructed ObjectiveSpec.
@@ -763,6 +768,7 @@ async def fire_and_forget_evaluate(
         output = await collect_and_evaluate(
             check_results,
             task_class=task_class,
+            agent_name=agent_name,
             kafka_publisher=kafka_publisher,
             db_conn=db_conn,
             objective_spec=objective_spec,
