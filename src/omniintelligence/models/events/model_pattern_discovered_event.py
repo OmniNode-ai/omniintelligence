@@ -54,6 +54,8 @@ class ModelPatternDiscoveredEvent(BaseModel):
         description=(
             "Arbitrary key-value pairs. Only string values are propagated "
             "to pattern storage; non-string values are silently dropped."
+            " Known keys: context, insight_type, taxonomy_version, insight_id,"
+            " occurrence_count, evidence_files, working_directory."
         ),
     )
 
