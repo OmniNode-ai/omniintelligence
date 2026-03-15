@@ -27,6 +27,7 @@ class StateTransitionMetadataDict(TypedDict, total=False):
     types carry different context.
     """
 
+    operation: str
     promotion_reason: str
     metrics_snapshot_id: str
     source_system: str

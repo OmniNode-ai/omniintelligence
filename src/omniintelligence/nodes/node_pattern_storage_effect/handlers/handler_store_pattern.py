@@ -40,6 +40,9 @@ from omnibase_core.types.typed_dict_pattern_storage_metadata import (
     TypedDictPatternStorageMetadata,
 )
 
+from omniintelligence.nodes.node_pattern_storage_effect.handlers.model_state_transition import (
+    StateTransitionMetadataDict,
+)
 from omniintelligence.nodes.node_pattern_storage_effect.models import (
     EnumPatternState,
     ModelPatternStorageInput,
@@ -489,7 +492,7 @@ class PatternStateTransition:
     actor: str | None
     correlation_id: UUID | None
     transitioned_at: datetime
-    metadata: dict[str, object] | None = None
+    metadata: StateTransitionMetadataDict | None = None
 
 
 def create_initial_storage_transition(
