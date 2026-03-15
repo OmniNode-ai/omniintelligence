@@ -66,7 +66,7 @@ class NodePatternAssemblerOrchestrator(NodeOrchestrator):
         result: ModelPatternAssemblyOutput = await handle_pattern_assembly_orchestrate(
             input_data
         )
-        return result.model_dump()
+        return result.model_dump(mode="json")
 
 
 __all__ = ["NodePatternAssemblerOrchestrator"]
