@@ -29,6 +29,7 @@ from omniintelligence.nodes.node_scoring_reducer_compute.models.model_evaluation
 )
 from omniintelligence.nodes.node_scoring_reducer_compute.models.model_evidence_bundle import (
     KNOWN_EVIDENCE_SOURCES,
+    EvidenceItemMetadataDict,
     ModelEvidenceBundle,
     ModelEvidenceItem,
 )
@@ -53,6 +54,7 @@ __all__ = [
     "EnumObjectiveLayer",
     "EnumPolicyType",
     "EnumRewardTargetType",
+    "EvidenceItemMetadataDict",
     "KNOWN_EVIDENCE_SOURCES",
     "ModelEvidenceBundle",
     "ModelEvidenceItem",
