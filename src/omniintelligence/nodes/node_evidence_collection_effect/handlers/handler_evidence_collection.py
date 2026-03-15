@@ -471,6 +471,7 @@ async def _store_to_db(
     bundle_fingerprint: str,
     run_id: str,
     session_id: str,
+    agent_name: str,
     task_class: str,
     evaluated_at_utc: str,
     db_conn: Any,
@@ -482,6 +483,7 @@ async def _store_to_db(
         bundle_fingerprint: SHA-256 fingerprint of the EvidenceBundle.
         run_id: The run identifier.
         session_id: The session identifier.
+        agent_name: The agent name for dashboard grouping (OMN-5048).
         task_class: The task class used for spec selection.
         evaluated_at_utc: ISO-8601 UTC timestamp.
         db_conn: Async database connection.
@@ -496,6 +498,7 @@ async def _store_to_db(
             INSERT INTO objective_evaluations (
                 run_id,
                 session_id,
+                agent_name,
                 task_class,
                 bundle_fingerprint,
                 passed,
@@ -508,13 +511,15 @@ async def _store_to_db(
                 score_human_time,
                 evaluated_at
             ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
             )
             ON CONFLICT (run_id, bundle_fingerprint) DO UPDATE
-                SET evaluated_at = EXCLUDED.evaluated_at
+                SET evaluated_at = EXCLUDED.evaluated_at,
+                    agent_name = EXCLUDED.agent_name
             """,
             run_id,
             session_id,
+            agent_name,
             task_class,
             bundle_fingerprint,
             evaluation_result.passed,
@@ -544,6 +549,7 @@ async def collect_and_evaluate(
     check_results: ModelSessionCheckResults,
     *,
     task_class: str | None = None,
+    agent_name: str | None = None,
     kafka_publisher: ProtocolKafkaPublisher | None = None,
     db_conn: Any | None = None,
     objective_spec: Any | None = None,
@@ -573,6 +579,7 @@ async def collect_and_evaluate(
     Args:
         check_results: Structured check results from the agent session.
         task_class: Optional task class for ObjectiveSpec selection.
+        agent_name: Optional agent name for dashboard grouping (OMN-5048).
         kafka_publisher: Optional Kafka publisher for RunEvaluatedEvent emission.
         db_conn: Optional DB connection for EvaluationResult storage.
         objective_spec: Optional pre-constructed ObjectiveSpec. If None, the
@@ -686,6 +693,7 @@ async def collect_and_evaluate(
         run_event = ModelRunEvaluatedEvent(
             run_id=run_id,
             session_id=session_id,
+            agent_name=agent_name or "unknown",
             task_class=resolved_task_class,
             bundle_fingerprint=bundle_fingerprint,
             passed=evaluation_result.passed,
@@ -710,6 +718,7 @@ async def collect_and_evaluate(
                     "run_id": run_id,
                     "passed": evaluation_result.passed,
                     "bundle_fingerprint": bundle_fingerprint,
+                    "correlation_id": run_event.correlation_id,
                 },
             )
 
@@ -721,6 +730,7 @@ async def collect_and_evaluate(
             bundle_fingerprint=bundle_fingerprint,
             run_id=run_id,
             session_id=session_id,
+            agent_name=agent_name or "unknown",
             task_class=resolved_task_class,
             evaluated_at_utc=evaluated_at_utc,
             db_conn=db_conn,
@@ -742,6 +752,7 @@ async def fire_and_forget_evaluate(
     check_results: ModelSessionCheckResults,
     *,
     task_class: str | None = None,
+    agent_name: str | None = None,
     kafka_publisher: ProtocolKafkaPublisher | None = None,
     db_conn: Any | None = None,
     objective_spec: Any | None = None,
@@ -755,6 +766,7 @@ async def fire_and_forget_evaluate(
     Args:
         check_results: Structured check results from the agent session.
         task_class: Optional task class for ObjectiveSpec selection.
+        agent_name: Optional agent name for dashboard grouping (OMN-5048).
         kafka_publisher: Optional Kafka publisher.
         db_conn: Optional DB connection.
         objective_spec: Optional pre-constructed ObjectiveSpec.
@@ -763,6 +775,7 @@ async def fire_and_forget_evaluate(
         output = await collect_and_evaluate(
             check_results,
             task_class=task_class,
+            agent_name=agent_name,
             kafka_publisher=kafka_publisher,
             db_conn=db_conn,
             objective_spec=objective_spec,
