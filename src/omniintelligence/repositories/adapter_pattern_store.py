@@ -224,9 +224,11 @@ class AdapterPatternStore:
                 "confidence": confidence,
                 "quality_score": quality_score,
                 "status": state.value,
-                "source_session_ids": f"{{{correlation_id}}}"
+                # Pass as Python list[UUID] — asyncpg maps to PostgreSQL UUID[] natively.
+                # String literal "{uuid}" causes "a sized iterable container expected" errors.
+                "source_session_ids": [UUID(str(correlation_id))]
                 if correlation_id
-                else "{}",
+                else [],
                 # recurrence_count: omitted - uses contract default 1
                 "version": version,
                 # supersedes: omitted - optional with no default, will be None
@@ -443,11 +445,13 @@ class AdapterPatternStore:
         Returns:
             The pattern UUID if inserted, None if duplicate (conflict).
         """
-        # Format source_session_ids as PostgreSQL array literal
-        session_ids_literal = (
-            "{" + ",".join(str(sid) for sid in source_session_ids) + "}"
-            if source_session_ids
-            else "{}"
+        # Pass source_session_ids as a Python list of UUID objects.
+        # asyncpg maps Python list[UUID] to PostgreSQL UUID[] natively.
+        # Previously this used a "{uuid1,uuid2}" string literal which
+        # caused "a sized iterable container expected (got type 'str')"
+        # errors because asyncpg rejects string literals for UUID[] params.
+        session_ids_list = (
+            [UUID(str(sid)) for sid in source_session_ids] if source_session_ids else []
         )
 
         provided: dict[str, Any] = {
@@ -458,7 +462,7 @@ class AdapterPatternStore:
             "domain_version": domain_version,
             "confidence": confidence,
             "version": version,
-            "source_session_ids": session_ids_literal,
+            "source_session_ids": session_ids_list,
         }
         if project_scope is not None:
             provided["project_scope"] = project_scope
@@ -622,9 +626,11 @@ class AdapterPatternStore:
                 "confidence": confidence,
                 "quality_score": quality_score,
                 "status": state.value,
-                "source_session_ids": f"{{{correlation_id}}}"
+                # Pass as Python list[UUID] — asyncpg maps to PostgreSQL UUID[] natively.
+                # String literal "{uuid}" causes "a sized iterable container expected" errors.
+                "source_session_ids": [UUID(str(correlation_id))]
                 if correlation_id
-                else "{}",
+                else [],
                 # recurrence_count: omitted - uses contract default 1
                 "version": version,
             },
