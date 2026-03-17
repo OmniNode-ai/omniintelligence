@@ -37,6 +37,9 @@ from omniintelligence.models.events.model_intent_event_envelopes import (
     ModelIntentOutcomeLabeledEnvelope,
     ModelIntentPatternPromotedEnvelope,
 )
+from omniintelligence.models.events.model_llm_call_completed_event import (
+    ModelLLMCallCompletedEvent,
+)
 from omniintelligence.models.events.model_pattern_discovered_event import (
     ModelPatternDiscoveredEvent,
 )
@@ -55,6 +58,7 @@ __all__ = [
     "ModelIntentDriftDetectedEnvelope",
     "ModelIntentOutcomeLabeledEnvelope",
     "ModelIntentPatternPromotedEnvelope",
+    "ModelLLMCallCompletedEvent",
     "ModelPatternDiscoveredEvent",
     "ModelPatternLifecycleEvent",
     "ModelPatternProjectionEvent",

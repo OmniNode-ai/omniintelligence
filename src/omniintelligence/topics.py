@@ -65,6 +65,9 @@ class IntentTopic(StrValueHelper, str, Enum):
     INTENT_PATTERN_PROMOTED = "onex.evt.omniintelligence.intent-pattern-promoted.v1"
     """Intent pattern promoted to learned patterns."""
 
+    LLM_CALL_COMPLETED = "onex.evt.omniintelligence.llm-call-completed.v1"
+    """LLM call completed with token usage and latency telemetry (OMN-5184)."""
+
 
 # OMN-3253: Migration aliases for one release cycle.
 # Consumers should subscribe to BOTH old and new topic names during migration,
