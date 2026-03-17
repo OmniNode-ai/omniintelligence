@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# ONEX Node Contract - Context Audit Aggregator Compute Node
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+name: "node_context_audit_aggregator_compute"
+node_type: "COMPUTE_GENERIC"
+description: >-
+  Compute node that aggregates context audit events by correlation_id and computes efficiency metrics
+  including violation rates, budget utilization, and scope adherence.
+input_model:
+  name: "ModelContextAuditAggregatorInput"
+  module: "omniintelligence.nodes.audit.node_context_audit_aggregator_compute"
+  description: "Input containing a list of audit events to aggregate by correlation_id."
+output_model:
+  name: "ModelContextAuditAggregatorOutput"
+  module: "omniintelligence.nodes.audit.node_context_audit_aggregator_compute"
+  description: "Output containing per-correlation-id aggregates and global summary metrics."
+operations:
+  - name: "aggregate_audit_events"
+    description: "Aggregate audit events by correlation_id and compute efficiency metrics"
+    input_fields:
+      - events
+    output_fields:
+      - aggregates
+      - total_correlation_ids
+      - global_violation_rate
+      - global_scope_adherence
