@@ -289,6 +289,36 @@ Canonical declaration: nodes/node_bloom_eval_orchestrator/contract.yaml
 Reference: OMN-4028
 """
 
+TOPIC_DECISION_RECORDED_EVT_V1: str = "onex.evt.omniintelligence.decision-recorded.v1"
+"""Canonical topic for DecisionRecord summary events (OUTPUT, broad access).
+
+Privacy-safe summary: decision_id, type, selected, count, has_rationale.
+No agent_rationale or reproducibility_snapshot.
+
+Reference: OMN-2466
+Deletion ticket: OMN-1546
+"""
+
+TOPIC_DECISION_RECORDED_CMD_V1: str = "onex.cmd.omniintelligence.decision-recorded.v1"
+"""Canonical topic for full DecisionRecord events (INPUT/CMD, restricted access).
+
+Full payload including agent_rationale and reproducibility_snapshot.
+Consumed by decision_store and mismatch_detector.
+
+Reference: OMN-2466, OMN-2467
+Deletion ticket: OMN-1546
+"""
+
+TOPIC_RATIONALE_MISMATCH_EVT_V1: str = "onex.evt.omniintelligence.rationale-mismatch.v1"
+"""Canonical topic for rationale mismatch events (OUTPUT, broad access).
+
+Mismatch event payload: decision_id, mismatch_type, severity, timestamp.
+No rationale text in this topic.
+
+Reference: OMN-2472
+Deletion ticket: OMN-1546
+"""
+
 # =============================================================================
 # Exports
 # =============================================================================
@@ -298,9 +328,12 @@ __all__ = [
     "PERCENTAGE_MULTIPLIER",
     "TOPIC_BLOOM_EVAL_COMPLETED_V1",
     "TOPIC_BLOOM_EVAL_RUN_V1",
-    "TOPIC_PATTERN_LIFECYCLE_CMD_V1",
+    "TOPIC_DECISION_RECORDED_CMD_V1",
+    "TOPIC_DECISION_RECORDED_EVT_V1",
     "TOPIC_LLM_ROUTING_DECISION_PROCESSED",
+    "TOPIC_PATTERN_LIFECYCLE_CMD_V1",
     "TOPIC_PLAN_REVIEW_STRATEGY_RUN_COMPLETED_V1",
+    "TOPIC_RATIONALE_MISMATCH_EVT_V1",
     "TOPIC_ROUTING_FEEDBACK_PROCESSED",
     "TOPIC_RUN_EVALUATED_V1",
     "TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1",

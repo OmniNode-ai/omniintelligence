@@ -25,11 +25,6 @@ ONEX Compliance:
     - All `emitted_at` fields in envelope models must be injected by callers.
     - No datetime.now() defaults permitted.
 
-Migration (OMN-3253):
-    Previous topic names used ``intent`` as the producer segment instead of
-    ``omniintelligence``. The old names are preserved as ``INTENT_TOPIC_ALIASES``
-    for one release cycle to allow consumers to migrate.
-
 Reference: OMN-2487
 """
 
@@ -66,15 +61,4 @@ class IntentTopic(StrValueHelper, str, Enum):
     """Intent pattern promoted to learned patterns."""
 
 
-# OMN-3253: Migration aliases for one release cycle.
-# Consumers should subscribe to BOTH old and new topic names during migration,
-# then drop the old names in the next release.
-INTENT_TOPIC_ALIASES: dict[str, str] = {
-    "onex.evt.intent.drift.detected.v1": IntentTopic.INTENT_DRIFT_DETECTED.value,
-    "onex.evt.intent.outcome.labeled.v1": IntentTopic.INTENT_OUTCOME_LABELED.value,
-    "onex.evt.intent.pattern.promoted.v1": IntentTopic.INTENT_PATTERN_PROMOTED.value,
-}
-"""Map from deprecated topic name to canonical topic name (OMN-3253)."""
-
-
-__all__ = ["IntentTopic", "INTENT_TOPIC_ALIASES"]
+__all__ = ["IntentTopic"]
