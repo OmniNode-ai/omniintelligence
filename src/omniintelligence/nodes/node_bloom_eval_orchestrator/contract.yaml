@@ -82,6 +82,7 @@ event_bus:
   # Topics this node publishes to (emits results to)
   publish_topics:
     - "onex.evt.omniintelligence.bloom-eval-completed.v1"
+    - "onex.evt.omniintelligence.llm-call-completed.v1"
 
   subscribe_topic_metadata:
     "onex.cmd.omniintelligence.bloom-eval-run.v1":
@@ -91,6 +92,10 @@ event_bus:
   publish_topic_metadata:
     "onex.evt.omniintelligence.bloom-eval-completed.v1":
       description: "Emitted after each bloom eval suite run with aggregated results."
+      content_type: "application/json"
+    "onex.evt.omniintelligence.llm-call-completed.v1":
+      description: "Emitted by EvalLLMClient after each successful LLM API call with token usage and latency
+        telemetry (OMN-5184)."
       content_type: "application/json"
 
 # =============================================================================

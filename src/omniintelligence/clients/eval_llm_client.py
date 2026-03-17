@@ -8,17 +8,28 @@ soft judgment (DeepSeek-R1 via judge_url) using OpenAI-compatible vLLM.
 
 ARCH-002 compliant: URLs injected via constructor (no env var reads).
 Lives in clients/, not nodes/, per isolation convention.
+
+Telemetry (OMN-5184):
+    Optional ``event_publisher`` emits ``ModelLLMCallCompletedEvent`` after
+    each successful LLM call.  Emission is fire-and-forget — failures are
+    logged but never block the LLM call result.
 """
 
 from __future__ import annotations
 
 import asyncio
+import logging
+import time
 from typing import TYPE_CHECKING, Any
 
 import httpx
 
 if TYPE_CHECKING:
     from types import TracebackType
+
+    from omniintelligence.runtime.adapters import AdapterKafkaPublisher
+
+logger = logging.getLogger(__name__)
 
 _DEFAULT_TIMEOUT_SECONDS = 30.0
 _DEFAULT_MAX_RETRIES = 2
@@ -58,6 +69,9 @@ class EvalLLMClient:
         *,
         timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS,
         max_retries: int = _DEFAULT_MAX_RETRIES,
+        event_publisher: AdapterKafkaPublisher | None = None,
+        correlation_id: str | None = None,
+        session_id: str | None = None,
     ) -> None:
         self._generator_url = generator_url.rstrip("/")
         self._judge_url = judge_url.rstrip("/")
@@ -65,6 +79,9 @@ class EvalLLMClient:
         self._max_retries = max_retries
         self._client: httpx.AsyncClient | None = None
         self._connected = False
+        self._event_publisher = event_publisher
+        self._correlation_id = correlation_id or ""
+        self._session_id = session_id or ""
 
     async def connect(self) -> None:
         if self._connected:
@@ -119,7 +136,16 @@ class EvalLLMClient:
             "n": n,
             "temperature": 0.8,
         }
+        start = time.monotonic()
         response_data = await self._post_with_retry(url, payload)
+        latency_ms = int((time.monotonic() - start) * 1000)
+        await self._emit_call_completed(
+            response_data=response_data,
+            model_id=model,
+            endpoint_url=self._generator_url,
+            request_type="completion",
+            latency_ms=latency_ms,
+        )
         choices = response_data.get("choices", [])
         return [c["message"]["content"] for c in choices[:n]]
 
@@ -163,7 +189,65 @@ class EvalLLMClient:
             ],
             "response_format": {"type": "json_object"},
         }
-        return await self._post_with_retry(url, payload)
+        start = time.monotonic()
+        response_data = await self._post_with_retry(url, payload)
+        latency_ms = int((time.monotonic() - start) * 1000)
+        await self._emit_call_completed(
+            response_data=response_data,
+            model_id=model,
+            endpoint_url=self._judge_url,
+            request_type="reasoning",
+            latency_ms=latency_ms,
+        )
+        return response_data
+
+    async def _emit_call_completed(
+        self,
+        *,
+        response_data: dict[str, Any],
+        model_id: str,
+        endpoint_url: str,
+        request_type: str,
+        latency_ms: int,
+    ) -> None:
+        """Fire-and-forget emission of LLM call telemetry event.
+
+        Silently logs and returns on any failure — never blocks the caller.
+        """
+        if self._event_publisher is None:
+            return
+        try:
+            from datetime import UTC, datetime
+
+            from omniintelligence.models.events.model_llm_call_completed_event import (
+                ModelLLMCallCompletedEvent,
+            )
+            from omniintelligence.topics import IntentTopic
+
+            usage = response_data.get("usage", {})
+            input_tokens = int(usage.get("prompt_tokens", 0))
+            output_tokens = int(usage.get("completion_tokens", 0))
+
+            event = ModelLLMCallCompletedEvent(
+                model_id=model_id,
+                endpoint_url=endpoint_url,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                total_tokens=input_tokens + output_tokens,
+                cost_usd=0.0,
+                latency_ms=latency_ms,
+                request_type=request_type,
+                correlation_id=self._correlation_id,
+                session_id=self._session_id,
+                emitted_at=datetime.now(UTC),
+            )
+            await self._event_publisher.publish(
+                topic=IntentTopic.LLM_CALL_COMPLETED,
+                key=self._correlation_id,
+                value=event.model_dump(mode="json"),
+            )
+        except Exception:
+            logger.warning("Failed to emit LLM call completed event", exc_info=True)
 
     async def _post_with_retry(
         self,
