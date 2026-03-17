@@ -24,8 +24,14 @@ except ImportError:
             return name.lower()
 
 
+from omniintelligence.constants import TOPIC_DECISION_RECORDED_CMD_V1
+
+
 class DecisionTopics(StrEnum):
     """Kafka topics consumed and produced by the decision_store module.
+
+    String values are imported from ``omniintelligence.constants`` (single
+    source of truth for all topic strings).
 
     Members:
         DECISION_RECORDED: The ``cmd`` topic on which DecisionRecord events
@@ -33,7 +39,7 @@ class DecisionTopics(StrEnum):
             consumer.
     """
 
-    DECISION_RECORDED = "onex.cmd.omniintelligence.decision-recorded.v1"
+    DECISION_RECORDED = TOPIC_DECISION_RECORDED_CMD_V1
 
 
 __all__ = [

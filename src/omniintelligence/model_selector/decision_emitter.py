@@ -27,14 +27,19 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any
 
+from omniintelligence.constants import (
+    TOPIC_DECISION_RECORDED_CMD_V1,
+    TOPIC_DECISION_RECORDED_EVT_V1,
+)
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Topic constants
+# Topic constants — imported from constants.py (single source of truth)
 # ---------------------------------------------------------------------------
 
-DECISION_RECORDED_EVT_TOPIC = "onex.evt.omniintelligence.decision-recorded.v1"
-DECISION_RECORDED_CMD_TOPIC = "onex.cmd.omniintelligence.decision-recorded.v1"
+DECISION_RECORDED_EVT_TOPIC = TOPIC_DECISION_RECORDED_EVT_V1
+DECISION_RECORDED_CMD_TOPIC = TOPIC_DECISION_RECORDED_CMD_V1
 
 
 # ---------------------------------------------------------------------------

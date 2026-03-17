@@ -34,11 +34,21 @@ except ImportError:
             return name.lower()
 
 
+from omniintelligence.constants import (
+    TOPIC_DECISION_RECORDED_CMD_V1,
+    TOPIC_DECISION_RECORDED_EVT_V1,
+    TOPIC_RATIONALE_MISMATCH_EVT_V1,
+)
+
+
 class OmniIntelligenceTopics(StrEnum):
     """Canonical Kafka topic constants for omniintelligence.
 
     All topics follow the ONEX naming convention:
         onex.{kind}.{producer}.{event-name}.v{n}
+
+    String values are imported from ``omniintelligence.constants`` (single
+    source of truth for all topic strings).
 
     Members:
         DECISION_RECORDED_EVT: Summary payload (decision_id, type, selected,
@@ -50,9 +60,9 @@ class OmniIntelligenceTopics(StrEnum):
             text in this topic.
     """
 
-    DECISION_RECORDED_EVT = "onex.evt.omniintelligence.decision-recorded.v1"
-    DECISION_RECORDED_CMD = "onex.cmd.omniintelligence.decision-recorded.v1"
-    RATIONALE_MISMATCH_EVT = "onex.evt.omniintelligence.rationale-mismatch.v1"
+    DECISION_RECORDED_EVT = TOPIC_DECISION_RECORDED_EVT_V1
+    DECISION_RECORDED_CMD = TOPIC_DECISION_RECORDED_CMD_V1
+    RATIONALE_MISMATCH_EVT = TOPIC_RATIONALE_MISMATCH_EVT_V1
 
 
 __all__ = [

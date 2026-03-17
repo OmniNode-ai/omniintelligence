@@ -30,6 +30,10 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from omniintelligence.constants import (
+    TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1,
+    TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
+)
 from omniintelligence.runtime.enum_handler_type import EnumHandlerType
 from omniintelligence.runtime.enum_log_level import EnumLogLevel
 from omniintelligence.runtime.model_event_bus_config import ModelEventBusConfig
@@ -131,8 +135,8 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
                         "bootstrap_servers": "kafka-broker:9092",
                         "consumer_group": "omniintelligence",
                         "topics": {
-                            "commands": "onex.cmd.omniintelligence.claude-hook-event.v1",
-                            "events": "onex.evt.omniintelligence.intent-classified.v1",
+                            "commands": TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1,
+                            "events": TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
                         },
                     },
                     "handlers": [
@@ -383,8 +387,8 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
                 # by consumers that configure their own event bus independently.
                 consumer_group="omniintelligence-dev",
                 topics=ModelTopicConfig(
-                    commands="onex.cmd.omniintelligence.claude-hook-event.v1",
-                    events="onex.evt.omniintelligence.intent-classified.v1",
+                    commands=TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1,
+                    events=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
                     dlq="onex.dlq.omniintelligence.v1",
                 ),
             ),
@@ -426,8 +430,8 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
                 # by consumers that configure their own event bus independently.
                 consumer_group="omniintelligence-prod",
                 topics=ModelTopicConfig(
-                    commands="onex.cmd.omniintelligence.claude-hook-event.v1",
-                    events="onex.evt.omniintelligence.intent-classified.v1",
+                    commands=TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1,
+                    events=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
                     dlq="onex.dlq.omniintelligence.v1",
                 ),
             ),

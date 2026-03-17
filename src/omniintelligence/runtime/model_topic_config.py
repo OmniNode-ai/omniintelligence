@@ -5,12 +5,18 @@
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from omniintelligence.constants import (
+    TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1,
+    TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
+)
+
 
 class ModelTopicConfig(BaseModel):
     """Kafka topic configuration for event bus.
 
     Defines the command and event topics used by the intelligence runtime
-    for event-driven communication.
+    for event-driven communication. Default values are imported from
+    ``omniintelligence.constants`` (single source of truth).
 
     Attributes:
         commands: Topic for incoming command messages.
@@ -19,15 +25,15 @@ class ModelTopicConfig(BaseModel):
     """
 
     commands: str = Field(
-        default="onex.cmd.omniintelligence.claude-hook-event.v1",
+        default=TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1,
         description="Topic for incoming command messages",
-        examples=["onex.cmd.omniintelligence.claude-hook-event.v1"],
+        examples=[TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1],
     )
 
     events: str = Field(
-        default="onex.evt.omniintelligence.intent-classified.v1",
+        default=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
         description="Topic for outgoing event messages",
-        examples=["onex.evt.omniintelligence.intent-classified.v1"],
+        examples=[TOPIC_SUFFIX_INTENT_CLASSIFIED_V1],
     )
 
     dlq: str | None = Field(

@@ -118,29 +118,11 @@ class TestIntentTopicEnum:
         values = [str(t) for t in IntentTopic]
         assert len(values) == len(set(values)), "Duplicate topic values detected"
 
-    def test_migration_aliases_map_old_to_new(self) -> None:
-        """INTENT_TOPIC_ALIASES maps deprecated topic names to canonical names (OMN-3253)."""
-        from omniintelligence.topics import INTENT_TOPIC_ALIASES, IntentTopic
+    def test_migration_aliases_removed(self) -> None:
+        """INTENT_TOPIC_ALIASES was removed after OMN-3253 migration completed."""
+        import omniintelligence.topics as topics_module
 
-        assert {
-            "onex.evt.intent.drift.detected.v1": IntentTopic.INTENT_DRIFT_DETECTED.value,
-            "onex.evt.intent.outcome.labeled.v1": IntentTopic.INTENT_OUTCOME_LABELED.value,
-            "onex.evt.intent.pattern.promoted.v1": IntentTopic.INTENT_PATTERN_PROMOTED.value,
-        } == INTENT_TOPIC_ALIASES
-
-    def test_migration_aliases_all_keys_are_deprecated_format(self) -> None:
-        """All alias keys use the old 'intent' producer segment."""
-        from omniintelligence.topics import INTENT_TOPIC_ALIASES
-
-        for old_topic in INTENT_TOPIC_ALIASES:
-            assert "intent." in old_topic and "omniintelligence" not in old_topic
-
-    def test_migration_aliases_all_values_are_canonical_format(self) -> None:
-        """All alias values use the new 'omniintelligence' producer segment."""
-        from omniintelligence.topics import INTENT_TOPIC_ALIASES
-
-        for new_topic in INTENT_TOPIC_ALIASES.values():
-            assert "omniintelligence" in new_topic
+        assert not hasattr(topics_module, "INTENT_TOPIC_ALIASES")
 
 
 # ============================================================================
