@@ -47,11 +47,11 @@ operations:
       - alert_emitted
       - was_duplicate
 event_sources:
-  - topic: "{env}.onex.evt.omnimemory.reward-assigned.v1"
+  - topic: "onex.evt.omnimemory.reward-assigned.v1"
     description: "RewardAssignedEvent from Kafka"
     consumer_group: "policy-state-reducer"
 event_outputs:
-  - topic: "{env}.onex.evt.omniintelligence.policy-state-updated.v1"
+  - topic: "onex.evt.omniintelligence.policy-state-updated.v1"
     description: "PolicyStateUpdatedEvent emitted after each lifecycle transition"
   - topic: "system.alert.tool_degraded"
     description: "Alert emitted when tool reliability falls below blacklist floor"
