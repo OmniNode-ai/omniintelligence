@@ -214,15 +214,16 @@ def _load_input(source: str) -> dict[str, Any]:
         sys.exit(1)
 
     try:
-        data: dict[str, Any] = json.loads(raw)
+        raw_data: Any = json.loads(raw)
     except json.JSONDecodeError as exc:
         print(f"Error: invalid JSON in input: {exc}", file=sys.stderr)
         sys.exit(1)
 
-    if not isinstance(data, dict):
+    if not isinstance(raw_data, dict):
         print("Error: input JSON must be a JSON object (dict)", file=sys.stderr)
         sys.exit(1)
 
+    data: dict[str, Any] = raw_data
     return data
 
 
@@ -307,7 +308,7 @@ def _build_input(
         input_data = ModelPatternExtractionInput(
             session_snapshots=raw["session_snapshots"],
             options=config,
-            existing_insights=raw.get("existing_insights") or [],
+            existing_insights=tuple(raw.get("existing_insights") or []),
         )
     except Exception as exc:
         print(f"Error: failed to parse input data: {exc}", file=sys.stderr)

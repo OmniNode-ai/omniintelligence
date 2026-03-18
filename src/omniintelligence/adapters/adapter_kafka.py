@@ -38,7 +38,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import Any, cast
 
 from confluent_kafka import Consumer, KafkaError, KafkaException, Producer
 
@@ -292,26 +292,31 @@ class KafkaHandler:
             msg = self._consumer.poll(timeout=timeout)
             if msg is None:
                 break
-            if msg.error():
-                if msg.error().code() == KafkaError._PARTITION_EOF:
+            err = msg.error()
+            if err is not None:
+                if err.code() == KafkaError._PARTITION_EOF:  # type: ignore[attr-defined]
                     break
-                raise ConnectionError(f"Kafka consumer error: {msg.error()}")
+                raise ConnectionError(f"Kafka consumer error: {err}")
 
+            raw_key = msg.key()
+            raw_value = msg.value()
             msg_dict: dict[str, Any] = {
                 "topic": msg.topic(),
                 "partition": msg.partition(),
                 "offset": msg.offset(),
-                "key": msg.key().decode("utf-8") if msg.key() else None,
-                "value": json.loads(msg.value().decode("utf-8"))
-                if msg.value()
+                "key": raw_key.decode("utf-8") if raw_key is not None else None,
+                "value": json.loads(raw_value.decode("utf-8"))
+                if raw_value is not None
                 else None,
             }
 
             # Parse headers
-            if msg.headers():
+            raw_headers = msg.headers()
+            if raw_headers is not None:
+                headers_list = cast(list[tuple[str, str | bytes | None]], raw_headers)
                 msg_dict["headers"] = {
                     k: v.decode("utf-8") if isinstance(v, bytes) else v
-                    for k, v in msg.headers()
+                    for k, v in headers_list
                 }
 
             messages.append(msg_dict)

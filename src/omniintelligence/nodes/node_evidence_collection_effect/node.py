@@ -36,7 +36,7 @@ except ImportError:
 __all__ = ["NodeEvidenceCollectionEffect"]
 
 
-class NodeEvidenceCollectionEffect(_BASE_CLASS):  # type: ignore[valid-type,misc]
+class NodeEvidenceCollectionEffect(_BASE_CLASS):
     """ONEX EFFECT node for wiring objective evaluation into agent execution traces.
 
     Lightweight declarative shell. All logic is in the handlers.
