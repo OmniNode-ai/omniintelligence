@@ -17,7 +17,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "omninode-intelligence"
-version = "0.14.0"
+version = "0.14.1"
 description = "Intelligence, indexing, and pattern services as first-class Omninode nodes"
 readme = "README.md"
 requires-python = ">=3.12,<4.0"
@@ -54,6 +54,9 @@ Changelog = "https://github.com/OmniNode-ai/omniintelligence/blob/main/CHANGELOG
 
 [project.entry-points."onex.domain_plugins"]
 intelligence = "omniintelligence.runtime.plugin:PluginIntelligence"
+
+[project.entry-points."onex.node_package"]
+omniintelligence = "omniintelligence.nodes"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/omniintelligence"]

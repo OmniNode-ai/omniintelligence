@@ -89,10 +89,6 @@ def parse_raw(
         List of ``ReviewFindingObserved`` events. Empty list if parsing fails
         or input contains no valid diagnostics.
     """
-    if not isinstance(raw, str):
-        logger.warning("mypy adapter: expected str input, got %s", type(raw).__name__)
-        return []
-
     findings: list[ReviewFindingObserved] = []
 
     for idx, line in enumerate(raw.splitlines()):

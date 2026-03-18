@@ -323,7 +323,7 @@ def _get_default_objective_spec() -> Any:
         return None
 
     return ModelObjectiveSpec(
-        spec_id="default_v1",
+        objective_id="default_v1",
         version="1.0.0",
         gates=(
             ModelGateSpec(

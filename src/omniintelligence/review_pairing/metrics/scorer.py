@@ -41,6 +41,7 @@ import statistics
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum, unique
+from typing import Any
 from uuid import UUID, uuid4
 
 logger = logging.getLogger(__name__)
@@ -167,7 +168,7 @@ class RewardScorer:
 
     def score_batch(
         self,
-        events: list[dict],
+        events: list[dict[str, Any]],
     ) -> list[RewardScoringResult]:
         """Score a batch of reward events.
 

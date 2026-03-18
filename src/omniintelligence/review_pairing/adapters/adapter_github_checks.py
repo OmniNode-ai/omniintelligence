@@ -98,20 +98,15 @@ def parse_raw(
     Returns:
         List of ``ReviewFindingObserved`` events.
     """
+    data: list[Any]
     if isinstance(raw, str):
         try:
-            data: list[dict[str, Any]] = json.loads(raw)
+            data = json.loads(raw)
         except json.JSONDecodeError as exc:
             logger.warning("github-checks adapter: failed to parse JSON input: %s", exc)
             return []
     else:
-        data = raw
-
-    if not isinstance(data, list):
-        logger.warning(
-            "github-checks adapter: expected JSON array, got %s", type(data).__name__
-        )
-        return []
+        data = list(raw)
 
     tool_name = (
         f"{_TOOL_NAME}/{check_run_name}"

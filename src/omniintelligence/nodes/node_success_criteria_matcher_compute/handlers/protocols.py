@@ -31,8 +31,8 @@ except ImportError:  # pragma: no cover
 
 # JSON-compatible types for execution outcome values
 # Matches the expected_value type from SuccessCriterionDict
-type JsonPrimitive = PrimitiveValue | None  # type: ignore[valid-type]
-type JsonValue = JsonPrimitive | list[object] | dict[str, object]  # type: ignore[valid-type]
+type JsonPrimitive = PrimitiveValue | None
+type JsonValue = JsonPrimitive | list[object] | dict[str, object]
 
 
 # =============================================================================
