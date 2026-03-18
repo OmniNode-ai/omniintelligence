@@ -55,6 +55,9 @@ Changelog = "https://github.com/OmniNode-ai/omniintelligence/blob/main/CHANGELOG
 [project.entry-points."onex.domain_plugins"]
 intelligence = "omniintelligence.runtime.plugin:PluginIntelligence"
 
+[project.entry-points."onex.node_package"]
+omniintelligence = "omniintelligence.nodes"
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/omniintelligence"]
 
