@@ -252,6 +252,27 @@ repos:
     rev: 30a06f85bb5849902d33c8d0bdb90fc6cba0c346  # pragma: allowlist secret
     hooks:
       - id: check-stub-implementations
+  # Hardcoded topic string detection — sourced from onex_change_control (OMN-5259)
+  - repo: https://github.com/OmniNode-ai/onex_change_control
+    rev: 39a09ffb2432b8b7d3f47b334b869b55c9cb4fc6  # pragma: allowlist secret
+    hooks:
+      - id: no-hardcoded-topics
+        # Pre-existing violations excluded pending migration to canonical constants.
+        # Each file below contains hardcoded onex.evt.*/onex.cmd.* topic strings
+        # that will be migrated in a follow-up ticket.
+        exclude: >-
+          (?x)^(
+            src/omniintelligence/constants\.py|
+            src/omniintelligence/runtime/dispatch_handlers\.py|
+            src/omniintelligence/runtime/contracts/runtime_config\.yaml|
+            src/omniintelligence/nodes/node_bloom_eval_orchestrator/handlers/handler_bloom_eval_effect\.py|
+            src/omniintelligence/nodes/node_compliance_evaluate_effect/handlers/handler_compliance_evaluate\.py|
+            src/omniintelligence/nodes/node_crawl_scheduler_effect/handlers/handler_crawl_scheduler\.py|
+            src/omniintelligence/nodes/node_evidence_collection_effect/handlers/handler_evidence_collection\.py|
+            src/omniintelligence/nodes/node_gmail_intent_evaluator_effect/handlers/handler_gmail_intent_evaluate\.py|
+            src/omniintelligence/nodes/node_pattern_compliance_effect/handlers/handler_compute\.py|
+            src/omniintelligence/nodes/node_watchdog_effect/handlers/handler_watchdog\.py
+          )$
   # ============================================================================
   # YAML FORMATTING - Standard across ONEX ecosystem
   # ============================================================================
