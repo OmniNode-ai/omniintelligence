@@ -335,12 +335,18 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
 
         event_bus_data: dict[str, object] = {}
 
+        # Infer event bus enabled from KAFKA_BOOTSTRAP_SERVERS presence [OMN-5364]
+        kafka_servers = os.environ.get("KAFKA_BOOTSTRAP_SERVERS")
         if event_bus_enabled := os.environ.get(f"{prefix}EVENT_BUS_ENABLED"):
+            # Explicit flag takes priority over inference
             event_bus_data["enabled"] = event_bus_enabled.lower() in (
                 "true",
                 "1",
                 "yes",
             )
+        elif kafka_servers:
+            # Infer enabled from KAFKA_BOOTSTRAP_SERVERS presence
+            event_bus_data["enabled"] = True
 
         if bootstrap_servers := os.environ.get("KAFKA_BOOTSTRAP_SERVERS"):
             event_bus_data["bootstrap_servers"] = bootstrap_servers
