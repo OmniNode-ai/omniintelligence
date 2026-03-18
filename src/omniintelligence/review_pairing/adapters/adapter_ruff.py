@@ -85,20 +85,15 @@ def parse_raw(
         List of ``ReviewFindingObserved`` events. Empty list if parsing fails
         or input contains no valid diagnostics.
     """
+    data: list[Any]
     if isinstance(raw, str):
         try:
-            data: list[dict[str, Any]] = json.loads(raw)
+            data = json.loads(raw)
         except json.JSONDecodeError as exc:
             logger.warning("ruff adapter: failed to parse JSON input: %s", exc)
             return []
     else:
-        data = raw
-
-    if not isinstance(data, list):
-        logger.warning(
-            "ruff adapter: expected a JSON array, got %s", type(data).__name__
-        )
-        return []
+        data = list(raw)
 
     findings: list[ReviewFindingObserved] = []
 

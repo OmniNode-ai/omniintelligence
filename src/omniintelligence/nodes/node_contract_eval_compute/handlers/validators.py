@@ -41,9 +41,6 @@ def validate_schema(contract_dict: dict[str, Any]) -> bool:
     Returns:
         True if all required keys are present with correct types, False otherwise.
     """
-    if not isinstance(contract_dict, dict):
-        return False
-
     for key in _REQUIRED_KEYS:
         if key not in contract_dict:
             return False
@@ -93,9 +90,6 @@ def validate_reference_integrity(contract_dict: dict[str, Any]) -> bool:
     Returns:
         True when all references resolve within the io section, False otherwise.
     """
-    if not isinstance(contract_dict, dict):
-        return False
-
     io_section = contract_dict.get("io")
     if not isinstance(io_section, dict):
         # If there is no io section but also no references, we're trivially clean.

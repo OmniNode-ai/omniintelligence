@@ -110,7 +110,7 @@ def _init_metrics() -> None:
         return
 
     try:
-        from prometheus_client import Counter, Gauge  # type: ignore[import-untyped]
+        from prometheus_client import Counter, Gauge
 
         _COUNTERS["patterns_total"] = Counter(
             "promotion_check_patterns_total",
@@ -237,35 +237,35 @@ def _record(result: ModelPromotionCheckResult) -> None:
     # populated (e.g., if initialization raised on some metrics).
 
     if "patterns_total" in _COUNTERS:
-        _COUNTERS["patterns_total"].inc(result.patterns_checked)  # type: ignore[union-attr]
+        _COUNTERS["patterns_total"].inc(result.patterns_checked)  # type: ignore[attr-defined]
 
     if "eligible_total" in _COUNTERS:
-        _COUNTERS["eligible_total"].inc(result.patterns_eligible)  # type: ignore[union-attr]
+        _COUNTERS["eligible_total"].inc(result.patterns_eligible)  # type: ignore[attr-defined]
 
     if "promoted_total" in _COUNTERS:
-        _COUNTERS["promoted_total"].inc(result.patterns_succeeded)  # type: ignore[union-attr]
+        _COUNTERS["promoted_total"].inc(result.patterns_succeeded)  # type: ignore[attr-defined]
 
     if "failed_total" in _COUNTERS:
-        _COUNTERS["failed_total"].inc(result.patterns_failed)  # type: ignore[union-attr]
+        _COUNTERS["failed_total"].inc(result.patterns_failed)  # type: ignore[attr-defined]
 
     if "skipped_total" in _COUNTERS:
-        _COUNTERS["skipped_total"].inc(skipped_count)  # type: ignore[union-attr]
+        _COUNTERS["skipped_total"].inc(skipped_count)  # type: ignore[attr-defined]
 
     if result.dry_run:
         if "dry_run_total" in _COUNTERS:
-            _COUNTERS["dry_run_total"].inc()  # type: ignore[union-attr]
+            _COUNTERS["dry_run_total"].inc()  # type: ignore[attr-defined]
         # Gauges are not updated during dry runs — they reflect live state only.
         return
 
     # Update last-check gauges (non-dry-run only)
     if "last_checked" in _GAUGES:
-        _GAUGES["last_checked"].set(result.patterns_checked)  # type: ignore[union-attr]
+        _GAUGES["last_checked"].set(result.patterns_checked)  # type: ignore[attr-defined]
 
     if "last_eligible" in _GAUGES:
-        _GAUGES["last_eligible"].set(result.patterns_eligible)  # type: ignore[union-attr]
+        _GAUGES["last_eligible"].set(result.patterns_eligible)  # type: ignore[attr-defined]
 
     if "last_promoted" in _GAUGES:
-        _GAUGES["last_promoted"].set(result.patterns_succeeded)  # type: ignore[union-attr]
+        _GAUGES["last_promoted"].set(result.patterns_succeeded)  # type: ignore[attr-defined]
 
 
 __all__ = [
