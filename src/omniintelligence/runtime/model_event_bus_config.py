@@ -28,7 +28,6 @@ class ModelEventBusConfig(BaseModel):
         topics: Topic configuration for commands and events.
         auto_offset_reset: Kafka consumer auto offset reset policy.
         enable_auto_commit: Whether to enable auto commit of offsets.
-        session_timeout_ms: Kafka session timeout in milliseconds.
     """
 
     enabled: bool = Field(
@@ -75,13 +74,6 @@ class ModelEventBusConfig(BaseModel):
     enable_auto_commit: bool = Field(
         default=False,
         description="Enable auto commit of offsets (disabled for manual control)",
-    )
-
-    session_timeout_ms: int = Field(
-        default=30000,
-        ge=1000,
-        le=300000,
-        description="Kafka session timeout in milliseconds",
     )
 
     model_config = ConfigDict(
