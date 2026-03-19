@@ -103,23 +103,21 @@ def create_utilization_scoring_dispatch_handler(
             detection_method = "llm_fallback"
 
         # Emit updated context-utilization event
-        event = json.dumps(
-            {
-                "session_id": session_id,
-                "correlation_id": correlation_id,
-                "cohort": "treatment",
-                "injection_occurred": True,
-                "utilization_score": utilization_score,
-                "utilization_method": detection_method,
-                "detection_method": detection_method,
-                "patterns_count": len(pattern_ids),
-                "session_outcome": session_outcome,
-            }
-        ).encode()
+        event: dict[str, object] = {
+            "session_id": session_id,
+            "correlation_id": correlation_id,
+            "cohort": "treatment",
+            "injection_occurred": True,
+            "utilization_score": utilization_score,
+            "utilization_method": detection_method,
+            "detection_method": detection_method,
+            "patterns_count": len(pattern_ids),
+            "session_outcome": session_outcome,
+        }
 
         await publisher.publish(
             topic=TOPIC_CONTEXT_UTILIZATION_EVT_V1,
-            key=session_id.encode(),
+            key=session_id,
             value=event,
         )
 
