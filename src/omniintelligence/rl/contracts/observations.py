@@ -16,7 +16,7 @@ import torch
 from pydantic import BaseModel, Field
 
 # ---------------------------------------------------------------------------
-# RoutingObservation  (30 dims)
+# RoutingObservation  (31 dims)
 # ---------------------------------------------------------------------------
 
 _TASK_TYPES: list[str] = [
@@ -48,7 +48,7 @@ class EndpointHealth(BaseModel, frozen=True):
 
 
 class RoutingObservation(BaseModel, frozen=True):
-    """Observation for the LLM routing decision (30 dims total).
+    """Observation for the LLM routing decision (31 dims total).
 
     Layout::
 
@@ -58,17 +58,10 @@ class RoutingObservation(BaseModel, frozen=True):
         [25..29) historical_success_rate        4 dims  (rolling 7-day per endpoint)
         [29..31) time_of_day_encoding           2 dims  (sin, cos)
 
-    Total = 8 + 1 + 16 + 4 + 2 = 31  (corrected from ticket sketch; sin/cos
-    encoding adds a 31st dim).
-
-    .. note::
-       The ticket originally stated 30 dims. The actual count is **31** because
-       ``time_of_day_encoding`` requires two components (sin + cos) which,
-       combined with the other groups, yields 31. We keep the documented field
-       semantics and let the tensor shape be authoritative.
+    Total = 8 + 1 + 16 + 4 + 2 = 31
     """
 
-    DIMS: ClassVar[int] = 31  # class-level constant for external use
+    DIMS: ClassVar[int] = 31
 
     task_type_onehot: list[float] = Field(
         min_length=len(_TASK_TYPES),
@@ -149,14 +142,14 @@ class RoutingObservation(BaseModel, frozen=True):
 
 
 # ---------------------------------------------------------------------------
-# PipelineObservation  (~15 dims) — exploratory
+# PipelineObservation  (~15 dims) -- exploratory
 # ---------------------------------------------------------------------------
 
 
 class PipelineObservation(BaseModel, frozen=True):
     """Observation for pipeline orchestration decisions (15 dims).
 
-    Exploratory — defined for future training but not expected to drive
+    Exploratory -- defined for future training but not expected to drive
     production decisions initially.
     """
 
@@ -199,14 +192,14 @@ class PipelineObservation(BaseModel, frozen=True):
 
 
 # ---------------------------------------------------------------------------
-# TeamObservation  (~10 dims) — exploratory
+# TeamObservation  (~10 dims) -- exploratory
 # ---------------------------------------------------------------------------
 
 
 class TeamObservation(BaseModel, frozen=True):
     """Observation for team/agent coordination decisions (10 dims).
 
-    Exploratory — defined for future training.
+    Exploratory -- defined for future training.
     """
 
     DIMS: ClassVar[int] = 10

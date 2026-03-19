@@ -23,7 +23,7 @@ import torch
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Episode dataclass — one routing decision
+# Episode dataclass -- one routing decision
 # ---------------------------------------------------------------------------
 
 
@@ -51,7 +51,7 @@ class Episode:
 
 
 # ---------------------------------------------------------------------------
-# Batch dataclass — tensors ready for training
+# Batch dataclass -- tensors ready for training
 # ---------------------------------------------------------------------------
 
 
@@ -90,8 +90,6 @@ class EpisodeReplayBuffer:
 
     GAE advantage computation is trivial for one-step routing decisions:
         advantage = reward - value_estimate
-
-    For multi-step trajectories, full GAE with discount/lambda is used.
 
     Attributes:
         max_episodes: Maximum buffer capacity. Oldest episodes are evicted
@@ -225,19 +223,10 @@ class EpisodeReplayBuffer:
         )
 
     def memory_estimate_bytes(self) -> int:
-        """Estimate current memory usage in bytes.
-
-        Each episode stores: observation (list of floats), action (int),
-        reward (float), value_estimate (float), log_prob (float),
-        plus Python object overhead.
-
-        Returns:
-            Estimated memory usage in bytes.
-        """
+        """Estimate current memory usage in bytes."""
         if not self._episodes:
             return 0
 
-        # Estimate per-episode: observation floats (8 bytes each) + fixed fields
         obs_dim = len(self._episodes[0].observation) if self._episodes else 0
         per_episode = (
             obs_dim * 8  # observation floats

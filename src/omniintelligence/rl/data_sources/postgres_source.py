@@ -7,11 +7,7 @@ Reads historical routing decision episodes from the omnidash_analytics
 database (rl_episodes table) and reconstructs observation vectors using
 ONLY data available at or before each episode's observation_timestamp.
 
-CRITICAL: No future leakage — observations must use time-correct features only.
-
-Architecture: Uses protocol-based pool injection to comply with ARCH-002.
-The database pool is created externally (e.g., in runtime/adapters layer)
-and injected via the constructor. No direct transport library imports.
+CRITICAL: No future leakage -- observations must use time-correct features only.
 
 Ticket: OMN-5562
 """
@@ -39,7 +35,6 @@ class AsyncDBPool(Protocol):
     """Protocol for an async database connection pool.
 
     Matches the asyncpg.Pool interface for the methods we need.
-    Allows injection of any compatible pool implementation.
     """
 
     async def fetch(self, query: str, *args: Any) -> list[Any]: ...
@@ -56,14 +51,7 @@ class AsyncDBPool(Protocol):
 
 @dataclass(frozen=True)
 class PostgresSourceConfig:
-    """Configuration for the PostgreSQL episode source.
-
-    Attributes:
-        dsn: PostgreSQL connection string.
-        table: Table name for rl_episodes.
-        batch_size: Number of rows to fetch per query batch.
-        max_episodes: Maximum number of episodes to load (0 = no limit).
-    """
+    """Configuration for the PostgreSQL episode source."""
 
     dsn: str = ""
     table: str = "rl_episodes"
@@ -72,11 +60,7 @@ class PostgresSourceConfig:
 
     @classmethod
     def from_env(cls) -> PostgresSourceConfig:
-        """Create config from environment variables.
-
-        Uses OMNIDASH_ANALYTICS_DSN if set, otherwise constructs from
-        standard POSTGRES_* variables targeting omnidash_analytics.
-        """
+        """Create config from environment variables."""
         dsn = os.environ.get("OMNIDASH_ANALYTICS_DSN", "")
         if not dsn:
             host = os.environ.get("POSTGRES_HOST", "localhost")
@@ -94,27 +78,7 @@ class PostgresSourceConfig:
 
 
 class PostgresEpisodeSource:
-    """Load RL episodes from PostgreSQL omnidash_analytics database.
-
-    Reads from the rl_episodes table and reconstructs observation vectors
-    using ONLY data available at or before each episode's observation_timestamp.
-
-    The observation column stores the pre-computed feature vector as JSONB.
-    This ensures time-correctness: the feature vector was computed at
-    decision time and does NOT contain future information.
-
-    The database pool MUST be injected via constructor. This follows
-    ARCH-002: no direct transport imports in domain code.
-
-    Usage::
-
-        # Pool created in runtime/adapters layer
-        pool = await asyncpg.create_pool(dsn=config.dsn)
-        source = PostgresEpisodeSource(config, pool=pool)
-
-        buffer = EpisodeReplayBuffer()
-        await source.populate_buffer(buffer)
-    """
+    """Load RL episodes from PostgreSQL omnidash_analytics database."""
 
     def __init__(
         self,
@@ -129,11 +93,7 @@ class PostgresEpisodeSource:
         await self._pool.close()
 
     async def count_eligible(self) -> int:
-        """Count the number of completed episodes available.
-
-        Returns:
-            Number of completed episodes in rl_episodes table.
-        """
+        """Count the number of completed episodes available."""
         sql = _count_sql(self._config.table)
         row = await self._pool.fetchval(sql)
         return int(row) if row else 0
@@ -144,19 +104,7 @@ class PostgresEpisodeSource:
         *,
         since: datetime | None = None,
     ) -> int:
-        """Load episodes from PostgreSQL into the replay buffer.
-
-        Fetches episodes in batches to control memory usage. Each row's
-        observation column contains the pre-computed feature vector that
-        was recorded at decision time (no future leakage).
-
-        Args:
-            buffer: Target replay buffer to populate.
-            since: Optional lower bound on observation_timestamp.
-
-        Returns:
-            Number of episodes loaded.
-        """
+        """Load episodes from PostgreSQL into the replay buffer."""
         loaded = 0
         offset = 0
 
@@ -210,15 +158,7 @@ def _build_fetch_sql(
     table: str,
     since: datetime | None = None,
 ) -> str:
-    """Build the SQL query for fetching episodes.
-
-    Args:
-        table: Table name.
-        since: Optional lower bound on observation_timestamp.
-
-    Returns:
-        SQL query string with $1=offset, $2=limit parameters.
-    """
+    """Build the SQL query for fetching episodes."""
     where_clauses = ["status = 'completed'"]
     if since is not None:
         where_clauses.append(f"observation_timestamp >= '{since.isoformat()}'")
@@ -247,17 +187,7 @@ LIMIT $2
 
 
 def _row_to_episode(row: Any) -> Episode | None:
-    """Convert a database row to an Episode.
-
-    The observation column is expected to be a JSONB array of floats
-    representing the feature vector computed at decision time.
-
-    Args:
-        row: Database record with dict-like access (e.g., asyncpg.Record).
-
-    Returns:
-        Episode instance, or None if the row is malformed.
-    """
+    """Convert a database row to an Episode."""
     try:
         observation = row["observation"]
         if isinstance(observation, str):
