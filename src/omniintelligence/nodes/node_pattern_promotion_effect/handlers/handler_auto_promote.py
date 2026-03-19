@@ -74,6 +74,12 @@ MIN_INJECTION_COUNT_PROVISIONAL: int = 3
 Lower threshold than PROVISIONAL -> VALIDATED because we want patterns
 to enter the provisional stage relatively quickly for further evaluation.
 """
+BOOTSTRAP_MIN_CONFIDENCE: float = 0.8
+"""Minimum confidence for bootstrap promotion (cold-start with zero injections)."""
+BOOTSTRAP_MIN_RECURRENCE: int = 2
+"""Minimum recurrence count for bootstrap promotion."""
+BOOTSTRAP_MIN_DISTINCT_DAYS: int = 2
+"""Minimum distinct days seen for bootstrap promotion."""
 MIN_INJECTION_COUNT_VALIDATED: int = 5
 """Minimum injections for PROVISIONAL -> VALIDATED promotion.
 
@@ -100,13 +106,19 @@ SELECT lp.id, lp.pattern_signature, lp.status, lp.evidence_tier,
        lp.injection_count_rolling_20,
        lp.success_count_rolling_20,
        lp.failure_count_rolling_20,
-       lp.failure_streak
+       lp.failure_streak,
+       lp.confidence,
+       lp.recurrence_count,
+       lp.distinct_days_seen
 FROM learned_patterns lp
 LEFT JOIN disabled_patterns_current dpc ON lp.id = dpc.pattern_id
 WHERE lp.status = 'candidate'
   AND lp.is_current = TRUE
   AND dpc.pattern_id IS NULL
-  AND lp.evidence_tier IN ('observed', 'measured', 'verified')
+  AND (
+    lp.evidence_tier IN ('observed', 'measured', 'verified')
+    OR (lp.evidence_tier = 'unmeasured' AND lp.confidence >= 0.8 AND lp.recurrence_count >= 2 AND lp.distinct_days_seen >= 2)
+  )
 ORDER BY lp.created_at ASC
 LIMIT 500
 """
@@ -181,6 +193,9 @@ class PatternMetricsRow(_PatternMetricsRowRequired, total=False):
     success_count_rolling_20: int | None
     failure_count_rolling_20: int | None
     failure_streak: int | None
+    confidence: float | None
+    recurrence_count: int | None
+    distinct_days_seen: int | None
 
 
 @runtime_checkable
@@ -286,6 +301,26 @@ def _meets_promotion_criteria(
     return True
 
 
+def _meets_bootstrap_criteria(pattern: PatternMetricsRow) -> bool:
+    """Check if a candidate meets bootstrap promotion criteria (cold-start path).
+
+    Pure function. For patterns with zero injection history but high confidence
+    and recurrence, allowing promotion via confidence-based gate instead of
+    metric-based gate. This unsticks the 4,442 candidate patterns that have
+    never been injected.
+
+    Bootstrap criteria: confidence >= 0.8, recurrence_count >= 2, distinct_days_seen >= 2.
+    """
+    confidence = pattern.get("confidence", 0.0) or 0.0
+    recurrence = pattern.get("recurrence_count", 0) or 0
+    distinct_days = pattern.get("distinct_days_seen", 0) or 0
+    return (
+        confidence >= BOOTSTRAP_MIN_CONFIDENCE
+        and recurrence >= BOOTSTRAP_MIN_RECURRENCE
+        and distinct_days >= BOOTSTRAP_MIN_DISTINCT_DAYS
+    )
+
+
 def meets_candidate_to_provisional_criteria(
     pattern: PatternMetricsRow,
     *,
@@ -296,7 +331,19 @@ def meets_candidate_to_provisional_criteria(
     """Check if a candidate pattern meets CANDIDATE -> PROVISIONAL criteria.
 
     Pure function. Evidence tier is pre-filtered in SQL query.
+
+    Two paths:
+    1. Normal path: metric-based (injection_count >= 3, success_rate >= 60%, etc.)
+    2. Bootstrap path: confidence-based for cold-start (confidence >= 0.8,
+       recurrence >= 2, distinct_days >= 2, zero injection history)
     """
+    injection_count = pattern.get("injection_count_rolling_20", 0) or 0
+
+    # Bootstrap path: high-confidence patterns with no injection history
+    if injection_count == 0:
+        return _meets_bootstrap_criteria(pattern)
+
+    # Normal path: metric-based promotion
     return _meets_promotion_criteria(
         pattern,
         min_injection_count=min_injection_count,
@@ -409,6 +456,26 @@ async def _build_enriched_gate_snapshot(
         evidence_tier=evidence_tier,
         measured_attribution_count=attribution_count,
         latest_run_result=latest_run_result,
+    )
+
+
+def _build_candidate_promotion_reason(
+    pattern: PatternMetricsRow, gate_snapshot: ModelGateSnapshot
+) -> str:
+    """Build a descriptive reason string for candidate promotion."""
+    injection_count = pattern.get("injection_count_rolling_20", 0) or 0
+    if injection_count == 0:
+        # Bootstrap path
+        confidence = pattern.get("confidence", 0.0) or 0.0
+        recurrence = pattern.get("recurrence_count", 0) or 0
+        return (
+            f"Bootstrap-promoted: confidence={confidence:.2f}, "
+            f"recurrence={recurrence}, evidence_tier={pattern.get('evidence_tier')}"
+        )
+    # Normal path
+    return (
+        f"Auto-promoted: evidence_tier={pattern.get('evidence_tier')}, "
+        f"success_rate={gate_snapshot.success_rate_rolling_20:.2%}"
     )
 
 
@@ -527,8 +594,7 @@ async def handle_auto_promote_check(
                 to_status=EnumPatternLifecycleStatus.PROVISIONAL,
                 trigger="auto_promote_evidence_gate",
                 actor="auto_promote_handler",
-                reason=f"Auto-promoted: evidence_tier={pattern.get('evidence_tier')}, "
-                f"success_rate={gate_snapshot.success_rate_rolling_20:.2%}",
+                reason=_build_candidate_promotion_reason(pattern, gate_snapshot),
                 gate_snapshot=gate_snapshot,
                 transition_at=now,
                 publish_topic=publish_topic,
@@ -699,6 +765,9 @@ async def handle_auto_promote_check(
 __all__ = [
     "AutoPromoteCheckResult",
     "AutoPromoteResult",
+    "BOOTSTRAP_MIN_CONFIDENCE",
+    "BOOTSTRAP_MIN_DISTINCT_DAYS",
+    "BOOTSTRAP_MIN_RECURRENCE",
     "MAX_FAILURE_STREAK",
     "MIN_INJECTION_COUNT_PROVISIONAL",
     "MIN_INJECTION_COUNT_VALIDATED",
