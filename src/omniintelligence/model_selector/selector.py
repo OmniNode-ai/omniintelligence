@@ -34,6 +34,10 @@ from omniintelligence.model_selector.decision_emitter import (
     DecisionEmitter,
     DecisionEmitterBase,
 )
+from omniintelligence.model_selector.episode_emitter import (
+    EpisodeEmitter,
+    EpisodeEmitterBase,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -120,6 +124,9 @@ class ModelSelector:
             model registry state. Defaults to ``"unknown"``.
         emitter: DecisionEmitter for event emission. Defaults to a new
             ``DecisionEmitter()`` (degraded mode with no Kafka publisher).
+        episode_emitter: EpisodeEmitter for RL episode boundary events
+            (OMN-5559). Defaults to a new ``EpisodeEmitter()`` (degraded
+            mode with no Kafka publisher).
     """
 
     def __init__(
@@ -129,6 +136,7 @@ class ModelSelector:
         constraints: dict[str, str] | None = None,
         model_registry_version: str = "unknown",
         emitter: DecisionEmitterBase | None = None,
+        episode_emitter: EpisodeEmitterBase | None = None,
     ) -> None:
         """Initialize ModelSelector.
 
@@ -137,11 +145,13 @@ class ModelSelector:
             constraints: Active constraints applied to all selections.
             model_registry_version: Registry version string for reproducibility.
             emitter: DecisionEmitter implementation (injected for testing).
+            episode_emitter: EpisodeEmitter implementation (injected for testing).
         """
         self._scoring_weights: dict[str, float] = scoring_weights or {"default": 1.0}
         self._constraints: dict[str, str] = constraints or {}
         self._model_registry_version = model_registry_version
         self._emitter: DecisionEmitterBase = emitter or DecisionEmitter()
+        self._episode_emitter: EpisodeEmitterBase = episode_emitter or EpisodeEmitter()
 
     def select(
         self,
@@ -213,7 +223,7 @@ class ModelSelector:
         }
 
         # ------------------------------------------------------------------
-        # Step 4: Emit (non-blocking; failure must not prevent return)
+        # Step 4: Emit DecisionRecord (non-blocking; failure must not prevent return)
         # ------------------------------------------------------------------
         emitted_at = datetime.now(UTC)
         try:
@@ -224,6 +234,38 @@ class ModelSelector:
                 "ModelSelector: emission failed (degraded mode). "
                 "decision_id=%s error=%s",
                 decision_id,
+                exc,
+            )
+
+        # ------------------------------------------------------------------
+        # Step 4b: Emit episode_started event (OMN-5559)
+        # decision_snapshot captures ONLY pre-action observation state.
+        # ------------------------------------------------------------------
+        episode_id = decision_id  # Reuse decision_id as episode dedup key
+        try:
+            self._episode_emitter.emit_started(
+                episode_id=episode_id,
+                surface="routing",
+                decision_snapshot={
+                    "candidates_considered": candidates,
+                    "constraints_applied": list(self._constraints.keys()),
+                    "scoring_weights": dict(self._scoring_weights),
+                    "model_registry_version": self._model_registry_version,
+                },
+                observation_timestamp=timestamp,
+                action_taken={
+                    "selected_candidate": winner,
+                    "decision_type": decision_type,
+                    "tie_breaker": tie_breaker,
+                },
+                emitted_at=emitted_at,
+            )
+        except Exception as exc:
+            # fallback-ok: episode emission failure does not block selection
+            logger.warning(
+                "ModelSelector: episode_started emission failed. "
+                "episode_id=%s error=%s",
+                episode_id,
                 exc,
             )
 
