@@ -214,17 +214,23 @@ event_bus:
 
   # Topics this node subscribes to (receives events from)
   # This node is typically triggered by scheduled jobs, not Kafka events
-  subscribe_topics: []
+  subscribe_topics:
+    - "onex.cmd.omniintelligence.promotion-check-requested.v1"
 
   # Topics this node publishes to (sends events to)
   publish_topics:
     - "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
+    - "onex.evt.omniintelligence.promotion-check-completed.v1"
 
   # Metadata for published topics
   publish_topic_metadata:
     "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1":
       schema_ref: "omniintelligence.models.events.ModelPatternLifecycleEvent"
       description: "Lifecycle event for pattern status transitions (promote, demote)"
+      content_type: "application/json"
+    "onex.evt.omniintelligence.promotion-check-completed.v1":
+      schema_ref: "omniintelligence.nodes.node_pattern_promotion_effect.models.ModelPromotionCheckResult"
+      description: "Aggregated result of a periodic promotion check sweep"
       content_type: "application/json"
 
 # =============================================================================
