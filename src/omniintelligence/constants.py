@@ -319,6 +319,15 @@ Reference: OMN-2472
 Deletion ticket: OMN-1546
 """
 
+TOPIC_CONTEXT_UTILIZATION_EVT_V1: str = "onex.evt.omniclaude.context-utilization.v1"
+"""Canonical topic for context utilization events (OUTPUT cross-domain).
+
+Emitted by the utilization scoring handler after LLM-based scoring.
+Consumed by omnidash for the Context Effectiveness dashboard.
+
+Reference: OMN-5506
+"""
+
 # =============================================================================
 # Exports
 # =============================================================================
@@ -327,6 +336,7 @@ __all__ = [
     "MAX_PATTERN_MATCH_RESULTS",
     "PERCENTAGE_MULTIPLIER",
     "TOPIC_BLOOM_EVAL_COMPLETED_V1",
+    "TOPIC_CONTEXT_UTILIZATION_EVT_V1",
     "TOPIC_BLOOM_EVAL_RUN_V1",
     "TOPIC_DECISION_RECORDED_CMD_V1",
     "TOPIC_DECISION_RECORDED_EVT_V1",
