@@ -2006,6 +2006,53 @@ def create_intelligence_dispatch_engine(
         )
     )
 
+    # --- Handler 11: utilization-scoring (OMN-5507) ---
+    from omniintelligence.constants import TOPIC_UTILIZATION_SCORING_CMD_V1
+    from omniintelligence.runtime.dispatch_handler_utilization_scoring import (
+        create_utilization_scoring_dispatch_handler,
+    )
+
+    # Create thin LLM client for utilization scoring (graceful if unavailable)
+    _utilization_llm_client = None
+    try:
+        from omniintelligence.clients.utilization_llm_client import (
+            UtilizationLLMClient,
+        )
+
+        _utilization_llm_client = UtilizationLLMClient()
+    except Exception:
+        logger.warning(
+            "Failed to create UtilizationLLMClient; utilization scoring "
+            "handler will return fallback scores (OMN-5507).",
+            exc_info=True,
+        )
+
+    utilization_scoring_handler = create_utilization_scoring_dispatch_handler(
+        repository=repository,
+        publisher=kafka_producer,  # type: ignore[arg-type]
+        llm_client=_utilization_llm_client,
+    )
+    engine.register_handler(
+        handler_id="intelligence-utilization-scoring-handler",
+        handler=utilization_scoring_handler,
+        category=EnumMessageCategory.COMMAND,
+        node_kind=EnumNodeKind.EFFECT,
+        message_types=None,
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-utilization-scoring-route",
+            topic_pattern=TOPIC_UTILIZATION_SCORING_CMD_V1,
+            message_category=EnumMessageCategory.COMMAND,
+            handler_id="intelligence-utilization-scoring-handler",
+            description=(
+                "Routes utilization scoring commands to the LLM scoring "
+                "handler (OMN-5507). Calls local Qwen3-14B to score "
+                "pattern utilization for each session."
+            ),
+        )
+    )
+
     engine.freeze()
 
     if llm_client is None:

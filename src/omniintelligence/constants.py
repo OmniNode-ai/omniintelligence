@@ -319,6 +319,18 @@ Reference: OMN-2472
 Deletion ticket: OMN-1546
 """
 
+TOPIC_UTILIZATION_SCORING_CMD_V1: str = (
+    "onex.cmd.omniintelligence.utilization-scoring.v1"
+)
+"""Canonical topic for utilization scoring commands (INPUT).
+
+Emitted by omniclaude Stop hook when patterns were injected during a session.
+Consumed by the utilization scoring dispatch handler which calls a local LLM
+to score pattern utilization.
+
+Reference: OMN-5507
+"""
+
 TOPIC_CONTEXT_UTILIZATION_EVT_V1: str = "onex.evt.omniclaude.context-utilization.v1"
 """Canonical topic for context utilization events (OUTPUT cross-domain).
 
@@ -355,4 +367,5 @@ __all__ = [
     "TOPIC_SUFFIX_PATTERN_PROMOTED_V1",
     "TOPIC_SUFFIX_PATTERN_STORED_V1",
     "TOPIC_SUFFIX_TOOL_CONTENT_V1",
+    "TOPIC_UTILIZATION_SCORING_CMD_V1",
 ]
