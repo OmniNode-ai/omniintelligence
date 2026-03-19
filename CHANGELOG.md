@@ -1,3 +1,16 @@
+## v0.15.0 (2026-03-19)
+
+### Added
+- feat(audit): add NodeContextAuditAggregatorCompute node [OMN-5242] (#373)
+- feat(telemetry): add LLM call completion event for Cost Trends page [OMN-5184] (#371)
+
+### Changed
+- refactor: deduplicate topic constants to single source in omniintelligence [OMN-5254] (#372)
+- chore(deps): bump omnibase-core to 0.29.0, omnibase-spi to 0.18.0, omnibase-infra to 0.22.0
+
+### Fixed
+- fix: remove {env}. prefix from contract YAML and fix port defaults [OMN-5215] (#370)
+
 ## v0.13.2 (2026-03-13)
 
 ### Other Changes
