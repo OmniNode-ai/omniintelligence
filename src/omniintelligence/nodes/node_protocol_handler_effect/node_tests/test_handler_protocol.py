@@ -337,7 +337,7 @@ class TestProtocolHandlerRegistry:
         """get_handler returns the registered handler."""
         mock_handler = MockProtocolHandler()
         registry = ProtocolHandlerRegistry(
-            handlers={EnumProtocolType.HTTP_REST: mock_handler},  # type: ignore[dict-item]
+            handlers={EnumProtocolType.HTTP_REST: mock_handler},
         )
 
         result = registry.get_handler(EnumProtocolType.HTTP_REST)
@@ -360,8 +360,8 @@ class TestProtocolHandlerRegistry:
 
         registry = ProtocolHandlerRegistry(
             handlers={
-                EnumProtocolType.HTTP_REST: http_handler,  # type: ignore[dict-item]
-                EnumProtocolType.BOLT: bolt_handler,  # type: ignore[dict-item]
+                EnumProtocolType.HTTP_REST: http_handler,
+                EnumProtocolType.BOLT: bolt_handler,
             },
         )
 
@@ -382,12 +382,12 @@ class TestProtocolHandlerRegistry:
         async def failing_disconnect() -> None:
             raise RuntimeError("Disconnect failed")
 
-        http_handler.disconnect = failing_disconnect  # type: ignore[assignment]
+        http_handler.disconnect = failing_disconnect  # type: ignore[method-assign]
 
         registry = ProtocolHandlerRegistry(
             handlers={
-                EnumProtocolType.HTTP_REST: http_handler,  # type: ignore[dict-item]
-                EnumProtocolType.BOLT: bolt_handler,  # type: ignore[dict-item]
+                EnumProtocolType.HTTP_REST: http_handler,
+                EnumProtocolType.BOLT: bolt_handler,
             },
         )
 
@@ -501,4 +501,4 @@ class TestInputModelValidation:
         """Input model is frozen (immutable)."""
         input_data = make_input()
         with pytest.raises(ValidationError):
-            input_data.operation = "POST"  # type: ignore[misc]
+            input_data.operation = "POST"  # pyright: ignore[reportAttributeAccessIssue]  # frozen model raises ValidationError at runtime

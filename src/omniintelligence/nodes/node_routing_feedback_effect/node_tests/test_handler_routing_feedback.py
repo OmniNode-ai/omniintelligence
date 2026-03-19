@@ -688,7 +688,7 @@ class TestModelValidation:
         import pydantic
 
         with pytest.raises(pydantic.ValidationError):
-            sample_routing_feedback_event_produced.feedback_status = "skipped"  # type: ignore[misc]
+            sample_routing_feedback_event_produced.feedback_status = "skipped"  # pyright: ignore[reportAttributeAccessIssue]  # frozen model raises ValidationError at runtime
 
     def test_result_is_frozen(self) -> None:
         """ModelRoutingFeedbackResult is immutable (frozen)."""
@@ -705,7 +705,7 @@ class TestModelValidation:
         )
 
         with pytest.raises(pydantic.ValidationError):
-            result.feedback_status = "skipped"  # type: ignore[misc]
+            result.feedback_status = "skipped"  # pyright: ignore[reportAttributeAccessIssue]  # frozen model raises ValidationError at runtime
 
     def test_event_rejects_empty_session_id(self) -> None:
         """ModelRoutingFeedbackPayload rejects empty session_id."""

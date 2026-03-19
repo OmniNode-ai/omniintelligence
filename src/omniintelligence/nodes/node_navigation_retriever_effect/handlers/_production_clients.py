@@ -94,7 +94,8 @@ class ProductionNavigationVectorStore:
             }
             qdrant_distance = distance_map.get(distance, Distance.COSINE)
 
-            async with AsyncQdrantClient(url=self._qdrant_url) as client:
+            client = AsyncQdrantClient(url=self._qdrant_url)
+            try:
                 collections = await client.get_collections()
                 collection_names = [c.name for c in collections.collections]
 
@@ -115,6 +116,8 @@ class ProductionNavigationVectorStore:
                     logger.info("Created Qdrant collection '%s'", collection)
 
                 return True
+            finally:
+                await client.close()
 
         except Exception as exc:
             logger.warning(
@@ -146,7 +149,7 @@ class ProductionNavigationVectorStore:
 
             qdrant_filter: Filter | None = None
             if filter_must:
-                conditions = []
+                conditions: list[FieldCondition] = []
                 for condition in filter_must:
                     key = condition.get("key", "")
                     match_value = condition.get("match", {}).get("value")
@@ -158,24 +161,27 @@ class ProductionNavigationVectorStore:
                             )
                         )
                 if conditions:
-                    qdrant_filter = Filter(must=conditions)
+                    qdrant_filter = Filter(must=conditions)  # type: ignore[arg-type]  # qdrant stubs: list[FieldCondition] valid but typed as union
 
-            async with AsyncQdrantClient(url=self._qdrant_url) as client:
-                results = await client.search(
+            client = AsyncQdrantClient(url=self._qdrant_url)
+            try:
+                response = await client.query_points(
                     collection_name=collection,
-                    query_vector=query_vector,
+                    query=query_vector,
                     limit=top_k,
                     query_filter=qdrant_filter,
                     with_payload=True,
                 )
+            finally:
+                await client.close()
 
             return [
                 {
-                    "id": str(result.id),
-                    "score": result.score,
-                    "payload": result.payload or {},
+                    "id": str(point.id),
+                    "score": point.score,
+                    "payload": point.payload or {},
                 }
-                for result in results
+                for point in response.points
             ]
 
         except Exception as exc:

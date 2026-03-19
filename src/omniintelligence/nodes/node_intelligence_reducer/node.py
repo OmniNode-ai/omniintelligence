@@ -33,6 +33,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from omnibase_core.models.projectors.model_projection_intent import (
+    ModelProjectionIntent,
+)
 from omnibase_core.models.reducer.model_reducer_input import ModelReducerInput
 from omnibase_core.models.reducer.model_reducer_output import ModelReducerOutput
 from omnibase_core.nodes.node_reducer import NodeReducer
@@ -72,6 +75,7 @@ class NodeIntelligenceReducer(  # any-ok: dict invariance — callers pass deser
         self,
         input_data: ModelReducerInput[dict[str, Any]]
         | ModelReducerInputPatternLifecycle,
+        projection_intents: tuple[ModelProjectionIntent, ...] = (),
     ) -> ModelReducerOutput[ModelIntelligenceState]:
         """Process reducer input with FSM type routing.
 
@@ -90,7 +94,7 @@ class NodeIntelligenceReducer(  # any-ok: dict invariance — callers pass deser
             return handle_pattern_lifecycle_process(input_data)
 
         # All other FSM types use base class FSM execution
-        return await super().process(input_data)
+        return await super().process(input_data, projection_intents)
 
 
 __all__ = ["NodeIntelligenceReducer"]

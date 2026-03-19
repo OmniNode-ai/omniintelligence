@@ -300,7 +300,7 @@ class TestModelValidation:
     ) -> None:
         """ModelLlmRoutingDecisionEvent is immutable (frozen=True)."""
         with pytest.raises(ValidationError):
-            sample_routing_decision_event.session_id = "modified"  # type: ignore[misc]
+            sample_routing_decision_event.session_id = "modified"  # pyright: ignore[reportAttributeAccessIssue]  # frozen model raises ValidationError at runtime
 
     def test_event_model_defaults(self) -> None:
         """Minimal event construction uses correct defaults."""

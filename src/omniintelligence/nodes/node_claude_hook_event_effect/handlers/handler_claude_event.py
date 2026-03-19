@@ -455,7 +455,8 @@ def _extract_file_path_from_payload(
     for key in ("file_path", "path"):
         val = extra.get(key)
         if val and isinstance(val, str):
-            return val[:4096]  # Bound length for safety
+            result: str = val[:4096]  # Bound length for safety
+            return result
 
     # Nested tool_input dict (daemon format)
     tool_input = extra.get("tool_input")
@@ -463,7 +464,8 @@ def _extract_file_path_from_payload(
         for key in ("file_path", "path"):
             val = tool_input.get(key)
             if val and isinstance(val, str):
-                return val[:4096]
+                nested_result: str = val[:4096]
+                return nested_result
 
     return None
 
@@ -486,7 +488,8 @@ def _extract_tool_name_from_payload(
     for key in ("tool_name", "tool_name_raw", "tool"):
         val = extra.get(key)
         if val and isinstance(val, str):
-            return val[:255]  # Bound to column size
+            tool_result: str = val[:255]  # Bound to column size
+            return tool_result
     return None
 
 
