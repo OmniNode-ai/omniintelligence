@@ -610,27 +610,22 @@ class TestTrainCLI:
                 str(tmp_path),
                 "--batch-size",
                 "32",
-                "--manifest",
-                str(tmp_path / "manifest.yaml"),
             ]
         )
         assert exit_code == 0
 
-    def test_main_all_flag(self, tmp_path: pytest.TempPathFactory) -> None:
-        """CLI main() works with --all flag."""
+    def test_main_default_args(self, tmp_path: pytest.TempPathFactory) -> None:
+        """CLI main() works with minimal args."""
         from omniintelligence.rl.train import main
 
         exit_code = main(
             [
-                "--all",
                 "--updates",
                 "3",
                 "--episodes",
                 "30",
                 "--checkpoint-dir",
                 str(tmp_path),
-                "--manifest",
-                str(tmp_path / "manifest.yaml"),
             ]
         )
         assert exit_code == 0
