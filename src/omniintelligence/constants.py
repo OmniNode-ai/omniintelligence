@@ -349,7 +349,8 @@ Emitted by the promotion scheduler and bootstrap sweep script. Consumed by the
 promotion-check dispatch handler which triggers the auto-promote handler for all
 candidate and provisional patterns.
 
-Reference: OMN-5498, OMN-5502"""
+Reference: OMN-5498, OMN-5499, OMN-5502
+"""
 
 # =============================================================================
 # Exports
