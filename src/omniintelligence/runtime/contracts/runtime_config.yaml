@@ -83,7 +83,6 @@ defaults:
       dlq: null
     auto_offset_reset: "earliest"
     enable_auto_commit: false
-    session_timeout_ms: 30000
 
   handlers:
     - handler_type: kafka_producer
