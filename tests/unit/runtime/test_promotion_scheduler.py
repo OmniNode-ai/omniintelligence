@@ -72,8 +72,6 @@ async def test_promotion_scheduler_survives_publish_failure() -> None:
 @pytest.mark.unit
 async def test_promotion_scheduler_payload_structure() -> None:
     """Emitted payload should contain correlation_id and dry_run=False."""
-    import json
-
     mock_publisher = AsyncMock()
 
     task = asyncio.create_task(
@@ -91,6 +89,7 @@ async def test_promotion_scheduler_payload_structure() -> None:
 
     assert mock_publisher.publish.call_count >= 1
     call_kwargs = mock_publisher.publish.call_args_list[0].kwargs
-    payload = json.loads(call_kwargs["value"])
+    payload = call_kwargs["value"]
+    assert isinstance(payload, dict)
     assert "correlation_id" in payload
     assert payload["dry_run"] is False

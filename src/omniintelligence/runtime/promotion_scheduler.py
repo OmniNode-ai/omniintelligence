@@ -11,7 +11,6 @@ Reference: OMN-5499 - Add periodic promotion-check scheduler to plugin lifecycle
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 from uuid import uuid4
 
@@ -48,17 +47,15 @@ async def run_promotion_scheduler(
         await asyncio.sleep(interval_seconds)
 
         correlation_id = str(uuid4())
-        payload = json.dumps(
-            {
-                "correlation_id": correlation_id,
-                "dry_run": False,
-            }
-        ).encode()
+        payload: dict[str, object] = {
+            "correlation_id": correlation_id,
+            "dry_run": False,
+        }
 
         try:
             await publisher.publish(
                 topic=topic,
-                key=correlation_id.encode(),
+                key=correlation_id,
                 value=payload,
             )
             logger.debug(
