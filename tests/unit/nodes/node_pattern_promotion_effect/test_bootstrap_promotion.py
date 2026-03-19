@@ -45,8 +45,12 @@ def test_bootstrap_candidate_meets_criteria_with_zero_injections() -> None:
 
 @pytest.mark.unit
 def test_bootstrap_candidate_rejected_low_confidence() -> None:
-    """Low-confidence candidates should NOT be promotable via bootstrap."""
-    pattern = _make_pattern(confidence=0.6, recurrence_count=1, distinct_days_seen=1)
+    """Low-confidence candidates should NOT be promotable via bootstrap.
+
+    Isolates confidence check: recurrence and distinct_days are at threshold
+    so this test only fails if confidence < BOOTSTRAP_MIN_CONFIDENCE.
+    """
+    pattern = _make_pattern(confidence=0.6, recurrence_count=2, distinct_days_seen=2)
     assert meets_candidate_to_provisional_criteria(pattern) is False
 
 

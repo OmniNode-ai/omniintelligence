@@ -101,7 +101,10 @@ _VALID_RUN_RESULTS: frozenset[str] = frozenset({"success", "partial", "failure"}
 
 # Fetch candidate patterns eligible for CANDIDATE -> PROVISIONAL promotion
 # Requires: evidence_tier >= OBSERVED, sufficient metrics, not disabled
-SQL_FETCH_CANDIDATE_PATTERNS = """
+# Bootstrap path: unmeasured patterns with zero injection history and sufficient
+# confidence/recurrence/days. Injection count guard kept in lockstep with
+# meets_candidate_to_provisional_criteria() which gates on injection_count == 0.
+SQL_FETCH_CANDIDATE_PATTERNS = f"""
 SELECT lp.id, lp.pattern_signature, lp.status, lp.evidence_tier,
        lp.injection_count_rolling_20,
        lp.success_count_rolling_20,
@@ -117,7 +120,13 @@ WHERE lp.status = 'candidate'
   AND dpc.pattern_id IS NULL
   AND (
     lp.evidence_tier IN ('observed', 'measured', 'verified')
-    OR (lp.evidence_tier = 'unmeasured' AND lp.confidence >= 0.8 AND lp.recurrence_count >= 2 AND lp.distinct_days_seen >= 2)
+    OR (
+      lp.evidence_tier = 'unmeasured'
+      AND COALESCE(lp.injection_count_rolling_20, 0) = 0
+      AND lp.confidence >= {BOOTSTRAP_MIN_CONFIDENCE}
+      AND lp.recurrence_count >= {BOOTSTRAP_MIN_RECURRENCE}
+      AND lp.distinct_days_seen >= {BOOTSTRAP_MIN_DISTINCT_DAYS}
+    )
   )
 ORDER BY lp.created_at ASC
 LIMIT 500
