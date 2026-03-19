@@ -345,10 +345,11 @@ TOPIC_PROMOTION_CHECK_CMD_V1: str = (
 )
 """Canonical topic for periodic promotion-check commands (INPUT).
 
-Emitted by the promotion scheduler and bootstrap sweep script.
+Emitted by the promotion scheduler and bootstrap sweep script. Consumed by the
+promotion-check dispatch handler which triggers the auto-promote handler for all
+candidate and provisional patterns.
 
-Reference: OMN-5502
-"""
+Reference: OMN-5498, OMN-5502"""
 
 # =============================================================================
 # Exports

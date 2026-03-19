@@ -2035,6 +2035,22 @@ def create_intelligence_dispatch_engine(
     engine.register_handler(
         handler_id="intelligence-utilization-scoring-handler",
         handler=utilization_scoring_handler,
+
+    # --- Handler 10: promotion-check-requested (OMN-5498) ---
+    from omniintelligence.runtime.dispatch_handler_promotion_check import (
+        DISPATCH_ALIAS_PROMOTION_CHECK,
+        create_promotion_check_dispatch_handler,
+    )
+
+    promotion_check_handler = create_promotion_check_dispatch_handler(
+        repository=repository,
+        idempotency_store=idempotency_store,
+        kafka_producer=kafka_producer,
+        publish_topic=topics.get("lifecycle"),
+    )
+    engine.register_handler(
+        handler_id="intelligence-promotion-check-handler",
+        handler=promotion_check_handler,
         category=EnumMessageCategory.COMMAND,
         node_kind=EnumNodeKind.EFFECT,
         message_types=None,
@@ -2052,6 +2068,17 @@ def create_intelligence_dispatch_engine(
             ),
         )
     )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-promotion-check-route",
+            topic_pattern=DISPATCH_ALIAS_PROMOTION_CHECK,
+            message_category=EnumMessageCategory.COMMAND,
+            handler_id="intelligence-promotion-check-handler",
+            description=(
+                "Routes periodic promotion-check commands to the auto-promote "
+                "handler (OMN-5498). Evaluates all candidate and provisional "
+                "patterns against promotion gates."
+
 
     engine.freeze()
 
