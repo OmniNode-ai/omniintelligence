@@ -76,10 +76,19 @@ to enter the provisional stage relatively quickly for further evaluation.
 """
 BOOTSTRAP_MIN_CONFIDENCE: float = 0.8
 """Minimum confidence for bootstrap promotion (cold-start with zero injections)."""
-BOOTSTRAP_MIN_RECURRENCE: int = 2
-"""Minimum recurrence count for bootstrap promotion."""
-BOOTSTRAP_MIN_DISTINCT_DAYS: int = 2
-"""Minimum distinct days seen for bootstrap promotion."""
+BOOTSTRAP_MIN_RECURRENCE: int = 1
+"""Minimum recurrence count for bootstrap promotion.
+
+Lowered from 2 to 1: existing candidate patterns were initialized with
+recurrence_count=1 and distinct_days_seen=1.  The confidence gate (>= 0.8)
+is the primary quality signal for the bootstrap path; requiring recurrence >= 2
+blocked all 5,384 high-confidence candidates that had never been re-observed.
+"""
+BOOTSTRAP_MIN_DISTINCT_DAYS: int = 1
+"""Minimum distinct days seen for bootstrap promotion.
+
+Lowered from 2 to 1: same rationale as BOOTSTRAP_MIN_RECURRENCE above.
+"""
 MIN_INJECTION_COUNT_VALIDATED: int = 5
 """Minimum injections for PROVISIONAL -> VALIDATED promotion.
 
@@ -318,7 +327,7 @@ def _meets_bootstrap_criteria(pattern: PatternMetricsRow) -> bool:
     metric-based gate. This unsticks the 4,442 candidate patterns that have
     never been injected.
 
-    Bootstrap criteria: confidence >= 0.8, recurrence_count >= 2, distinct_days_seen >= 2.
+    Bootstrap criteria: confidence >= 0.8, recurrence_count >= 1, distinct_days_seen >= 1.
     """
     confidence = pattern.get("confidence", 0.0) or 0.0
     recurrence = pattern.get("recurrence_count", 0) or 0
