@@ -1,3 +1,19 @@
+## v0.16.0 (2026-03-20)
+
+### Added
+- feat(rl): policy-to-Bifrost config exporter with fidelity check [OMN-5567] (#405)
+- feat(rl): routing observation builder + offline training pipeline [OMN-5565] (#404)
+- feat: add periodic promotion-check scheduler to plugin lifecycle [OMN-5499] (#395)
+- feat(rl): add episode replay buffer and data sources [OMN-5562] (#403)
+- feat(rl): observation, action, and reward contracts [OMN-5561] (#400)
+- feat: add promotion-check dispatch handler [OMN-5498] (#392)
+- feat: add one-time bootstrap promotion sweep script [OMN-5502] (#396)
+- feat(rl): add reward shaping module with calibration gate [OMN-5564] (#399)
+- feat: wire utilization scoring handler into dispatch engine [OMN-5507] (#394)
+
+### Tests
+- test: add E2E verification script for pattern lifecycle pipeline [OMN-5509] (#397)
+
 ## v0.15.0 (2026-03-19)
 
 ### Added
