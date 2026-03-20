@@ -27,5 +27,6 @@ onex.commands.omniintelligence.tool-content.v1
 onex.commands.omniintelligence.pattern-learning.v1
 onex.commands.omniintelligence.compliance-evaluate.v1
 onex.events.omniintelligence.pattern-promoted.v1
+onex.events.omniintelligence.pattern-stored.v1
 onex.events.omniintelligence.pattern-lifecycle-transitioned.v1
 onex.dlq.omniintelligence.v1

@@ -34,6 +34,7 @@ from __future__ import annotations
 import contextlib
 import json
 import logging
+import os
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from typing import Any
@@ -111,6 +112,8 @@ DISPATCH_ALIAS_COMPLIANCE_EVALUATE = (
     "onex.commands.omniintelligence.compliance-evaluate.v1"
 )
 """Dispatch-compatible alias for compliance-evaluate canonical topic (OMN-2339)."""
+DISPATCH_ALIAS_PATTERN_STORED = "onex.events.omniintelligence.pattern-stored.v1"
+"""Dispatch-compatible alias for pattern-stored canonical topic (OMN-5611)."""
 DISPATCH_ALIAS_PATTERN_PROMOTED = "onex.events.omniintelligence.pattern-promoted.v1"
 """Dispatch-compatible alias for pattern-promoted canonical topic (OMN-2424)."""
 DISPATCH_ALIAS_PATTERN_LIFECYCLE_TRANSITIONED = (
@@ -1558,6 +1561,24 @@ def create_compliance_evaluate_dispatch_handler(
 # =============================================================================
 
 
+_PROJECTION_THROTTLE_SECONDS: float = 60.0
+"""Minimum interval between projection snapshots triggered by pattern-stored events.
+
+Pattern-stored events can arrive in rapid succession during bulk extraction.
+Publishing a full snapshot (querying all patterns) on every stored event
+would create unnecessary load. Lifecycle events (promoted, transitioned)
+bypass the throttle since they represent significant state changes.
+
+Configurable via INTELLIGENCE_PROJECTION_THROTTLE_SECONDS environment variable.
+"""
+try:
+    _PROJECTION_THROTTLE_SECONDS = float(
+        os.environ.get("INTELLIGENCE_PROJECTION_THROTTLE_SECONDS", "60.0")
+    )
+except ValueError:
+    _PROJECTION_THROTTLE_SECONDS = 60.0
+
+
 def create_pattern_projection_dispatch_handler(
     *,
     pattern_query_store: ProtocolPatternQueryStore,
@@ -1570,10 +1591,14 @@ def create_pattern_projection_dispatch_handler(
 ]:
     """Create a dispatch engine handler for pattern projection snapshot events.
 
-    Triggered by pattern-promoted and pattern-lifecycle-transitioned events.
-    On each trigger, queries the full
+    Triggered by pattern-promoted, pattern-lifecycle-transitioned, and
+    pattern-stored events. On each trigger, queries the full
     validated pattern set and publishes a materialized snapshot to the
     pattern-projection topic.
+
+    Pattern-stored triggers are throttled (default 60s) to avoid
+    excessive snapshots during bulk extraction. Lifecycle events
+    (promoted, transitioned) always trigger immediately.
 
     Args:
         pattern_query_store: REQUIRED store for querying all validated patterns.
@@ -1586,13 +1611,17 @@ def create_pattern_projection_dispatch_handler(
 
     Related:
         OMN-2424: Pattern projection snapshot publisher
+        OMN-5611: Wire pattern-stored events to projection handler
     """
+    import time as _time
+
+    _last_projection_time: list[float] = [0.0]  # mutable container for closure
 
     async def _handle(
         envelope: ModelEventEnvelope[object],
         context: ProtocolHandlerContext,
     ) -> str:
-        """Bridge handler: lifecycle event → publish_projection()."""
+        """Bridge handler: lifecycle event -> publish_projection()."""
         from omniintelligence.nodes.node_pattern_projection_effect.handlers import (
             publish_projection,
         )
@@ -1603,7 +1632,7 @@ def create_pattern_projection_dispatch_handler(
 
         payload = envelope.payload
 
-        # Extract optional fields for logging context — payload is any lifecycle event.
+        # Extract optional fields for logging context -- payload is any lifecycle event.
         # We don't parse the full model; we just need the routing fields for tracing.
         trigger_event_type = "unknown"
         triggering_pattern_id: UUID | None = None
@@ -1624,6 +1653,23 @@ def create_pattern_projection_dispatch_handler(
                 with contextlib.suppress(ValueError, AttributeError):
                     ctx_correlation_id = UUID(str(raw_corr))
 
+        # Throttle pattern-stored triggers to avoid excessive snapshots
+        # during bulk pattern extraction. Lifecycle events (promoted,
+        # transitioned) always trigger immediately.
+        is_stored_trigger = trigger_event_type == "PatternStored"
+        if is_stored_trigger:
+            now = _time.monotonic()
+            elapsed = now - _last_projection_time[0]
+            if elapsed < _PROJECTION_THROTTLE_SECONDS:
+                logger.debug(
+                    "Pattern-stored projection throttled "
+                    "(elapsed=%.1fs < throttle=%.1fs, correlation_id=%s)",
+                    elapsed,
+                    _PROJECTION_THROTTLE_SECONDS,
+                    ctx_correlation_id,
+                )
+                return "ok"
+
         logger.info(
             "Dispatching pattern-projection via MessageDispatchEngine "
             "(trigger=%s, pattern_id=%s, correlation_id=%s)",
@@ -1640,6 +1686,8 @@ def create_pattern_projection_dispatch_handler(
             trigger_event_type=trigger_event_type,
             triggering_pattern_id=triggering_pattern_id,
         )
+
+        _last_projection_time[0] = _time.monotonic()
 
         logger.info(
             "Pattern projection dispatch complete (trigger=%s, correlation_id=%s)",
@@ -1943,6 +1991,19 @@ def create_intelligence_dispatch_engine(
                 description=(
                     "Routes pattern-lifecycle-transitioned events to projection handler "
                     "(OMN-2424). Triggers a full validated-pattern snapshot publish."
+                ),
+            )
+        )
+        engine.register_route(
+            ModelDispatchRoute(
+                route_id="intelligence-pattern-stored-projection-route",
+                topic_pattern=DISPATCH_ALIAS_PATTERN_STORED,
+                message_category=EnumMessageCategory.EVENT,
+                handler_id="intelligence-pattern-projection-handler",
+                description=(
+                    "Routes pattern-stored events to projection handler (OMN-5611). "
+                    "Ensures omnidash receives projection snapshots when new patterns "
+                    "are stored, not only on promotion/lifecycle transitions."
                 ),
             )
         )
@@ -2302,6 +2363,7 @@ __all__ = [
     "DISPATCH_ALIAS_PATTERN_LIFECYCLE",
     "DISPATCH_ALIAS_PATTERN_LIFECYCLE_TRANSITIONED",
     "DISPATCH_ALIAS_PATTERN_PROMOTED",
+    "DISPATCH_ALIAS_PATTERN_STORED",
     "DISPATCH_ALIAS_SESSION_OUTCOME",
     "DISPATCH_ALIAS_TOOL_CONTENT",
     "create_claude_hook_dispatch_handler",

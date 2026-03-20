@@ -137,6 +137,7 @@ event_bus:
     - "onex.evt.omniintelligence.pattern-promoted.v1"
     - "onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1"
     - "onex.evt.omniintelligence.intent-pattern-promoted.v1"
+    - "onex.evt.omniintelligence.pattern-stored.v1"
 
   publish_topics:
     - "onex.evt.omniintelligence.pattern-projection.v1"
@@ -153,6 +154,10 @@ event_bus:
       description: "Intent-derived pattern promoted to learned-patterns corpus. Triggers projection rebuild
         to refresh downstream pattern caches."
       content_type: "application/json"
+    "onex.evt.omniintelligence.pattern-stored.v1":
+      schema_ref: "dict"
+      description: "Pattern stored event (OMN-5611). Triggers projection rebuild so omnidash receives
+        updated pattern snapshots when new patterns are stored, not only on promotion."
 
   publish_topic_metadata:
     "onex.evt.omniintelligence.pattern-projection.v1":

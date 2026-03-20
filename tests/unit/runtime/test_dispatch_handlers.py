@@ -428,33 +428,33 @@ class TestCreateIntelligenceDispatchEngine:
         )
         assert engine.is_frozen
 
-    def test_engine_has_eight_handlers(
+    def test_engine_has_expected_handlers(
         self,
         mock_repository: MagicMock,
         mock_idempotency_store: MagicMock,
         mock_intent_classifier: MagicMock,
     ) -> None:
-        """All 8 intelligence domain handlers must be registered (OMN-2384 adds crawl-scheduler handlers; OMN-2430 adds WatchdogEffect — no new dispatch handlers; pattern-projection excluded without pattern_query_store)."""
+        """All intelligence domain handlers must be registered (pattern-projection excluded without pattern_query_store; OMN-5498 adds promotion-check; OMN-5507 adds utilization-scoring)."""
         engine = create_intelligence_dispatch_engine(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             intent_classifier=mock_intent_classifier,
         )
-        assert engine.handler_count == 8
+        assert engine.handler_count == 10
 
-    def test_engine_has_ten_routes(
+    def test_engine_has_expected_routes(
         self,
         mock_repository: MagicMock,
         mock_idempotency_store: MagicMock,
         mock_intent_classifier: MagicMock,
     ) -> None:
-        """All 10 intelligence domain routes must be registered (OMN-2384 adds crawl-scheduler routes; OMN-2440 removes stale pattern-deprecated route; OMN-2430 adds WatchdogEffect — no new dispatch routes; pattern-projection excluded without pattern_query_store)."""
+        """All intelligence domain routes must be registered (pattern-projection excluded without pattern_query_store; OMN-5498 adds promotion-check; OMN-5507 adds utilization-scoring)."""
         engine = create_intelligence_dispatch_engine(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             intent_classifier=mock_intent_classifier,
         )
-        assert engine.route_count == 10
+        assert engine.route_count == 12
 
 
 # =============================================================================
