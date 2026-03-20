@@ -96,6 +96,7 @@ Related:
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
 import time
@@ -991,6 +992,8 @@ class PluginIntelligence:
             kafka_publisher = None
             if isinstance(config.event_bus, ProtocolEventBusPublish):
                 kafka_publisher = AdapterKafkaPublisher(config.event_bus)
+            # Store reference for promotion scheduler (OMN-5499)
+            self._kafka_publisher_ref = kafka_publisher
 
             # Read publish topics from contract.yaml declarations
             publish_topics = collect_publish_topics_for_dispatch()
@@ -1200,6 +1203,26 @@ class PluginIntelligence:
 
             self._unsubscribe_callbacks = unsubscribe_callbacks
 
+            # Start promotion scheduler as background task (OMN-5499)
+            self._promotion_scheduler_task = None
+            if self._kafka_publisher_ref is not None:
+                import asyncio
+
+                from omniintelligence.runtime.promotion_scheduler import (
+                    run_promotion_scheduler,
+                )
+
+                self._promotion_scheduler_task = asyncio.create_task(
+                    run_promotion_scheduler(
+                        publisher=self._kafka_publisher_ref,
+                    )
+                )
+                logger.info(
+                    "Promotion scheduler started as background task "
+                    "(correlation_id=%s)",
+                    correlation_id,
+                )
+
             duration = time.time() - start_time
             logger.info(
                 "Intelligence consumers started: %d topics "
@@ -1353,6 +1376,20 @@ class PluginIntelligence:
                 "Introspection shutdown skipped: wire_dispatchers was never "
                 "called or did not capture event_bus "
                 "(correlation_id=%s)",
+                correlation_id,
+            )
+
+        # Cancel promotion scheduler (OMN-5499)
+        if (
+            hasattr(self, "_promotion_scheduler_task")
+            and self._promotion_scheduler_task is not None
+        ):
+            self._promotion_scheduler_task.cancel()
+            with contextlib.suppress(Exception):
+                await self._promotion_scheduler_task
+            self._promotion_scheduler_task = None
+            logger.debug(
+                "Promotion scheduler cancelled (correlation_id=%s)",
                 correlation_id,
             )
 
