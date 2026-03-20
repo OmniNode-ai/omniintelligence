@@ -1,0 +1,28 @@
+---
+# RL Training Manifest
+# Tracks per-surface training state for the Learned Decision Optimization Platform.
+# Updated automatically after each successful training run.
+# Ticket: OMN-5576
+
+surfaces:
+  routing:
+    surface: routing
+    episode_count: 0
+    policy_version: 0
+    maturity_class: production_candidate
+    last_trained_at: null
+    checkpoint_path: null
+  pipeline:
+    surface: pipeline
+    episode_count: 0
+    policy_version: 0
+    maturity_class: experimental
+    last_trained_at: null
+    checkpoint_path: null
+  team:
+    surface: team
+    episode_count: 0
+    policy_version: 0
+    maturity_class: exploratory
+    last_trained_at: null
+    checkpoint_path: null

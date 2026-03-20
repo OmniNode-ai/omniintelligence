@@ -115,6 +115,8 @@ ALLOWED_ROOT_DIRECTORIES: frozenset[str] = frozenset(
         "bin",
         # ML/AI label stores (versioned, PR-reviewed — e.g. intent_classes_v1.yaml)
         "labels",
+        # Configuration files (e.g. RL training manifests)
+        "configs",
         # Golden path fixture declarations (OMN-3386)
         "_golden_path_validate",
         # Hidden directories
