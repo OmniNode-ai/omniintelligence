@@ -340,6 +340,16 @@ Consumed by omnidash for the Context Effectiveness dashboard.
 Reference: OMN-5506
 """
 
+TOPIC_PROMOTION_CHECK_CMD_V1: str = (
+    "onex.cmd.omniintelligence.promotion-check-requested.v1"
+)
+"""Canonical topic for periodic promotion-check commands (INPUT).
+
+Emitted by the promotion scheduler and bootstrap sweep script.
+
+Reference: OMN-5502
+"""
+
 # =============================================================================
 # Exports
 # =============================================================================
@@ -355,6 +365,7 @@ __all__ = [
     "TOPIC_LLM_ROUTING_DECISION_PROCESSED",
     "TOPIC_PATTERN_LIFECYCLE_CMD_V1",
     "TOPIC_PLAN_REVIEW_STRATEGY_RUN_COMPLETED_V1",
+    "TOPIC_PROMOTION_CHECK_CMD_V1",
     "TOPIC_RATIONALE_MISMATCH_EVT_V1",
     "TOPIC_ROUTING_FEEDBACK_PROCESSED",
     "TOPIC_RUN_EVALUATED_V1",
