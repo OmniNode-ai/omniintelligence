@@ -117,9 +117,9 @@ def parse_raw(  # stub-ok: ai-reviewer-parse-raw-deferred
         **kwargs: Tool-specific parameters.
 
     Returns:
-        Empty list (stub — not implemented).
+        Empty list (intentional no-op for unonboarded repos).
     """
-    # Stub: no-op
+    # stub-ok: intentional no-op adapter for repos not yet onboarded to AI review
     return []
 
 
