@@ -34,7 +34,10 @@ from omnibase_core.protocols.handler.protocol_handler_context import (
     ProtocolHandlerContext,
 )
 
-from omniintelligence.constants import TOPIC_CODE_ENTITIES_EXTRACTED_V1
+from omniintelligence.constants import (
+    TOPIC_CODE_ENTITIES_EXTRACTED_V1,
+    TOPIC_CODE_ENTITIES_PERSISTED_V1,
+)
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
 logger = logging.getLogger(__name__)
@@ -54,6 +57,7 @@ DispatchHandler = Callable[
 def create_code_persist_dispatch_handler(
     *,
     repository: Any | None = None,
+    publisher: Any | None = None,
     correlation_id: UUID | None = None,
 ) -> DispatchHandler:
     """Create a dispatch engine handler for code-entities-extracted events.
@@ -216,6 +220,55 @@ def create_code_persist_dispatch_handler(
                 extracted_event.repo_name,
                 ctx_correlation_id,
             )
+
+        # Emit persisted event for downstream enrichment (Part 2: OMN-5677)
+        if publisher is not None and entity_qualified_names:
+            from datetime import UTC, datetime
+
+            from omniintelligence.nodes.node_ast_extraction_compute.models.model_code_entities_persisted_event import (
+                ModelCodeEntitiesPersistedEvent,
+            )
+
+            # Collect entity IDs by re-querying (they were just upserted)
+            entity_ids: list[str] = []
+            for qn in entity_qualified_names:
+                eid = await repository.get_entity_id_by_qualified_name(
+                    qn, extracted_event.repo_name
+                )
+                if eid:
+                    entity_ids.append(eid)
+
+            if entity_ids:
+                persisted_event = ModelCodeEntitiesPersistedEvent(
+                    event_id=str(uuid4()),
+                    crawl_id=extracted_event.crawl_id,
+                    repo_name=extracted_event.repo_name,
+                    file_path=extracted_event.file_path,
+                    file_hash=extracted_event.file_hash,
+                    entity_ids=entity_ids,
+                    persisted_count=len(entity_ids),
+                    timestamp=datetime.now(UTC),
+                )
+                try:
+                    await publisher.publish(
+                        TOPIC_CODE_ENTITIES_PERSISTED_V1,
+                        persisted_event.model_dump(mode="json"),
+                    )
+                    logger.info(
+                        "Emitted code-entities-persisted.v1 "
+                        "(file=%s, entities=%d, correlation_id=%s)",
+                        extracted_event.file_path,
+                        len(entity_ids),
+                        ctx_correlation_id,
+                    )
+                except Exception:
+                    logger.warning(
+                        "Failed to emit code-entities-persisted.v1 "
+                        "(file=%s, correlation_id=%s) — enrichment will be deferred",
+                        extracted_event.file_path,
+                        ctx_correlation_id,
+                        exc_info=True,
+                    )
 
         logger.info(
             "Code persistence complete (file=%s, entities_upserted=%d, "

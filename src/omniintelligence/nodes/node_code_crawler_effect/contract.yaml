@@ -33,6 +33,17 @@ event_bus:
     - "onex.evt.omniintelligence.code-file-discovered.v1"
 
 config:
+  query_engine:
+    enabled: true
+    indexes:
+      - type: exact_path  # O(1) lookup by full path
+      - type: extension  # O(1) lookup by file extension
+      - type: directory  # O(1) lookup for directory children
+      - type: name  # name-based similarity search
+    performance_targets:
+      lookup_ms: 5  # max lookup time
+      index_rebuild_ms: 100  # max rebuild time for 10K files
+      max_memory_mb: 20  # memory budget
   repos:
     - name: omniintelligence
       enabled: true
@@ -55,7 +66,7 @@ config:
       include: ["src/**/*.py"]
       exclude: ["**/__pycache__/**"]
     - name: omnidash
-      enabled: false
+      enabled: true
       path: /Volumes/PRO-G40/Code/omni_home/omnidash
       include: ["server/**/*.ts", "server/**/*.js"]
       exclude: ["node_modules/**", "dist/**", "*.d.ts"]

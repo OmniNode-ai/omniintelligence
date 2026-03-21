@@ -52,3 +52,11 @@ class ModelCodeEntity(BaseModel):
     docstring: str | None = Field(default=None, description="Docstring of the entity")
     signature: str | None = Field(default=None, description="Function signature string")
     file_hash: str = Field(description="SHA256 hash of the source file")
+    source_language: str = Field(
+        default="python",
+        description="Source language: python, typescript, javascript, etc.",
+    )
+    confidence: float = Field(
+        default=1.0,
+        description="Extraction confidence: 1.0 for AST, 0.7 for regex",
+    )

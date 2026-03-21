@@ -42,6 +42,9 @@ from omniintelligence.constants import (
     TOPIC_CODE_ENTITIES_EXTRACTED_V1,
     TOPIC_CODE_FILE_DISCOVERED_V1,
 )
+from omniintelligence.nodes.node_ast_extraction_compute.models.model_code_entity import (
+    ModelCodeEntity,
+)
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
 logger = logging.getLogger(__name__)
@@ -64,6 +67,7 @@ def create_code_extract_dispatch_handler(
     kafka_publisher: Any | None = None,
     publish_topic: str | None = None,
     correlation_id: UUID | None = None,
+    language_extractors_config: dict[str, Any] | None = None,
 ) -> DispatchHandler:
     """Create a dispatch engine handler for code-file-discovered events.
 
@@ -168,49 +172,89 @@ def create_code_extract_dispatch_handler(
             ctx_correlation_id,
         )
 
-        # Run AST extraction
-        extract_input = AstExtractInput(
-            source_content=source_content,
-            source_path=discovered_event.file_path,
-            source_repo=discovered_event.repo_name,
-            file_hash=discovered_event.file_hash,
-            crawl_id=discovered_event.crawl_id,
-            event_id=str(uuid.uuid4()),
-        )
-        extraction_result = handle_ast_extract(extract_input)
-
-        # Run relationship detection on top of extracted entities
-        # (adds implements + calls relationships)
-        additional_relationships = detect_relationships(
-            source_code=source_content,
-            file_path=discovered_event.file_path,
-            repo_name=discovered_event.repo_name,
-            entities=list(extraction_result.entities),
+        # Dispatch by file extension (OMN-5680)
+        file_ext = Path(discovered_event.file_path).suffix.lstrip(".")
+        extraction_strategy = _get_extraction_strategy(
+            file_ext, language_extractors_config
         )
 
-        # Merge relationships: extraction_result already has inherits/imports/defines
-        all_relationships = (
-            list(extraction_result.relationships) + additional_relationships
-        )
-
-        # Build final event with merged relationships
         from omniintelligence.nodes.node_ast_extraction_compute.models.model_code_entities_extracted_event import (
             ModelCodeEntitiesExtractedEvent,
         )
 
-        entities_extracted_event = ModelCodeEntitiesExtractedEvent(
-            event_id=str(uuid.uuid4()),
-            crawl_id=discovered_event.crawl_id,
-            repo_name=discovered_event.repo_name,
-            file_path=discovered_event.file_path,
-            file_hash=discovered_event.file_hash,
-            entities=list(extraction_result.entities),
-            relationships=all_relationships,
-            parse_status=extraction_result.parse_status,
-            parse_error=extraction_result.parse_error,
-            extractor_version=extraction_result.extractor_version,
-            timestamp=datetime.now(tz=timezone.utc),
-        )
+        if extraction_strategy == "regex":
+            # Non-Python: use multilang regex extractor (OMN-5679/5680)
+            from omniintelligence.nodes.node_ast_extraction_compute.handlers.handler_multilang_extract import (
+                MultiLangExtractor,
+            )
+
+            extractor = MultiLangExtractor(language_extractors_config or {})
+            entity_dicts = extractor.extract(
+                source_content=source_content,
+                source_path=discovered_event.file_path,
+                source_repo=discovered_event.repo_name,
+                file_hash=discovered_event.file_hash,
+                extension=file_ext,
+            )
+
+            entities_extracted_event = ModelCodeEntitiesExtractedEvent(
+                event_id=str(uuid.uuid4()),
+                crawl_id=discovered_event.crawl_id,
+                repo_name=discovered_event.repo_name,
+                file_path=discovered_event.file_path,
+                file_hash=discovered_event.file_hash,
+                entities=[ModelCodeEntity(**d) for d in entity_dicts],
+                relationships=[],
+                parse_status="ok",
+                parse_error=None,
+                extractor_version="multilang-regex-1.0.0",
+                timestamp=datetime.now(tz=timezone.utc),
+            )
+        elif extraction_strategy == "ast":
+            # Python: use AST extraction (Part 1)
+            extract_input = AstExtractInput(
+                source_content=source_content,
+                source_path=discovered_event.file_path,
+                source_repo=discovered_event.repo_name,
+                file_hash=discovered_event.file_hash,
+                crawl_id=discovered_event.crawl_id,
+                event_id=str(uuid.uuid4()),
+            )
+            extraction_result = handle_ast_extract(extract_input)
+
+            additional_relationships = detect_relationships(
+                source_code=source_content,
+                file_path=discovered_event.file_path,
+                repo_name=discovered_event.repo_name,
+                entities=list(extraction_result.entities),
+            )
+            all_relationships = (
+                list(extraction_result.relationships) + additional_relationships
+            )
+
+            entities_extracted_event = ModelCodeEntitiesExtractedEvent(
+                event_id=str(uuid.uuid4()),
+                crawl_id=discovered_event.crawl_id,
+                repo_name=discovered_event.repo_name,
+                file_path=discovered_event.file_path,
+                file_hash=discovered_event.file_hash,
+                entities=list(extraction_result.entities),
+                relationships=all_relationships,
+                parse_status=extraction_result.parse_status,
+                parse_error=extraction_result.parse_error,
+                extractor_version=extraction_result.extractor_version,
+                timestamp=datetime.now(tz=timezone.utc),
+            )
+        else:
+            logger.warning(
+                "Unknown extraction strategy %r for extension .%s, skipping "
+                "(file=%s, correlation_id=%s)",
+                extraction_strategy,
+                file_ext,
+                discovered_event.file_path,
+                ctx_correlation_id,
+            )
+            return "ok"
 
         # Publish to Kafka if publisher available
         if kafka_publisher is not None and publish_topic:
@@ -248,6 +292,38 @@ def create_code_extract_dispatch_handler(
 # =============================================================================
 # Helpers
 # =============================================================================
+
+
+def _get_extraction_strategy(
+    file_ext: str,
+    language_extractors_config: dict[str, Any] | None,
+) -> str:
+    """Determine extraction strategy from file extension and contract config.
+
+    Returns "ast" for Python, "regex" for configured non-Python languages,
+    or "skip" for unknown extensions.
+    """
+    ext_to_lang = {
+        "py": "python",
+        "ts": "typescript",
+        "tsx": "typescript",
+        "js": "javascript",
+        "jsx": "javascript",
+        "go": "go",
+    }
+    lang = ext_to_lang.get(file_ext)
+    if lang is None:
+        return "skip"
+
+    if lang == "python":
+        return "ast"
+
+    if language_extractors_config:
+        lang_cfg = language_extractors_config.get(lang, {})
+        if isinstance(lang_cfg, dict) and lang_cfg.get("enabled", False):
+            return lang_cfg.get("strategy", "regex")
+
+    return "skip"
 
 
 def _load_repo_paths() -> dict[str, str]:

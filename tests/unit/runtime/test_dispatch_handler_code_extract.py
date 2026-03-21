@@ -71,7 +71,7 @@ async def test_extract_publishes_entities() -> None:
         (src_dir / "models.py").write_text(SAMPLE_PYTHON)
 
         handler = create_code_extract_dispatch_handler(
-            kafka_producer=kafka_producer,
+            kafka_publisher=kafka_producer,
             publish_topic="test.code-entities-extracted.v1",
             repo_paths={"test_repo": tmpdir},
         )
@@ -108,7 +108,7 @@ async def test_skips_non_python_files() -> None:
     kafka_producer = AsyncMock()
 
     handler = create_code_extract_dispatch_handler(
-        kafka_producer=kafka_producer,
+        kafka_publisher=kafka_producer,
         repo_paths={"test_repo": "/tmp"},
     )
 
