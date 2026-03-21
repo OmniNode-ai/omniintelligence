@@ -42,6 +42,9 @@ from omniintelligence.constants import (
     TOPIC_CODE_ENTITIES_EXTRACTED_V1,
     TOPIC_CODE_FILE_DISCOVERED_V1,
 )
+from omniintelligence.nodes.node_ast_extraction_compute.models.model_code_entity import (
+    ModelCodeEntity,
+)
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
 logger = logging.getLogger(__name__)
@@ -200,7 +203,7 @@ def create_code_extract_dispatch_handler(
                 repo_name=discovered_event.repo_name,
                 file_path=discovered_event.file_path,
                 file_hash=discovered_event.file_hash,
-                entities=entity_dicts,
+                entities=[ModelCodeEntity(**d) for d in entity_dicts],
                 relationships=[],
                 parse_status="ok",
                 parse_error=None,
