@@ -66,7 +66,7 @@ config:
       include: ["src/**/*.py"]
       exclude: ["**/__pycache__/**"]
     - name: omnidash
-      enabled: false
+      enabled: true
       path: /Volumes/PRO-G40/Code/omni_home/omnidash
       include: ["server/**/*.ts", "server/**/*.js"]
       exclude: ["node_modules/**", "dist/**", "*.d.ts"]
