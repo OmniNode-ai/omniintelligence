@@ -46,6 +46,7 @@ _INTELLIGENCE_EFFECT_NODE_PACKAGES: list[str] = [
     "omniintelligence.nodes.node_pattern_lifecycle_effect",
     "omniintelligence.nodes.node_pattern_projection_effect",
     "omniintelligence.nodes.node_pattern_storage_effect",
+    "omniintelligence.nodes.node_code_crawler_effect",
 ]
 
 

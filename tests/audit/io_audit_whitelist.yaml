@@ -127,6 +127,23 @@ files:
       - "net-client"
       - "env-access"
 
+  # Code extract dispatch handler (OMN-5662) — reads source file content from
+  # disk for AST extraction. File I/O is required to transform discovered files
+  # into extracted entities.
+  - path: "src/omniintelligence/runtime/dispatch_handler_code_extract.py"
+    reason: "Dispatch bridge handler reads Python source files from disk to perform AST extraction; file
+      I/O is required for the crawl -> extract pipeline (OMN-5662)"
+    allowed_rules:
+      - "file-io"
+
+  # Code crawl dispatch handler (OMN-5662) — reads contract YAML via
+  # importlib.resources (package resource, audit-compliant) for repo config.
+  - path: "src/omniintelligence/runtime/dispatch_handler_code_crawl.py"
+    reason: "Dispatch bridge handler reads contract YAML via importlib.resources for repo configuration;
+      package resource reads are audit-compliant (OMN-5662)"
+    allowed_rules:
+      - "file-io"
+
   # Code entity repository (OMN-5661) — asyncpg persistence adapter co-located
   # with node_ast_extraction_compute. Uses asyncpg pool injected at construction
   # time; node handler itself remains pure compute. DB access is the intended
