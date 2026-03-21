@@ -82,6 +82,75 @@ configuration:
       enabled: true
       trust_tier: weak
       inject_into_context: false
+  deterministic_classification:
+    enabled: true
+    scoring_weights:
+      domain: 0.30
+      operation: 0.30
+      keyword: 0.25
+      feature: 0.15
+    classifications:
+      effect:
+        keywords: [database, api, http, kafka, redis, file, send, publish, persist, fetch]
+        domains: [database, api, messaging, storage, cache]
+        operations: [create, read, update, delete, send, receive, publish, subscribe]
+        features: [connection_pooling, retry_logic, circuit_breaker, rate_limiting]
+      compute:
+        keywords: [transform, convert, parse, format, encode, calculate, compute, hash, validate]
+        domains: [ml, general]
+        operations: [transform, calculate, compute, parse, validate, process]
+        features: [validation, caching]
+      reducer:
+        keywords: [aggregate, reduce, collect, accumulate, group, summarize, merge, state, metrics]
+        domains: [monitoring]
+        operations: [aggregate, reduce, collect, group, summarize, accumulate]
+        features: [metrics, logging]
+      orchestrator:
+        keywords: [orchestrate, coordinate, workflow, pipeline, dispatch, schedule, route]
+        domains: [workflow]
+        operations: [orchestrate, coordinate, schedule, dispatch, route]
+        features: [parallel_execution, retry_orchestration, saga_pattern]
+    min_confidence: 0.4
+  quality_scoring:
+    enabled: true
+    weights:
+      complexity: 0.20
+      maintainability: 0.20
+      documentation: 0.15
+      temporal_relevance: 0.15
+      pattern_compliance: 0.15
+      architectural_compliance: 0.15
+    complexity_thresholds:
+      cyclomatic_low: 5
+      cyclomatic_medium: 10
+      cyclomatic_high: 15
+      cognitive_low: 7
+      cognitive_medium: 15
+      max_lines_function: 50
+      max_lines_class: 300
+    code_smells:
+      - pattern: "def\\s+\\w+\\([^)]{50,}\\):"
+        name: long_parameter_list
+        penalty: -0.6
+      - pattern: "global\\s+\\w+"
+        name: global_variable
+        penalty: -0.8
+      - pattern: "eval\\("
+        name: eval_usage
+        penalty: -0.9
+      - pattern: "import\\s+\\*"
+        name: wildcard_import
+        penalty: -0.4
+    good_patterns:
+      - pattern: "def\\s+\\w+\\(.*?\\)\\s*->\\s*\\w+:"
+        name: type_annotations
+        bonus: 0.8
+      - pattern: "class\\s+\\w+\\(.*Protocol.*\\):"
+        name: protocol_interface
+        bonus: 0.9
+      - pattern: '""".*?"""'
+        name: docstring_present
+        bonus: 0.7
 handler_routing:
   routing_strategy: "operation_match"
   handlers:
