@@ -2147,6 +2147,107 @@ def create_intelligence_dispatch_engine(
         )
     )
 
+    # --- Handler 12: code-crawl-requested (OMN-5662) ---
+    from omniintelligence.constants import (
+        TOPIC_CODE_CRAWL_REQUESTED_V1,
+        TOPIC_CODE_ENTITIES_EXTRACTED_V1,
+        TOPIC_CODE_FILE_DISCOVERED_V1,
+    )
+    from omniintelligence.runtime.contract_topics import (
+        canonical_topic_to_dispatch_alias,
+    )
+    from omniintelligence.runtime.dispatch_handler_code_crawl import (
+        create_code_crawl_dispatch_handler,
+    )
+
+    code_crawl_handler = create_code_crawl_dispatch_handler(
+        kafka_publisher=kafka_producer,
+        publish_topic=topics.get("code_file_discovered"),
+    )
+    engine.register_handler(
+        handler_id="intelligence-code-crawl-handler",
+        handler=code_crawl_handler,
+        category=EnumMessageCategory.COMMAND,
+        node_kind=EnumNodeKind.EFFECT,
+        message_types=None,
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-code-crawl-route",
+            topic_pattern=canonical_topic_to_dispatch_alias(
+                TOPIC_CODE_CRAWL_REQUESTED_V1
+            ),
+            message_category=EnumMessageCategory.COMMAND,
+            handler_id="intelligence-code-crawl-handler",
+            description=(
+                "Routes code-crawl-requested commands to the OnexTree generator "
+                "(OMN-5662). Scans configured repos and emits "
+                "code-file-discovered.v1 per file."
+            ),
+        )
+    )
+
+    # --- Handler 13: code-file-discovered / extract (OMN-5662) ---
+    from omniintelligence.runtime.dispatch_handler_code_extract import (
+        create_code_extract_dispatch_handler,
+    )
+
+    code_extract_handler = create_code_extract_dispatch_handler(
+        kafka_publisher=kafka_producer,
+        publish_topic=topics.get("code_entities_extracted"),
+    )
+    engine.register_handler(
+        handler_id="intelligence-code-extract-handler",
+        handler=code_extract_handler,
+        category=EnumMessageCategory.EVENT,
+        node_kind=EnumNodeKind.EFFECT,
+        message_types=None,
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-code-extract-route",
+            topic_pattern=canonical_topic_to_dispatch_alias(
+                TOPIC_CODE_FILE_DISCOVERED_V1
+            ),
+            message_category=EnumMessageCategory.EVENT,
+            handler_id="intelligence-code-extract-handler",
+            description=(
+                "Routes code-file-discovered events to AST extraction + "
+                "relationship detection (OMN-5662). Emits "
+                "code-entities-extracted.v1."
+            ),
+        )
+    )
+
+    # --- Handler 14: code-entities-extracted / persist (OMN-5662) ---
+    from omniintelligence.runtime.dispatch_handler_code_persist import (
+        create_code_persist_dispatch_handler,
+    )
+
+    code_persist_handler = create_code_persist_dispatch_handler()
+    engine.register_handler(
+        handler_id="intelligence-code-persist-handler",
+        handler=code_persist_handler,
+        category=EnumMessageCategory.EVENT,
+        node_kind=EnumNodeKind.EFFECT,
+        message_types=None,
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-code-persist-route",
+            topic_pattern=canonical_topic_to_dispatch_alias(
+                TOPIC_CODE_ENTITIES_EXTRACTED_V1
+            ),
+            message_category=EnumMessageCategory.EVENT,
+            handler_id="intelligence-code-persist-handler",
+            description=(
+                "Routes code-entities-extracted events to Postgres persistence "
+                "(OMN-5662). Upserts entities and relationships, runs zombie "
+                "cleanup reconciliation on successful parses."
+            ),
+        )
+    )
+
     engine.freeze()
 
     if llm_client is None:

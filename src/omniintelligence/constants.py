@@ -353,11 +353,47 @@ Reference: OMN-5498, OMN-5499, OMN-5502
 """
 
 # =============================================================================
+# Code Extraction Pipeline Topics (OMN-5662)
+# =============================================================================
+
+TOPIC_CODE_CRAWL_REQUESTED_V1: str = "onex.cmd.omniintelligence.code-crawl-requested.v1"
+"""Canonical topic for code crawl request commands (INPUT).
+
+Triggers the code crawler to scan configured repositories for Python files
+and emit code-file-discovered.v1 per file found.
+
+Reference: OMN-5662, OMN-5657 (epic)
+"""
+
+TOPIC_CODE_FILE_DISCOVERED_V1: str = "onex.evt.omniintelligence.code-file-discovered.v1"
+"""Canonical topic for code file discovery events (OUTPUT/INPUT).
+
+Emitted by the code crawl handler for each Python file found. Consumed by the
+code extract handler which runs AST extraction and relationship detection.
+
+Reference: OMN-5662, OMN-5658
+"""
+
+TOPIC_CODE_ENTITIES_EXTRACTED_V1: str = (
+    "onex.evt.omniintelligence.code-entities-extracted.v1"
+)
+"""Canonical topic for code entities extracted events (OUTPUT/INPUT).
+
+Emitted by the code extract handler after AST parsing. Consumed by the code
+persist handler which upserts entities/relationships to Postgres.
+
+Reference: OMN-5662, OMN-5659
+"""
+
+# =============================================================================
 # Exports
 # =============================================================================
 
 __all__ = [
     "MAX_PATTERN_MATCH_RESULTS",
+    "TOPIC_CODE_CRAWL_REQUESTED_V1",
+    "TOPIC_CODE_ENTITIES_EXTRACTED_V1",
+    "TOPIC_CODE_FILE_DISCOVERED_V1",
     "PERCENTAGE_MULTIPLIER",
     "TOPIC_BLOOM_EVAL_COMPLETED_V1",
     "TOPIC_CONTEXT_UTILIZATION_EVT_V1",
