@@ -274,9 +274,9 @@ repos:
             src/omniintelligence/nodes/node_watchdog_effect/handlers/handler_watchdog\.py|
             src/omniintelligence/model_selector/episode_emitter\.py
           )$
-  # ============================================================================
-  # YAML FORMATTING - Standard across ONEX ecosystem
-  # ============================================================================
+        # ============================================================================
+        # YAML FORMATTING - Standard across ONEX ecosystem
+        # ============================================================================
       - id: no-untracked-todos
         stages: [pre-commit]
   - repo: https://github.com/google/yamlfmt

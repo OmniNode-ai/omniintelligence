@@ -928,7 +928,7 @@ def _compute_temporal_relevance_score(  # stub-ok: temporal-relevance-todo-in-do
     # Count staleness indicators
     stale_indicators = 0
 
-    # Check for TODO/FIXME/XXX/HACK (using pre-compiled pattern)
+    # Check for staleness markers: to-do, fix-me, xxx, hack (using pre-compiled pattern)  # TODO_FORMAT_EXEMPT: describes staleness detection logic
     todo_matches = _COMPILED_TODO_PATTERN.findall(content)
     stale_indicators += len(todo_matches)
 
