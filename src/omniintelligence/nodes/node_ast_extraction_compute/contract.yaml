@@ -82,6 +82,36 @@ configuration:
       enabled: true
       trust_tier: weak
       inject_into_context: false
+  language_extractors:
+    python:
+      enabled: true
+      strategy: ast
+    typescript:
+      enabled: true
+      strategy: regex
+      patterns:
+        class: "class\\s+([A-Za-z_][A-Za-z0-9_]*)(?:\\s+extends\\s+([A-Za-z_][A-Za-z0-9_]*))?\\s*\\{"
+        function: "(?:export\\s+)?(?:async\\s+)?function\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*\\("
+        arrow_function: "(?:export\\s+)?(?:const|let)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*=\\s*(?:async\\s+)?\\("
+        interface: "(?:export\\s+)?interface\\s+([A-Za-z_][A-Za-z0-9_]*)(?:\\s+extends\\s+[^{]+)?\\s*\\{"
+        type_alias: "(?:export\\s+)?type\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*="
+        import: "import\\s+(?:\\{[^}]+\\}|\\*\\s+as\\s+\\w+|\\w+)\\s+from\\s+['\"]([^'\"]+)['\"]"
+        enum: "(?:export\\s+)?(?:const\\s+)?enum\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*\\{"
+    javascript:
+      enabled: true
+      strategy: regex
+      patterns:
+        class: "class\\s+([A-Za-z_][A-Za-z0-9_]*)(?:\\s+extends\\s+([A-Za-z_][A-Za-z0-9_]*))?\\s*\\{"
+        function: "(?:export\\s+)?(?:async\\s+)?function\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*\\("
+        arrow_function: "(?:export\\s+)?(?:const|let)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*=\\s*(?:async\\s+)?\\("
+        import: "(?:import|require)\\s*\\(?['\"]([^'\"]+)['\"]\\)?"
+    go:
+      enabled: false
+      strategy: regex
+      patterns:
+        function: "func\\s+(?:\\([^)]*\\)\\s+)?([A-Za-z_][A-Za-z0-9_]*)\\s*\\("
+        struct: "type\\s+([A-Za-z_][A-Za-z0-9_]*)\\s+struct\\s*\\{"
+        interface: "type\\s+([A-Za-z_][A-Za-z0-9_]*)\\s+interface\\s*\\{"
   deterministic_classification:
     enabled: true
     scoring_weights:
