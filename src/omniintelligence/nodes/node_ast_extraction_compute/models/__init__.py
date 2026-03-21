@@ -9,6 +9,9 @@ from omniintelligence.nodes.node_ast_extraction_compute.models.model_code_entiti
 from omniintelligence.nodes.node_ast_extraction_compute.models.model_code_entity import (
     ModelCodeEntity,
 )
+from omniintelligence.nodes.node_ast_extraction_compute.models.model_code_file_discovered_event import (
+    ModelCodeFileDiscoveredEvent,
+)
 from omniintelligence.nodes.node_ast_extraction_compute.models.model_code_relationship import (
     ModelCodeRelationship,
 )
@@ -16,5 +19,6 @@ from omniintelligence.nodes.node_ast_extraction_compute.models.model_code_relati
 __all__ = [
     "ModelCodeEntitiesExtractedEvent",
     "ModelCodeEntity",
+    "ModelCodeFileDiscoveredEvent",
     "ModelCodeRelationship",
 ]
