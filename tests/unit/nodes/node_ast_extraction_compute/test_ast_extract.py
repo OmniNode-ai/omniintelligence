@@ -22,7 +22,7 @@ from omniintelligence.nodes.node_ast_extraction_compute.handlers.handler_ast_ext
 # Fixtures
 # ---------------------------------------------------------------------------
 
-_FILE_HASH = "abc123def456"
+_FILE_HASH = "abc123def456"  # pragma: allowlist secret
 _REPO = "test_repo"
 _PATH = "src/mypackage/example.py"
 _CRAWL = "crawl-001"
