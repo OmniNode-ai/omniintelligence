@@ -1,0 +1,360 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# =============================================================================
+# CODE ENTITIES REPOSITORY CONTRACT
+# =============================================================================
+#
+# Contract for code_entities and code_relationships tables.
+# Supports AST-extracted code entity storage and retrieval.
+# All SQL uses asyncpg $N positional syntax.
+#
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_type: "SERVICE"
+
+db_repository:
+  name: code_entities
+  engine: postgres
+  database_ref: omniintelligence
+  description: |
+    Repository for accessing AST-extracted code entities and relationships.
+    Used by the code extraction pipeline for crawl, extract, persist operations.
+
+  tables:
+    - code_entities
+    - code_relationships
+
+  models:
+    EntityRow: omniintelligence.nodes.node_ast_extraction_compute.models.model_code_entity:ModelCodeEntity
+    RelationshipRow: omniintelligence.nodes.node_ast_extraction_compute.models.model_code_relationship:ModelCodeRelationship
+
+  ops:
+    # -------------------------------------------------------------------------
+    # WRITE: Upsert entity
+    # -------------------------------------------------------------------------
+    upsert_entity:
+      mode: write
+      description: |
+        Insert or update a code entity. On conflict (same repo, file, name, type),
+        update all mutable fields. This supports idempotent re-crawling.
+      sql: |
+        INSERT INTO code_entities (
+          id, entity_type, name, file_path, file_hash, source_repo,
+          line_start, line_end, bases, methods, decorators,
+          docstring, source_code, confidence, updated_at
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6,
+          $7, $8, $9, $10, $11,
+          $12, $13, $14, now()
+        )
+        ON CONFLICT (source_repo, file_path, name, entity_type) DO UPDATE SET
+          file_hash = EXCLUDED.file_hash,
+          line_start = EXCLUDED.line_start,
+          line_end = EXCLUDED.line_end,
+          bases = EXCLUDED.bases,
+          methods = EXCLUDED.methods,
+          decorators = EXCLUDED.decorators,
+          docstring = EXCLUDED.docstring,
+          source_code = EXCLUDED.source_code,
+          confidence = EXCLUDED.confidence,
+          updated_at = now()
+        RETURNING id
+      param_order:
+        - id
+        - entity_type
+        - name
+        - file_path
+        - file_hash
+        - source_repo
+        - line_start
+        - line_end
+        - bases
+        - methods
+        - decorators
+        - docstring
+        - source_code
+        - confidence
+      params:
+        id:
+          name: id
+          param_type: string
+          required: true
+          description: Entity UUID. Positional $1.
+        entity_type:
+          name: entity_type
+          param_type: string
+          required: true
+          description: Entity type (CLASS, FUNCTION, etc.). Positional $2.
+        name:
+          name: name
+          param_type: string
+          required: true
+          description: Entity name. Positional $3.
+        file_path:
+          name: file_path
+          param_type: string
+          required: true
+          description: File path within repo. Positional $4.
+        file_hash:
+          name: file_hash
+          param_type: string
+          required: true
+          description: SHA256 hash of file content. Positional $5.
+        source_repo:
+          name: source_repo
+          param_type: string
+          required: true
+          description: Repository name. Positional $6.
+        line_start:
+          name: line_start
+          param_type: integer
+          required: false
+          description: Start line number. Positional $7.
+        line_end:
+          name: line_end
+          param_type: integer
+          required: false
+          description: End line number. Positional $8.
+        bases:
+          name: bases
+          param_type: string
+          required: false
+          default: "[]"
+          description: JSON array of base classes. Positional $9.
+        methods:
+          name: methods
+          param_type: string
+          required: false
+          default: "[]"
+          description: JSON array of method names. Positional $10.
+        decorators:
+          name: decorators
+          param_type: string
+          required: false
+          default: "[]"
+          description: JSON array of decorators. Positional $11.
+        docstring:
+          name: docstring
+          param_type: string
+          required: false
+          description: Entity docstring. Positional $12.
+        source_code:
+          name: source_code
+          param_type: string
+          required: false
+          description: Source code of entity. Positional $13.
+        confidence:
+          name: confidence
+          param_type: number
+          required: false
+          default: 1.0
+          description: Confidence score. Positional $14.
+      returns:
+        model_ref: EntityRow
+        many: false
+
+    # -------------------------------------------------------------------------
+    # WRITE: Upsert relationship
+    # -------------------------------------------------------------------------
+    upsert_relationship:
+      mode: write
+      description: |
+        Insert or update a code relationship. On conflict (same source, target, type),
+        update confidence, trust_tier, and metadata.
+      sql: |
+        INSERT INTO code_relationships (
+          id, source_entity_id, target_entity_id, relationship_type,
+          confidence, trust_tier, metadata
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7
+        )
+        ON CONFLICT (source_entity_id, target_entity_id, relationship_type) DO UPDATE SET
+          confidence = EXCLUDED.confidence,
+          trust_tier = EXCLUDED.trust_tier,
+          metadata = EXCLUDED.metadata
+        RETURNING id
+      param_order:
+        - id
+        - source_entity_id
+        - target_entity_id
+        - relationship_type
+        - confidence
+        - trust_tier
+        - metadata
+      params:
+        id:
+          name: id
+          param_type: string
+          required: true
+          description: Relationship UUID. Positional $1.
+        source_entity_id:
+          name: source_entity_id
+          param_type: string
+          required: true
+          description: Source entity UUID. Positional $2.
+        target_entity_id:
+          name: target_entity_id
+          param_type: string
+          required: true
+          description: Target entity UUID. Positional $3.
+        relationship_type:
+          name: relationship_type
+          param_type: string
+          required: true
+          description: Relationship type. Positional $4.
+        confidence:
+          name: confidence
+          param_type: number
+          required: false
+          default: 1.0
+          description: Confidence score. Positional $5.
+        trust_tier:
+          name: trust_tier
+          param_type: string
+          required: false
+          default: "conservative"
+          description: Trust tier. Positional $6.
+        metadata:
+          name: metadata
+          param_type: string
+          required: false
+          default: "{}"
+          description: JSON metadata. Positional $7.
+      returns:
+        model_ref: RelationshipRow
+        many: false
+
+    # -------------------------------------------------------------------------
+    # WRITE: Delete entities by file (for re-extraction)
+    # -------------------------------------------------------------------------
+    delete_entities_by_file:
+      mode: write
+      description: |
+        Delete all entities for a specific file in a repo.
+        Cascade deletes associated relationships.
+      sql: |
+        DELETE FROM code_entities
+        WHERE source_repo = $1 AND file_path = $2
+        RETURNING id
+      param_order:
+        - source_repo
+        - file_path
+      params:
+        source_repo:
+          name: source_repo
+          param_type: string
+          required: true
+          description: Repository name. Positional $1.
+        file_path:
+          name: file_path
+          param_type: string
+          required: true
+          description: File path. Positional $2.
+      returns:
+        model_ref: EntityRow
+        many: true
+
+    # -------------------------------------------------------------------------
+    # READ: Get entities by repo
+    # -------------------------------------------------------------------------
+    get_entities_by_repo:
+      mode: read
+      description: Retrieve all entities for a specific repository.
+      sql: |
+        SELECT * FROM code_entities
+        WHERE source_repo = $1
+        ORDER BY file_path, line_start, id ASC
+        LIMIT $2
+      param_order:
+        - source_repo
+        - limit
+      params:
+        source_repo:
+          name: source_repo
+          param_type: string
+          required: true
+          description: Repository name. Positional $1.
+        limit:
+          name: limit
+          param_type: integer
+          required: false
+          default: 1000
+          description: Maximum results. Positional $2.
+      returns:
+        model_ref: EntityRow
+        many: true
+
+    # -------------------------------------------------------------------------
+    # READ: Get entities by file
+    # -------------------------------------------------------------------------
+    get_entities_by_file:
+      mode: read
+      description: Retrieve all entities for a specific file.
+      sql: |
+        SELECT * FROM code_entities
+        WHERE source_repo = $1 AND file_path = $2
+        ORDER BY line_start, id ASC
+      param_order:
+        - source_repo
+        - file_path
+      params:
+        source_repo:
+          name: source_repo
+          param_type: string
+          required: true
+          description: Repository name. Positional $1.
+        file_path:
+          name: file_path
+          param_type: string
+          required: true
+          description: File path. Positional $2.
+      returns:
+        model_ref: EntityRow
+        many: true
+
+    # -------------------------------------------------------------------------
+    # READ: Get entity by ID
+    # -------------------------------------------------------------------------
+    get_entity_by_id:
+      mode: read
+      description: Retrieve a single entity by its UUID.
+      sql: |
+        SELECT * FROM code_entities
+        WHERE id = $1
+      param_order:
+        - entity_id
+      params:
+        entity_id:
+          name: entity_id
+          param_type: string
+          required: true
+          description: Entity UUID. Positional $1.
+      returns:
+        model_ref: EntityRow
+        many: false
+
+    # -------------------------------------------------------------------------
+    # READ: Get relationships by entity
+    # -------------------------------------------------------------------------
+    get_relationships_by_entity:
+      mode: read
+      description: |
+        Retrieve all relationships where the entity is either source or target.
+      sql: |
+        SELECT * FROM code_relationships
+        WHERE source_entity_id = $1 OR target_entity_id = $1
+        ORDER BY relationship_type, id ASC
+      param_order:
+        - entity_id
+      params:
+        entity_id:
+          name: entity_id
+          param_type: string
+          required: true
+          description: Entity UUID. Positional $1.
+      returns:
+        model_ref: RelationshipRow
+        many: true

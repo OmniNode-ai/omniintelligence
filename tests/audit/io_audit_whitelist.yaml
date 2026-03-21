@@ -82,6 +82,15 @@ files:
     allowed_rules:
       - "file-io"
 
+  # CodeCrawlerEffect crawl_files handler (OMN-5712) — reads file bytes to compute
+  # SHA-256 content hashes for code file discovery. File I/O is the core purpose of
+  # this Effect node.
+  - path: "src/omniintelligence/nodes/node_code_crawler_effect/handlers/handler_crawl_files.py"
+    reason: "Effect node reads repository files to compute SHA-256 content hashes for code file discovery;
+      file I/O is the intended responsibility of this Effect node"
+    allowed_rules:
+      - "file-io"
+
   # DocumentFetchEffect (OMN-2389) — reads file content from disk for filesystem
   # and git_repo crawl sources. File I/O is the core responsibility of this Effect node.
   - path: "src/omniintelligence/nodes/node_document_fetch_effect/handlers/handler_document_fetch.py"

@@ -1715,6 +1715,9 @@ def create_intelligence_dispatch_engine(
     pattern_upsert_store: ProtocolPatternUpsertStore | None = None,
     pattern_query_store: ProtocolPatternQueryStore | None = None,
     llm_client: ProtocolLlmClient | None = None,
+    qdrant_client: Any = None,
+    bolt_handler: Any = None,
+    code_entity_store: Any = None,
 ) -> MessageDispatchEngine:
     """Create and configure a MessageDispatchEngine for Intelligence domain.
 
@@ -2244,6 +2247,36 @@ def create_intelligence_dispatch_engine(
                 "Routes code-entities-extracted events to Postgres persistence "
                 "(OMN-5662). Upserts entities and relationships, runs zombie "
                 "cleanup reconciliation on successful parses."
+            ),
+        )
+    )
+
+    # --- Handler 15: code-entities-extracted → embed+graph (OMN-5717) ---
+    from omniintelligence.runtime.dispatch_handler_code_embed_graph import (
+        DISPATCH_ALIAS_CODE_ENTITIES_EXTRACTED_EMBED,
+        create_code_embed_graph_dispatch_handler,
+    )
+
+    code_embed_graph_handler = create_code_embed_graph_dispatch_handler(
+        qdrant_client=qdrant_client,
+        bolt_handler=bolt_handler,
+    )
+    engine.register_handler(
+        handler_id="intelligence-code-embed-graph-handler",
+        handler=code_embed_graph_handler,
+        category=EnumMessageCategory.EVENT,
+        node_kind=EnumNodeKind.EFFECT,
+        message_types=None,
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-code-embed-graph-route",
+            topic_pattern=DISPATCH_ALIAS_CODE_ENTITIES_EXTRACTED_EMBED,
+            message_category=EnumMessageCategory.EVENT,
+            handler_id="intelligence-code-embed-graph-handler",
+            description=(
+                "Routes code-entities-extracted events to the embed+graph "
+                "handler (OMN-5717). Embeds in Qdrant and writes to Memgraph."
             ),
         )
     )
