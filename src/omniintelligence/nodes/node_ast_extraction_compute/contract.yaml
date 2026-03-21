@@ -1,0 +1,105 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# ONEX Node Contract - AST Extraction Compute Node
+#
+# Part of OMN-5657: AST-based code pattern extraction system
+# Extracts structural code entities from Python source files using AST parsing.
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+name: "node_ast_extraction_compute"
+node_type: "COMPUTE_GENERIC"
+description: >-
+  Extracts structural code entities from Python source files using AST parsing. Detects classes, protocols,
+  Pydantic models, functions, imports, and module-level constants, producing typed entity and relationship
+  models for downstream knowledge-graph ingestion.
+input_model:
+  name: "AstExtractInput"
+  module: "omniintelligence.nodes.node_ast_extraction_compute.handlers.handler_ast_extract"
+  description: "Input containing source content, path, repo, file hash, and extraction config."
+output_model:
+  name: "ModelCodeEntitiesExtractedEvent"
+  module: "omniintelligence.nodes.node_ast_extraction_compute.models"
+  description: "Output containing extracted entities, relationships, and parse status."
+operations:
+  - name: "extract_entities"
+    description: "Extract all entity types from a Python source file (main entry point)"
+    input_fields:
+      - source_content
+      - source_path
+      - source_repo
+      - file_hash
+      - crawl_id
+      - config
+    output_fields:
+      - entities
+      - relationships
+      - parse_status
+      - parse_error
+configuration:
+  extractors:
+    - name: classes
+      enabled: true
+      extract_bases: true
+      extract_methods: true
+      extract_decorators: true
+      extract_docstrings: true
+    - name: protocols
+      enabled: true
+      extract_method_signatures: true
+    - name: pydantic_models
+      enabled: true
+      extract_fields: true
+      extract_validators: true
+    - name: functions
+      enabled: true
+      extract_signatures: true
+      extract_decorators: true
+    - name: imports
+      enabled: true
+    - name: module_constants
+      enabled: true
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    - operation: "extract_entities"
+      handler:
+        function: "handle_ast_extract"
+        module: "omniintelligence.nodes.node_ast_extraction_compute.handlers.handler_ast_extract"
+        type: "sync"
+event_bus:
+  event_bus_enabled: false
+  subscribe_topics:
+    - "onex.evt.omniintelligence.code-file-discovered.v1"
+  publish_topics:
+    - "onex.evt.omniintelligence.code-entities-extracted.v1"
+dependencies: []
+error_handling:
+  error_types:
+    - name: "AstExtractionSyntaxError"
+      error_code: "AST_001"
+      description: "Source file has a syntax error and cannot be parsed"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "AstExtractionComputeError"
+      error_code: "AST_002"
+      description: "Unexpected error during entity extraction"
+      recoverable: true
+      retry_strategy: "immediate_retry"
+metadata:
+  author: "OmniNode Team"
+  created: "2026-03-21"
+  updated: "2026-03-21"
+  tags:
+    - "ONEX"
+    - "compute"
+    - "ast-extraction"
+    - "code-analysis"
+    - "entity-extraction"
+    - "knowledge-graph"
