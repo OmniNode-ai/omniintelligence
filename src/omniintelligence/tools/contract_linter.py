@@ -548,22 +548,15 @@ class ContractLinter:
             in validation logic. They exist to establish the API surface for future
             enhancements.
         """
-        # TODO(OMN-470): Implement strict validation mode
-        # Planned features for strict=True:
-        # - Enable path traversal protection
-        # - Treat deprecation warnings as validation errors
-        # - Enforce stricter type coercion (e.g., reject string "true" for bool)
-        # - Require optional best-practice fields (e.g., description, examples)
+        # Strict validation mode is not implemented; only default validation
+        # is supported.
         if strict:
             raise NotImplementedError(
                 "Strict mode is reserved for future implementation. "
                 "Currently only default validation is supported."
             )
 
-        # TODO(OMN-471): Implement schema version selection
-        # Planned features for schema_version:
-        # - Support multiple schema versions (1.0.0, 1.1.0, 2.0.0, etc.)
-        # - Validate contracts against their specified schema version
+        # Only schema version 1.0.0 is currently supported.
         if schema_version != "1.0.0":
             raise NotImplementedError(
                 f"Schema version '{schema_version}' is not yet supported. "
