@@ -385,6 +385,35 @@ persist handler which upserts entities/relationships to Postgres.
 Reference: OMN-5662, OMN-5659
 """
 
+TOPIC_CODE_ENTITIES_PERSISTED_V1: str = (
+    "onex.evt.omniintelligence.code-entities-persisted.v1"
+)
+"""Canonical topic for code entities persisted events (OUTPUT/INPUT).
+
+Emitted by the code persist handler after successful upsert to Postgres.
+Consumed by Part 2 enrichment handlers (classification, quality scoring).
+
+Reference: OMN-5677
+"""
+
+TOPIC_CODE_ENTITIES_CLASSIFIED_V1: str = (
+    "onex.evt.omniintelligence.code-entities-classified.v1"
+)
+"""Canonical topic for code entities classified events (OUTPUT).
+
+Emitted by the deterministic classification handler after classifying entities.
+
+Reference: OMN-5674
+"""
+
+TOPIC_CODE_ENTITIES_SCORED_V1: str = "onex.evt.omniintelligence.code-entities-scored.v1"
+"""Canonical topic for code entities scored events (OUTPUT).
+
+Emitted by the quality scoring handler after scoring entities.
+
+Reference: OMN-5675
+"""
+
 # =============================================================================
 # Exports
 # =============================================================================
@@ -392,7 +421,10 @@ Reference: OMN-5662, OMN-5659
 __all__ = [
     "MAX_PATTERN_MATCH_RESULTS",
     "TOPIC_CODE_CRAWL_REQUESTED_V1",
+    "TOPIC_CODE_ENTITIES_CLASSIFIED_V1",
     "TOPIC_CODE_ENTITIES_EXTRACTED_V1",
+    "TOPIC_CODE_ENTITIES_PERSISTED_V1",
+    "TOPIC_CODE_ENTITIES_SCORED_V1",
     "TOPIC_CODE_FILE_DISCOVERED_V1",
     "PERCENTAGE_MULTIPLIER",
     "TOPIC_BLOOM_EVAL_COMPLETED_V1",

@@ -342,6 +342,100 @@ class RepositoryCodeEntity:
             entity_ids,
         )
 
+    async def update_deterministic_classification(
+        self,
+        entity_id: str,
+        node_type: str,
+        confidence: float,
+        alternatives: str,
+        enrichment_meta_patch: str,
+    ) -> None:
+        """Update deterministic classification columns and enrichment metadata.
+
+        Args:
+            entity_id: UUID of the entity.
+            node_type: Classified node type (e.g. 'effect', 'compute').
+            confidence: Classification confidence (0.0-1.0).
+            alternatives: JSONB string of alternative classifications.
+            enrichment_meta_patch: JSONB string to merge into enrichment_metadata.
+        """
+        await self._pool.execute(
+            """
+            UPDATE code_entities SET
+                deterministic_node_type = $2,
+                deterministic_confidence = $3,
+                deterministic_alternatives = $4::jsonb,
+                enrichment_metadata = enrichment_metadata || $5::jsonb,
+                updated_at = NOW()
+            WHERE id = $1::uuid
+            """,
+            entity_id,
+            node_type,
+            confidence,
+            alternatives,
+            enrichment_meta_patch,
+        )
+
+    async def update_quality_score(
+        self,
+        entity_id: str,
+        quality_score: float,
+        quality_dimensions: str,
+        enrichment_meta_patch: str,
+    ) -> None:
+        """Update quality scoring columns and enrichment metadata.
+
+        Args:
+            entity_id: UUID of the entity.
+            quality_score: Overall quality score (0.0-1.0).
+            quality_dimensions: JSONB string of per-dimension scores.
+            enrichment_meta_patch: JSONB string to merge into enrichment_metadata.
+        """
+        await self._pool.execute(
+            """
+            UPDATE code_entities SET
+                quality_score = $2,
+                quality_dimensions = $3::jsonb,
+                enrichment_metadata = enrichment_metadata || $4::jsonb,
+                updated_at = NOW()
+            WHERE id = $1::uuid
+            """,
+            entity_id,
+            quality_score,
+            quality_dimensions,
+            enrichment_meta_patch,
+        )
+
+    async def get_entity_enrichment_metadata(
+        self, entity_id: str
+    ) -> dict[str, Any] | None:
+        """Get enrichment metadata and file_hash for idempotency checks."""
+        row = await self._pool.fetchrow(
+            "SELECT file_hash, enrichment_metadata FROM code_entities WHERE id = $1::uuid",
+            entity_id,
+        )
+        if not row:
+            return None
+        meta = row["enrichment_metadata"]
+        return {
+            "file_hash": row["file_hash"],
+            "enrichment_metadata": meta if isinstance(meta, dict) else {},
+        }
+
+    async def get_entities_by_ids(self, entity_ids: list[str]) -> list[dict[str, Any]]:
+        """Get entities by IDs for enrichment processing."""
+        rows = await self._pool.fetch(
+            """
+            SELECT id, entity_name, entity_type, qualified_name, source_repo,
+                   source_path, docstring, signature, bases, methods, fields,
+                   decorators, file_hash, enrichment_metadata
+            FROM code_entities
+            WHERE id = ANY($1::uuid[])
+            """,
+            entity_ids,
+        )
+        return [dict(row) for row in rows]
+
     async def update_graph_synced_at(self, entity_ids: list[str]) -> None:
         """Batch update last_graph_synced_at for entities synced to Memgraph."""
         await self._pool.execute(
