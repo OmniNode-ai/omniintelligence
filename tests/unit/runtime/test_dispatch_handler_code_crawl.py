@@ -52,7 +52,7 @@ async def test_crawl_publishes_discovered_events() -> None:
     kafka_producer.publish = AsyncMock()
 
     handler = create_code_crawl_dispatch_handler(
-        kafka_producer=kafka_producer,
+        kafka_publisher=kafka_producer,
         publish_topic="test.code-file-discovered.v1",
     )
 
@@ -105,7 +105,7 @@ async def test_crawl_publishes_discovered_events() -> None:
 @pytest.mark.asyncio
 async def test_crawl_without_kafka_producer() -> None:
     """Handler completes successfully even without Kafka producer."""
-    handler = create_code_crawl_dispatch_handler(kafka_producer=None)
+    handler = create_code_crawl_dispatch_handler(kafka_publisher=None)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         (Path(tmpdir) / "test.py").write_text("x = 1")

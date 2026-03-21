@@ -97,7 +97,7 @@ async def test_persist_deletes_then_upserts() -> None:
     store.upsert_entity = AsyncMock(return_value="entity_id")
     store.upsert_relationship = AsyncMock(return_value="rel_id")
 
-    handler = create_code_persist_dispatch_handler(code_entity_store=store)
+    handler = create_code_persist_dispatch_handler(repository=store)
 
     payload = _make_extracted_event_payload(entity_count=2, relationship_count=1)
     envelope = _make_envelope(payload)

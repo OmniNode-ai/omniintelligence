@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import copy
 import json
-import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -28,8 +27,6 @@ from omniintelligence.nodes.node_ast_extraction_compute.models.model_code_relati
 
 if TYPE_CHECKING:
     from asyncpg import Pool
-
-logger = logging.getLogger(__name__)
 
 CONTRACT_PATH = Path(__file__).parent / "code_entities.repository.yaml"
 
