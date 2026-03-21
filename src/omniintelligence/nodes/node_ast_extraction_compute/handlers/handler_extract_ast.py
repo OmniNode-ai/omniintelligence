@@ -31,15 +31,6 @@ from omniintelligence.nodes.node_ast_extraction_compute.models.model_code_relati
 
 logger = logging.getLogger(__name__)
 
-# Trust tier mapping per relationship type
-_TRUST_TIERS: dict[EnumRelationshipType, str] = {
-    EnumRelationshipType.EXTENDS: "conservative",
-    EnumRelationshipType.IMPORTS: "conservative",
-    EnumRelationshipType.CONTAINS: "moderate",
-    EnumRelationshipType.DEFINES: "moderate",
-    EnumRelationshipType.CALLS: "weak",
-}
-
 
 def _make_entity_id(prefix: str, name: str) -> str:
     """Generate a deterministic entity ID."""
