@@ -1,0 +1,243 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 OmniNode Team
+#
+# ONEX Node Contract
+# Node: NodeCodeCrawlerEffect
+#
+# Crawls configured repositories for Python source files using OnexTree
+# filesystem scanning. Emits code-file-discovered.v1 events for downstream
+# AST extraction and pattern analysis.
+#
+# Reference: OMN-5658 - Port OnexTree generator and models
+
+# Contract identifiers
+name: "node_code_crawler_effect"
+contract_name: "code_crawler_effect"
+node_name: "code_crawler_effect"
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+# Node type
+node_type: "EFFECT_GENERIC"
+
+# Status
+status: "active"
+
+# Description
+description: >
+  Effect node that crawls configured repositories for Python source files using OnexTree filesystem scanning.
+  For each discovered .py file, computes a SHA-256 content hash and emits a code-file-discovered.v1 event.
+  Repo configuration is YAML-driven: adding a new repository requires only a new entry in the config section
+  below, zero code changes. #magic___^_^___line
+# Strongly typed I/O models
+input_model:
+  name: "dict"
+  module: "builtins"
+  description: "Crawl request trigger (repo list read from contract config)."
+
+output_model:
+  name: "ModelCodeFileDiscoveredEvent"
+  module: "omniintelligence.nodes.node_code_crawler_effect.models"
+  description: "Per-file discovery event with content hash and metadata."
+
+# =============================================================================
+# REPOSITORY CONFIGURATION
+# =============================================================================
+config:
+  repos:
+    - name: omniintelligence
+      path: /Volumes/PRO-G40/Code/omni_home/omniintelligence
+      include: ["src/**/*.py"]
+      exclude: ["tests/**", "__pycache__/**", "*.pyc"]
+    - name: omniclaude
+      path: /Volumes/PRO-G40/Code/omni_home/omniclaude
+      include: ["src/**/*.py", "plugins/**/*.py"]
+      exclude: ["tests/**", "__pycache__/**"]
+    - name: omnibase_core
+      path: /Volumes/PRO-G40/Code/omni_home/omnibase_core
+      include: ["src/**/*.py"]
+      exclude: ["tests/**", "__pycache__/**"]
+    - name: omnibase_infra
+      path: /Volumes/PRO-G40/Code/omni_home/omnibase_infra
+      include: ["src/**/*.py"]
+      exclude: ["tests/**", "__pycache__/**"]
+    - name: omnibase_spi
+      path: /Volumes/PRO-G40/Code/omni_home/omnibase_spi
+      include: ["src/**/*.py"]
+      exclude: ["tests/**", "__pycache__/**"]
+    - name: omnimemory
+      path: /Volumes/PRO-G40/Code/omni_home/omnimemory
+      include: ["src/**/*.py"]
+      exclude: ["tests/**", "__pycache__/**"]
+    - name: omninode_infra
+      path: /Volumes/PRO-G40/Code/omni_home/omninode_infra
+      include: ["src/**/*.py"]
+      exclude: ["tests/**", "__pycache__/**"]
+    - name: onex_change_control
+      path: /Volumes/PRO-G40/Code/omni_home/onex_change_control
+      include: ["src/**/*.py", "scripts/**/*.py"]
+      exclude: ["tests/**", "__pycache__/**"]
+    - name: omnibase_compat
+      path: /Volumes/PRO-G40/Code/omni_home/omnibase_compat
+      include: ["src/**/*.py"]
+      exclude: ["tests/**", "__pycache__/**"]
+    - name: omnidash
+      path: /Volumes/PRO-G40/Code/omni_home/omnidash
+      include: ["src/**/*.py", "scripts/**/*.py"]
+      exclude: ["tests/**", "__pycache__/**", "node_modules/**"]
+
+# =============================================================================
+# HANDLER ROUTING
+# =============================================================================
+handler_routing:
+  routing_strategy: "operation_match"
+  entry_point:
+    function: "handle_code_crawl"
+    module: "omniintelligence.nodes.node_code_crawler_effect.handlers.handler_onextree_generator"
+    type: "async"
+    description: "Main entry point: scan repos and emit code-file-discovered events"
+  handlers:
+    - operation: "crawl_repos"
+      handler:
+        function: "handle_code_crawl"
+        module: "omniintelligence.nodes.node_code_crawler_effect.handlers.handler_onextree_generator"
+        type: "async"
+      description: "Scan configured repos for Python files and emit discovery events"
+      actions:
+        - "read repo list from contract config"
+        - "for each repo: run OnexTreeGenerator with include/exclude patterns"
+        - "for each .py file: compute SHA-256 hash"
+        - "emit code-file-discovered.v1 per file"
+
+  default_handler:
+    function: "handle_code_crawl"
+    module: "omniintelligence.nodes.node_code_crawler_effect.handlers.handler_onextree_generator"
+    type: "async"
+    description: "Default to crawl_repos operation"
+
+# =============================================================================
+# IO OPERATIONS
+# =============================================================================
+io_operations:
+  - operation: "crawl_repos"
+    description: "Discover Python source files across configured repositories"
+    input_model: "dict"
+    output_model: "ModelCodeFileDiscoveredEvent"
+    input_fields:
+      - repos_config
+      - crawl_id
+    output_fields:
+      - event_id
+      - crawl_id
+      - repo_name
+      - file_path
+      - file_hash
+      - file_size_bytes
+      - timestamp
+      - contract_version
+
+# =============================================================================
+# PUBLISHED EVENTS (Kafka)
+# =============================================================================
+published_events:
+  - topic_suffix: "onex.evt.omniintelligence.code-file-discovered.v1"
+    full_topic_pattern: "onex.evt.omniintelligence.code-file-discovered.v1"
+    event_type: "CodeFileDiscovered"
+    trigger: "Python source file found during filesystem crawl"
+    description: "Emitted for each .py file discovered in a configured repository."
+
+# =============================================================================
+# EVENT BUS SUBCONTRACT
+# =============================================================================
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  event_bus_enabled: true
+
+  subscribe_topics:
+    - "onex.cmd.omniintelligence.code-crawl-requested.v1"
+
+  publish_topics:
+    - "onex.evt.omniintelligence.code-file-discovered.v1"
+
+  subscribe_topic_metadata:
+    "onex.cmd.omniintelligence.code-crawl-requested.v1":
+      schema_ref: "dict"
+      description: >
+        Crawl request trigger. The handler reads repo config from the contract YAML, not from the event
+        payload.
+      content_type: "application/json"
+
+  publish_topic_metadata:
+    "onex.evt.omniintelligence.code-file-discovered.v1":
+      schema_ref: "omniintelligence.nodes.node_code_crawler_effect.models.ModelCodeFileDiscoveredEvent"
+      description: "Discovered Python source file with content hash"
+      content_type: "application/json"
+
+# =============================================================================
+# ERROR HANDLING
+# =============================================================================
+error_handling:
+  retry_policy:
+    max_retries: 3
+    initial_delay_ms: 500
+    max_delay_ms: 10000
+    exponential_base: 2
+    retry_on:
+      - "ConnectionError"
+      - "TimeoutError"
+      - "OSError"
+
+  error_types:
+    - name: "FileAccessError"
+      error_code: "CODECRAWL_001"
+      description: "Cannot access file or directory during scan"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "RepoNotFoundError"
+      error_code: "CODECRAWL_002"
+      description: "Configured repo path does not exist"
+      recoverable: false
+      retry_strategy: "none"
+
+# =============================================================================
+# HEALTH CHECK
+# =============================================================================
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+
+# =============================================================================
+# METADATA
+# =============================================================================
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-03-21"
+  updated: "2026-03-21"
+  tags:
+    - effect
+    - crawler
+    - code
+    - onextree
+    - filesystem
+    - ast-extraction
+  references:
+    - ticket: "OMN-5658"
+      url: "https://linear.app/omninode/issue/OMN-5658"
+      description: "Port OnexTree generator and models into omniintelligence"
+    - ticket: "OMN-5657"
+      url: "https://linear.app/omninode/issue/OMN-5657"
+      description: "AST-based code pattern extraction system (epic)"
