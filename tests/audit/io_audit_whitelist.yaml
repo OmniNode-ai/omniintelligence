@@ -119,6 +119,18 @@ files:
       - "net-client"
       - "env-access"
 
+  # Code entity repository (OMN-5661) — asyncpg persistence adapter co-located
+  # with node_ast_extraction_compute. Uses asyncpg pool injected at construction
+  # time; node handler itself remains pure compute. DB access is the intended
+  # responsibility of this repository layer.
+  - path: "src/omniintelligence/nodes/node_ast_extraction_compute/repository/repository_code_entity.py"
+    reason: >
+      Persistence adapter for code entity and relationship storage (OMN-5661, OMN-5657 epic). Uses asyncpg
+      pool via constructor injection. The compute node handler remains pure; this repository is the designated
+      data-access layer.
+    allowed_rules:
+      - "net-client"
+
 # Example of a legacy node pending refactor
 # - path: "src/omniintelligence/nodes/legacy_*.py"
 #   reason: "Legacy nodes pending refactor - tracked in OMN-XXX"
