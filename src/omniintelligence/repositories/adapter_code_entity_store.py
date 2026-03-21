@@ -71,53 +71,56 @@ class AdapterCodeEntityStore:
         args = self._build_positional_args(
             "upsert_entity",
             {
-                "id": entity.entity_id,
-                "entity_type": entity.entity_type.value,
-                "name": entity.name,
-                "file_path": entity.file_path,
-                "file_hash": entity.file_hash,
+                "id": entity.id,
+                "entity_type": entity.entity_type,
+                "entity_name": entity.entity_name,
+                "qualified_name": entity.qualified_name,
                 "source_repo": entity.source_repo,
-                "line_start": entity.line_start,
-                "line_end": entity.line_end,
+                "source_path": entity.source_path,
+                "line_number": entity.line_number,
+                "file_hash": entity.file_hash,
                 "bases": json.dumps(entity.bases),
                 "methods": json.dumps(entity.methods),
+                "fields": json.dumps(entity.fields),
                 "decorators": json.dumps(entity.decorators),
                 "docstring": entity.docstring,
-                "source_code": entity.source_code,
+                "signature": entity.signature,
                 "confidence": entity.confidence,
             },
         )
         result = await self._runtime.call("upsert_entity", *args)
         if result and isinstance(result, dict) and "id" in result:
             return str(result["id"])
-        return entity.entity_id
+        return entity.id
 
     async def upsert_relationship(self, relationship: ModelCodeRelationship) -> str:
         """Upsert a code relationship via the contract runtime."""
         args = self._build_positional_args(
             "upsert_relationship",
             {
-                "id": relationship.relationship_id,
-                "source_entity_id": relationship.source_entity_id,
-                "target_entity_id": relationship.target_entity_id,
-                "relationship_type": relationship.relationship_type.value,
+                "id": relationship.id,
+                "source_entity_id": relationship.source_entity,
+                "target_entity_id": relationship.target_entity,
+                "relationship_type": relationship.relationship_type,
                 "confidence": relationship.confidence,
                 "trust_tier": relationship.trust_tier,
-                "metadata": json.dumps(dict(relationship.metadata)),
+                "evidence": json.dumps(relationship.evidence),
+                "inject_into_context": relationship.inject_into_context,
+                "source_repo": getattr(relationship, "source_repo", ""),
             },
         )
         result = await self._runtime.call("upsert_relationship", *args)
         if result and isinstance(result, dict) and "id" in result:
             return str(result["id"])
-        return relationship.relationship_id
+        return relationship.id
 
-    async def delete_entities_by_file(self, source_repo: str, file_path: str) -> int:
+    async def delete_entities_by_file(self, source_repo: str, source_path: str) -> int:
         """Delete all entities for a file. Returns count deleted."""
         args = self._build_positional_args(
             "delete_entities_by_file",
             {
                 "source_repo": source_repo,
-                "file_path": file_path,
+                "source_path": source_path,
             },
         )
         result = await self._runtime.call("delete_entities_by_file", *args)
@@ -142,14 +145,14 @@ class AdapterCodeEntityStore:
         return []
 
     async def get_entities_by_file(
-        self, source_repo: str, file_path: str
+        self, source_repo: str, source_path: str
     ) -> list[ModelCodeEntity]:
         """Get entities by file."""
         args = self._build_positional_args(
             "get_entities_by_file",
             {
                 "source_repo": source_repo,
-                "file_path": file_path,
+                "source_path": source_path,
             },
         )
         result = await self._runtime.call("get_entities_by_file", *args)

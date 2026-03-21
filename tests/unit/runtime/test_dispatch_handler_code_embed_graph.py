@@ -6,9 +6,11 @@
 Validates:
     - Handler embeds entities in Qdrant and writes to Memgraph
     - Graceful degradation when Qdrant/Memgraph unavailable
+    - Qdrant payload uses canonical rich schema field names [OMN-5765]
 
 Related:
     - OMN-5717: Dispatch handler — embed to Qdrant + graph to Memgraph
+    - OMN-5765: Migration schema conflict resolution
 """
 
 from __future__ import annotations
@@ -29,32 +31,35 @@ from omniintelligence.runtime.dispatch_handler_code_embed_graph import (
 
 def _make_entity_dict(name: str = "MyClass") -> dict[str, object]:
     return {
-        "entity_id": f"cls_{name}",
+        "id": f"cls_{name}",
         "entity_type": "CLASS",
-        "name": name,
-        "file_path": "src/models.py",
+        "entity_name": name,
+        "qualified_name": f"src.models.{name}",
+        "source_path": "src/models.py",
         "file_hash": "abc123",
         "source_repo": "test_repo",
-        "line_start": 1,
-        "line_end": 10,
+        "line_number": 1,
         "bases": ["BaseModel"],
-        "methods": ["__init__"],
+        "methods": [
+            {"name": "__init__", "args": [], "return_type": "None", "decorators": []}
+        ],
         "decorators": [],
         "docstring": "Test class.",
-        "source_code": None,
+        "signature": None,
         "confidence": 1.0,
     }
 
 
 def _make_relationship_dict() -> dict[str, object]:
     return {
-        "relationship_id": f"rel_{uuid4().hex[:12]}",
-        "source_entity_id": "mod_src.models",
-        "target_entity_id": "cls_MyClass",
+        "id": f"rel_{uuid4().hex[:12]}",
+        "source_entity": "mod_src.models",
+        "target_entity": "cls_MyClass",
         "relationship_type": "CONTAINS",
         "confidence": 1.0,
-        "trust_tier": "moderate",
-        "metadata": {},
+        "trust_tier": "strong",
+        "evidence": [],
+        "inject_into_context": True,
     }
 
 
@@ -137,3 +142,60 @@ async def test_graceful_degradation_no_clients() -> None:
     )
 
     assert result == "ok"
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_qdrant_payload_uses_rich_schema_fields() -> None:
+    """Qdrant payload must use canonical rich schema field names [OMN-5765].
+
+    The Qdrant payload written by _embed_entities() is the read-side contract
+    consumed by omniclaude's code_graph_query.py (semantic mode). If the payload
+    field names drift from the canonical schema, semantic search silently breaks.
+
+    This test asserts that the payload contains the canonical rich field names
+    and does NOT contain any legacy field names from the simple schema.
+    """
+    qdrant_client = AsyncMock()
+    qdrant_client.upsert = AsyncMock()
+
+    mock_embedding = [0.1] * 128
+
+    handler = create_code_embed_graph_dispatch_handler(
+        qdrant_client=qdrant_client,
+        bolt_handler=None,
+        embedding_url="http://test:8100",
+    )
+
+    with patch(
+        "omniintelligence.runtime.dispatch_handler_code_embed_graph._get_embedding",
+        AsyncMock(return_value=mock_embedding),
+    ):
+        await handler(
+            _make_envelope(_make_extracted_payload()),
+            _make_context(),
+        )
+
+    qdrant_client.upsert.assert_called_once()
+    points = qdrant_client.upsert.call_args.kwargs["points"]
+    assert len(points) >= 1
+
+    payload = points[0]["payload"]
+
+    # Canonical rich schema fields MUST be present
+    assert "entity_id" in payload
+    assert "entity_type" in payload
+    assert "entity_name" in payload
+    assert "qualified_name" in payload
+    assert "source_path" in payload
+    assert "source_repo" in payload
+    assert "line_number" in payload
+
+    # Legacy simple schema fields MUST NOT be present
+    assert "name" not in payload, "Legacy field 'name' found — use 'entity_name'"
+    assert "file_path" not in payload, (
+        "Legacy field 'file_path' found — use 'source_path'"
+    )
+    assert "line_start" not in payload, (
+        "Legacy field 'line_start' found — use 'line_number'"
+    )

@@ -149,13 +149,16 @@ async def _embed_entities(
         points = []
         for entity in event.entities:
             # Compose text for embedding
-            parts = [entity.name]
+            parts = [entity.entity_name]
             if entity.docstring:
                 parts.append(entity.docstring)
             if entity.bases:
                 parts.append(f"bases: {', '.join(entity.bases)}")
             if entity.methods:
-                parts.append(f"methods: {', '.join(entity.methods)}")
+                method_names = [
+                    m["name"] if isinstance(m, dict) else str(m) for m in entity.methods
+                ]
+                parts.append(f"methods: {', '.join(method_names)}")
             text = " | ".join(parts)
 
             # Get embedding from LLM
@@ -163,19 +166,23 @@ async def _embed_entities(
             if embedding is None:
                 continue
 
+            entity_type_str = (
+                entity.entity_type.value
+                if hasattr(entity.entity_type, "value")
+                else str(entity.entity_type)
+            )
             points.append(
                 {
                     "id": str(uuid4()),
                     "vector": embedding,
                     "payload": {
-                        "entity_id": entity.entity_id,
-                        "entity_type": entity.entity_type.value
-                        if hasattr(entity.entity_type, "value")
-                        else str(entity.entity_type),
-                        "name": entity.name,
-                        "file_path": entity.file_path,
+                        "entity_id": entity.id,
+                        "entity_type": entity_type_str,
+                        "entity_name": entity.entity_name,
+                        "qualified_name": entity.qualified_name,
+                        "source_path": entity.source_path,
                         "source_repo": entity.source_repo,
-                        "line_start": entity.line_start,
+                        "line_number": entity.line_number,
                     },
                 }
             )
@@ -225,13 +232,15 @@ async def _graph_entities(
             )
             await bolt_handler.write(
                 "MERGE (e:CodeEntity {entity_id: $entity_id}) "
-                "SET e.name = $name, e.entity_type = $entity_type, "
-                "e.file_path = $file_path, e.source_repo = $source_repo",
+                "SET e.entity_name = $entity_name, e.entity_type = $entity_type, "
+                "e.qualified_name = $qualified_name, "
+                "e.source_path = $source_path, e.source_repo = $source_repo",
                 parameters={
-                    "entity_id": entity.entity_id,
-                    "name": entity.name,
+                    "entity_id": entity.id,
+                    "entity_name": entity.entity_name,
                     "entity_type": entity_type_str,
-                    "file_path": entity.file_path,
+                    "qualified_name": entity.qualified_name,
+                    "source_path": entity.source_path,
                     "source_repo": entity.source_repo,
                 },
             )
@@ -248,8 +257,8 @@ async def _graph_entities(
                 "MATCH (t:CodeEntity {entity_id: $target_id}) "
                 f"MERGE (s)-[r:{rel_type_str} {{confidence: $confidence, trust_tier: $trust_tier}}]->(t)",
                 parameters={
-                    "source_id": rel.source_entity_id,
-                    "target_id": rel.target_entity_id,
+                    "source_id": rel.source_entity,
+                    "target_id": rel.target_entity,
                     "confidence": rel.confidence,
                     "trust_tier": rel.trust_tier,
                 },

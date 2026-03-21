@@ -7,7 +7,6 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from omniintelligence.enums import EnumEntityType, EnumRelationshipType
 from omniintelligence.nodes.node_ast_extraction_compute.models import (
     ModelCodeEntity,
     ModelCodeRelationship,
@@ -31,16 +30,18 @@ class TestAdapterCodeEntityStore:
     async def test_upsert_entity(self, mock_runtime: MagicMock) -> None:
         adapter = AdapterCodeEntityStore(mock_runtime)
         entity = ModelCodeEntity(
-            entity_id="cls_Foo",
-            entity_type=EnumEntityType.CLASS,
-            name="Foo",
-            file_path="src/foo.py",
+            id="cls_Foo",
+            entity_type="CLASS",
+            entity_name="Foo",
+            qualified_name="src.foo.Foo",
+            source_path="src/foo.py",
             file_hash="abc123",
             source_repo="omniintelligence",
-            line_start=1,
-            line_end=10,
+            line_number=1,
             bases=["BaseModel"],
-            methods=["execute"],
+            methods=[
+                {"name": "execute", "args": [], "return_type": "None", "decorators": []}
+            ],
             decorators=["frozen"],
             docstring="A class.",
         )
@@ -52,20 +53,21 @@ class TestAdapterCodeEntityStore:
         mock_runtime.call.assert_called_once()
         call_args = mock_runtime.call.call_args
         assert call_args[0][0] == "upsert_entity"
-        # Positional args should include entity_id, entity_type, name, etc.
+        # Positional args: id, entity_type, entity_name, qualified_name, ...
         assert call_args[0][1] == "cls_Foo"  # id
         assert call_args[0][2] == "CLASS"  # entity_type
-        assert call_args[0][3] == "Foo"  # name
+        assert call_args[0][3] == "Foo"  # entity_name
+        assert call_args[0][4] == "src.foo.Foo"  # qualified_name
 
     async def test_upsert_relationship(self, mock_runtime: MagicMock) -> None:
         adapter = AdapterCodeEntityStore(mock_runtime)
         rel = ModelCodeRelationship(
-            relationship_id="rel_001",
-            source_entity_id="cls_Foo",
-            target_entity_id="cls_Bar",
-            relationship_type=EnumRelationshipType.EXTENDS,
+            id="rel_001",
+            source_entity="cls_Foo",
+            target_entity="cls_Bar",
+            relationship_type="EXTENDS",
             confidence=1.0,
-            trust_tier="conservative",
+            trust_tier="strong",
         )
 
         result = await adapter.upsert_relationship(rel)
@@ -75,5 +77,5 @@ class TestAdapterCodeEntityStore:
         call_args = mock_runtime.call.call_args
         assert call_args[0][0] == "upsert_relationship"
         assert call_args[0][1] == "rel_001"  # id
-        assert call_args[0][2] == "cls_Foo"  # source
-        assert call_args[0][3] == "cls_Bar"  # target
+        assert call_args[0][2] == "cls_Foo"  # source_entity
+        assert call_args[0][3] == "cls_Bar"  # target_entity

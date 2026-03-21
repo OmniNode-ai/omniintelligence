@@ -6,11 +6,11 @@
 # =============================================================================
 #
 # Contract for code_entities and code_relationships tables.
-# Supports AST-extracted code entity storage and retrieval.
+# Aligned with canonical 025_code_entities.sql (rich schema).
 # All SQL uses asyncpg $N positional syntax.
 #
 contract_version:
-  major: 1
+  major: 2
   minor: 0
   patch: 0
 node_type: "SERVICE"
@@ -22,6 +22,7 @@ db_repository:
   description: |
     Repository for accessing AST-extracted code entities and relationships.
     Used by the code extraction pipeline for crawl, extract, persist operations.
+    Aligned with canonical 025_code_entities.sql (rich schema).
 
   tables:
     - code_entities
@@ -38,44 +39,48 @@ db_repository:
     upsert_entity:
       mode: write
       description: |
-        Insert or update a code entity. On conflict (same repo, file, name, type),
+        Insert or update a code entity. On conflict (qualified_name, source_repo),
         update all mutable fields. This supports idempotent re-crawling.
       sql: |
         INSERT INTO code_entities (
-          id, entity_type, name, file_path, file_hash, source_repo,
-          line_start, line_end, bases, methods, decorators,
-          docstring, source_code, confidence, updated_at
+          id, entity_type, entity_name, qualified_name, source_repo,
+          source_path, line_number, file_hash, bases, methods,
+          fields, decorators, docstring, signature, confidence, updated_at
         ) VALUES (
-          $1, $2, $3, $4, $5, $6,
-          $7, $8, $9, $10, $11,
-          $12, $13, $14, now()
+          $1, $2, $3, $4, $5,
+          $6, $7, $8, $9, $10,
+          $11, $12, $13, $14, $15, now()
         )
-        ON CONFLICT (source_repo, file_path, name, entity_type) DO UPDATE SET
+        ON CONFLICT (qualified_name, source_repo) DO UPDATE SET
+          entity_type = EXCLUDED.entity_type,
+          entity_name = EXCLUDED.entity_name,
+          source_path = EXCLUDED.source_path,
+          line_number = EXCLUDED.line_number,
           file_hash = EXCLUDED.file_hash,
-          line_start = EXCLUDED.line_start,
-          line_end = EXCLUDED.line_end,
           bases = EXCLUDED.bases,
           methods = EXCLUDED.methods,
+          fields = EXCLUDED.fields,
           decorators = EXCLUDED.decorators,
           docstring = EXCLUDED.docstring,
-          source_code = EXCLUDED.source_code,
+          signature = EXCLUDED.signature,
           confidence = EXCLUDED.confidence,
           updated_at = now()
         RETURNING id
       param_order:
         - id
         - entity_type
-        - name
-        - file_path
-        - file_hash
+        - entity_name
+        - qualified_name
         - source_repo
-        - line_start
-        - line_end
+        - source_path
+        - line_number
+        - file_hash
         - bases
         - methods
+        - fields
         - decorators
         - docstring
-        - source_code
+        - signature
         - confidence
       params:
         id:
@@ -87,37 +92,37 @@ db_repository:
           name: entity_type
           param_type: string
           required: true
-          description: Entity type (CLASS, FUNCTION, etc.). Positional $2.
-        name:
-          name: name
+          description: Entity type (class, function, etc.). Positional $2.
+        entity_name:
+          name: entity_name
           param_type: string
           required: true
-          description: Entity name. Positional $3.
-        file_path:
-          name: file_path
+          description: Simple entity name. Positional $3.
+        qualified_name:
+          name: qualified_name
           param_type: string
           required: true
-          description: File path within repo. Positional $4.
-        file_hash:
-          name: file_hash
-          param_type: string
-          required: true
-          description: SHA256 hash of file content. Positional $5.
+          description: Fully qualified name (module.Class.method). Positional $4.
         source_repo:
           name: source_repo
           param_type: string
           required: true
-          description: Repository name. Positional $6.
-        line_start:
-          name: line_start
+          description: Repository name. Positional $5.
+        source_path:
+          name: source_path
+          param_type: string
+          required: true
+          description: File path relative to repo root. Positional $6.
+        line_number:
+          name: line_number
           param_type: integer
           required: false
-          description: Start line number. Positional $7.
-        line_end:
-          name: line_end
-          param_type: integer
-          required: false
-          description: End line number. Positional $8.
+          description: Line number in source file. Positional $7.
+        file_hash:
+          name: file_hash
+          param_type: string
+          required: true
+          description: SHA256 hash of file content. Positional $8.
         bases:
           name: bases
           param_type: string
@@ -129,29 +134,35 @@ db_repository:
           param_type: string
           required: false
           default: "[]"
-          description: JSON array of method names. Positional $10.
+          description: JSON array of method descriptors. Positional $10.
+        fields:
+          name: fields
+          param_type: string
+          required: false
+          default: "[]"
+          description: JSON array of field descriptors. Positional $11.
         decorators:
           name: decorators
           param_type: string
           required: false
           default: "[]"
-          description: JSON array of decorators. Positional $11.
+          description: JSON array of decorators. Positional $12.
         docstring:
           name: docstring
           param_type: string
           required: false
-          description: Entity docstring. Positional $12.
-        source_code:
-          name: source_code
+          description: Entity docstring. Positional $13.
+        signature:
+          name: signature
           param_type: string
           required: false
-          description: Source code of entity. Positional $13.
+          description: Function signature string. Positional $14.
         confidence:
           name: confidence
           param_type: number
           required: false
           default: 1.0
-          description: Confidence score. Positional $14.
+          description: Confidence score. Positional $15.
       returns:
         model_ref: EntityRow
         many: false
@@ -163,18 +174,20 @@ db_repository:
       mode: write
       description: |
         Insert or update a code relationship. On conflict (same source, target, type),
-        update confidence, trust_tier, and metadata.
+        update confidence, trust_tier, and evidence.
       sql: |
         INSERT INTO code_relationships (
           id, source_entity_id, target_entity_id, relationship_type,
-          confidence, trust_tier, metadata
+          confidence, trust_tier, evidence, inject_into_context, source_repo
         ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7
+          $1, $2, $3, $4, $5, $6, $7, $8, $9
         )
         ON CONFLICT (source_entity_id, target_entity_id, relationship_type) DO UPDATE SET
           confidence = EXCLUDED.confidence,
           trust_tier = EXCLUDED.trust_tier,
-          metadata = EXCLUDED.metadata
+          evidence = EXCLUDED.evidence,
+          inject_into_context = EXCLUDED.inject_into_context,
+          updated_at = now()
         RETURNING id
       param_order:
         - id
@@ -183,7 +196,9 @@ db_repository:
         - relationship_type
         - confidence
         - trust_tier
-        - metadata
+        - evidence
+        - inject_into_context
+        - source_repo
       params:
         id:
           name: id
@@ -215,14 +230,25 @@ db_repository:
           name: trust_tier
           param_type: string
           required: false
-          default: "conservative"
+          default: "strong"
           description: Trust tier. Positional $6.
-        metadata:
-          name: metadata
+        evidence:
+          name: evidence
           param_type: string
           required: false
-          default: "{}"
-          description: JSON metadata. Positional $7.
+          default: "[]"
+          description: JSON array of evidence strings. Positional $7.
+        inject_into_context:
+          name: inject_into_context
+          param_type: boolean
+          required: false
+          default: true
+          description: Whether to inject into LLM context. Positional $8.
+        source_repo:
+          name: source_repo
+          param_type: string
+          required: true
+          description: Repository name. Positional $9.
       returns:
         model_ref: RelationshipRow
         many: false
@@ -237,19 +263,19 @@ db_repository:
         Cascade deletes associated relationships.
       sql: |
         DELETE FROM code_entities
-        WHERE source_repo = $1 AND file_path = $2
+        WHERE source_repo = $1 AND source_path = $2
         RETURNING id
       param_order:
         - source_repo
-        - file_path
+        - source_path
       params:
         source_repo:
           name: source_repo
           param_type: string
           required: true
           description: Repository name. Positional $1.
-        file_path:
-          name: file_path
+        source_path:
+          name: source_path
           param_type: string
           required: true
           description: File path. Positional $2.
@@ -266,7 +292,7 @@ db_repository:
       sql: |
         SELECT * FROM code_entities
         WHERE source_repo = $1
-        ORDER BY file_path, line_start, id ASC
+        ORDER BY source_path, line_number, id ASC
         LIMIT $2
       param_order:
         - source_repo
@@ -295,19 +321,19 @@ db_repository:
       description: Retrieve all entities for a specific file.
       sql: |
         SELECT * FROM code_entities
-        WHERE source_repo = $1 AND file_path = $2
-        ORDER BY line_start, id ASC
+        WHERE source_repo = $1 AND source_path = $2
+        ORDER BY line_number, id ASC
       param_order:
         - source_repo
-        - file_path
+        - source_path
       params:
         source_repo:
           name: source_repo
           param_type: string
           required: true
           description: Repository name. Positional $1.
-        file_path:
-          name: file_path
+        source_path:
+          name: source_path
           param_type: string
           required: true
           description: File path. Positional $2.
