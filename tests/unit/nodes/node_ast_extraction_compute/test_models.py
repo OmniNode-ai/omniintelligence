@@ -22,7 +22,7 @@ class TestModelCodeEntity:
             entity_type=EnumEntityType.CLASS,
             name="MyService",
             file_path="src/services/my_service.py",
-            file_hash="abc123def456",
+            file_hash="abc123def456",  # pragma: allowlist secret
             source_repo="omniintelligence",
             line_start=10,
             line_end=50,
@@ -64,7 +64,7 @@ class TestModelCodeEntity:
             entity_type=EnumEntityType.FUNCTION,
             name="process",
             file_path="src/main.py",
-            file_hash="deadbeef",
+            file_hash="deadbeef",  # pragma: allowlist secret
             source_repo="omnibase_core",
             line_start=1,
             line_end=5,

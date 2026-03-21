@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: MIT
 ---
 name: "node_code_crawler_effect"
+description: "Crawls configured repositories for Python source files and emits code-file-discovered events
+  for downstream AST extraction."
 contract_version: {major: 1, minor: 0, patch: 0}
 node_version: {major: 1, minor: 0, patch: 0}
 node_type: "EFFECT_GENERIC"
