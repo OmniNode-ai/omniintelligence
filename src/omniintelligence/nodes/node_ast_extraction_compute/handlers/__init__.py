@@ -10,7 +10,11 @@ using the ``ast`` module. Follows the ONEX "thin shell, fat handler" pattern.
 from omniintelligence.nodes.node_ast_extraction_compute.handlers.handler_ast_extract import (
     handle_ast_extract,
 )
+from omniintelligence.nodes.node_ast_extraction_compute.handlers.handler_relationship_detect import (
+    detect_relationships,
+)
 
 __all__ = [
+    "detect_relationships",
     "handle_ast_extract",
 ]

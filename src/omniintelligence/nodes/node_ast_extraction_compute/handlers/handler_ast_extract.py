@@ -19,6 +19,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
+from omniintelligence.nodes.node_ast_extraction_compute.handlers.handler_relationship_detect import (
+    detect_relationships,
+)
 from omniintelligence.nodes.node_ast_extraction_compute.models.model_code_entities_extracted_event import (
     ModelCodeEntitiesExtractedEvent,
 )
@@ -182,6 +185,15 @@ def handle_ast_extract(input_data: AstExtractInput) -> ModelCodeEntitiesExtracte
                     source_path=input_data.source_path,
                     file_hash=input_data.file_hash,
                 )
+
+    # --- Post-processing: detect implements/calls relationships (OMN-5660) ---
+    additional_rels = detect_relationships(
+        source_code=input_data.source_content,
+        file_path=input_data.source_path,
+        repo_name=input_data.source_repo,
+        entities=entities,
+    )
+    relationships.extend(additional_rels)
 
     return ModelCodeEntitiesExtractedEvent(
         event_id=input_data.event_id,
