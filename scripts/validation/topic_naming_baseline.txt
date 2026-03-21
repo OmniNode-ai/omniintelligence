@@ -29,4 +29,8 @@ onex.commands.omniintelligence.compliance-evaluate.v1
 onex.events.omniintelligence.pattern-promoted.v1
 onex.events.omniintelligence.pattern-stored.v1
 onex.events.omniintelligence.pattern-lifecycle-transitioned.v1
+onex.commands.omniintelligence.code-crawl-requested.v1
+onex.events.omniintelligence.code-file-discovered.v1
+onex.events.omniintelligence.code-entities-extracted-persist.v1
+onex.events.omniintelligence.code-entities-extracted-embed.v1
 onex.dlq.omniintelligence.v1
