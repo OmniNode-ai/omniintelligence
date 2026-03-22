@@ -220,7 +220,7 @@ def parse_review_response(raw_text: str) -> list[dict[str, Any]]:
             if isinstance(parsed, list):
                 return parsed  # type: ignore[no-any-return]
         except json.JSONDecodeError:
-            pass
+            logger.debug("Fenced block was not valid JSON, trying bracket extraction")
 
     # Try finding a JSON array anywhere in the text.
     bracket_match = re.search(r"\[.*\]", text, re.DOTALL)
@@ -230,7 +230,7 @@ def parse_review_response(raw_text: str) -> list[dict[str, Any]]:
             if isinstance(parsed, list):
                 return parsed  # type: ignore[no-any-return]
         except json.JSONDecodeError:
-            pass
+            logger.debug("Bracket-extracted text was not valid JSON")
 
     logger.warning("Failed to extract JSON findings from model response")
     return []
