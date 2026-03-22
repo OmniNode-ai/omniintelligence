@@ -58,6 +58,10 @@ class ModelPatternQueryResponse(BaseModel):
         description="Whether this is the current version",
     )
     version: int = Field(default=1, ge=1, description="Pattern version number")
+    project_scope: str | None = Field(
+        default=None,
+        description="Optional project scope for pattern isolation (OMN-1607)",
+    )
     created_at: datetime = Field(..., description="Row creation timestamp")
 
 
