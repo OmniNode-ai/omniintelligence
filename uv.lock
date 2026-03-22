@@ -1,10 +1,16 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.12, <4.0"
 resolution-markers = [
     "python_full_version >= '3.14'",
     "python_full_version == '3.13.*'",
     "python_full_version < '3.13'",
+]
+
+[manifest]
+overrides = [
+    { name = "omnibase-core", specifier = ">=0.30.1" },
+    { name = "omnibase-spi", specifier = "==0.18.0" },
 ]
 
 [[package]]
@@ -2108,7 +2114,7 @@ wheels = [
 
 [[package]]
 name = "omnibase-core"
-version = "0.29.0"
+version = "0.30.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "blake3" },
@@ -2122,9 +2128,9 @@ dependencies = [
     { name = "pyyaml" },
     { name = "ruamel-yaml" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/65/27/0ad177b31bc4a5359044ff8aa09a6d88fec2f7bbfcb82ed617a37568ec44/omnibase_core-0.29.0.tar.gz", hash = "sha256:36cf25b5e18cd2843cccd901bf67f897829b6040ee7cee029ee9ef4afb48c8f6", size = 8506349, upload-time = "2026-03-19T12:53:05.283Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/4a/2e/50d363e3701e5741bcbfbed49b0511694ad4650ba5acb31066c0b47c3e9c/omnibase_core-0.30.1.tar.gz", hash = "sha256:66b2fa44ffae929fc22a269b1e3c8a5be272bfd5ecc453195c790f794ce6eebc", size = 8010634, upload-time = "2026-03-22T01:55:48.658Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/46/cd/7d4e015c1865d2ca0eda84e5af296547ebc1514670d3e2f229cba537ca57/omnibase_core-0.29.0-py3-none-any.whl", hash = "sha256:a1f1277290fd609645dd5e6393a5a7ae7e36c7c7004ea026a338f178144401e5", size = 5196717, upload-time = "2026-03-19T12:53:09.073Z" },
+    { url = "https://files.pythonhosted.org/packages/01/95/97f2a18d60c20d4e7e27a032ba8957a4ed7c38e3d340fe0425fe75e4ed04/omnibase_core-0.30.1-py3-none-any.whl", hash = "sha256:495e6654fd241a1274a447898f07c50f8234f778b4c567205c2700bb6a99ff4b", size = 5205029, upload-time = "2026-03-22T01:55:52.092Z" },
 ]
 
 [[package]]
@@ -2340,7 +2346,7 @@ all = [
     { name = "markdown", specifier = ">=3.8" },
     { name = "mypy", specifier = ">=1.17.0" },
     { name = "neo4j", specifier = ">=5.28.2" },
-    { name = "omnibase-core", specifier = "==0.29.0" },
+    { name = "omnibase-core", specifier = ">=0.30.1" },
     { name = "omnibase-infra", specifier = "==0.22.0" },
     { name = "omnibase-spi", specifier = "==0.18.0" },
     { name = "onex-change-control", git = "https://github.com/OmniNode-ai/onex_change_control.git?branch=main" },
@@ -2383,7 +2389,7 @@ core = [
     { name = "logfire", specifier = ">=0.30.0" },
     { name = "markdown", specifier = ">=3.8" },
     { name = "neo4j", specifier = ">=5.28.2" },
-    { name = "omnibase-core", specifier = "==0.29.0" },
+    { name = "omnibase-core", specifier = ">=0.30.1" },
     { name = "omnibase-infra", specifier = "==0.22.0" },
     { name = "omnibase-spi", specifier = "==0.18.0" },
     { name = "openai", specifier = ">=1.71.0" },

@@ -92,7 +92,7 @@ core = [
     # ONEX private ecosystem dependencies (NOT on public PyPI)
     # Installed via editable installs from sibling repos or private registry.
     # Version bounds match Poetry caret syntax above.
-    "omnibase-core==0.29.0",
+    "omnibase-core>=0.30.1",
     "omnibase-spi==0.18.0",
     "omnibase-infra==0.22.0",
     "pydantic>=2.12.5,<3.0.0",
@@ -355,4 +355,11 @@ markers = [
     "baseline: marks tests for historical cost/latency baseline management",
     "intent_graph: marks tests for intent graph accumulation logic",
     "transition: marks tests for intent transition edge accumulation",
+]
+
+[tool.uv]
+# Override omnibase-infra's transitive pins on core/spi so our direct pins win.
+override-dependencies = [
+    "omnibase-core>=0.30.1",
+    "omnibase-spi==0.18.0",
 ]
