@@ -1,11 +1,14 @@
 # SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
 
-"""Tests for event wire models."""
+"""Tests for event wire models.
+
+Validates that ModelCodeFileDiscoveredEvent and ModelCodeEntitiesExtractedEvent
+are frozen, serialization-roundtrip safe, and use correct model field names.
+"""
 
 import pytest
 
-from omniintelligence.enums import EnumEntityType, EnumRelationshipType
 from omniintelligence.nodes.node_ast_extraction_compute.models import (
     ModelCodeEntitiesExtractedEvent,
     ModelCodeEntity,
@@ -47,21 +50,22 @@ class TestModelCodeFileDiscoveredEvent:
 class TestModelCodeEntitiesExtractedEvent:
     def test_create_with_entities_and_roundtrip(self) -> None:
         entity = ModelCodeEntity(
-            entity_id="cls_Foo",
-            entity_type=EnumEntityType.CLASS,
-            name="Foo",
-            file_path="src/foo.py",
-            file_hash="hash1",
+            id="550e8400-e29b-41d4-a716-446655440000",
+            entity_name="Foo",
+            entity_type="class",
+            qualified_name="foo.Foo",
             source_repo="omniintelligence",
-            line_start=1,
-            line_end=10,
+            source_path="src/foo.py",
+            line_number=1,
+            file_hash="hash1",
         )
         rel = ModelCodeRelationship(
-            relationship_id="rel_001",
-            source_entity_id="cls_Foo",
-            target_entity_id="mod_foo",
-            relationship_type=EnumRelationshipType.CONTAINS,
+            id="rel-001",
+            source_entity="foo.Foo",
+            target_entity="foo",
+            relationship_type="contains",
             trust_tier="moderate",
+            evidence=["module contains class Foo"],
         )
         event = ModelCodeEntitiesExtractedEvent(
             event_id="evt_002",
@@ -77,12 +81,12 @@ class TestModelCodeEntitiesExtractedEvent:
 
         assert event.entity_count == len(event.entities)
         assert event.relationship_count == len(event.relationships)
-        assert event.entities[0].name == "Foo"
+        assert event.entities[0].entity_name == "Foo"
 
         # Serialization roundtrip
         json_str = event.model_dump_json()
         restored = ModelCodeEntitiesExtractedEvent.model_validate_json(json_str)
         assert restored.entity_count == 1
         assert restored.relationship_count == 1
-        assert restored.entities[0].entity_id == "cls_Foo"
-        assert restored.relationships[0].relationship_id == "rel_001"
+        assert restored.entities[0].id == "550e8400-e29b-41d4-a716-446655440000"
+        assert restored.relationships[0].id == "rel-001"

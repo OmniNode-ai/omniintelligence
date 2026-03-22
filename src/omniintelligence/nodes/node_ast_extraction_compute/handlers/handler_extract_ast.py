@@ -8,9 +8,18 @@ from Python source using the stdlib ast module. All entities have
 confidence=1.0 (AST is authoritative for Python source).
 
 Trust tiers:
-- conservative: INHERITS, IMPORTS (syntactically certain)
+- strong: INHERITS, IMPORTS (syntactically certain)
 - moderate: CONTAINS, DEFINES (structural)
 - weak: CALLS (behavioral, best-effort)
+
+Field mapping (aligned with ModelCodeEntity contract):
+- id: UUID string
+- entity_name: simple name
+- entity_type: class/function/import/constant/module
+- qualified_name: dotted module path
+- source_path: file path relative to repo
+- line_number: starting line
+- file_hash: SHA256 of source content
 """
 
 from __future__ import annotations
@@ -18,10 +27,9 @@ from __future__ import annotations
 import ast
 import hashlib
 import logging
+import uuid
 from dataclasses import dataclass, field
-from uuid import uuid4
 
-from omniintelligence.enums import EnumEntityType, EnumRelationshipType
 from omniintelligence.nodes.node_ast_extraction_compute.models.model_code_entity import (
     ModelCodeEntity,
 )
@@ -32,13 +40,9 @@ from omniintelligence.nodes.node_ast_extraction_compute.models.model_code_relati
 logger = logging.getLogger(__name__)
 
 
-def _make_entity_id(prefix: str, name: str) -> str:
-    """Generate a deterministic entity ID."""
-    return f"{prefix}_{name}"
-
-
-def _make_rel_id() -> str:
-    return f"rel_{uuid4().hex[:12]}"
+def _make_id() -> str:
+    """Generate a UUID string."""
+    return str(uuid.uuid4())
 
 
 def _get_docstring(node: ast.AST) -> str | None:
@@ -62,6 +66,22 @@ def _get_decorators(
             elif isinstance(dec.func, ast.Attribute):
                 decorators.append(ast.unparse(dec.func))
     return decorators
+
+
+def _file_path_to_module(file_path: str) -> str:
+    """Convert a file path to a dotted module path.
+
+    ``src/omniintelligence/nodes/foo/node.py``
+    becomes ``omniintelligence.nodes.foo.node``.
+    """
+    path = file_path.replace("\\", "/")
+    if path.startswith("src/"):
+        path = path[4:]
+    if path.endswith(".py"):
+        path = path[:-3]
+    if path.endswith("/__init__"):
+        path = path[: -len("/__init__")]
+    return path.replace("/", ".")
 
 
 @dataclass
@@ -100,39 +120,48 @@ def extract_entities_from_source(
         return AstExtractionResult()
 
     result = AstExtractionResult()
+    module_path = _file_path_to_module(file_path)
 
     # Module-level entity
-    module_name = file_path.replace("/", ".").removesuffix(".py")
-    module_id = _make_entity_id("mod", module_name)
     result.entities.append(
         ModelCodeEntity(
-            entity_id=module_id,
-            entity_type=EnumEntityType.MODULE,
-            name=module_name,
-            file_path=file_path,
-            file_hash=file_hash,
+            id=_make_id(),
+            entity_name=module_path,
+            entity_type="module",
+            qualified_name=module_path,
             source_repo=source_repo,
-            line_start=0,
-            line_end=len(source_code.splitlines()),
+            source_path=file_path,
+            line_number=1,
+            file_hash=file_hash,
         )
     )
 
     for node in ast.iter_child_nodes(tree):
         if isinstance(node, ast.ClassDef):
             _extract_class(
-                node, result, file_path, file_hash, source_repo, module_id, source_code
+                node,
+                result,
+                file_path,
+                file_hash,
+                source_repo,
+                module_path,
+                source_code,
             )
         elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
             _extract_function(
-                node, result, file_path, file_hash, source_repo, module_id, source_code
+                node, result, file_path, file_hash, source_repo, module_path
             )
         elif isinstance(node, ast.Import):
-            _extract_import(node, result, module_id)
+            _extract_import(
+                node, result, module_path, source_repo, file_path, file_hash
+            )
         elif isinstance(node, ast.ImportFrom):
-            _extract_import_from(node, result, module_id)
+            _extract_import_from(
+                node, result, module_path, source_repo, file_path, file_hash
+            )
         elif isinstance(node, ast.Assign):
             _extract_constant(
-                node, result, file_path, file_hash, source_repo, module_id
+                node, result, file_path, file_hash, source_repo, module_path
             )
 
     return result
@@ -144,11 +173,11 @@ def _extract_class(
     file_path: str,
     file_hash: str,
     source_repo: str,
-    module_id: str,
+    module_path: str,
     source_code: str,
 ) -> None:
-    class_id = _make_entity_id("cls", node.name)
     bases = [ast.unparse(b) for b in node.bases]
+    qualified = f"{module_path}.{node.name}"
     methods: list[str] = []
 
     for item in node.body:
@@ -157,76 +186,80 @@ def _extract_class(
 
     result.entities.append(
         ModelCodeEntity(
-            entity_id=class_id,
-            entity_type=EnumEntityType.CLASS,
-            name=node.name,
-            file_path=file_path,
-            file_hash=file_hash,
+            id=_make_id(),
+            entity_name=node.name,
+            entity_type="class",
+            qualified_name=qualified,
             source_repo=source_repo,
-            line_start=node.lineno - 1,
-            line_end=node.end_lineno or node.lineno,
+            source_path=file_path,
+            line_number=node.lineno,
             bases=bases,
-            methods=methods,
+            methods=[{"name": m} for m in methods],
             decorators=_get_decorators(node),
             docstring=_get_docstring(node),
-            source_code=ast.get_source_segment(source_code, node),
+            file_hash=file_hash,
         )
     )
 
     # CONTAINS: module -> class
     result.relationships.append(
         ModelCodeRelationship(
-            relationship_id=_make_rel_id(),
-            source_entity_id=module_id,
-            target_entity_id=class_id,
-            relationship_type=EnumRelationshipType.CONTAINS,
+            id=_make_id(),
+            source_entity=module_path,
+            target_entity=qualified,
+            relationship_type="contains",
             trust_tier="moderate",
+            confidence=1.0,
+            evidence=[f"module contains class {node.name}"],
         )
     )
 
     # INHERITS: class -> each base
     for base_name in bases:
-        base_id = _make_entity_id("cls", base_name)
         result.relationships.append(
             ModelCodeRelationship(
-                relationship_id=_make_rel_id(),
-                source_entity_id=class_id,
-                target_entity_id=base_id,
-                relationship_type=EnumRelationshipType.EXTENDS,
-                trust_tier="conservative",
+                id=_make_id(),
+                source_entity=qualified,
+                target_entity=base_name,
+                relationship_type="inherits",
+                trust_tier="strong",
+                confidence=1.0,
+                evidence=[f"class {node.name}({base_name})"],
             )
         )
 
     # DEFINES: class -> method (extract methods as entities too)
     for item in node.body:
         if isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef):
-            method_id = _make_entity_id("fn", f"{node.name}.{item.name}")
+            method_qualified = f"{qualified}.{item.name}"
             result.entities.append(
                 ModelCodeEntity(
-                    entity_id=method_id,
-                    entity_type=EnumEntityType.FUNCTION,
-                    name=f"{node.name}.{item.name}",
-                    file_path=file_path,
-                    file_hash=file_hash,
+                    id=_make_id(),
+                    entity_name=f"{node.name}.{item.name}",
+                    entity_type="function",
+                    qualified_name=method_qualified,
                     source_repo=source_repo,
-                    line_start=item.lineno - 1,
-                    line_end=item.end_lineno or item.lineno,
+                    source_path=file_path,
+                    line_number=item.lineno,
                     decorators=_get_decorators(item),
                     docstring=_get_docstring(item),
+                    file_hash=file_hash,
                 )
             )
             result.relationships.append(
                 ModelCodeRelationship(
-                    relationship_id=_make_rel_id(),
-                    source_entity_id=class_id,
-                    target_entity_id=method_id,
-                    relationship_type=EnumRelationshipType.DEFINES,
+                    id=_make_id(),
+                    source_entity=qualified,
+                    target_entity=method_qualified,
+                    relationship_type="defines",
                     trust_tier="moderate",
+                    confidence=1.0,
+                    evidence=[f"class {node.name} defines method {item.name}"],
                 )
             )
 
             # CALLS: best-effort extraction from method body
-            _extract_calls(item, result, method_id)
+            _extract_calls(item, result, method_qualified)
 
 
 def _extract_function(
@@ -235,56 +268,72 @@ def _extract_function(
     file_path: str,
     file_hash: str,
     source_repo: str,
-    module_id: str,
-    source_code: str,
+    module_path: str,
 ) -> None:
-    fn_id = _make_entity_id("fn", node.name)
+    qualified = f"{module_path}.{node.name}"
 
     result.entities.append(
         ModelCodeEntity(
-            entity_id=fn_id,
-            entity_type=EnumEntityType.FUNCTION,
-            name=node.name,
-            file_path=file_path,
-            file_hash=file_hash,
+            id=_make_id(),
+            entity_name=node.name,
+            entity_type="function",
+            qualified_name=qualified,
             source_repo=source_repo,
-            line_start=node.lineno - 1,
-            line_end=node.end_lineno or node.lineno,
+            source_path=file_path,
+            line_number=node.lineno,
             decorators=_get_decorators(node),
             docstring=_get_docstring(node),
-            source_code=ast.get_source_segment(source_code, node),
+            file_hash=file_hash,
         )
     )
 
     # CONTAINS: module -> function
     result.relationships.append(
         ModelCodeRelationship(
-            relationship_id=_make_rel_id(),
-            source_entity_id=module_id,
-            target_entity_id=fn_id,
-            relationship_type=EnumRelationshipType.CONTAINS,
+            id=_make_id(),
+            source_entity=module_path,
+            target_entity=qualified,
+            relationship_type="contains",
             trust_tier="moderate",
+            confidence=1.0,
+            evidence=[f"module contains function {node.name}"],
         )
     )
 
     # CALLS: best-effort extraction
-    _extract_calls(node, result, fn_id)
+    _extract_calls(node, result, qualified)
 
 
 def _extract_import(
     node: ast.Import,
     result: AstExtractionResult,
-    module_id: str,
+    module_path: str,
+    source_repo: str,
+    file_path: str,
+    file_hash: str,
 ) -> None:
     for alias in node.names:
-        target_id = _make_entity_id("mod", alias.name)
+        result.entities.append(
+            ModelCodeEntity(
+                id=_make_id(),
+                entity_name=alias.name,
+                entity_type="import",
+                qualified_name=alias.name,
+                source_repo=source_repo,
+                source_path=file_path,
+                line_number=node.lineno,
+                file_hash=file_hash,
+            )
+        )
         result.relationships.append(
             ModelCodeRelationship(
-                relationship_id=_make_rel_id(),
-                source_entity_id=module_id,
-                target_entity_id=target_id,
-                relationship_type=EnumRelationshipType.IMPORTS,
-                trust_tier="conservative",
+                id=_make_id(),
+                source_entity=module_path,
+                target_entity=alias.name,
+                relationship_type="imports",
+                trust_tier="strong",
+                confidence=1.0,
+                evidence=[f"import {alias.name}"],
             )
         )
 
@@ -292,19 +341,37 @@ def _extract_import(
 def _extract_import_from(
     node: ast.ImportFrom,
     result: AstExtractionResult,
-    module_id: str,
+    module_path: str,
+    source_repo: str,
+    file_path: str,
+    file_hash: str,
 ) -> None:
     if node.module:
-        target_id = _make_entity_id("mod", node.module)
-        result.relationships.append(
-            ModelCodeRelationship(
-                relationship_id=_make_rel_id(),
-                source_entity_id=module_id,
-                target_entity_id=target_id,
-                relationship_type=EnumRelationshipType.IMPORTS,
-                trust_tier="conservative",
+        for alias in node.names:
+            target = node.module if alias.name == "*" else f"{node.module}.{alias.name}"
+            result.entities.append(
+                ModelCodeEntity(
+                    id=_make_id(),
+                    entity_name=alias.name,
+                    entity_type="import",
+                    qualified_name=target,
+                    source_repo=source_repo,
+                    source_path=file_path,
+                    line_number=node.lineno,
+                    file_hash=file_hash,
+                )
             )
-        )
+            result.relationships.append(
+                ModelCodeRelationship(
+                    id=_make_id(),
+                    source_entity=module_path,
+                    target_entity=target,
+                    relationship_type="imports",
+                    trust_tier="strong",
+                    confidence=1.0,
+                    evidence=[f"from {node.module} import {alias.name}"],
+                )
+            )
 
 
 def _extract_constant(
@@ -313,30 +380,32 @@ def _extract_constant(
     file_path: str,
     file_hash: str,
     source_repo: str,
-    module_id: str,
+    module_path: str,
 ) -> None:
     for target in node.targets:
         if isinstance(target, ast.Name) and target.id.isupper():
-            const_id = _make_entity_id("const", target.id)
+            qualified = f"{module_path}.{target.id}"
             result.entities.append(
                 ModelCodeEntity(
-                    entity_id=const_id,
-                    entity_type=EnumEntityType.CONSTANT,
-                    name=target.id,
-                    file_path=file_path,
-                    file_hash=file_hash,
+                    id=_make_id(),
+                    entity_name=target.id,
+                    entity_type="constant",
+                    qualified_name=qualified,
                     source_repo=source_repo,
-                    line_start=node.lineno - 1,
-                    line_end=node.end_lineno or node.lineno,
+                    source_path=file_path,
+                    line_number=node.lineno,
+                    file_hash=file_hash,
                 )
             )
             result.relationships.append(
                 ModelCodeRelationship(
-                    relationship_id=_make_rel_id(),
-                    source_entity_id=module_id,
-                    target_entity_id=const_id,
-                    relationship_type=EnumRelationshipType.DEFINES,
+                    id=_make_id(),
+                    source_entity=module_path,
+                    target_entity=qualified,
+                    relationship_type="defines",
                     trust_tier="moderate",
+                    confidence=1.0,
+                    evidence=[f"module defines constant {target.id}"],
                 )
             )
 
@@ -344,7 +413,7 @@ def _extract_constant(
 def _extract_calls(
     node: ast.FunctionDef | ast.AsyncFunctionDef,
     result: AstExtractionResult,
-    source_id: str,
+    source_qualified: str,
 ) -> None:
     """Best-effort extraction of function calls from a function body."""
     for child in ast.walk(node):
@@ -356,14 +425,16 @@ def _extract_calls(
                 callee_name = child.func.attr
 
             if callee_name:
-                target_id = _make_entity_id("fn", callee_name)
                 result.relationships.append(
                     ModelCodeRelationship(
-                        relationship_id=_make_rel_id(),
-                        source_entity_id=source_id,
-                        target_entity_id=target_id,
-                        relationship_type=EnumRelationshipType.CALLS,
+                        id=_make_id(),
+                        source_entity=source_qualified,
+                        target_entity=callee_name,
+                        relationship_type="calls",
                         trust_tier="weak",
+                        confidence=0.5,
+                        evidence=[f"calls {callee_name}"],
+                        inject_into_context=False,
                     )
                 )
 
