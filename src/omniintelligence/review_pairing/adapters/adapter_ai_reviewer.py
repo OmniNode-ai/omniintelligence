@@ -180,7 +180,7 @@ async def call_model(
     # Ensure HMAC secret is set. Local LLM endpoints do not verify
     # signatures, so a placeholder is sufficient for CLI use.
     if not os.environ.get("LOCAL_LLM_SHARED_SECRET"):
-        os.environ["LOCAL_LLM_SHARED_SECRET"] = "cli-review-unsigned"  # noqa: S105
+        os.environ["LOCAL_LLM_SHARED_SECRET"] = "cli-review-unsigned"  # noqa: S105  # pragma: allowlist secret
 
     base_url = os.environ.get(config.env_var, config.default_url)
 
