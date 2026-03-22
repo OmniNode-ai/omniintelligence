@@ -67,7 +67,7 @@ MODEL_REGISTRY: dict[str, ModelEndpointConfig] = {
         default_url="http://192.168.86.200:8101",
         kind="reasoning",
         timeout_seconds=120.0,
-        api_model_id="deepseek-r1",
+        api_model_id="mlx-community/DeepSeek-R1-Distill-Qwen-32B-bf16",
     ),
     "qwen3-coder": ModelEndpointConfig(
         env_var="LLM_CODER_URL",
