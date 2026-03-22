@@ -916,6 +916,22 @@ jobs:
   # ============================================================================
   # CI Summary - Final aggregator for all gates (OMN-2227)
   # ============================================================================
+  # CROSS-REPO BOUNDARY PARITY (OMN-5772)
+  # Validates Kafka topic + migration boundaries against onex_change_control.
+  # warn-only until all violations fixed (see OMN-5775).
+  # ============================================================================
+
+  boundary-parity:
+    name: Cross-Repo Boundary Parity
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: OmniNode-ai/onex_change_control/.github/actions/validate-boundaries@main
+        with:
+          checks: "boundary-parity,migration-conflicts"
+          warn-only: "true"
+
+  # ============================================================================
   # API-STABLE check_name: "CI Summary"
   # Aggregates Quality Gate + path-filtered production code jobs.
   # REQUIRED for this repo because it uses path filtering -- skipped path-filtered
