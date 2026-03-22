@@ -34,6 +34,7 @@ class ModelEndpointConfig:
     default_url: str
     kind: str
     timeout_seconds: float
+    api_model_id: str = ""
 
 
 class ModelExternalReviewResult(BaseModel, frozen=True):

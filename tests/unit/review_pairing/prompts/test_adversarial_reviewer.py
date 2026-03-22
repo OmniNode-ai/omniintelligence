@@ -22,16 +22,25 @@ class TestSystemPrompt:
     """Verify SYSTEM_PROMPT content and format constraints."""
 
     def test_contains_journal_style_critique(self) -> None:
-        assert "journal-style critique" in SYSTEM_PROMPT
+        assert (
+            "journal-style critique" in SYSTEM_PROMPT.lower()
+            or "Journal-style critique" in SYSTEM_PROMPT
+        )
 
     def test_contains_generally_disagrees(self) -> None:
-        assert "generally disagrees" in SYSTEM_PROMPT
+        assert "Generally disagrees" in SYSTEM_PROMPT
 
     def test_contains_failures_of_critical_evaluation(self) -> None:
         assert "failures of critical evaluation" in SYSTEM_PROMPT
 
     def test_contains_rigorous_objectivity(self) -> None:
-        assert "rigorous objectivity" in SYSTEM_PROMPT
+        assert "Rigorous Objectivity" in SYSTEM_PROMPT
+
+    def test_contains_intellectual_honesty(self) -> None:
+        assert "intellectual honesty" in SYSTEM_PROMPT
+
+    def test_contains_kind_but_unsentimental(self) -> None:
+        assert "Kind but unsentimental" in SYSTEM_PROMPT
 
     def test_no_em_dashes(self) -> None:
         """SYSTEM_PROMPT must not contain em dashes (U+2014)."""
@@ -94,4 +103,4 @@ class TestPromptVersion:
             assert part.isdigit(), f"Non-numeric semver part: {part}"
 
     def test_current_version(self) -> None:
-        assert PROMPT_VERSION == "1.0.0"
+        assert PROMPT_VERSION == "1.1.0"

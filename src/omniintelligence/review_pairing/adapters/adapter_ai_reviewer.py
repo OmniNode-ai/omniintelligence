@@ -67,18 +67,21 @@ MODEL_REGISTRY: dict[str, ModelEndpointConfig] = {
         default_url="http://192.168.86.200:8101",
         kind="reasoning",
         timeout_seconds=120.0,
+        api_model_id="deepseek-r1",
     ),
     "qwen3-coder": ModelEndpointConfig(
         env_var="LLM_CODER_URL",
         default_url="http://192.168.86.201:8000",
         kind="long_context",
         timeout_seconds=120.0,
+        api_model_id="cyankiwi/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit",
     ),
     "qwen3-14b": ModelEndpointConfig(
         env_var="LLM_CODER_FAST_URL",
         default_url="http://192.168.86.201:8001",
         kind="fast_review",
         timeout_seconds=60.0,
+        api_model_id="Qwen/Qwen3-14B-AWQ",
     ),
 }
 
@@ -133,7 +136,11 @@ async def call_model(
     user_prompt: str,
     model_key: str = _DEFAULT_MODEL_KEY,
 ) -> str:
-    """Invoke LLM via HandlerLlmOpenaiCompatible.
+    """Invoke LLM via direct httpx POST to OpenAI-compatible endpoint.
+
+    Uses a lightweight httpx call instead of TransportHolderLlmHttp to avoid
+    requiring LOCAL_LLM_SHARED_SECRET for HMAC signing. This adapter is a CLI
+    review tool calling local network LLMs, not a production service.
 
     Args:
         system_prompt: System prompt for the model.
@@ -147,16 +154,7 @@ async def call_model(
         ValueError: If model_key is not in the registry.
         RuntimeError: On LLM call failure.
     """
-    from omnibase_infra.adapters.llm.adapter_llm_provider_openai import (
-        TransportHolderLlmHttp,
-    )
-    from omnibase_infra.enums import EnumLlmOperationType
-    from omnibase_infra.nodes.node_llm_inference_effect.handlers.handler_llm_openai_compatible import (
-        HandlerLlmOpenaiCompatible,
-    )
-    from omnibase_infra.nodes.node_llm_inference_effect.models.model_llm_inference_request import (
-        ModelLlmInferenceRequest,
-    )
+    import httpx
 
     config = MODEL_REGISTRY.get(model_key)
     if config is None:
@@ -164,26 +162,28 @@ async def call_model(
         raise ValueError(f"Unknown model '{model_key}'. Valid: {valid}")
 
     base_url = os.environ.get(config.env_var, config.default_url)
+    url = f"{base_url.rstrip('/')}/v1/chat/completions"
 
-    transport = TransportHolderLlmHttp(
-        target_name=f"ai-reviewer-{model_key}",
-        max_timeout_seconds=config.timeout_seconds + 30.0,
-    )
-    handler = HandlerLlmOpenaiCompatible(transport)
+    payload = {
+        "model": config.api_model_id or model_key,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        "max_tokens": _DEFAULT_MAX_TOKENS,
+        "temperature": _DEFAULT_TEMPERATURE,
+    }
 
-    request = ModelLlmInferenceRequest(
-        base_url=base_url,
-        operation_type=EnumLlmOperationType.CHAT_COMPLETION,
-        model=model_key,
-        messages=({"role": "user", "content": user_prompt},),
-        system_prompt=system_prompt,
-        max_tokens=_DEFAULT_MAX_TOKENS,
-        temperature=_DEFAULT_TEMPERATURE,
-        timeout_seconds=config.timeout_seconds,
-    )
+    async with httpx.AsyncClient(timeout=config.timeout_seconds) as client:
+        response = await client.post(url, json=payload)
+        response.raise_for_status()
+        data = response.json()
 
-    response = await handler.handle(request)
-    return str(response.text)
+    choices = data.get("choices", [])
+    if not choices:
+        raise RuntimeError(f"No choices in response from {model_key}")
+
+    return str(choices[0].get("message", {}).get("content", ""))
 
 
 def parse_review_response(raw_text: str) -> list[dict[str, Any]]:

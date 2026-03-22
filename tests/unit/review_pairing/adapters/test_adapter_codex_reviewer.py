@@ -29,7 +29,20 @@ from omniintelligence.review_pairing.prompts.adversarial_reviewer import (
 
 
 def _make_ndjson_event(event_type: str, role: str = "", content: str = "") -> str:
-    event: dict[str, str] = {"type": event_type}
+    """Build an NDJSON event matching real Codex CLI output format.
+
+    Codex uses: {"type": "item.completed", "item": {"type": "agent_message", "text": "..."}}
+    """
+    if event_type == "item.completed" and role == "assistant":
+        # Real Codex format for agent messages.
+        return json.dumps(
+            {
+                "type": "item.completed",
+                "item": {"id": "item_0", "type": "agent_message", "text": content},
+            }
+        )
+    # Non-agent events (thread.started, turn.started, etc.)
+    event: dict[str, object] = {"type": event_type}
     if role:
         event["role"] = role
     if content:
@@ -63,10 +76,10 @@ class TestExtractAssistantContent:
     def test_extracts_last_assistant_message(self) -> None:
         ndjson = "\n".join(
             [
-                _make_ndjson_event("message", "system", "Starting"),
-                _make_ndjson_event("message", "assistant", "First response"),
+                _make_ndjson_event("thread.started", "", "Starting"),
+                _make_ndjson_event("item.completed", "assistant", "First response"),
                 _make_ndjson_event(
-                    "message", "assistant", _well_formed_findings_json()
+                    "item.completed", "assistant", _well_formed_findings_json()
                 ),
             ]
         )
@@ -76,7 +89,7 @@ class TestExtractAssistantContent:
     def test_returns_none_for_no_assistant_events(self) -> None:
         ndjson = "\n".join(
             [
-                _make_ndjson_event("message", "system", "Starting"),
+                _make_ndjson_event("thread.started", "", "Starting"),
                 _make_ndjson_event("tool_use", "", "Running tool"),
             ]
         )
@@ -85,11 +98,11 @@ class TestExtractAssistantContent:
     def test_ignores_tool_use_events(self) -> None:
         ndjson = "\n".join(
             [
-                _make_ndjson_event("tool_use", "assistant", "tool output"),
+                _make_ndjson_event("item.completed", "", "tool output"),
                 _make_ndjson_event(
-                    "message", "assistant", _well_formed_findings_json()
+                    "item.completed", "assistant", _well_formed_findings_json()
                 ),
-                _make_ndjson_event("tool_result", "", "result"),
+                _make_ndjson_event("turn.started", "", "result"),
             ]
         )
         content = _extract_assistant_content(ndjson)
@@ -98,15 +111,17 @@ class TestExtractAssistantContent:
     def test_skips_empty_assistant_content(self) -> None:
         ndjson = "\n".join(
             [
-                _make_ndjson_event("message", "assistant", ""),
-                _make_ndjson_event("message", "assistant", "Real content"),
+                _make_ndjson_event("item.completed", "assistant", ""),
+                _make_ndjson_event("item.completed", "assistant", "Real content"),
             ]
         )
         content = _extract_assistant_content(ndjson)
         assert content == "Real content"
 
     def test_handles_malformed_ndjson_lines(self) -> None:
-        ndjson = "not json\n" + _make_ndjson_event("message", "assistant", "Valid")
+        ndjson = "not json\n" + _make_ndjson_event(
+            "item.completed", "assistant", "Valid"
+        )
         content = _extract_assistant_content(ndjson)
         assert content == "Valid"
 
@@ -137,7 +152,7 @@ class TestAsyncParseRaw:
     @pytest.mark.asyncio
     async def test_happy_path_with_findings(self) -> None:
         ndjson_output = _make_ndjson_event(
-            "message", "assistant", _well_formed_findings_json()
+            "item.completed", "assistant", _well_formed_findings_json()
         )
 
         mock_process = AsyncMock()
@@ -161,7 +176,7 @@ class TestAsyncParseRaw:
 
     @pytest.mark.asyncio
     async def test_no_assistant_completion(self) -> None:
-        ndjson_output = _make_ndjson_event("message", "system", "Starting")
+        ndjson_output = _make_ndjson_event("thread.started", "", "Starting")
 
         mock_process = AsyncMock()
         mock_process.communicate = AsyncMock(return_value=(ndjson_output.encode(), b""))
@@ -205,12 +220,12 @@ class TestAsyncParseRaw:
         """Only assistant message events should be considered."""
         ndjson_output = "\n".join(
             [
-                _make_ndjson_event("tool_use", "assistant", "tool stuff"),
-                _make_ndjson_event("tool_result", "", "result data"),
+                _make_ndjson_event("item.completed", "", "tool stuff"),
+                _make_ndjson_event("turn.started", "", "result data"),
                 _make_ndjson_event(
-                    "message", "assistant", _well_formed_findings_json()
+                    "item.completed", "assistant", _well_formed_findings_json()
                 ),
-                _make_ndjson_event("tool_use", "assistant", "more tool"),
+                _make_ndjson_event("item.completed", "", "more tool"),
             ]
         )
 
@@ -253,7 +268,7 @@ class TestAsyncParseRaw:
     async def test_malformed_assistant_content(self) -> None:
         """Assistant returns text, not JSON; findings should be empty."""
         ndjson_output = _make_ndjson_event(
-            "message", "assistant", "I found some issues but not in JSON"
+            "item.completed", "assistant", "I found some issues but not in JSON"
         )
 
         mock_process = AsyncMock()

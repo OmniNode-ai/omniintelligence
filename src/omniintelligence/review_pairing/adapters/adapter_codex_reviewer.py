@@ -44,21 +44,27 @@ _CODEX_MODEL_KEY: str = "codex"
 
 
 def _extract_assistant_content(ndjson_output: str) -> str | None:
-    """Extract final assistant message content from Codex NDJSON stream.
+    """Extract final agent message content from Codex NDJSON stream.
+
+    Codex NDJSON event format (as of 2026):
+      {"type": "item.completed", "item": {"type": "agent_message", "text": "..."}}
+
+    Other event types (ignored): thread.started, turn.started, turn.completed,
+    turn.failed, item.started, command_execution, error.
 
     Parsing doctrine (conservative):
     1. Read all NDJSON lines
-    2. Filter for events with type == "message" and role == "assistant"
-    3. Take the last such event's content field
-    4. If no unambiguous final assistant content, return None
+    2. Filter for item.completed events containing agent_message items
+    3. Take the last such event's text field
+    4. If no unambiguous final agent content, return None
 
     Args:
         ndjson_output: Raw NDJSON output from codex exec --json.
 
     Returns:
-        Content string from the last assistant message, or None.
+        Content string from the last agent message, or None.
     """
-    last_assistant_content: str | None = None
+    last_agent_content: str | None = None
 
     for line in ndjson_output.strip().splitlines():
         line = line.strip()
@@ -72,16 +78,17 @@ def _extract_assistant_content(ndjson_output: str) -> str | None:
         if not isinstance(event, dict):
             continue
 
-        # Check for assistant message events.
         event_type = event.get("type", "")
-        role = event.get("role", "")
 
-        if event_type == "message" and role == "assistant":
-            content = event.get("content", "")
-            if isinstance(content, str) and content.strip():
-                last_assistant_content = content
+        # Primary format: item.completed with agent_message item.
+        if event_type == "item.completed":
+            item = event.get("item", {})
+            if isinstance(item, dict) and item.get("type") == "agent_message":
+                text = item.get("text", "")
+                if isinstance(text, str) and text.strip():
+                    last_agent_content = text
 
-    return last_assistant_content
+    return last_agent_content
 
 
 async def async_parse_raw(
@@ -94,7 +101,7 @@ async def async_parse_raw(
 ) -> ModelExternalReviewResult:
     """Run adversarial review via Codex CLI.
 
-    Invokes ``codex exec - --json --approval-mode full-auto`` with the
+    Invokes ``codex exec - --json --full-auto`` with the
     adversarial review prompt piped via stdin.
 
     Args:
@@ -127,8 +134,7 @@ async def async_parse_raw(
             "exec",
             "-",
             "--json",
-            "--approval-mode",
-            "full-auto",
+            "--full-auto",
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
