@@ -66,7 +66,7 @@ MODEL_REGISTRY: dict[str, ModelEndpointConfig] = {
         env_var="LLM_DEEPSEEK_R1_URL",
         default_url="http://192.168.86.200:8101",
         kind="reasoning",
-        timeout_seconds=120.0,
+        timeout_seconds=300.0,
         api_model_id="mlx-community/DeepSeek-R1-Distill-Qwen-32B-bf16",
     ),
     "qwen3-coder": ModelEndpointConfig(
@@ -174,7 +174,8 @@ async def call_model(
         "temperature": _DEFAULT_TEMPERATURE,
     }
 
-    async with httpx.AsyncClient(timeout=config.timeout_seconds) as client:
+    timeout = httpx.Timeout(config.timeout_seconds, connect=30.0)
+    async with httpx.AsyncClient(timeout=timeout) as client:
         response = await client.post(url, json=payload)
         response.raise_for_status()
         data = response.json()
