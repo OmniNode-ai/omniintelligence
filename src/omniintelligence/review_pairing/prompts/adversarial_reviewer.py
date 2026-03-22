@@ -3,15 +3,9 @@
 
 """Adversarial reviewer prompt for external model review.
 
-This module contains the system prompt, user prompt template, and prompt version
-used by the LLM adapter (AdapterLlmReviewer) and Codex CLI adapter
-(AdapterCodexReviewer) to conduct adversarial plan reviews.
-
-The system prompt is adapted from the "Principle of Rigorous Objectivity"
-persona, which defaults to disagreement and journal-critique format.
-
-Both adapters import from this module to ensure prompt consistency.
-Bump PROMPT_VERSION when modifying the prompt content.
+Defines the system prompt, user prompt template, and prompt version for
+AdapterLlmReviewer and AdapterCodexReviewer adversarial plan reviews.
+Bump PROMPT_VERSION when modifying prompt content.
 
 Reference: OMN-5789
 """
