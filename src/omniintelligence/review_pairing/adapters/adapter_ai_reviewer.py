@@ -42,6 +42,7 @@ from omniintelligence.review_pairing.prompts.adversarial_reviewer import (
     PROMPT_VERSION,
     SYSTEM_PROMPT,
     USER_PROMPT_TEMPLATE,
+    USER_PROMPT_TEMPLATE_PR,
 )
 
 logger = logging.getLogger(__name__)
@@ -99,16 +100,22 @@ _DEFAULT_TEMPERATURE: float = 0.3
 # ---------------------------------------------------------------------------
 
 
-def build_review_prompt(plan_content: str) -> tuple[str, str]:
+def build_review_prompt(
+    plan_content: str,
+    *,
+    review_type: str = "plan",
+) -> tuple[str, str]:
     """Construct system and user prompts for adversarial review.
 
     Args:
-        plan_content: Raw plan text to review.
+        plan_content: Raw content to review (plan text or PR diff).
+        review_type: "plan" for plan/design review, "pr" for PR diff review.
 
     Returns:
         Tuple of (system_prompt, user_prompt).
     """
-    user_prompt = USER_PROMPT_TEMPLATE.format(plan_content=plan_content)
+    template = USER_PROMPT_TEMPLATE_PR if review_type == "pr" else USER_PROMPT_TEMPLATE
+    user_prompt = template.format(plan_content=plan_content)
     return SYSTEM_PROMPT, user_prompt
 
 
@@ -136,11 +143,11 @@ async def call_model(
     user_prompt: str,
     model_key: str = _DEFAULT_MODEL_KEY,
 ) -> str:
-    """Invoke LLM via direct httpx POST to OpenAI-compatible endpoint.
+    """Invoke LLM via HandlerLlmOpenaiCompatible.
 
-    Uses a lightweight httpx call instead of TransportHolderLlmHttp to avoid
-    requiring LOCAL_LLM_SHARED_SECRET for HMAC signing. This adapter is a CLI
-    review tool calling local network LLMs, not a production service.
+    Uses infrastructure transport per ARCH-002. Sets a default
+    LOCAL_LLM_SHARED_SECRET if not configured, since the local LLM
+    endpoints do not verify HMAC signatures.
 
     Args:
         system_prompt: System prompt for the model.
@@ -154,37 +161,57 @@ async def call_model(
         ValueError: If model_key is not in the registry.
         RuntimeError: On LLM call failure.
     """
-    import httpx
+    from omnibase_infra.adapters.llm.adapter_llm_provider_openai import (
+        TransportHolderLlmHttp,
+    )
+    from omnibase_infra.enums import EnumLlmOperationType
+    from omnibase_infra.nodes.node_llm_inference_effect.handlers.handler_llm_openai_compatible import (
+        HandlerLlmOpenaiCompatible,
+    )
+    from omnibase_infra.nodes.node_llm_inference_effect.models.model_llm_inference_request import (
+        ModelLlmInferenceRequest,
+    )
 
     config = MODEL_REGISTRY.get(model_key)
     if config is None:
         valid = ", ".join(sorted(MODEL_REGISTRY.keys()))
         raise ValueError(f"Unknown model '{model_key}'. Valid: {valid}")
 
+    # Ensure HMAC secret is set. Local LLM endpoints do not verify
+    # signatures, so a placeholder is sufficient for CLI use.
+    if not os.environ.get("LOCAL_LLM_SHARED_SECRET"):
+        os.environ["LOCAL_LLM_SHARED_SECRET"] = "cli-review-unsigned"  # noqa: S105
+
     base_url = os.environ.get(config.env_var, config.default_url)
-    url = f"{base_url.rstrip('/')}/v1/chat/completions"
 
-    payload = {
-        "model": config.api_model_id or model_key,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        "max_tokens": _DEFAULT_MAX_TOKENS,
-        "temperature": _DEFAULT_TEMPERATURE,
-    }
+    transport = TransportHolderLlmHttp(
+        target_name=f"ai-reviewer-{model_key}",
+        max_timeout_seconds=config.timeout_seconds + 30.0,
+    )
+    handler = HandlerLlmOpenaiCompatible(transport)
 
-    timeout = httpx.Timeout(config.timeout_seconds, connect=30.0)
-    async with httpx.AsyncClient(timeout=timeout) as client:
-        response = await client.post(url, json=payload)
-        response.raise_for_status()
-        data = response.json()
+    request = ModelLlmInferenceRequest(
+        base_url=base_url,
+        operation_type=EnumLlmOperationType.CHAT_COMPLETION,
+        model=config.api_model_id or model_key,
+        messages=({"role": "user", "content": user_prompt},),
+        system_prompt=system_prompt,
+        max_tokens=_DEFAULT_MAX_TOKENS,
+        temperature=_DEFAULT_TEMPERATURE,
+        timeout_seconds=config.timeout_seconds,
+    )
 
-    choices = data.get("choices", [])
-    if not choices:
-        raise RuntimeError(f"No choices in response from {model_key}")
+    response = await handler.handle(request)
+    text = str(response.generated_text)
 
-    return str(choices[0].get("message", {}).get("content", ""))
+    # Qwen3 models emit <think>...</think> reasoning blocks before the
+    # actual response. Strip them to get the JSON content.
+    if "<think>" in text:
+        import re as _re
+
+        text = _re.sub(r"<think>.*?</think>", "", text, flags=_re.DOTALL).strip()
+
+    return text
 
 
 def parse_review_response(raw_text: str) -> list[dict[str, Any]]:
@@ -381,6 +408,7 @@ async def async_parse_raw(
     plan_content: str,
     *,
     model: str = _DEFAULT_MODEL_KEY,
+    review_type: str = "plan",
     repo: str = "plan-review",
     pr_id: int = 0,
     commit_sha: str = "0000000",
@@ -394,8 +422,9 @@ async def async_parse_raw(
     4. Convert to canonical findings
 
     Args:
-        plan_content: Raw plan text to review.
+        plan_content: Raw content to review (plan text or PR diff).
         model: Model key for endpoint resolution.
+        review_type: "plan" for plan review, "pr" for PR diff review.
         repo: Repository slug.
         pr_id: Pull request number.
         commit_sha: Commit SHA.
@@ -406,7 +435,10 @@ async def async_parse_raw(
     try:
         # Validate model key.
         _resolve_model_url(model)
-        system_prompt, user_prompt = build_review_prompt(plan_content)
+        system_prompt, user_prompt = build_review_prompt(
+            plan_content,
+            review_type=review_type,
+        )
         raw_text = await call_model(system_prompt, user_prompt, model_key=model)
         parsed = parse_review_response(raw_text)
         findings = to_review_findings(

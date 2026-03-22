@@ -32,6 +32,7 @@ from omniintelligence.review_pairing.prompts.adversarial_reviewer import (
     PROMPT_VERSION,
     SYSTEM_PROMPT,
     USER_PROMPT_TEMPLATE,
+    USER_PROMPT_TEMPLATE_PR,
 )
 
 logger = logging.getLogger(__name__)
@@ -94,6 +95,7 @@ def _extract_assistant_content(ndjson_output: str) -> str | None:
 async def async_parse_raw(
     plan_content: str,
     *,
+    review_type: str = "plan",
     repo: str = "plan-review",
     pr_id: int = 0,
     commit_sha: str = "0000000",
@@ -125,7 +127,8 @@ async def async_parse_raw(
         )
 
     # Build the prompt.
-    user_prompt = USER_PROMPT_TEMPLATE.format(plan_content=plan_content)
+    template = USER_PROMPT_TEMPLATE_PR if review_type == "pr" else USER_PROMPT_TEMPLATE
+    user_prompt = template.format(plan_content=plan_content)
     full_prompt = f"{SYSTEM_PROMPT}\n\n{user_prompt}"
 
     try:

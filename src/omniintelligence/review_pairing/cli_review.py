@@ -4,15 +4,20 @@
 """CLI entry point for standalone multi-model adversarial review.
 
 Replaces manual ChatGPT copy-paste workflow with automated multi-model
-review using local LLMs and optionally Codex CLI.
+review using local LLMs and optionally Codex CLI. Supports reviewing
+both plan files and PR diffs.
 
 Usage:
-    # Default (deepseek-r1)
+    # Review a plan file (default model: deepseek-r1)
     uv run python -m omniintelligence.review_pairing.cli_review --file plan.md
+
+    # Review a PR diff
+    uv run python -m omniintelligence.review_pairing.cli_review \\
+        --pr 433 --repo OmniNode-ai/omniintelligence
 
     # Multi-model
     uv run python -m omniintelligence.review_pairing.cli_review \\
-        --file plan.md --model deepseek-r1 --model codex
+        --file plan.md --model codex --model qwen3-coder
 
     # Output to file
     uv run python -m omniintelligence.review_pairing.cli_review \\
@@ -26,13 +31,14 @@ Exit Codes:
     0: at least one model succeeded
     1: all models failed
 
-Reference: OMN-5793
+Reference: OMN-5793, OMN-5819
 """
 
 from __future__ import annotations
 
 import argparse
 import asyncio
+import subprocess
 import sys
 from pathlib import Path
 
@@ -62,13 +68,24 @@ def build_parser() -> argparse.ArgumentParser:
     """
     parser = argparse.ArgumentParser(
         prog="cli_review",
-        description="Multi-model adversarial plan review.",
+        description="Multi-model adversarial review for plans and PRs.",
     )
-    parser.add_argument(
+    input_group = parser.add_mutually_exclusive_group(required=True)
+    input_group.add_argument(
         "--file",
         type=str,
-        required=True,
-        help="Path to plan file to review.",
+        help="Path to plan or document file to review.",
+    )
+    input_group.add_argument(
+        "--pr",
+        type=int,
+        help="PR number to review (requires --repo).",
+    )
+    parser.add_argument(
+        "--repo",
+        type=str,
+        default=None,
+        help="GitHub repo slug (e.g., OmniNode-ai/omniintelligence). Required with --pr.",
     )
     parser.add_argument(
         "--model",
@@ -92,16 +109,19 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 async def run_review(
-    plan_content: str,
+    content: str,
     model_keys: list[str],
+    *,
+    review_type: str = "plan",
 ) -> ModelMultiReviewResult:
     """Execute multi-model review.
 
     Runs each model sequentially and aggregates results.
 
     Args:
-        plan_content: Raw plan text to review.
+        content: Raw content to review (plan text or PR diff).
         model_keys: List of model keys to use.
+        review_type: "plan" for plan review, "pr" for PR diff review.
 
     Returns:
         Aggregated ModelMultiReviewResult.
@@ -110,9 +130,16 @@ async def run_review(
 
     for model_key in model_keys:
         if model_key == _CODEX_MODEL_KEY:
-            result = await codex_async_parse_raw(plan_content)
+            result = await codex_async_parse_raw(
+                content,
+                review_type=review_type,
+            )
         else:
-            result = await llm_async_parse_raw(plan_content, model=model_key)
+            result = await llm_async_parse_raw(
+                content,
+                model=model_key,
+                review_type=review_type,
+            )
         results.append(result)
 
     models_succeeded = [r.model for r in results if r.success]
@@ -168,19 +195,50 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
-    # Read plan file.
-    plan_path = Path(args.file)
-    if not plan_path.exists():
-        print(f"Error: file not found: {args.file}", file=sys.stderr)
-        return 1
-
-    plan_content = plan_path.read_text(encoding="utf-8")
+    # Resolve input content.
+    if args.pr is not None:
+        if not args.repo:
+            print("Error: --repo is required with --pr", file=sys.stderr)
+            return 1
+        try:
+            result = subprocess.run(
+                ["gh", "pr", "diff", str(args.pr), "--repo", args.repo],
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=30,
+            )
+            review_content = result.stdout
+        except FileNotFoundError:
+            print("Error: gh CLI not found", file=sys.stderr)
+            return 1
+        except subprocess.CalledProcessError as exc:
+            print(f"Error: gh pr diff failed: {exc.stderr.strip()}", file=sys.stderr)
+            return 1
+        except subprocess.TimeoutExpired:
+            print("Error: gh pr diff timed out", file=sys.stderr)
+            return 1
+        if not review_content.strip():
+            print(f"Error: PR #{args.pr} has no diff", file=sys.stderr)
+            return 1
+        print(f"Reviewing PR #{args.pr} in {args.repo}", file=sys.stderr)
+    else:
+        plan_path = Path(args.file)
+        if not plan_path.exists():
+            print(f"Error: file not found: {args.file}", file=sys.stderr)
+            return 1
+        review_content = plan_path.read_text(encoding="utf-8")
 
     # Resolve model keys.
     model_keys: list[str] = args.model if args.model else [_DEFAULT_MODEL]
 
+    # Determine review type.
+    review_type = "pr" if args.pr is not None else "plan"
+
     # Run review.
-    result = asyncio.run(run_review(plan_content, model_keys))
+    result = asyncio.run(
+        run_review(review_content, model_keys, review_type=review_type)
+    )
 
     # Output JSON to stdout (or file).
     json_output = result.model_dump_json(indent=2)

@@ -424,7 +424,7 @@ class TestModelRegistry:
         config = MODEL_REGISTRY["deepseek-r1"]
         assert config.env_var == "LLM_DEEPSEEK_R1_URL"
         assert config.kind == "reasoning"
-        assert config.timeout_seconds == 120.0
+        assert config.timeout_seconds == 300.0
 
     def test_qwen3_coder_config(self) -> None:
         config = MODEL_REGISTRY["qwen3-coder"]

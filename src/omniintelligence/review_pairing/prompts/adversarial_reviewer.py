@@ -115,3 +115,20 @@ USER_PROMPT_TEMPLATE: str = (
     "\n"
     "{plan_content}"
 )
+
+USER_PROMPT_TEMPLATE_PR: str = (
+    "Review the following pull request diff. Apply rigorous objectivity. "
+    "Identify security vulnerabilities, logic errors, missing error handling, "
+    "race conditions, performance regressions, API contract violations, "
+    "untested edge cases, and architectural concerns.\n"
+    "\n"
+    "Focus on what the diff actually changes. Do not flag pre-existing issues "
+    "in unchanged code. Every finding must reference a specific change in "
+    "the diff.\n"
+    "\n"
+    "Return your findings as a JSON array following the specified schema.\n"
+    "\n"
+    "---\n"
+    "\n"
+    "{plan_content}"
+)

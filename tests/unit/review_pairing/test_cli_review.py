@@ -117,7 +117,7 @@ class TestRunReview:
         ) as mock_codex:
             result = await run_review("# Plan", ["codex"])
 
-        mock_codex.assert_called_once_with("# Plan")
+        mock_codex.assert_called_once_with("# Plan", review_type="plan")
         assert result.models_succeeded == ["codex"]
 
     @pytest.mark.asyncio
@@ -129,7 +129,9 @@ class TestRunReview:
         ) as mock_llm:
             result = await run_review("# Plan", ["qwen3-coder"])
 
-        mock_llm.assert_called_once_with("# Plan", model="qwen3-coder")
+        mock_llm.assert_called_once_with(
+            "# Plan", model="qwen3-coder", review_type="plan"
+        )
         assert result.models_succeeded == ["qwen3-coder"]
 
     @pytest.mark.asyncio
