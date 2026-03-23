@@ -76,6 +76,14 @@ ruff check src tests       # Lint (includes import sorting)
 ruff check --fix src tests # Auto-fix lint issues
 ruff format src tests      # Format code
 mypy src                   # Type check
+
+# Review calibration CLI
+uv run python -m omniintelligence.review_pairing.cli_calibration \
+  --file plan.md --ground-truth codex --challenger deepseek-r1
+
+# Short form (via __main__.py)
+uv run python -m omniintelligence.review_pairing \
+  --file plan.md --ground-truth codex --challenger deepseek-r1
 ```
 
 ---
