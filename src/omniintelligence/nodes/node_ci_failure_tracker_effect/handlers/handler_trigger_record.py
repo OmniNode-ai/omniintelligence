@@ -22,6 +22,7 @@ import logging
 from typing import Any
 
 from omniintelligence.debug_intel.protocols import ProtocolDebugStore
+from omniintelligence.protocols import ProtocolKafkaPublisher
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,9 @@ async def handle_trigger_record(
     error_classification: str,
     store: ProtocolDebugStore,
     streak_threshold: int,
+    *,
+    kafka_producer: ProtocolKafkaPublisher | None = None,
+    correlation_id: str = "unknown",
 ) -> dict[str, Any] | None:
     """Create a TriggerRecord if streak threshold is met.
 
@@ -82,7 +86,64 @@ async def handle_trigger_record(
             "observed_bad_sha": sha,
         },
     )
+
+    # OMN-6123: Fire-and-forget CI debug escalation event for omnidash
+    await _emit_ci_debug_escalation(
+        kafka_producer=kafka_producer,
+        correlation_id=correlation_id,
+        repo=repo,
+        branch=branch,
+        failure_type=error_classification,
+        consecutive_failures=streak_count,
+    )
+
     return trigger
+
+
+async def _emit_ci_debug_escalation(
+    *,
+    kafka_producer: ProtocolKafkaPublisher | None,
+    correlation_id: str,
+    repo: str,
+    branch: str,
+    failure_type: str,
+    consecutive_failures: int,
+) -> None:
+    """Fire-and-forget emission of CI debug escalation event.
+
+    Silently logs and returns on any failure -- never blocks the caller.
+    """
+    if kafka_producer is None:
+        return
+    try:
+        from datetime import UTC, datetime
+        from uuid import uuid4
+
+        from omniintelligence.constants import TOPIC_CI_DEBUG_ESCALATION_V1
+        from omniintelligence.models.events.model_ci_debug_escalation_event import (
+            ModelCiDebugEscalationEvent,
+        )
+
+        event = ModelCiDebugEscalationEvent(
+            escalation_id=str(uuid4()),
+            correlation_id=correlation_id,
+            repo=repo,
+            branch=branch,
+            ci_run_url="",
+            failure_type=failure_type or "unknown",
+            consecutive_failures=consecutive_failures,
+            escalated_at=datetime.now(UTC),
+        )
+        await kafka_producer.publish(
+            topic=TOPIC_CI_DEBUG_ESCALATION_V1,
+            key=f"{repo}/{branch}",
+            value=event.model_dump(mode="json"),
+        )
+    except Exception:
+        logger.warning(
+            "Failed to emit CI debug escalation event (non-blocking)",
+            exc_info=True,
+        )
 
 
 __all__ = ["handle_trigger_record"]

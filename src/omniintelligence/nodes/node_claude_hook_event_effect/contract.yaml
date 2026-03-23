@@ -303,6 +303,7 @@ event_bus:
   publish_topics:
     - "onex.evt.omniintelligence.intent-classified.v1"
     - "onex.cmd.omniintelligence.pattern-learning.v1"
+    - "onex.evt.omniintelligence.intent-drift-detected.v1"
 
   # Metadata for subscribed topics
   # Note: consumer_group is NOT specified here - it's runtime configuration
@@ -341,6 +342,10 @@ event_bus:
     "onex.cmd.omniintelligence.pattern-learning.v1":
       schema_ref: "omniintelligence.nodes.node_claude_hook_event_effect.models.ModelPatternLearningCommand"
       description: "Pattern learning command emitted on Stop event to trigger pattern extraction"
+    "onex.evt.omniintelligence.intent-drift-detected.v1":
+      schema_ref: "omniintelligence.nodes.node_intent_drift_detect_compute.models.ModelIntentDriftSignal"
+      description: "Intent drift signal emitted when PostToolUse diverges from declared session intent
+        (OMN-6124)"
 
 # =============================================================================
 # DEPENDENCIES

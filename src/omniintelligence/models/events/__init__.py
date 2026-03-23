@@ -22,6 +22,9 @@ Migration Note:
     node_intelligence_adapter_effect.py as part of OMN-1437.
 """
 
+from omniintelligence.models.events.model_ci_debug_escalation_event import (
+    ModelCiDebugEscalationEvent,
+)
 from omniintelligence.models.events.model_code_analysis_completed import (
     ModelCodeAnalysisCompletedPayload,
 )
@@ -40,6 +43,10 @@ from omniintelligence.models.events.model_intent_event_envelopes import (
 from omniintelligence.models.events.model_llm_call_completed_event import (
     ModelLLMCallCompletedEvent,
 )
+from omniintelligence.models.events.model_operation_lifecycle_event import (
+    ModelOperationCompletedEvent,
+    ModelOperationStartedEvent,
+)
 from omniintelligence.models.events.model_pattern_discovered_event import (
     ModelPatternDiscoveredEvent,
 )
@@ -49,8 +56,13 @@ from omniintelligence.models.events.model_pattern_lifecycle_event import (
 from omniintelligence.models.events.model_pattern_projection_event import (
     ModelPatternProjectionEvent,
 )
+from omniintelligence.models.events.model_rl_routing_decision_event import (
+    ModelRlRoutingAlternative,
+    ModelRlRoutingDecisionEvent,
+)
 
 __all__ = [
+    "ModelCiDebugEscalationEvent",
     "ModelCodeAnalysisCompletedPayload",
     "ModelCodeAnalysisFailedPayload",
     "ModelCodeAnalysisRequestPayload",
@@ -59,6 +71,10 @@ __all__ = [
     "ModelIntentOutcomeLabeledEnvelope",
     "ModelIntentPatternPromotedEnvelope",
     "ModelLLMCallCompletedEvent",
+    "ModelOperationCompletedEvent",
+    "ModelOperationStartedEvent",
+    "ModelRlRoutingAlternative",
+    "ModelRlRoutingDecisionEvent",
     "ModelPatternDiscoveredEvent",
     "ModelPatternLifecycleEvent",
     "ModelPatternProjectionEvent",

@@ -231,6 +231,8 @@ event_bus:
     - "onex.evt.omniintelligence.pattern-learning-failed.v1"
     - "onex.evt.omniintelligence.quality-assessment-completed.v1"
     - "onex.evt.omniintelligence.quality-assessment-failed.v1"
+    - "onex.evt.omniintelligence.operation-started.v1"
+    - "onex.evt.omniintelligence.operation-completed.v1"
 
   subscribe_topic_metadata:
     "onex.cmd.omniintelligence.code-analysis.v1":

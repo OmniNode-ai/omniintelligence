@@ -206,6 +206,7 @@ async def route_hook_event(
             result = await handle_post_tool_use(
                 event=event,
                 repository=repository,
+                kafka_producer=kafka_producer,
             )
         else:
             # All other event types are no-op for now
@@ -497,12 +498,18 @@ async def handle_post_tool_use(
     event: ModelClaudeCodeHookEvent,
     *,
     repository: ProtocolPatternRepository | None = None,
+    kafka_producer: ProtocolKafkaPublisher | None = None,
 ) -> ModelClaudeHookResult:
     """Handle PostToolUse and PostToolUseFailure events by persisting to agent_actions.
 
     Each tool execution event is written to ``omniintelligence.agent_actions``
     so that ``dispatch_handler_pattern_learning`` can query session activity
     when building ModelSessionSnapshot objects for pattern extraction.
+
+    After DB persistence, runs intent drift detection against the tool call.
+    If drift is detected, the signal is emitted to
+    ``onex.evt.omniintelligence.intent-drift-detected.v1`` as a fire-and-forget
+    side effect (never blocks PostToolUse processing).
 
     Graceful degradation: when ``repository`` is None, the event is acknowledged
     as a no-op (no DB write, no error). This preserves existing behaviour in
@@ -512,12 +519,15 @@ async def handle_post_tool_use(
         event: The PostToolUse or PostToolUseFailure hook event.
         repository: Optional database repository implementing ProtocolPatternRepository.
             When None, the handler returns success without writing to the DB.
+        kafka_producer: Optional Kafka publisher for drift signal emission.
+            When None, drift signals are computed but not emitted.
 
     Returns:
         ModelClaudeHookResult with processing outcome.
 
     Related:
         - OMN-2984: Wire PostToolUse write path to omniintelligence.agent_actions
+        - OMN-6124: Wire intent drift detection into hook event pipeline
     """
     resolved_correlation_id: UUID = (
         event.correlation_id if event.correlation_id is not None else uuid4()
@@ -600,6 +610,23 @@ async def handle_post_tool_use(
             metadata=metadata,
         )
 
+    # -------------------------------------------------------------------------
+    # OMN-6124: Fire-and-forget intent drift detection.
+    #
+    # Run the drift detector against this tool call. If drift is detected
+    # and a Kafka producer is available, emit the signal to
+    # onex.evt.omniintelligence.intent-drift-detected.v1.
+    # Never blocks — errors are logged and swallowed.
+    # -------------------------------------------------------------------------
+    await _fire_and_forget_drift_detection(
+        event=event,
+        tool_name=tool_name or "unknown",
+        file_path=file_path,
+        correlation_id=resolved_correlation_id,
+        kafka_producer=kafka_producer,
+        metadata=metadata,
+    )
+
     return ModelClaudeHookResult(
         status=EnumHookProcessingStatus.SUCCESS,
         event_type=str(event.event_type),
@@ -611,6 +638,102 @@ async def handle_post_tool_use(
         error_message=None,
         metadata=metadata,
     )
+
+
+async def _fire_and_forget_drift_detection(
+    *,
+    event: ModelClaudeCodeHookEvent,
+    tool_name: str,
+    file_path: str | None,
+    correlation_id: UUID,
+    kafka_producer: ProtocolKafkaPublisher | None,
+    metadata: ClaudeHookResultMetadataDict,
+) -> None:
+    """Run drift detection and emit signal if detected (fire-and-forget).
+
+    Never raises -- all errors are logged and swallowed. Drift detection is
+    observational only and never blocks PostToolUse processing.
+
+    Args:
+        event: The hook event being processed.
+        tool_name: Name of the tool that was called.
+        file_path: Optional file path from the tool call.
+        correlation_id: Correlation ID for tracing.
+        kafka_producer: Optional Kafka publisher for drift emission.
+        metadata: Mutable metadata dict to annotate with drift results.
+
+    Related:
+        - OMN-6124: Wire intent drift detection into hook event pipeline
+    """
+    try:
+        from omnibase_core.enums.intelligence.enum_intent_class import EnumIntentClass
+
+        from omniintelligence.nodes.node_intent_drift_detect_compute.handlers import (
+            detect_drift,
+        )
+        from omniintelligence.nodes.node_intent_drift_detect_compute.models import (
+            DriftDetectionSettings,
+            ModelIntentDriftInput,
+        )
+        from omniintelligence.topics import IntentTopic
+
+        # Build file list from the single file_path if available
+        files_modified: list[str] = [file_path] if file_path else []
+
+        # Extract intent class from payload extra fields if available.
+        # The intent class may have been injected by the hook or classified
+        # earlier in the session. Default to skipping if not present.
+        intent_class_str = None
+        if event.payload and event.payload.model_extra:
+            intent_class_str = event.payload.model_extra.get("intent_class")
+
+        if intent_class_str is None:
+            metadata["drift_detection"] = "skipped_no_intent_class"
+            return
+
+        try:
+            intent_class = EnumIntentClass(intent_class_str)
+        except ValueError:
+            metadata["drift_detection"] = "skipped_invalid_intent_class"
+            return
+
+        drift_input = ModelIntentDriftInput(
+            session_id=event.session_id,
+            correlation_id=correlation_id,
+            intent_class=intent_class,
+            tool_name=tool_name,
+            files_modified=files_modified,
+            detected_at=event.timestamp_utc,
+        )
+
+        sensitivity = DriftDetectionSettings().to_sensitivity()
+        signal = detect_drift(drift_input, sensitivity)
+
+        if signal is None:
+            metadata["drift_detection"] = "clean"
+            return
+
+        metadata["drift_detection"] = "detected"
+        metadata["drift_type"] = signal.drift_type
+        metadata["drift_severity"] = signal.severity
+
+        if kafka_producer is not None:
+            await kafka_producer.publish(
+                topic=IntentTopic.INTENT_DRIFT_DETECTED,
+                key=event.session_id,
+                value=signal.model_dump(mode="json"),
+            )
+            metadata["drift_emission"] = "success"
+        else:
+            metadata["drift_emission"] = "no_producer"
+
+    except Exception:
+        logger.warning(
+            "Drift detection failed (non-blocking, session_id=%s)",
+            event.session_id,
+            exc_info=True,
+        )
+        metadata["drift_detection"] = "error"
 
 
 def _launch_objective_evaluation(
