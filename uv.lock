@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.12, <4.0"
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -10,7 +10,7 @@ resolution-markers = [
 [manifest]
 overrides = [
     { name = "omnibase-core", specifier = ">=0.30.1" },
-    { name = "omnibase-spi", specifier = "==0.18.0" },
+    { name = "omnibase-spi", specifier = "==0.19.1" },
 ]
 
 [[package]]
@@ -2135,7 +2135,7 @@ wheels = [
 
 [[package]]
 name = "omnibase-infra"
-version = "0.22.0"
+version = "0.24.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiofiles" },
@@ -2183,23 +2183,23 @@ dependencies = [
     { name = "uvicorn" },
     { name = "watchdog" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/21/c1/8850c1d3d02996d3de332b6ed61ab0cf48d857bb16e94720a8fa743d036a/omnibase_infra-0.22.0.tar.gz", hash = "sha256:71121cd723556d7467008d73b18d71aa8eaf8a72682e53eeabd57ae7240d3b33", size = 6620587, upload-time = "2026-03-19T12:53:25.183Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/bb/e8/0de39c89f12bac7932465dfde911c5e244bc5536fee7189d493f40583498/omnibase_infra-0.24.1.tar.gz", hash = "sha256:3fe2c51be39e48e12d68c7164d95bb0476e0b7e19c0411e2a6efdc20cdefcb2c", size = 6739001, upload-time = "2026-03-23T02:18:09.953Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/3b/31/c6ee3a5490968b21bf9005ca667009d99aeb4e5db71019e55bb3dfa0e800/omnibase_infra-0.22.0-py3-none-any.whl", hash = "sha256:6f54682a443a533f4b3f23e4f4a5e05d42a6e78f7b57d8c0151b37d700301a09", size = 3869732, upload-time = "2026-03-19T12:53:23.302Z" },
+    { url = "https://files.pythonhosted.org/packages/8c/40/e886d5ce21623421f78c31c4054b26d2b17d2a3250ba9cb4185329d5c654/omnibase_infra-0.24.1-py3-none-any.whl", hash = "sha256:fda83e7f699f1bbca172c8bb210b2e1b5f8b06380aadfdafc2855e1055a25439", size = 3964074, upload-time = "2026-03-23T02:18:07.891Z" },
 ]
 
 [[package]]
 name = "omnibase-spi"
-version = "0.18.0"
+version = "0.19.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "omnibase-core" },
     { name = "pydantic" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/cd/9d/e7f04394a22bc4641727576b393d7aca8c828db3829d60576a50f745e7df/omnibase_spi-0.18.0.tar.gz", hash = "sha256:c72847d229ccf6a5c53e2b67d0bf8a16be60da7c233af87a17557a69f3145791", size = 1111608, upload-time = "2026-03-19T12:52:57.396Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/58/cd/c59725d13599dde6d5c0f5d534f1075bbc333c650b35fe4b138ed047bc4d/omnibase_spi-0.19.1.tar.gz", hash = "sha256:e6b51ad013cd225fd9fe16300c9b2696d2705fd91f76f4a21810e2e1876f369c", size = 1119413, upload-time = "2026-03-22T23:25:19.212Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/72/12/d25528501e092f7a142c3ac6ebbae2ba1fdf848a8341864918513992d63d/omnibase_spi-0.18.0-py3-none-any.whl", hash = "sha256:f40c0e7f9c73ecbb33c498acd5f4762e20456a387c71c02bd7acd8e43a34ba53", size = 755916, upload-time = "2026-03-19T12:52:59.175Z" },
+    { url = "https://files.pythonhosted.org/packages/47/3b/273b4f4d1879f366ada923f6d091ef217e42bf0e53af038cec2e995ef7d8/omnibase_spi-0.19.1-py3-none-any.whl", hash = "sha256:fe2b5d3d2ea30ca5c542f17af64bc501bc0411b904442b8ec406d4aa82321305", size = 758303, upload-time = "2026-03-22T23:25:20.679Z" },
 ]
 
 [[package]]
@@ -2323,7 +2323,7 @@ requires-dist = [
     { name = "adaptive-classifier", specifier = ">=0.1.2" },
     { name = "confluent-kafka", specifier = ">=2.12.0,<3.0.0" },
     { name = "httpx", specifier = ">=0.28.1" },
-    { name = "omnibase-infra", specifier = "==0.22.0" },
+    { name = "omnibase-infra", specifier = "==0.24.1" },
     { name = "pydantic", specifier = ">=2.12.5,<3.0.0" },
     { name = "pydantic-settings", specifier = ">=2.7.0,<3.0.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
@@ -2347,8 +2347,8 @@ all = [
     { name = "mypy", specifier = ">=1.17.0" },
     { name = "neo4j", specifier = ">=5.28.2" },
     { name = "omnibase-core", specifier = ">=0.30.1" },
-    { name = "omnibase-infra", specifier = "==0.22.0" },
-    { name = "omnibase-spi", specifier = "==0.18.0" },
+    { name = "omnibase-infra", specifier = "==0.24.1" },
+    { name = "omnibase-spi", specifier = "==0.19.1" },
     { name = "onex-change-control", git = "https://github.com/OmniNode-ai/onex_change_control.git?branch=main" },
     { name = "openai", specifier = ">=1.71.0" },
     { name = "pdfplumber", specifier = ">=0.11.6" },
@@ -2390,8 +2390,8 @@ core = [
     { name = "markdown", specifier = ">=3.8" },
     { name = "neo4j", specifier = ">=5.28.2" },
     { name = "omnibase-core", specifier = ">=0.30.1" },
-    { name = "omnibase-infra", specifier = "==0.22.0" },
-    { name = "omnibase-spi", specifier = "==0.18.0" },
+    { name = "omnibase-infra", specifier = "==0.24.1" },
+    { name = "omnibase-spi", specifier = "==0.19.1" },
     { name = "openai", specifier = ">=1.71.0" },
     { name = "pdfplumber", specifier = ">=0.11.6" },
     { name = "prometheus-client", specifier = ">=0.19.0" },
