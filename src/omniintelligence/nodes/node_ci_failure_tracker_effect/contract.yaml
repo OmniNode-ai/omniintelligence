@@ -35,6 +35,7 @@ event_bus:
     - "onex.cmd.omniintelligence.ci-failure-detected.v1"
   publish_topics:
     - "onex.evt.omniintelligence.debug-trigger-record-created.v1"
+    - "onex.evt.omniintelligence.ci-debug-escalation.v1"
 
 dependencies:
   - name: debug_store

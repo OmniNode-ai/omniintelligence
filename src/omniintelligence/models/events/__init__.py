@@ -22,6 +22,9 @@ Migration Note:
     node_intelligence_adapter_effect.py as part of OMN-1437.
 """
 
+from omniintelligence.models.events.model_ci_debug_escalation_event import (
+    ModelCiDebugEscalationEvent,
+)
 from omniintelligence.models.events.model_code_analysis_completed import (
     ModelCodeAnalysisCompletedPayload,
 )
@@ -59,6 +62,7 @@ from omniintelligence.models.events.model_rl_routing_decision_event import (
 )
 
 __all__ = [
+    "ModelCiDebugEscalationEvent",
     "ModelCodeAnalysisCompletedPayload",
     "ModelCodeAnalysisFailedPayload",
     "ModelCodeAnalysisRequestPayload",
