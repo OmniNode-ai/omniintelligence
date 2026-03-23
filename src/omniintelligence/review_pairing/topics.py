@@ -62,3 +62,6 @@ class ReviewPairingTopic(StrEnum):
 
     PAIR_CREATED = "onex.evt.review-pairing.pair-created.v1"
     """A confidence-scored finding-fix pair was created."""
+
+    CALIBRATION_RUN_COMPLETED = "onex.evt.review-pairing.calibration-run-completed.v1"
+    """A calibration run completed with metrics for a challenger model."""
