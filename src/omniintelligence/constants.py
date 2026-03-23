@@ -415,28 +415,92 @@ Reference: OMN-5675
 """
 
 # =============================================================================
+# Operation Lifecycle Topics (OMN-6125)
+# =============================================================================
+
+TOPIC_OPERATION_STARTED_V1: str = "onex.evt.omniintelligence.operation-started.v1"
+"""Canonical topic for intelligence operation started events (OUTPUT).
+
+Canonical topic: onex.evt.omniintelligence.operation-started.v1
+
+Emitted at the start of each intelligence operation dispatch (claude-hook,
+pattern-lifecycle, pattern-storage, etc.) for omnidash /intelligence page.
+
+Reference: OMN-6125
+Deletion ticket: OMN-1546
+"""
+
+TOPIC_OPERATION_COMPLETED_V1: str = "onex.evt.omniintelligence.operation-completed.v1"
+"""Canonical topic for intelligence operation completed events (OUTPUT).
+
+Canonical topic: onex.evt.omniintelligence.operation-completed.v1
+
+Emitted at the end of each intelligence operation dispatch with status
+and duration_ms for omnidash /intelligence page.
+
+Reference: OMN-6125
+Deletion ticket: OMN-1546
+"""
+
+# =============================================================================
+# RL Routing Decision Topics (OMN-6126)
+# =============================================================================
+
+TOPIC_RL_ROUTING_DECISION_V1: str = "onex.evt.omniintelligence.rl-routing-decision.v1"
+"""Canonical topic for RL routing decision events (OUTPUT).
+
+Canonical topic: onex.evt.omniintelligence.rl-routing-decision.v1
+
+Emitted when the RL routing system makes a shadow-mode routing decision,
+allowing comparison between RL-recommended and actual agent selection.
+
+Reference: OMN-6126
+Deletion ticket: OMN-1546
+"""
+
+# =============================================================================
+# CI Debug Escalation Topics (OMN-6123)
+# =============================================================================
+
+TOPIC_CI_DEBUG_ESCALATION_V1: str = "onex.evt.omniintelligence.ci-debug-escalation.v1"
+"""Canonical topic for CI debug escalation events (OUTPUT).
+
+Canonical topic: onex.evt.omniintelligence.ci-debug-escalation.v1
+
+Emitted when consecutive CI failures cross the escalation threshold,
+triggering debug intelligence analysis for omnidash /ci-intelligence page.
+
+Reference: OMN-6123
+Deletion ticket: OMN-1546
+"""
+
+# =============================================================================
 # Exports
 # =============================================================================
 
 __all__ = [
     "MAX_PATTERN_MATCH_RESULTS",
+    "PERCENTAGE_MULTIPLIER",
+    "TOPIC_BLOOM_EVAL_COMPLETED_V1",
+    "TOPIC_BLOOM_EVAL_RUN_V1",
+    "TOPIC_CI_DEBUG_ESCALATION_V1",
     "TOPIC_CODE_CRAWL_REQUESTED_V1",
     "TOPIC_CODE_ENTITIES_CLASSIFIED_V1",
     "TOPIC_CODE_ENTITIES_EXTRACTED_V1",
     "TOPIC_CODE_ENTITIES_PERSISTED_V1",
     "TOPIC_CODE_ENTITIES_SCORED_V1",
     "TOPIC_CODE_FILE_DISCOVERED_V1",
-    "PERCENTAGE_MULTIPLIER",
-    "TOPIC_BLOOM_EVAL_COMPLETED_V1",
     "TOPIC_CONTEXT_UTILIZATION_EVT_V1",
-    "TOPIC_BLOOM_EVAL_RUN_V1",
     "TOPIC_DECISION_RECORDED_CMD_V1",
     "TOPIC_DECISION_RECORDED_EVT_V1",
     "TOPIC_LLM_ROUTING_DECISION_PROCESSED",
+    "TOPIC_OPERATION_COMPLETED_V1",
+    "TOPIC_OPERATION_STARTED_V1",
     "TOPIC_PATTERN_LIFECYCLE_CMD_V1",
     "TOPIC_PLAN_REVIEW_STRATEGY_RUN_COMPLETED_V1",
     "TOPIC_PROMOTION_CHECK_CMD_V1",
     "TOPIC_RATIONALE_MISMATCH_EVT_V1",
+    "TOPIC_RL_ROUTING_DECISION_V1",
     "TOPIC_ROUTING_FEEDBACK_PROCESSED",
     "TOPIC_RUN_EVALUATED_V1",
     "TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1",

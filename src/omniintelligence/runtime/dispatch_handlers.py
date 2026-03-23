@@ -35,6 +35,7 @@ import contextlib
 import json
 import logging
 import os
+import time
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from typing import Any
@@ -2312,6 +2313,7 @@ def create_dispatch_callback(
     dispatch_topic: str,
     *,
     correlation_id: UUID | None = None,
+    kafka_producer: ProtocolKafkaPublisher | None = None,
 ) -> Callable[[object], Awaitable[None]]:
     """Create an event bus callback that routes messages through the dispatch engine.
 
@@ -2406,10 +2408,35 @@ def create_dispatch_callback(
                 ),
             )
 
+            # OMN-6125: Emit operation-started lifecycle event
+            operation_id = str(uuid4())
+            await _emit_operation_started(
+                kafka_producer=kafka_producer,
+                operation_id=operation_id,
+                operation_type=dispatch_topic,
+                correlation_id=str(msg_correlation_id),
+                session_id=payload_dict.get("session_id")
+                if isinstance(payload_dict, dict)
+                else None,
+            )
+
             # Dispatch through the engine
+            dispatch_start = time.perf_counter()
             result = await engine.dispatch(
                 topic=dispatch_topic,
                 envelope=envelope,
+            )
+            dispatch_duration_ms = int((time.perf_counter() - dispatch_start) * 1000)
+
+            # OMN-6125: Emit operation-completed lifecycle event
+            dispatch_status = "success" if result.is_successful() else "failure"
+            await _emit_operation_completed(
+                kafka_producer=kafka_producer,
+                operation_id=operation_id,
+                operation_type=dispatch_topic,
+                correlation_id=str(msg_correlation_id),
+                status=dispatch_status,
+                duration_ms=dispatch_duration_ms,
             )
 
             logger.debug(
@@ -2486,6 +2513,91 @@ def create_dispatch_callback(
                 await msg.nack()
 
     return _on_message
+
+
+# =============================================================================
+# Operation Lifecycle Event Helpers (OMN-6125)
+# =============================================================================
+
+
+async def _emit_operation_started(
+    *,
+    kafka_producer: ProtocolKafkaPublisher | None,
+    operation_id: str,
+    operation_type: str,
+    correlation_id: str,
+    session_id: str | None,
+) -> None:
+    """Fire-and-forget emission of operation-started lifecycle event.
+
+    Silently logs and returns on any failure -- never blocks the caller.
+    """
+    if kafka_producer is None:
+        return
+    try:
+        from omniintelligence.constants import TOPIC_OPERATION_STARTED_V1
+        from omniintelligence.models.events.model_operation_lifecycle_event import (
+            ModelOperationStartedEvent,
+        )
+
+        event = ModelOperationStartedEvent(
+            operation_id=operation_id,
+            operation_type=operation_type,
+            correlation_id=correlation_id,
+            session_id=session_id,
+            started_at=datetime.now(UTC),
+        )
+        await kafka_producer.publish(
+            topic=TOPIC_OPERATION_STARTED_V1,
+            key=correlation_id,
+            value=event.model_dump(mode="json"),
+        )
+    except Exception:
+        logger.warning(
+            "Failed to emit operation-started event (non-blocking)",
+            exc_info=True,
+        )
+
+
+async def _emit_operation_completed(
+    *,
+    kafka_producer: ProtocolKafkaPublisher | None,
+    operation_id: str,
+    operation_type: str,
+    correlation_id: str,
+    status: str,
+    duration_ms: int,
+) -> None:
+    """Fire-and-forget emission of operation-completed lifecycle event.
+
+    Silently logs and returns on any failure -- never blocks the caller.
+    """
+    if kafka_producer is None:
+        return
+    try:
+        from omniintelligence.constants import TOPIC_OPERATION_COMPLETED_V1
+        from omniintelligence.models.events.model_operation_lifecycle_event import (
+            ModelOperationCompletedEvent,
+        )
+
+        event = ModelOperationCompletedEvent(
+            operation_id=operation_id,
+            operation_type=operation_type,
+            correlation_id=correlation_id,
+            status=status,
+            duration_ms=duration_ms,
+            completed_at=datetime.now(UTC),
+        )
+        await kafka_producer.publish(
+            topic=TOPIC_OPERATION_COMPLETED_V1,
+            key=correlation_id,
+            value=event.model_dump(mode="json"),
+        )
+    except Exception:
+        logger.warning(
+            "Failed to emit operation-completed event (non-blocking)",
+            exc_info=True,
+        )
 
 
 __all__ = [
