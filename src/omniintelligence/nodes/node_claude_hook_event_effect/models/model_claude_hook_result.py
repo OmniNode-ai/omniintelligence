@@ -68,6 +68,12 @@ class ClaudeHookResultMetadataDict(TypedDict, total=False):
     # Evaluation
     objective_evaluation: str
 
+    # Drift detection (OMN-6124)
+    drift_detection: str
+    drift_type: str
+    drift_severity: str
+    drift_emission: str
+
 
 class ModelClaudeHookResult(BaseModel):
     """Output model for Claude Code hook event processing.
