@@ -53,6 +53,10 @@ from omniintelligence.models.events.model_pattern_lifecycle_event import (
 from omniintelligence.models.events.model_pattern_projection_event import (
     ModelPatternProjectionEvent,
 )
+from omniintelligence.models.events.model_rl_routing_decision_event import (
+    ModelRlRoutingAlternative,
+    ModelRlRoutingDecisionEvent,
+)
 
 __all__ = [
     "ModelCodeAnalysisCompletedPayload",
@@ -65,6 +69,8 @@ __all__ = [
     "ModelLLMCallCompletedEvent",
     "ModelOperationCompletedEvent",
     "ModelOperationStartedEvent",
+    "ModelRlRoutingAlternative",
+    "ModelRlRoutingDecisionEvent",
     "ModelPatternDiscoveredEvent",
     "ModelPatternLifecycleEvent",
     "ModelPatternProjectionEvent",
