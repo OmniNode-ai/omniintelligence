@@ -250,3 +250,37 @@ class CalibrationOrchestrationResult(BaseModel, frozen=True):
         default_factory=list,
         description="Per-challenger calibration results.",
     )
+
+
+class CalibrationRunCompletedEvent(BaseModel, frozen=True):
+    """Event emitted after a calibration run completes (via transactional outbox).
+
+    Published to onex.evt.review-pairing.calibration-run-completed.v1.
+
+    Reference: OMN-6173 (epic OMN-6164)
+    """
+
+    run_id: str = Field(description="Calibration run identifier.")
+    ground_truth_model: str = Field(description="Ground-truth model key.")
+    challenger_model: str = Field(description="Challenger model key.")
+    true_positives: int = Field(description="True positive count.")
+    false_positives: int = Field(description="False positive count.")
+    false_negatives: int = Field(description="False negative count.")
+    precision: float = Field(description="Precision score.")
+    recall: float = Field(description="Recall score.")
+    f1_score: float = Field(description="F1 agreement score.")
+    noise_ratio: float = Field(description="Noise ratio.")
+    ground_truth_count: int = Field(description="Total ground-truth findings.")
+    challenger_count: int = Field(description="Total challenger findings.")
+    prompt_version: str = Field(description="Prompt version used.")
+    agreement_f1_ema: float = Field(
+        description="Current EMA F1 score after this update."
+    )
+    calibration_run_count: int = Field(
+        description="Current run count for this model/reference pair."
+    )
+    fewshot_snapshot: dict[str, list[dict[str, str]]] | None = Field(
+        default=None,
+        description="JSON of few-shot examples if generated.",
+    )
+    created_at: datetime = Field(description="UTC timestamp of this run.")
