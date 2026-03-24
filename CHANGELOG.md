@@ -1,3 +1,29 @@
+## v0.17.0 (2026-03-24)
+
+### Added
+- feat(calibration): add documentation and wiring for calibration system [OMN-6179] (#455)
+- feat(calibration): add CLI entry point for calibration [OMN-6172] (#453)
+- feat(calibration): add prompt writer for few-shot injection [OMN-6175] (#452)
+- feat(calibration): add calibration run orchestrator [OMN-6169] (#451)
+- feat(calibration): add few-shot extractor [OMN-6174] (#450)
+- feat(review-pairing): add calibration Kafka topic [OMN-6173] (#449)
+- feat(review-pairing): add calibration persistence layer [OMN-6171] (#448)
+- feat(review-pairing): add calibration scorer [OMN-6168] (#447)
+- feat(review-pairing): add finding alignment engine [OMN-6167] (#445)
+- feat(review-pairing): add R1-R6 finding serializer [OMN-6166] (#444)
+- feat(review-pairing): add calibration data models [OMN-6165] (#442)
+- feat(db): add calibration runs migration [OMN-6170] (#443)
+- feat: wire omniintelligence event emissions for omnidash upstream [OMN-6153] (#446)
+
+### Tests
+- test(calibration): add calibration integration tests [OMN-6178] (#454)
+
+### Changed
+- fix(deps): update stale omnibase-infra and spi version pins [OMN-6112] (#438)
+- chore(deps): bump omnibase-infra from 0.22.0 to 0.24.1 (#439)
+- chore(deps): bump actions/checkout from 4 to 6 (#440)
+- chore(deps-dev): bump omnibase-spi from 0.18.0 to 0.19.1 (#441)
+
 ## v0.16.0 (2026-03-20)
 
 ### Added
