@@ -104,19 +104,26 @@ def build_review_prompt(
     plan_content: str,
     *,
     review_type: str = "plan",
+    system_prompt_prefix: str | None = None,
 ) -> tuple[str, str]:
     """Construct system and user prompts for adversarial review.
 
     Args:
         plan_content: Raw content to review (plan text or PR diff).
         review_type: "plan" for plan/design review, "pr" for PR diff review.
+        system_prompt_prefix: Optional content to prepend to the system prompt.
+            When provided (e.g., a persona), it is prepended with a separator.
 
     Returns:
         Tuple of (system_prompt, user_prompt).
     """
     template = USER_PROMPT_TEMPLATE_PR if review_type == "pr" else USER_PROMPT_TEMPLATE
     user_prompt = template.format(plan_content=plan_content)
-    return SYSTEM_PROMPT, user_prompt
+    if system_prompt_prefix:
+        system_prompt = f"{system_prompt_prefix}\n\n---\n\n{SYSTEM_PROMPT}"
+    else:
+        system_prompt = SYSTEM_PROMPT
+    return system_prompt, user_prompt
 
 
 def _resolve_model_url(model_key: str) -> str:
@@ -234,7 +241,7 @@ def parse_review_response(raw_text: str) -> list[dict[str, Any]]:
     try:
         parsed = json.loads(text)
         if isinstance(parsed, list):
-            return parsed  # type: ignore[no-any-return]
+            return parsed
         logger.warning("Parsed JSON is not a list; got %s", type(parsed).__name__)
         return []
     except json.JSONDecodeError:
@@ -246,7 +253,7 @@ def parse_review_response(raw_text: str) -> list[dict[str, Any]]:
         try:
             parsed = json.loads(fence_match.group(1).strip())
             if isinstance(parsed, list):
-                return parsed  # type: ignore[no-any-return]
+                return parsed
         except json.JSONDecodeError:
             logger.debug("Fenced block was not valid JSON, trying bracket extraction")
 
@@ -256,7 +263,7 @@ def parse_review_response(raw_text: str) -> list[dict[str, Any]]:
         try:
             parsed = json.loads(bracket_match.group(0))
             if isinstance(parsed, list):
-                return parsed  # type: ignore[no-any-return]
+                return parsed
         except json.JSONDecodeError:
             logger.debug("Bracket-extracted text was not valid JSON")
 
@@ -285,7 +292,7 @@ def map_severity(raw_severity: str) -> FindingSeverity:
 
 
 def to_review_findings(
-    parsed: list[dict[str, Any]],
+    parsed: list[Any],
     model_key: str,
     *,
     repo: str = "plan-review",
@@ -412,6 +419,7 @@ async def async_parse_raw(
     repo: str = "plan-review",
     pr_id: int = 0,
     commit_sha: str = "0000000",
+    system_prompt_prefix: str | None = None,
 ) -> ModelExternalReviewResult:
     """Full review transaction: prompt, call, parse, convert.
 
@@ -428,6 +436,8 @@ async def async_parse_raw(
         repo: Repository slug.
         pr_id: Pull request number.
         commit_sha: Commit SHA.
+        system_prompt_prefix: Optional content to prepend to the system prompt
+            (e.g., persona content). When set, prepended with a separator.
 
     Returns:
         ModelExternalReviewResult with review findings or error.
@@ -438,6 +448,7 @@ async def async_parse_raw(
         system_prompt, user_prompt = build_review_prompt(
             plan_content,
             review_type=review_type,
+            system_prompt_prefix=system_prompt_prefix,
         )
         raw_text = await call_model(system_prompt, user_prompt, model_key=model)
         parsed = parse_review_response(raw_text)
