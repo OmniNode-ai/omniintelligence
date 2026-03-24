@@ -42,8 +42,8 @@ services:
       dockerfile: deployment/docker/Dockerfile.reducer
     container_name: omni-intelligence-reducer
     environment:
-      # Database Configuration — points to omnibase_infra postgres
-      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:${POSTGRES_PASSWORD}@omnibase-infra-postgres:5432/omnibase_infra}
+      # Database Configuration — points to omniintelligence database
+      DATABASE_URL: ${OMNIINTELLIGENCE_DB_URL:-postgresql://postgres:${POSTGRES_PASSWORD}@omnibase-infra-postgres:5432/omniintelligence}
 
       # Reducer Configuration
       ENABLE_LEASE_MANAGEMENT: ${ENABLE_LEASE_MANAGEMENT:-true}
