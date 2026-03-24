@@ -72,6 +72,30 @@ class MockPatternQueryStore:
         # Simulate pagination
         return self.rows[offset : offset + limit]
 
+    async def query_patterns_projection(
+        self,
+        *,
+        min_confidence: float,
+        limit: int,
+        offset: int,
+    ) -> list[dict[str, Any]]:
+        """Return a page of rows for projection (truncated pattern_signature).
+
+        Delegates to the same backing rows as query_patterns. In tests, the
+        row data is already short so truncation is a no-op.
+        """
+        self.query_calls.append(
+            {
+                "min_confidence": min_confidence,
+                "limit": limit,
+                "offset": offset,
+            }
+        )
+        if self.simulate_error is not None:
+            raise self.simulate_error
+
+        return self.rows[offset : offset + limit]
+
     def reset(self) -> None:
         """Reset all state for test isolation."""
         self.rows.clear()

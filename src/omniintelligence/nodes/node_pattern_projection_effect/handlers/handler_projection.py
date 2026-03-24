@@ -123,9 +123,7 @@ async def publish_projection(
 
     while True:
         try:
-            raw_rows = await pattern_query_store.query_patterns(
-                domain=None,
-                language=None,
+            raw_rows = await pattern_query_store.query_patterns_projection(
                 min_confidence=_MIN_CONFIDENCE,
                 limit=_QUERY_LIMIT,
                 offset=offset,

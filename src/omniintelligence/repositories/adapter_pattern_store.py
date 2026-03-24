@@ -531,6 +531,36 @@ class AdapterPatternStore:
             return []
         return [result]
 
+    async def query_patterns_projection(
+        self,
+        *,
+        min_confidence: float = 0.7,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
+        """Query patterns for projection snapshot with truncated pattern_signature.
+
+        Returns patterns with pattern_signature truncated to 512 chars to keep
+        Kafka messages bounded while preserving the field for downstream consumers.
+
+        Reference: OMN-6341 (Kafka MessageSizeTooLarge fix)
+        """
+        args = self._build_positional_args(
+            "query_patterns_projection",
+            {
+                "min_confidence": min_confidence,
+                "limit": limit,
+                "offset": offset,
+            },
+        )
+        result = await self._runtime.call("query_patterns_projection", *args)
+
+        if isinstance(result, list):
+            return result
+        if result is None:
+            return []
+        return [result]
+
     async def store_with_version_transition(
         self,
         *,

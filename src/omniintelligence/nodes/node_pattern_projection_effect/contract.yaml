@@ -69,7 +69,10 @@ handler_routing:
 # =============================================================================
 io_operations:
   - operation: "publish_projection"
-    description: "Query all validated/provisional patterns and publish a projection snapshot"
+    description: >
+      Query all validated/provisional patterns (with pattern_signature truncated to 512 chars) and publish
+      a projection snapshot. Uses query_patterns_projection SQL operation to keep Kafka messages bounded
+      while preserving pattern_signature for downstream consumers.
     input_fields:
       - correlation_id
       - trigger_event_type
@@ -162,8 +165,10 @@ event_bus:
   publish_topic_metadata:
     "onex.evt.omniintelligence.pattern-projection.v1":
       schema_ref: "omniintelligence.models.events.model_pattern_projection_event.ModelPatternProjectionEvent"
-      description: "Materialized snapshot of all validated/provisional patterns for downstream consumers"
-
+      description: >
+        Materialized snapshot of all validated/provisional patterns for downstream consumers. pattern_signature
+        is truncated to 512 chars to stay within Kafka message size limits (OMN-6341). Consumers needing
+        full signatures should query the REST API. #magic___^_^___line
 # =============================================================================
 # CAPABILITIES
 # =============================================================================
@@ -198,3 +203,6 @@ metadata:
     - ticket: "OMN-2355"
       url: "https://linear.app/omninode/issue/OMN-2355"
       description: "HTTP API escape hatch superseded by this node"
+    - ticket: "OMN-6341"
+      url: "https://linear.app/omninode/issue/OMN-6341"
+      description: "Kafka MessageSizeTooLarge fix — truncated pattern_signature in projections"

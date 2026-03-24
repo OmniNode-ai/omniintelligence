@@ -390,6 +390,64 @@ db_repository:
         many: true
 
     # -------------------------------------------------------------------------
+    # READ: Projection query (truncated pattern_signature for Kafka snapshots)
+    # -------------------------------------------------------------------------
+    # Projection query: truncates pattern_signature to 512 chars for Kafka snapshot.
+    # Used by NodePatternProjectionEffect to build ModelPatternProjectionEvent
+    # without exceeding Kafka message size limits.
+    # pattern_signature is kept (truncated) because omniclaude consumers depend on it.
+    # Reference: OMN-6341 (Kafka MessageSizeTooLarge fix)
+    query_patterns_projection:
+      mode: read
+      description: |
+        Query patterns for projection snapshot with truncated pattern_signature.
+        Returns metadata fields plus LEFT(pattern_signature, 512) to keep
+        Kafka messages bounded while preserving the field for downstream consumers.
+      sql: |
+        SELECT
+          id,
+          LEFT(pattern_signature, 512) AS pattern_signature,
+          signature_hash,
+          domain_id,
+          project_scope,
+          quality_score,
+          confidence,
+          status,
+          is_current,
+          version,
+          created_at
+        FROM learned_patterns
+        WHERE status IN ('validated', 'provisional')
+          AND is_current = TRUE
+          AND confidence >= $1
+        ORDER BY
+          CASE WHEN status = 'validated' THEN 0 ELSE 1 END,
+          confidence DESC,
+          id ASC
+        LIMIT $2
+        OFFSET $3
+      param_order:
+        - min_confidence
+        - limit
+        - offset
+      params:
+        min_confidence:
+          name: min_confidence
+          param_type: float
+          description: Minimum confidence threshold
+        limit:
+          name: limit
+          param_type: integer
+          description: Maximum rows per page
+        offset:
+          name: offset
+          param_type: integer
+          description: Row offset for pagination
+      returns:
+        model_ref: PatternSummary
+        many: true
+
+    # -------------------------------------------------------------------------
     # READ: Get promotion candidates
     # -------------------------------------------------------------------------
     list_promotion_candidates:

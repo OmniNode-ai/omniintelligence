@@ -200,6 +200,22 @@ class ProtocolPatternQueryStore(Protocol):
         """Query validated/provisional patterns with optional filters."""
         ...
 
+    async def query_patterns_projection(
+        self,
+        *,
+        min_confidence: float,
+        limit: int,
+        offset: int,
+    ) -> list[dict[str, Any]]:  # any-ok: raw asyncpg row dicts from DB
+        """Query patterns for projection snapshot (truncated pattern_signature).
+
+        Returns patterns with pattern_signature truncated to 512 chars to keep
+        Kafka messages bounded. Used by NodePatternProjectionEffect.
+
+        Reference: OMN-6341
+        """
+        ...
+
 
 @runtime_checkable
 class ProtocolDecisionRecordRepository(Protocol):
