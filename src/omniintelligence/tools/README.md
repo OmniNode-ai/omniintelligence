@@ -272,7 +272,7 @@ pre-commit run contract-linter --all-files
 
 ## Integration with CI/CD
 
-The contract linter is integrated into the GitHub Actions CI pipeline. See `.github/workflows/ci.yaml`:
+The contract linter is integrated into the GitHub Actions CI pipeline. See `.github/workflows/ci.yml`:
 
 ```yaml
 contract-validation:

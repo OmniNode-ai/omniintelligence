@@ -438,7 +438,7 @@ repos:
 
 ### GitHub Actions
 
-Add to your CI workflow (`.github/workflows/ci.yaml`):
+Add to your CI workflow (`.github/workflows/ci.yml`):
 
 ```yaml
 jobs:

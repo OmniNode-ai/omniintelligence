@@ -4,7 +4,7 @@
 
 """Validate alignment between CI path filters and pre-commit hook patterns.
 
-This script ensures that the CI workflow path filters (.github/workflows/ci.yaml)
+This script ensures that the CI workflow path filters (.github/workflows/ci.yml)
 stay synchronized with pre-commit hook file patterns (.pre-commit-config.yaml).
 
 SYNCHRONIZATION STRATEGY:
@@ -35,7 +35,7 @@ ADDING A NEW MODULE:
 When adding a new source directory, update ALIGNED_SOURCE_DIRS below,
 then run this script. It will report any drift in CI or pre-commit configs.
 
-See .github/workflows/ci.yaml header for complete checklist of files to update.
+See .github/workflows/ci.yml header for complete checklist of files to update.
 
 Usage:
     uv run python scripts/validate_ci_precommit_alignment.py
@@ -71,7 +71,7 @@ logger = logging.getLogger(__name__)
 REPO_ROOT = Path(__file__).parent.parent
 
 # Configuration files to validate
-CI_WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "ci.yaml"
+CI_WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 PRECOMMIT_CONFIG_PATH = REPO_ROOT / ".pre-commit-config.yaml"
 
 # =============================================================================
@@ -748,7 +748,7 @@ def format_result(result: ValidationResult, output_json: bool = False) -> str:
                 lines.append(f"  - {path}")
         lines.append("")
         lines.append("Action required: Update both files to maintain synchronization.")
-        lines.append("See .pre-commit-config.yaml and .github/workflows/ci.yaml")
+        lines.append("See .pre-commit-config.yaml and .github/workflows/ci.yml")
 
     # Mypy cache validation section
     lines.append("")
@@ -784,7 +784,7 @@ def format_result(result: ValidationResult, output_json: bool = False) -> str:
                 lines.append(f"  - {dir_name}")
         lines.append("")
         lines.append(
-            "Action: Update mypy cache hashFiles patterns in .github/workflows/ci.yaml"
+            "Action: Update mypy cache hashFiles patterns in .github/workflows/ci.yml"
         )
         lines.append(
             "        to match the mypy command scope (~line 309 and ~line 319)"
