@@ -19,6 +19,14 @@ Usage:
     uv run python -m omniintelligence.review_pairing.cli_review \\
         --file plan.md --model codex --model qwen3-coder
 
+    # With persona injection
+    uv run python -m omniintelligence.review_pairing.cli_review \\
+        --file plan.md --persona analytical-strict
+
+    # With custom system prompt file
+    uv run python -m omniintelligence.review_pairing.cli_review \\
+        --file plan.md --system-prompt /path/to/my-prompt.md
+
     # Output to file
     uv run python -m omniintelligence.review_pairing.cli_review \\
         --file plan.md --output review.json
@@ -31,7 +39,7 @@ Exit Codes:
     0: at least one model succeeded
     1: all models failed
 
-Reference: OMN-5793, OMN-5819
+Reference: OMN-5793, OMN-5819, OMN-6228
 """
 
 from __future__ import annotations
@@ -51,10 +59,12 @@ from omniintelligence.review_pairing.adapters.adapter_ai_reviewer import (
 from omniintelligence.review_pairing.adapters.adapter_codex_reviewer import (
     async_parse_raw as codex_async_parse_raw,
 )
+from omniintelligence.review_pairing.cli_review_models import ModelPersonaConfig
 from omniintelligence.review_pairing.models_external_review import (
     ModelExternalReviewResult,
     ModelMultiReviewResult,
 )
+from omniintelligence.review_pairing.persona_loader import load_persona
 
 _DEFAULT_MODEL: str = "deepseek-r1"
 _CODEX_MODEL_KEY: str = "codex"
@@ -105,6 +115,26 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Output file path for JSON results (default: stdout).",
     )
+    parser.add_argument(
+        "--persona",
+        type=str,
+        default=None,
+        metavar="NAME",
+        help=(
+            "Persona name from review_pairing/personas/ "
+            "(e.g., analytical-strict). Fails hard if name not found. "
+            "Prepends persona content to the system prompt for each LLM call."
+        ),
+    )
+    parser.add_argument(
+        "--system-prompt",
+        type=str,
+        default=None,
+        metavar="FILE",
+        help=(
+            "Path to a custom system prompt .md file. Ignored if --persona is also set."
+        ),
+    )
     return parser
 
 
@@ -113,6 +143,7 @@ async def run_review(
     model_keys: list[str],
     *,
     review_type: str = "plan",
+    persona: ModelPersonaConfig | None = None,
 ) -> ModelMultiReviewResult:
     """Execute multi-model review.
 
@@ -122,6 +153,8 @@ async def run_review(
         content: Raw content to review (plan text or PR diff).
         model_keys: List of model keys to use.
         review_type: "plan" for plan review, "pr" for PR diff review.
+        persona: Optional persona config. When provided, persona content is
+            prepended to the system prompt for each LLM call.
 
     Returns:
         Aggregated ModelMultiReviewResult.
@@ -139,6 +172,7 @@ async def run_review(
                 content,
                 model=model_key,
                 review_type=review_type,
+                system_prompt_prefix=persona.content if persona is not None else None,
             )
         results.append(result)
 
@@ -201,14 +235,14 @@ def main(argv: list[str] | None = None) -> int:
             print("Error: --repo is required with --pr", file=sys.stderr)
             return 1
         try:
-            result = subprocess.run(
+            gh_result = subprocess.run(
                 ["gh", "pr", "diff", str(args.pr), "--repo", args.repo],
                 capture_output=True,
                 text=True,
                 check=True,
                 timeout=30,
             )
-            review_content = result.stdout
+            review_content = gh_result.stdout
         except FileNotFoundError:
             print("Error: gh CLI not found", file=sys.stderr)
             return 1
@@ -235,9 +269,31 @@ def main(argv: list[str] | None = None) -> int:
     # Determine review type.
     review_type = "pr" if args.pr is not None else "plan"
 
+    # Load persona if specified (--persona takes precedence over --system-prompt).
+    persona: ModelPersonaConfig | None = None
+    if args.persona is not None:
+        try:
+            persona = load_persona(args.persona)
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
+        print(f"Persona loaded: {args.persona}", file=sys.stderr)
+    elif args.system_prompt is not None:
+        sp_path = Path(args.system_prompt).expanduser().resolve()
+        if not sp_path.exists():
+            print(
+                f"Error: --system-prompt file not found: {sp_path}",
+                file=sys.stderr,
+            )
+            return 1
+        sp_content = sp_path.read_text(encoding="utf-8")
+        # Wrap the custom system prompt as a persona with a synthetic name.
+        persona = ModelPersonaConfig(name="custom", content=sp_content)
+        print(f"Custom system prompt loaded: {sp_path}", file=sys.stderr)
+
     # Run review.
     result = asyncio.run(
-        run_review(review_content, model_keys, review_type=review_type)
+        run_review(review_content, model_keys, review_type=review_type, persona=persona)
     )
 
     # Output JSON to stdout (or file).

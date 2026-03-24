@@ -130,7 +130,7 @@ class TestRunReview:
             result = await run_review("# Plan", ["qwen3-coder"])
 
         mock_llm.assert_called_once_with(
-            "# Plan", model="qwen3-coder", review_type="plan"
+            "# Plan", model="qwen3-coder", review_type="plan", system_prompt_prefix=None
         )
         assert result.models_succeeded == ["qwen3-coder"]
 

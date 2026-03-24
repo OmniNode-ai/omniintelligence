@@ -16,7 +16,7 @@ env:
   UV_VERSION: "0.8.3"
   REPO_NAME: "omniintelligence"
 
-# ci-health-ok: blocking mypy already enforced in ci.yaml type-check job (scoped to tools/utils/runtime)
+# ci-health-ok: blocking mypy already enforced in ci.yml type-check job (scoped to tools/utils/runtime)
 
 jobs:
   type-union-check:
@@ -64,7 +64,7 @@ jobs:
             echo "::error::Missing .github/workflows/ci.yml"
             exit 1
           fi
-          CI_NAME=$(grep -m1 "^name:" .github/workflows/ci.yml | sed "s/name: *//")
+          CI_NAME=$(grep -m1 "^name:" .github/workflows/ci.yml | sed "s/name: *//" | tr -d "'\"")
           if [ "$CI_NAME" != "CI" ]; then
             echo "::error::ci.yml has name '$CI_NAME' — must be 'CI'"
             exit 1
