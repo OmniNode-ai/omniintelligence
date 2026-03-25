@@ -76,6 +76,6 @@ class TestIntelligenceOrchestratorDispatchHandler:
 
     def test_dispatch_alias_constant_has_correct_format(self) -> None:
         """DISPATCH_ALIAS_INTELLIGENCE_ORCHESTRATOR follows ONEX topic pattern."""
-        assert "commands" in DISPATCH_ALIAS_INTELLIGENCE_ORCHESTRATOR
+        assert DISPATCH_ALIAS_INTELLIGENCE_ORCHESTRATOR.startswith("onex.cmd.")
         assert "omniintelligence" in DISPATCH_ALIAS_INTELLIGENCE_ORCHESTRATOR
         assert "intent-received" in DISPATCH_ALIAS_INTELLIGENCE_ORCHESTRATOR

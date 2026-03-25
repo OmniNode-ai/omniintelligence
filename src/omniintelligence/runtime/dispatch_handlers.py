@@ -1779,7 +1779,7 @@ def create_intelligence_orchestrator_dispatch_handler(
 
         raw_payload = payload.get("payload") or {}
         intent_payload = ModelPayloadExtension(
-            intent_type=str(raw_payload.get("intent_type", "extension")),
+            intent_type="extension",
             extension_type=str(raw_payload.get("extension_type", "dispatch.bridge")),
             plugin_name=str(
                 raw_payload.get("plugin_name", "intelligence-orchestrator")
@@ -1932,7 +1932,17 @@ def create_ci_fingerprint_dispatch_handler(
             raise ValueError(msg)
 
         failure_output = str(payload.get("failure_output", ""))
-        failing_tests: list[str] = payload.get("failing_tests", [])
+        raw_failing_tests = payload.get("failing_tests", [])
+        if not isinstance(raw_failing_tests, list) or not all(
+            isinstance(t, str) for t in raw_failing_tests
+        ):
+            msg = (
+                "ci-failure-detected payload field 'failing_tests' must be "
+                f"a list[str] (correlation_id={ctx_correlation_id})"
+            )
+            logger.warning(msg)
+            raise ValueError(msg)
+        failing_tests: list[str] = raw_failing_tests
 
         logger.info(
             "Computing CI failure fingerprint (correlation_id=%s)",
@@ -2023,10 +2033,7 @@ def create_ci_failure_tracker_dispatch_handler(
         sha = str(payload.get("sha", ""))
 
         # Determine if this is a recovery or failure event
-        is_recovery = (
-            "recovery"
-            in str(envelope.metadata.event_type if envelope.metadata else "").lower()
-        )
+        is_recovery = "recovery" in str(envelope.event_type or "").lower()
 
         if is_recovery:
             logger.info(
@@ -2096,6 +2103,7 @@ def create_intelligence_dispatch_engine(
     qdrant_client: Any = None,
     bolt_handler: Any = None,
     code_entity_store: Any = None,
+    debug_store: Any = None,
 ) -> MessageDispatchEngine:
     """Create and configure a MessageDispatchEngine for Intelligence domain.
 
@@ -2726,6 +2734,7 @@ def create_intelligence_dispatch_engine(
 
     # --- Handler: CI failure tracker effect (OMN-6598) ---
     ci_tracker_handler = create_ci_failure_tracker_dispatch_handler(
+        debug_store=debug_store,
         kafka_producer=kafka_producer,
     )
     engine.register_handler(
@@ -2876,6 +2885,7 @@ def create_dispatch_callback(
             envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
                 payload=payload_dict,
                 correlation_id=msg_correlation_id,
+                event_type=dispatch_topic,
                 metadata=ModelEnvelopeMetadata(
                     tags={
                         "message_category": topic_category.value
