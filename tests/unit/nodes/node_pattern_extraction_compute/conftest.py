@@ -60,13 +60,13 @@ def sample_session(
         ended_at=reference_time,
         files_accessed=(
             "src/api/routes.py",
-            "src/api/handlers.py",
+            "src/handlers/api_handler.py",
             "src/models/user.py",
             "tests/test_api.py",
         ),
         files_modified=(
             "src/api/routes.py",
-            "src/api/handlers.py",
+            "src/handlers/api_handler.py",
         ),
         tools_used=(
             "Read",
@@ -92,9 +92,10 @@ def multiple_sessions(base_time: datetime) -> tuple[ModelSessionSnapshot, ...]:
     """Multiple sessions showing clear patterns.
 
     These sessions are designed to produce detectable patterns:
-    - Co-access pattern: api/routes.py and api/handlers.py accessed together
+    - Co-access pattern: api/routes.py and handlers/api_handler.py accessed together
+      (cross-directory to survive same-directory filter)
     - Entry point: src/api/routes.py is commonly the first file
-    - Modification cluster: api files modified together
+    - Modification cluster: api + handler files modified together
     - Tool sequence: Read -> Edit -> Bash pattern
     """
     return (
@@ -105,12 +106,12 @@ def multiple_sessions(base_time: datetime) -> tuple[ModelSessionSnapshot, ...]:
             ended_at=base_time + timedelta(minutes=30),
             files_accessed=(
                 "src/api/routes.py",
-                "src/api/handlers.py",
+                "src/handlers/api_handler.py",
                 "src/models/user.py",
             ),
             files_modified=(
                 "src/api/routes.py",
-                "src/api/handlers.py",
+                "src/handlers/api_handler.py",
             ),
             tools_used=("Read", "Edit", "Bash", "Read", "Edit"),
             errors_encountered=(),
@@ -123,12 +124,12 @@ def multiple_sessions(base_time: datetime) -> tuple[ModelSessionSnapshot, ...]:
             ended_at=base_time + timedelta(hours=1, minutes=45),
             files_accessed=(
                 "src/api/routes.py",
-                "src/api/handlers.py",
+                "src/handlers/api_handler.py",
                 "src/services/auth.py",
             ),
             files_modified=(
                 "src/api/routes.py",
-                "src/api/handlers.py",
+                "src/handlers/api_handler.py",
             ),
             tools_used=("Read", "Edit", "Bash", "Read"),
             errors_encountered=(),
@@ -141,7 +142,7 @@ def multiple_sessions(base_time: datetime) -> tuple[ModelSessionSnapshot, ...]:
             ended_at=base_time + timedelta(hours=2, minutes=20),
             files_accessed=(
                 "src/api/routes.py",
-                "src/api/handlers.py",
+                "src/handlers/api_handler.py",
                 "tests/test_routes.py",
             ),
             files_modified=(
@@ -159,9 +160,9 @@ def multiple_sessions(base_time: datetime) -> tuple[ModelSessionSnapshot, ...]:
             ended_at=base_time + timedelta(hours=3, minutes=15),
             files_accessed=(
                 "src/api/routes.py",
-                "src/api/handlers.py",
+                "src/handlers/api_handler.py",
             ),
-            files_modified=("src/api/handlers.py",),
+            files_modified=("src/handlers/api_handler.py",),
             tools_used=("Read", "Edit"),
             errors_encountered=(),
             outcome="success",
@@ -285,7 +286,7 @@ def sessions_with_errors(base_time: datetime) -> tuple[ModelSessionSnapshot, ...
             working_directory="/project",
             started_at=base_time + timedelta(hours=3),
             ended_at=base_time + timedelta(hours=3, minutes=25),
-            files_accessed=("src/api/routes.py", "src/api/handlers.py"),
+            files_accessed=("src/api/routes.py", "src/handlers/api_handler.py"),
             files_modified=("src/api/routes.py",),
             tools_used=("Read", "Edit", "Bash"),
             errors_encountered=(),
@@ -379,7 +380,7 @@ def sessions_with_architecture_patterns(
             ended_at=base_time + timedelta(minutes=30),
             files_accessed=(
                 "src/api/routes.py",
-                "src/api/handlers.py",
+                "src/handlers/api_handler.py",
                 "src/api/middleware.py",
             ),
             files_modified=("src/api/routes.py",),
@@ -394,10 +395,10 @@ def sessions_with_architecture_patterns(
             ended_at=base_time + timedelta(hours=1, minutes=25),
             files_accessed=(
                 "src/api/routes.py",
-                "src/api/handlers.py",
+                "src/handlers/api_handler.py",
                 "src/models/user.py",
             ),
-            files_modified=("src/api/handlers.py",),
+            files_modified=("src/handlers/api_handler.py",),
             tools_used=("Read", "Edit"),
             errors_encountered=(),
             outcome="success",
@@ -423,7 +424,7 @@ def sessions_with_architecture_patterns(
             ended_at=base_time + timedelta(hours=3, minutes=20),
             files_accessed=(
                 "src/api/routes.py",
-                "src/api/handlers.py",
+                "src/handlers/api_handler.py",
             ),
             files_modified=("src/api/routes.py",),
             tools_used=("Read", "Edit"),
@@ -445,9 +446,9 @@ def existing_insights(reference_time: datetime) -> tuple[ModelCodebaseInsight, .
         ModelCodebaseInsight(
             insight_id="existing-001",
             insight_type=EnumInsightType.FILE_ACCESS_PATTERN,
-            description="Files src/api/routes.py and src/api/handlers.py are frequently accessed together",
+            description="Files src/api/routes.py and src/handlers/api_handler.py are frequently accessed together",
             confidence=0.7,
-            evidence_files=("src/api/routes.py", "src/api/handlers.py"),
+            evidence_files=("src/api/routes.py", "src/handlers/api_handler.py"),
             evidence_session_ids=("old-session-001", "old-session-002"),
             occurrence_count=2,
             first_observed=reference_time - timedelta(days=7),
@@ -1000,7 +1001,7 @@ def sessions_all_success(base_time: datetime) -> tuple[ModelSessionSnapshot, ...
             working_directory="/project",
             started_at=base_time,
             ended_at=base_time + timedelta(minutes=30),
-            files_accessed=("src/api/routes.py", "src/api/handlers.py"),
+            files_accessed=("src/api/routes.py", "src/handlers/api_handler.py"),
             files_modified=("src/api/routes.py",),
             tools_used=("Read", "Read", "Edit", "Bash"),
             tool_executions=(
@@ -1015,7 +1016,7 @@ def sessions_all_success(base_time: datetime) -> tuple[ModelSessionSnapshot, ...
                     tool_name="Read",
                     success=True,
                     duration_ms=40,
-                    tool_parameters={"file_path": "src/api/handlers.py"},
+                    tool_parameters={"file_path": "src/handlers/api_handler.py"},
                     timestamp=base_time + timedelta(seconds=15),
                 ),
                 ModelToolExecution(

@@ -25,15 +25,17 @@ ONEX Compliance:
 
 Algorithm:
     1. Iterate through all sessions, extracting files_accessed and files_modified
-    2. Track file co-occurrences within each session
-    3. Compute pattern confidence based on occurrence frequency
-    4. Filter patterns by minimum occurrence and confidence thresholds
+    2. Filter out common/excluded files and apply per-session pair cap
+    3. Track file co-occurrences within each session (skip same-directory pairs)
+    4. Compute pattern confidence based on occurrence frequency
+    5. Filter patterns by minimum occurrence and confidence thresholds
 """
 
 from __future__ import annotations
 
 from collections import Counter, defaultdict
 from collections.abc import Sequence
+from pathlib import PurePosixPath
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
@@ -56,10 +58,63 @@ CO_ACCESS_SIGNIFICANCE_FACTOR = 0.5
 MODIFICATION_CLUSTER_SIGNIFICANCE_FACTOR = 0.3
 """Modification clusters: occurrence in 30% of sessions is significant (rarer pattern)."""
 
+# --- Relevance filters (OMN-6566) ---
+
+COMMON_FILE_EXCLUSIONS: frozenset[str] = frozenset(
+    {
+        "CLAUDE.md",
+        "pyproject.toml",
+        "setup.cfg",
+        "conftest.py",
+        "__init__.py",
+        ".gitignore",
+        "README.md",
+        "CHANGELOG.md",
+        "Makefile",
+        ".env",
+        "uv.lock",
+        "package.json",
+        "package-lock.json",
+    }
+)
+"""Files that appear in nearly every session but provide zero signal for patterns."""
+
+MAX_FILES_PER_SESSION_FOR_PAIRS: int = 10
+"""Cap on unique files per session before generating pairs.
+
+A session touching 20 files generates C(20,2) = 190 pairs. Capping at 10
+limits this to C(10,2) = 45, preventing O(n^2) blowup from large sessions.
+"""
+
+
+def _is_excluded_file(path: str) -> bool:
+    """Check if a file path's basename matches the common file exclusion list."""
+    return PurePosixPath(path).name in COMMON_FILE_EXCLUSIONS
+
+
+def _same_directory(f1: str, f2: str) -> bool:
+    """Check if two file paths share the same parent directory."""
+    return PurePosixPath(f1).parent == PurePosixPath(f2).parent
+
+
+def _filter_and_cap(
+    files: list[str],
+    cap: int = MAX_FILES_PER_SESSION_FOR_PAIRS,
+) -> list[str]:
+    """Filter excluded files and cap the list for pair generation.
+
+    Sorts by path for deterministic selection when cap is applied.
+    """
+    filtered = [f for f in files if not _is_excluded_file(f)]
+    if len(filtered) > cap:
+        filtered.sort()
+        filtered = filtered[:cap]
+    return filtered
+
 
 def extract_file_access_patterns(
     sessions: Sequence[ModelSessionSnapshot],
-    min_occurrences: int = 2,
+    min_occurrences: int = 5,
     min_confidence: float = 0.6,
     min_distinct_sessions: int = 2,  # noqa: ARG001 - Unused, for uniform interface
     max_results_per_type: int = 20,  # noqa: ARG001 - Unused, for uniform interface
@@ -77,13 +132,18 @@ def extract_file_access_patterns(
         2. Entry points: Files accessed first in sessions (common starting points).
         3. Modification clusters: Files modified together in the same session.
 
+    Relevance filters applied (OMN-6566):
+        - Common files (CLAUDE.md, pyproject.toml, etc.) are excluded by basename
+        - Same-directory file pairs are excluded (trivially co-accessed)
+        - Per-session pair count is capped at MAX_FILES_PER_SESSION_FOR_PAIRS
+
     Args:
         sessions: Session snapshots to analyze. Each session should have:
             - session_id (str): Unique session identifier
             - files_accessed (tuple[str, ...]): Files read during the session
             - files_modified (tuple[str, ...]): Files modified during the session
         min_occurrences: Minimum times a pattern must occur to be included.
-            Default is 2 to filter out one-off coincidences.
+            Default is 5 to filter out low-signal coincidences.
         min_confidence: Minimum confidence threshold (0.0-1.0) for patterns.
             Default is 0.6 to ensure statistical significance.
 
@@ -126,14 +186,18 @@ def extract_file_access_patterns(
         session_files[session_id] = all_session_files
 
         # Track entry points (first file accessed in session)
-        if files_accessed:
+        # Skip if the first file is a common excluded file
+        if files_accessed and not _is_excluded_file(files_accessed[0]):
             entry_points[files_accessed[0]] += 1
 
         # Track co-access pairs (files accessed together)
         # Use dict.fromkeys to preserve order while removing duplicates
         unique_accessed = list(dict.fromkeys(files_accessed))
+        unique_accessed = _filter_and_cap(unique_accessed)
         for i, f1 in enumerate(unique_accessed):
             for f2 in unique_accessed[i + 1 :]:
+                if _same_directory(f1, f2):
+                    continue
                 # Sort pair to ensure consistent key regardless of access order
                 sorted_files = sorted([f1, f2])
                 pair: tuple[str, str] = (sorted_files[0], sorted_files[1])
@@ -141,8 +205,11 @@ def extract_file_access_patterns(
 
         # Track modification clusters (files modified together)
         unique_modified = list(dict.fromkeys(files_modified))
+        unique_modified = _filter_and_cap(unique_modified)
         for i, f1 in enumerate(unique_modified):
             for f2 in unique_modified[i + 1 :]:
+                if _same_directory(f1, f2):
+                    continue
                 sorted_files = sorted([f1, f2])
                 pair = (sorted_files[0], sorted_files[1])
                 modification_pairs[pair] += 1
