@@ -1,0 +1,62 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# ONEX Node Contract
+# Node: review_pairing
+#
+# Review-Fix Pairing Engine — correlates review findings with fix commits.
+# Reference: OMN-6593
+
+name: "review_pairing"
+contract_name: "review_pairing"
+node_name: "review_pairing"
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+node_type: "EFFECT_GENERIC"
+
+description: >
+  Review-Fix Pairing Engine — correlates review findings with fix commits. Consumes finding-observed and
+  fix-applied events, produces finding-resolved and pair-created events. #magic___^_^___line
+input_model:
+  name: "ReviewFindingObserved"
+  module: "omniintelligence.review_pairing.models"
+  description: "Review finding observed event input."
+output_model:
+  name: "FindingFixPair"
+  module: "omniintelligence.review_pairing.models"
+  description: "Matched finding-fix pair output."
+
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+  event_bus_enabled: true
+
+  subscribe_topics:
+    - "onex.evt.review-pairing.finding-observed.v1"
+    - "onex.evt.review-pairing.fix-applied.v1"
+
+  publish_topics:
+    - "onex.evt.review-pairing.finding-resolved.v1"
+    - "onex.evt.review-pairing.pair-created.v1"
+
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-03-25"
+  tags:
+    - effect
+    - review-pairing
+    - intelligence
+  references:
+    - ticket: "OMN-6593"
+      url: "https://linear.app/omninode/issue/OMN-6593"
+      description: "Register review_pairing node packages for topic discovery"
