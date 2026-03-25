@@ -58,6 +58,13 @@ EXPECTED_INTENT_PATTERN_PROMOTED = (
 # OMN-5611: pattern-stored events trigger projection snapshots
 EXPECTED_PATTERN_STORED = "onex.evt.omniintelligence.pattern-stored.v1"
 
+# OMN-6391: code_crawler_effect subscribe topic
+EXPECTED_CODE_CRAWL_REQUESTED = "onex.cmd.omniintelligence.code-crawl-requested.v1"
+
+# OMN-6593: review_pairing subscribe topics
+EXPECTED_FINDING_OBSERVED = "onex.evt.review-pairing.finding-observed.v1"
+EXPECTED_FIX_APPLIED = "onex.evt.review-pairing.fix-applied.v1"
+
 EXPECTED_TOPICS = {
     EXPECTED_CLAUDE_HOOK,
     EXPECTED_TOOL_CONTENT,
@@ -74,6 +81,9 @@ EXPECTED_TOPICS = {
     EXPECTED_BLOOM_EVAL_RUN,
     EXPECTED_INTENT_PATTERN_PROMOTED,
     EXPECTED_PATTERN_STORED,
+    EXPECTED_CODE_CRAWL_REQUESTED,
+    EXPECTED_FINDING_OBSERVED,
+    EXPECTED_FIX_APPLIED,
 }
 
 
@@ -85,10 +95,10 @@ EXPECTED_TOPICS = {
 class TestCollectSubscribeTopics:
     """Validate contract-driven topic collection."""
 
-    def test_returns_exactly_fifteen_topics(self) -> None:
-        """All intelligence effect nodes declare 15 subscribe topics total (OMN-5611: pattern-stored.v1 added to projection effect)."""
+    def test_returns_exactly_eighteen_topics(self) -> None:
+        """All intelligence effect nodes declare 18 subscribe topics total (OMN-6593: review_pairing adds 2, code_crawler adds 1)."""
         topics = collect_subscribe_topics_from_contracts()
-        assert len(topics) == 15
+        assert len(topics) == 18
 
     def test_contains_claude_hook_event_topic(self) -> None:
         """Claude hook event topic must be discovered from contract."""
