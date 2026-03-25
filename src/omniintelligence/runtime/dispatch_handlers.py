@@ -125,6 +125,16 @@ DISPATCH_ALIAS_INTELLIGENCE_ORCHESTRATOR = (
     "onex.cmd.omniintelligence.intent-received.v1"
 )
 """Dispatch-compatible alias for intelligence orchestrator intent reception (OMN-6590)."""
+DISPATCH_ALIAS_INTELLIGENCE_REDUCER = (
+    "onex.cmd.omniintelligence.pattern-lifecycle-process.v1"
+)
+"""Dispatch-compatible alias for intelligence reducer process handler (OMN-6594)."""
+DISPATCH_ALIAS_CI_FINGERPRINT = "onex.cmd.omniintelligence.ci-failure-detected.v1"
+"""Dispatch-compatible alias for CI failure fingerprint compute (OMN-6598)."""
+DISPATCH_ALIAS_CI_FAILURE_TRACKER = "onex.cmd.omniintelligence.ci-failure-track.v1"
+"""Dispatch-compatible alias for CI failure tracker effect (OMN-6598)."""
+DISPATCH_ALIAS_CI_RECOVERY = "onex.cmd.omniintelligence.ci-recovery-detected.v1"
+"""Dispatch-compatible alias for CI recovery handler (OMN-6598)."""
 _FALLBACK_TOPIC_PATTERN_STORED = "onex.evt.omniintelligence.pattern-stored.v1"
 """Fallback publish topic when contract-resolved topic is unavailable."""
 # =============================================================================
@@ -1803,6 +1813,272 @@ def create_intelligence_orchestrator_dispatch_handler(
 
 
 # =============================================================================
+# Bridge Handler: Intelligence Reducer Process (OMN-6594)
+# =============================================================================
+
+
+def create_intelligence_reducer_dispatch_handler(
+    *,
+    correlation_id: UUID | None = None,
+) -> Callable[
+    [ModelEventEnvelope[object], ProtocolHandlerContext],
+    Awaitable[str],
+]:
+    """Create a dispatch handler that bridges to handle_pattern_lifecycle_process.
+
+    ``handle_pattern_lifecycle_process`` is a **sync function** (takes
+    ``ModelReducerInputPatternLifecycle``, returns ``ModelReducerOutput``).
+    This bridge wraps it for the async dispatch engine.
+
+    Args:
+        correlation_id: Optional fixed correlation ID for tracing.
+
+    Returns:
+        Async handler function with signature (envelope, context) -> str.
+    """
+
+    async def _handle(
+        envelope: ModelEventEnvelope[object],
+        context: ProtocolHandlerContext,
+    ) -> str:
+        """Bridge handler: envelope -> handle_pattern_lifecycle_process (sync)."""
+        from omniintelligence.nodes.node_intelligence_reducer.handlers import (
+            handle_pattern_lifecycle_process,
+        )
+        from omniintelligence.nodes.node_intelligence_reducer.models.model_reducer_input import (
+            ModelReducerInputPatternLifecycle,
+        )
+
+        ctx_correlation_id = (
+            correlation_id or getattr(context, "correlation_id", None) or uuid4()
+        )
+
+        payload = envelope.payload
+        if not isinstance(payload, dict):
+            msg = (
+                f"Unexpected payload type {type(payload).__name__} "
+                f"for pattern-lifecycle-process command "
+                f"(correlation_id={ctx_correlation_id})"
+            )
+            logger.warning(msg)
+            raise ValueError(msg)
+
+        logger.info(
+            "Dispatching pattern-lifecycle-process command to intelligence "
+            "reducer (correlation_id=%s)",
+            ctx_correlation_id,
+        )
+
+        reducer_input = ModelReducerInputPatternLifecycle.model_validate(payload)
+        result = handle_pattern_lifecycle_process(reducer_input)
+
+        logger.info(
+            "Pattern lifecycle process completed (success=%s, correlation_id=%s)",
+            result.result.success if hasattr(result, "result") else "unknown",
+            ctx_correlation_id,
+        )
+
+        return result.model_dump_json()
+
+    return _handle
+
+
+# =============================================================================
+# Bridge Handler: CI Fingerprint Compute (OMN-6598)
+# =============================================================================
+
+
+def create_ci_fingerprint_dispatch_handler(
+    *,
+    correlation_id: UUID | None = None,
+) -> Callable[
+    [ModelEventEnvelope[object], ProtocolHandlerContext],
+    Awaitable[str],
+]:
+    """Create a dispatch handler that bridges to compute_error_fingerprint.
+
+    ``compute_error_fingerprint`` is a **sync function** (takes failure_output
+    and failing_tests, returns hex digest string). This bridge extracts the
+    fields from the envelope payload.
+
+    Args:
+        correlation_id: Optional fixed correlation ID for tracing.
+
+    Returns:
+        Async handler function with signature (envelope, context) -> str.
+    """
+
+    async def _handle(
+        envelope: ModelEventEnvelope[object],
+        context: ProtocolHandlerContext,
+    ) -> str:
+        """Bridge handler: envelope -> compute_error_fingerprint (sync)."""
+        from omniintelligence.nodes.node_ci_fingerprint_compute.handlers.handler_fingerprint import (
+            compute_error_fingerprint,
+        )
+
+        ctx_correlation_id = (
+            correlation_id or getattr(context, "correlation_id", None) or uuid4()
+        )
+
+        payload = envelope.payload
+        if not isinstance(payload, dict):
+            msg = (
+                f"Unexpected payload type {type(payload).__name__} "
+                f"for ci-failure-detected command "
+                f"(correlation_id={ctx_correlation_id})"
+            )
+            logger.warning(msg)
+            raise ValueError(msg)
+
+        failure_output = str(payload.get("failure_output", ""))
+        failing_tests: list[str] = payload.get("failing_tests", [])
+
+        logger.info(
+            "Computing CI failure fingerprint (correlation_id=%s)",
+            ctx_correlation_id,
+        )
+
+        fingerprint = compute_error_fingerprint(failure_output, failing_tests)
+
+        logger.info(
+            "CI fingerprint computed: %s (correlation_id=%s)",
+            fingerprint[:16],
+            ctx_correlation_id,
+        )
+
+        return json.dumps({"fingerprint": fingerprint})
+
+    return _handle
+
+
+# =============================================================================
+# Bridge Handler: CI Failure Tracker (OMN-6598)
+# =============================================================================
+
+
+def create_ci_failure_tracker_dispatch_handler(
+    *,
+    debug_store: Any = None,
+    streak_threshold: int = 3,
+    kafka_producer: ProtocolKafkaPublisher | None = None,
+    correlation_id: UUID | None = None,
+) -> Callable[
+    [ModelEventEnvelope[object], ProtocolHandlerContext],
+    Awaitable[str],
+]:
+    """Create a dispatch handler that bridges to CI failure tracker handlers.
+
+    Routes to ``increment_streak`` + ``handle_trigger_record`` for failure
+    events, and ``reset_streak`` for recovery events. The ``debug_store``
+    parameter must satisfy ``ProtocolDebugStore``.
+
+    Args:
+        debug_store: Store implementing ProtocolDebugStore.
+        streak_threshold: Consecutive failures before trigger record creation.
+        kafka_producer: Optional Kafka publisher for trigger record events.
+        correlation_id: Optional fixed correlation ID for tracing.
+
+    Returns:
+        Async handler function with signature (envelope, context) -> str.
+    """
+
+    async def _handle(
+        envelope: ModelEventEnvelope[object],
+        context: ProtocolHandlerContext,
+    ) -> str:
+        """Bridge handler: envelope -> CI failure tracker handlers (async)."""
+        from omniintelligence.nodes.node_ci_failure_tracker_effect.handlers.handler_streak import (
+            increment_streak,
+            reset_streak,
+        )
+        from omniintelligence.nodes.node_ci_failure_tracker_effect.handlers.handler_trigger_record import (
+            handle_trigger_record,
+        )
+
+        ctx_correlation_id = (
+            correlation_id or getattr(context, "correlation_id", None) or uuid4()
+        )
+
+        payload = envelope.payload
+        if not isinstance(payload, dict):
+            msg = (
+                f"Unexpected payload type {type(payload).__name__} "
+                f"for CI tracker command "
+                f"(correlation_id={ctx_correlation_id})"
+            )
+            logger.warning(msg)
+            raise ValueError(msg)
+
+        if debug_store is None:
+            logger.warning(
+                "CI failure tracker invoked without debug_store "
+                "(correlation_id=%s) — skipping",
+                ctx_correlation_id,
+            )
+            return json.dumps({"skipped": True, "reason": "no_debug_store"})
+
+        repo = str(payload.get("repo", ""))
+        branch = str(payload.get("branch", ""))
+        sha = str(payload.get("sha", ""))
+
+        # Determine if this is a recovery or failure event
+        is_recovery = (
+            "recovery"
+            in str(envelope.metadata.event_type if envelope.metadata else "").lower()
+        )
+
+        if is_recovery:
+            logger.info(
+                "CI recovery detected — resetting streak "
+                "(repo=%s, branch=%s, correlation_id=%s)",
+                repo,
+                branch,
+                ctx_correlation_id,
+            )
+            await reset_streak(repo=repo, branch=branch, store=debug_store)
+            return json.dumps(
+                {"action": "streak_reset", "repo": repo, "branch": branch}
+            )
+
+        # Failure path: increment streak, then check trigger
+        logger.info(
+            "CI failure detected — incrementing streak "
+            "(repo=%s, branch=%s, correlation_id=%s)",
+            repo,
+            branch,
+            ctx_correlation_id,
+        )
+        await increment_streak(repo=repo, branch=branch, sha=sha, store=debug_store)
+
+        fingerprint = str(payload.get("failure_fingerprint", ""))
+        classification = str(payload.get("error_classification", ""))
+
+        trigger = await handle_trigger_record(
+            repo=repo,
+            branch=branch,
+            sha=sha,
+            failure_fingerprint=fingerprint,
+            error_classification=classification,
+            store=debug_store,
+            streak_threshold=streak_threshold,
+            kafka_producer=kafka_producer,
+            correlation_id=str(ctx_correlation_id),
+        )
+
+        return json.dumps(
+            {
+                "action": "failure_tracked",
+                "trigger_created": trigger is not None,
+                "repo": repo,
+                "branch": branch,
+            }
+        )
+
+    return _handle
+
+
+# =============================================================================
 # Dispatch Engine Factory
 # =============================================================================
 
@@ -2404,6 +2680,85 @@ def create_intelligence_dispatch_engine(
         )
     )
 
+    # --- Handler: intelligence reducer process (OMN-6594) ---
+    reducer_handler = create_intelligence_reducer_dispatch_handler()
+    engine.register_handler(
+        handler_id="intelligence-reducer-process-handler",
+        handler=reducer_handler,
+        category=EnumMessageCategory.COMMAND,
+        node_kind=EnumNodeKind.REDUCER,
+        message_types=None,
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-reducer-process-route",
+            topic_pattern=DISPATCH_ALIAS_INTELLIGENCE_REDUCER,
+            message_category=EnumMessageCategory.COMMAND,
+            handler_id="intelligence-reducer-process-handler",
+            description=(
+                "Routes pattern lifecycle process commands to the intelligence "
+                "reducer (OMN-6594)."
+            ),
+        )
+    )
+
+    # --- Handler: CI fingerprint compute (OMN-6598) ---
+    ci_fingerprint_handler = create_ci_fingerprint_dispatch_handler()
+    engine.register_handler(
+        handler_id="intelligence-ci-fingerprint-handler",
+        handler=ci_fingerprint_handler,
+        category=EnumMessageCategory.COMMAND,
+        node_kind=EnumNodeKind.COMPUTE,
+        message_types=None,
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-ci-fingerprint-route",
+            topic_pattern=DISPATCH_ALIAS_CI_FINGERPRINT,
+            message_category=EnumMessageCategory.COMMAND,
+            handler_id="intelligence-ci-fingerprint-handler",
+            description=(
+                "Routes CI failure events to the fingerprint compute handler "
+                "(OMN-6598)."
+            ),
+        )
+    )
+
+    # --- Handler: CI failure tracker effect (OMN-6598) ---
+    ci_tracker_handler = create_ci_failure_tracker_dispatch_handler(
+        kafka_producer=kafka_producer,
+    )
+    engine.register_handler(
+        handler_id="intelligence-ci-failure-tracker-handler",
+        handler=ci_tracker_handler,
+        category=EnumMessageCategory.COMMAND,
+        node_kind=EnumNodeKind.EFFECT,
+        message_types=None,
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-ci-failure-track-route",
+            topic_pattern=DISPATCH_ALIAS_CI_FAILURE_TRACKER,
+            message_category=EnumMessageCategory.COMMAND,
+            handler_id="intelligence-ci-failure-tracker-handler",
+            description=(
+                "Routes CI failure tracking commands to increment streaks "
+                "and create trigger records (OMN-6598)."
+            ),
+        )
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-ci-recovery-route",
+            topic_pattern=DISPATCH_ALIAS_CI_RECOVERY,
+            message_category=EnumMessageCategory.COMMAND,
+            handler_id="intelligence-ci-failure-tracker-handler",
+            description=(
+                "Routes CI recovery events to reset failure streaks (OMN-6598)."
+            ),
+        )
+    )
+
     engine.freeze()
 
     if llm_client is None:
@@ -2723,8 +3078,13 @@ async def _emit_operation_completed(
 
 
 __all__ = [
+    "DISPATCH_ALIAS_CI_FAILURE_TRACKER",
+    "DISPATCH_ALIAS_CI_FINGERPRINT",
+    "DISPATCH_ALIAS_CI_RECOVERY",
     "DISPATCH_ALIAS_CLAUDE_HOOK",
     "DISPATCH_ALIAS_COMPLIANCE_EVALUATE",
+    "DISPATCH_ALIAS_INTELLIGENCE_ORCHESTRATOR",
+    "DISPATCH_ALIAS_INTELLIGENCE_REDUCER",
     "DISPATCH_ALIAS_PATTERN_DISCOVERED",
     "DISPATCH_ALIAS_PATTERN_LEARNED",
     "DISPATCH_ALIAS_PATTERN_LEARNING_CMD",
@@ -2734,10 +3094,14 @@ __all__ = [
     "DISPATCH_ALIAS_PATTERN_STORED",
     "DISPATCH_ALIAS_SESSION_OUTCOME",
     "DISPATCH_ALIAS_TOOL_CONTENT",
+    "create_ci_failure_tracker_dispatch_handler",
+    "create_ci_fingerprint_dispatch_handler",
     "create_claude_hook_dispatch_handler",
     "create_compliance_evaluate_dispatch_handler",
     "create_dispatch_callback",
     "create_intelligence_dispatch_engine",
+    "create_intelligence_orchestrator_dispatch_handler",
+    "create_intelligence_reducer_dispatch_handler",
     "create_pattern_lifecycle_dispatch_handler",
     "create_pattern_projection_dispatch_handler",
     "create_pattern_storage_dispatch_handler",
