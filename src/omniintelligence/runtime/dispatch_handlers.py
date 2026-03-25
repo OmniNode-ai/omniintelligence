@@ -140,11 +140,11 @@ _FALLBACK_TOPIC_PATTERN_STORED = "onex.evt.omniintelligence.pattern-stored.v1"
 DISPATCH_ALIAS_DECISION_RECORDED_CMD = "onex.cmd.omniintelligence.decision-recorded.v1"
 """Dispatch-compatible alias for decision-recorded command topic (OMN-6595)."""
 DISPATCH_ALIAS_CI_FAILURE_DETECTED_CMD = (
-    "onex.commands.omniintelligence.ci-failure-detected.v1"
+    "onex.cmd.omniintelligence.ci-failure-detected.v1"
 )
 """Dispatch-compatible alias for ci-failure-detected command topic (OMN-6597)."""
 DISPATCH_ALIAS_DEBUG_TRIGGER_RECORD_CREATED = (
-    "onex.events.omniintelligence.debug-trigger-record-created.v1"
+    "onex.evt.omniintelligence.debug-trigger-record-created.v1"
 )
 """Dispatch-compatible alias for debug-trigger-record-created event topic (OMN-6597)."""
 # =============================================================================
