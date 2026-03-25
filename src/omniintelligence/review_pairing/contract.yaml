@@ -23,7 +23,7 @@ node_type: "EFFECT_GENERIC"
 
 description: >
   Review-Fix Pairing Engine — correlates review findings with fix commits. Consumes finding-observed and
-  fix-applied events, produces finding-resolved and pair-created events. #magic___^_^___line
+  fix-applied events, produces finding-resolved and pair-created events.
 input_model:
   name: "ReviewFindingObserved"
   module: "omniintelligence.review_pairing.models"
