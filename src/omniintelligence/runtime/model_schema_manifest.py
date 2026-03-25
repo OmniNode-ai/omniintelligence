@@ -25,6 +25,8 @@ OMNIINTELLIGENCE_SCHEMA_MANIFEST = ModelSchemaManifest(
     schema_name="public",
     tables=(
         "ci_failure_events",
+        "code_entities",
+        "code_relationships",
         "db_metadata",
         "debug_fix_records",
         "debug_trigger_records",
