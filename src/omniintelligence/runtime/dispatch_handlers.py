@@ -139,6 +139,14 @@ _FALLBACK_TOPIC_PATTERN_STORED = "onex.evt.omniintelligence.pattern-stored.v1"
 """Fallback publish topic when contract-resolved topic is unavailable."""
 DISPATCH_ALIAS_DECISION_RECORDED_CMD = "onex.cmd.omniintelligence.decision-recorded.v1"
 """Dispatch-compatible alias for decision-recorded command topic (OMN-6595)."""
+DISPATCH_ALIAS_CI_FAILURE_DETECTED_CMD = (
+    "onex.commands.omniintelligence.ci-failure-detected.v1"
+)
+"""Dispatch-compatible alias for ci-failure-detected command topic (OMN-6597)."""
+DISPATCH_ALIAS_DEBUG_TRIGGER_RECORD_CREATED = (
+    "onex.events.omniintelligence.debug-trigger-record-created.v1"
+)
+"""Dispatch-compatible alias for debug-trigger-record-created event topic (OMN-6597)."""
 # =============================================================================
 # Daemon Envelope Constants
 # =============================================================================
@@ -2800,6 +2808,32 @@ def create_intelligence_dispatch_engine(
             description=(
                 "Routes decision-recorded commands for model selection "
                 "decisions (OMN-6595). Handled by decision_store consumer."
+            ),
+        )
+    )
+
+    # --- CI intelligence additional routes (OMN-6597) ---
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-ci-failure-detected-route",
+            topic_pattern=DISPATCH_ALIAS_CI_FAILURE_DETECTED_CMD,
+            message_category=EnumMessageCategory.COMMAND,
+            handler_id="intelligence-ci-failure-tracker-handler",
+            description=(
+                "Routes ci-failure-detected commands to CI intelligence "
+                "handler (OMN-6597)."
+            ),
+        )
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-debug-trigger-record-route",
+            topic_pattern=DISPATCH_ALIAS_DEBUG_TRIGGER_RECORD_CREATED,
+            message_category=EnumMessageCategory.EVENT,
+            handler_id="intelligence-ci-failure-tracker-handler",
+            description=(
+                "Routes debug-trigger-record-created events from CI "
+                "failure tracker (OMN-6597)."
             ),
         )
     )

@@ -33,4 +33,6 @@ onex.commands.omniintelligence.code-crawl-requested.v1
 onex.events.omniintelligence.code-file-discovered.v1
 onex.events.omniintelligence.code-entities-extracted-persist.v1
 onex.events.omniintelligence.code-entities-extracted-embed.v1
+onex.commands.omniintelligence.ci-failure-detected.v1
+onex.events.omniintelligence.debug-trigger-record-created.v1
 onex.dlq.omniintelligence.v1
