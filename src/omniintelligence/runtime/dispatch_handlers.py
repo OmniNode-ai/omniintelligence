@@ -137,6 +137,10 @@ DISPATCH_ALIAS_CI_RECOVERY = "onex.cmd.omniintelligence.ci-recovery-detected.v1"
 """Dispatch-compatible alias for CI recovery handler (OMN-6598)."""
 _FALLBACK_TOPIC_PATTERN_STORED = "onex.evt.omniintelligence.pattern-stored.v1"
 """Fallback publish topic when contract-resolved topic is unavailable."""
+DISPATCH_ALIAS_DECISION_RECORDED_CMD = (
+    "onex.commands.omniintelligence.decision-recorded.v1"
+)
+"""Dispatch-compatible alias for decision-recorded command topic (OMN-6595)."""
 # =============================================================================
 # Daemon Envelope Constants
 # =============================================================================
@@ -2764,6 +2768,40 @@ def create_intelligence_dispatch_engine(
             handler_id="intelligence-ci-failure-tracker-handler",
             description=(
                 "Routes CI recovery events to reset failure streaks (OMN-6598)."
+            ),
+        )
+    )
+
+    # --- decision-recorded route (OMN-6595) ---
+    # No-op dispatch handler: decision_store consumer handles these messages
+    # directly from Kafka. This route makes the topic visible to the dispatch
+    # engine for routing/observability purposes.
+    async def _noop_decision_recorded_handler(
+        envelope: ModelEventEnvelope,
+        context: ProtocolHandlerContext,
+    ) -> ModelEventEnvelope:
+        logger.debug(
+            "decision-recorded command received (passthrough): correlation_id=%s",
+            envelope.metadata.correlation_id if envelope.metadata else "unknown",
+        )
+        return envelope
+
+    engine.register_handler(
+        handler_id="intelligence-decision-recorded-handler",
+        handler=_noop_decision_recorded_handler,
+        category=EnumMessageCategory.COMMAND,
+        node_kind=EnumNodeKind.EFFECT,
+        message_types=None,
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-decision-recorded-route",
+            topic_pattern=DISPATCH_ALIAS_DECISION_RECORDED_CMD,
+            message_category=EnumMessageCategory.COMMAND,
+            handler_id="intelligence-decision-recorded-handler",
+            description=(
+                "Routes decision-recorded commands for model selection "
+                "decisions (OMN-6595). Handled by decision_store consumer."
             ),
         )
     )

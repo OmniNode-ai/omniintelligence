@@ -440,7 +440,7 @@ class TestCreateIntelligenceDispatchEngine:
             idempotency_store=mock_idempotency_store,
             intent_classifier=mock_intent_classifier,
         )
-        assert engine.handler_count == 10
+        assert engine.handler_count == 15
 
     def test_engine_has_expected_routes(
         self,
@@ -454,7 +454,7 @@ class TestCreateIntelligenceDispatchEngine:
             idempotency_store=mock_idempotency_store,
             intent_classifier=mock_intent_classifier,
         )
-        assert engine.route_count == 12
+        assert engine.route_count == 17
 
 
 # =============================================================================
