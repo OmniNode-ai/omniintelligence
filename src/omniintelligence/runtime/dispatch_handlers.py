@@ -137,9 +137,7 @@ DISPATCH_ALIAS_CI_RECOVERY = "onex.cmd.omniintelligence.ci-recovery-detected.v1"
 """Dispatch-compatible alias for CI recovery handler (OMN-6598)."""
 _FALLBACK_TOPIC_PATTERN_STORED = "onex.evt.omniintelligence.pattern-stored.v1"
 """Fallback publish topic when contract-resolved topic is unavailable."""
-DISPATCH_ALIAS_DECISION_RECORDED_CMD = (
-    "onex.commands.omniintelligence.decision-recorded.v1"
-)
+DISPATCH_ALIAS_DECISION_RECORDED_CMD = "onex.cmd.omniintelligence.decision-recorded.v1"
 """Dispatch-compatible alias for decision-recorded command topic (OMN-6595)."""
 # =============================================================================
 # Daemon Envelope Constants
@@ -2777,14 +2775,14 @@ def create_intelligence_dispatch_engine(
     # directly from Kafka. This route makes the topic visible to the dispatch
     # engine for routing/observability purposes.
     async def _noop_decision_recorded_handler(
-        envelope: ModelEventEnvelope,
+        envelope: ModelEventEnvelope[object],
         context: ProtocolHandlerContext,
-    ) -> ModelEventEnvelope:
+    ) -> str:
         logger.debug(
             "decision-recorded command received (passthrough): correlation_id=%s",
-            envelope.metadata.correlation_id if envelope.metadata else "unknown",
+            envelope.correlation_id or "unknown",
         )
-        return envelope
+        return "ok"
 
     engine.register_handler(
         handler_id="intelligence-decision-recorded-handler",
