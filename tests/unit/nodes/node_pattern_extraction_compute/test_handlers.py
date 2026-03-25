@@ -57,20 +57,20 @@ class TestExtractFileAccessPatterns:
             min_confidence=0.3,
         )
 
-        # Should detect that api/routes.py and api/handlers.py are accessed together
+        # Should detect that api/routes.py and handlers/api_handler.py are accessed together
         co_access_patterns = [r for r in results if r["pattern_type"] == "co_access"]
         assert len(co_access_patterns) > 0, "Should detect co-access patterns"
 
-        # Check that routes.py and handlers.py appear together
+        # Check that routes.py and api_handler.py appear together (cross-directory)
         routes_handlers_pattern = None
         for pattern in co_access_patterns:
             files = set(pattern["files"])
-            if "src/api/routes.py" in files and "src/api/handlers.py" in files:
+            if "src/api/routes.py" in files and "src/handlers/api_handler.py" in files:
                 routes_handlers_pattern = pattern
                 break
 
         assert routes_handlers_pattern is not None, (
-            "Should detect routes.py + handlers.py co-access"
+            "Should detect routes.py + api_handler.py co-access"
         )
         assert routes_handlers_pattern["occurrences"] >= 2
         assert routes_handlers_pattern["confidence"] > 0

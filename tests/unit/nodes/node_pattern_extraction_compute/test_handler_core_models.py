@@ -75,7 +75,7 @@ def raw_events_file_access(base_time: datetime) -> list[dict]:
         {
             "session_id": "session-a",
             "tool_name": "Read",
-            "file_path": "src/api/handlers.py",
+            "file_path": "src/handlers/api_handler.py",
             "success": True,
             "timestamp": (base_time + timedelta(seconds=10)).isoformat(),
             "duration_ms": 35,
@@ -102,7 +102,7 @@ def raw_events_file_access(base_time: datetime) -> list[dict]:
         {
             "session_id": "session-b",
             "tool_name": "Read",
-            "file_path": "src/api/handlers.py",
+            "file_path": "src/handlers/api_handler.py",
             "success": True,
             "timestamp": (base_time + timedelta(hours=1, seconds=15)).isoformat(),
             "duration_ms": 38,
@@ -111,7 +111,7 @@ def raw_events_file_access(base_time: datetime) -> list[dict]:
         {
             "session_id": "session-b",
             "tool_name": "Edit",
-            "file_path": "src/api/handlers.py",
+            "file_path": "src/handlers/api_handler.py",
             "success": True,
             "timestamp": (base_time + timedelta(hours=1, seconds=30)).isoformat(),
             "duration_ms": 25,
@@ -130,7 +130,7 @@ def raw_events_file_access(base_time: datetime) -> list[dict]:
         {
             "session_id": "session-c",
             "tool_name": "Read",
-            "file_path": "src/api/handlers.py",
+            "file_path": "src/handlers/api_handler.py",
             "success": True,
             "timestamp": (base_time + timedelta(hours=2, seconds=10)).isoformat(),
             "duration_ms": 40,
@@ -149,7 +149,7 @@ def raw_events_file_access(base_time: datetime) -> list[dict]:
         {
             "session_id": "session-d",
             "tool_name": "Read",
-            "file_path": "src/api/handlers.py",
+            "file_path": "src/handlers/api_handler.py",
             "success": True,
             "timestamp": (base_time + timedelta(hours=3, seconds=5)).isoformat(),
             "duration_ms": 45,
@@ -259,7 +259,7 @@ def raw_events_architecture(base_time: datetime) -> list[dict]:
                 {
                     "session_id": session_id,
                     "tool_name": "Read",
-                    "file_path": "src/api/handlers.py",
+                    "file_path": "src/handlers/api_handler.py",
                     "success": True,
                     "timestamp": (t + timedelta(seconds=10)).isoformat(),
                     "duration_ms": 35,
