@@ -72,6 +72,11 @@ _HANDLER_SPECS: list[tuple[str, str, bool]] = [
         "handle_store_pattern",
         False,
     ),
+    (
+        "omniintelligence.review_pairing.engine.engine",
+        "PairingEngine",
+        True,
+    ),
 ]
 
 
