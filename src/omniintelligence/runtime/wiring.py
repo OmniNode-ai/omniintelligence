@@ -77,6 +77,11 @@ _HANDLER_SPECS: list[tuple[str, str, bool]] = [
         "PairingEngine",
         True,
     ),
+    (
+        "omniintelligence.nodes.node_intelligence_orchestrator.handlers.handler_receive_intent",
+        "handle_receive_intent",
+        False,
+    ),
 ]
 
 

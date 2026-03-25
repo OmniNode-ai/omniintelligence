@@ -121,6 +121,10 @@ DISPATCH_ALIAS_PATTERN_LIFECYCLE_TRANSITIONED = (
     "onex.events.omniintelligence.pattern-lifecycle-transitioned.v1"
 )
 """Dispatch-compatible alias for pattern-lifecycle-transitioned canonical topic (OMN-2424)."""
+DISPATCH_ALIAS_INTELLIGENCE_ORCHESTRATOR = (
+    "onex.cmd.omniintelligence.intent-received.v1"
+)
+"""Dispatch-compatible alias for intelligence orchestrator intent reception (OMN-6590)."""
 _FALLBACK_TOPIC_PATTERN_STORED = "onex.evt.omniintelligence.pattern-stored.v1"
 """Fallback publish topic when contract-resolved topic is unavailable."""
 # =============================================================================
@@ -1702,6 +1706,103 @@ def create_pattern_projection_dispatch_handler(
 
 
 # =============================================================================
+# Bridge Handler: Intelligence Orchestrator (OMN-6590)
+# =============================================================================
+
+
+def create_intelligence_orchestrator_dispatch_handler(
+    *,
+    correlation_id: UUID | None = None,
+) -> Callable[
+    [ModelEventEnvelope[object], ProtocolHandlerContext],
+    Awaitable[str],
+]:
+    """Create a dispatch handler that bridges to handle_receive_intent.
+
+    ``handle_receive_intent`` is a **sync function** (takes ``ModelIntent``,
+    returns ``ModelIntentReceipt``).  This bridge wraps it in an async handler
+    compatible with MessageDispatchEngine's handler signature and extracts
+    the ``ModelIntent`` from the envelope payload.
+
+    Args:
+        correlation_id: Optional fixed correlation ID for tracing.
+
+    Returns:
+        Async handler function with signature (envelope, context) -> str.
+    """
+    from omniintelligence.nodes.node_intelligence_orchestrator.handlers.handler_receive_intent import (
+        handle_receive_intent,
+    )
+
+    async def _handle(
+        envelope: ModelEventEnvelope[object],
+        context: ProtocolHandlerContext,
+    ) -> str:
+        """Bridge handler: envelope -> handle_receive_intent (sync)."""
+        ctx_correlation_id = (
+            correlation_id or getattr(context, "correlation_id", None) or uuid4()
+        )
+
+        payload = envelope.payload
+        if not isinstance(payload, dict):
+            msg = (
+                f"Unexpected payload type {type(payload).__name__} "
+                f"for intent-received command "
+                f"(correlation_id={ctx_correlation_id})"
+            )
+            logger.warning(msg)
+            raise ValueError(msg)
+
+        logger.info(
+            "Dispatching intent-received command to intelligence orchestrator "
+            "(correlation_id=%s)",
+            ctx_correlation_id,
+        )
+
+        # Build ModelIntent from the payload dict.  The ``payload`` nested
+        # field uses ProtocolIntentPayload (a runtime-checkable Protocol)
+        # which cannot be deserialized from raw dicts via model_validate.
+        # We construct a lightweight ModelPayloadExtension as a stand-in so
+        # the bridge can forward to handle_receive_intent.
+        from omnibase_core.models.reducer.model_intent import ModelIntent
+        from omnibase_core.models.reducer.payloads import ModelPayloadExtension
+
+        raw_payload = payload.get("payload") or {}
+        intent_payload = ModelPayloadExtension(
+            intent_type=str(raw_payload.get("intent_type", "extension")),
+            extension_type=str(raw_payload.get("extension_type", "dispatch.bridge")),
+            plugin_name=str(
+                raw_payload.get("plugin_name", "intelligence-orchestrator")
+            ),
+        )
+
+        intent_id_raw = payload.get("intent_id")
+        intent_kwargs: dict[str, object] = {
+            "intent_type": str(payload.get("intent_type", "unknown")),
+            "target": str(payload.get("target", "dispatch://bridge")),
+            "payload": intent_payload,
+        }
+        if intent_id_raw is not None:
+            intent_kwargs["intent_id"] = UUID(str(intent_id_raw))
+
+        intent = ModelIntent(**intent_kwargs)  # type: ignore[arg-type]
+
+        # handle_receive_intent is sync — call directly (no await)
+        receipt = handle_receive_intent(intent, correlation_id=ctx_correlation_id)
+
+        logger.info(
+            "Intelligence orchestrator processed intent "
+            "(intent_id=%s, correlation_id=%s)",
+            receipt.intent_id,
+            ctx_correlation_id,
+        )
+
+        return receipt.model_dump_json()
+
+    return _handle
+
+
+# =============================================================================
 # Dispatch Engine Factory
 # =============================================================================
 
@@ -2278,6 +2379,27 @@ def create_intelligence_dispatch_engine(
             description=(
                 "Routes code-entities-extracted events to the embed+graph "
                 "handler (OMN-5717). Embeds in Qdrant and writes to Memgraph."
+            ),
+        )
+    )
+
+    # --- Handler: intelligence orchestrator (OMN-6590) ---
+    orchestrator_handler = create_intelligence_orchestrator_dispatch_handler()
+    engine.register_handler(
+        handler_id="intelligence-orchestrator-handler",
+        handler=orchestrator_handler,
+        category=EnumMessageCategory.COMMAND,
+        node_kind=EnumNodeKind.ORCHESTRATOR,
+        message_types=None,
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-orchestrator-intent-received-route",
+            topic_pattern=DISPATCH_ALIAS_INTELLIGENCE_ORCHESTRATOR,
+            message_category=EnumMessageCategory.COMMAND,
+            handler_id="intelligence-orchestrator-handler",
+            description=(
+                "Routes incoming intents to the intelligence orchestrator (OMN-6590)."
             ),
         )
     )
