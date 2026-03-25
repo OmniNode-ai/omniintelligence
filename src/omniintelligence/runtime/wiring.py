@@ -77,6 +77,31 @@ _HANDLER_SPECS: list[tuple[str, str, bool]] = [
         "PairingEngine",
         True,
     ),
+    (
+        "omniintelligence.nodes.node_intelligence_orchestrator.handlers.handler_receive_intent",
+        "handle_receive_intent",
+        False,
+    ),
+    (
+        "omniintelligence.nodes.node_intelligence_reducer.handlers",
+        "handle_pattern_lifecycle_process",
+        False,
+    ),
+    (
+        "omniintelligence.nodes.node_ci_fingerprint_compute.handlers.handler_fingerprint",
+        "compute_error_fingerprint",
+        False,
+    ),
+    (
+        "omniintelligence.nodes.node_ci_failure_tracker_effect.handlers.handler_streak",
+        "increment_streak",
+        False,
+    ),
+    (
+        "omniintelligence.nodes.node_ci_failure_tracker_effect.handlers.handler_trigger_record",
+        "handle_trigger_record",
+        False,
+    ),
 ]
 
 
