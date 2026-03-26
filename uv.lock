@@ -2315,6 +2315,7 @@ dev = [
     { name = "radon" },
     { name = "requests" },
     { name = "ruff" },
+    { name = "tiktoken" },
     { name = "types-pyyaml" },
 ]
 
@@ -2375,6 +2376,7 @@ all = [
     { name = "structlog", specifier = ">=23.1.0" },
     { name = "tenacity", specifier = ">=8.2.0" },
     { name = "tiktoken", specifier = ">=0.5.0" },
+    { name = "tiktoken", specifier = ">=0.7.0" },
     { name = "torch", specifier = ">=2.0.0" },
     { name = "transformers", specifier = ">=4.30.0" },
     { name = "types-pyyaml", specifier = ">=6.0.0" },
@@ -2425,6 +2427,7 @@ dev = [
     { name = "radon", specifier = ">=6.0.0" },
     { name = "requests", specifier = ">=2.31.0" },
     { name = "ruff", specifier = ">=0.12.5" },
+    { name = "tiktoken", specifier = ">=0.7.0" },
     { name = "types-pyyaml", specifier = ">=6.0.0" },
 ]
 

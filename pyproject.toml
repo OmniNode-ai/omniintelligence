@@ -76,6 +76,7 @@ dev = [
     "ruff>=0.12.5",
     "requests>=2.31.0",
     "factory-boy>=3.3.0",
+    "tiktoken>=0.7.0",
     "pre-commit>=4.5.0",
     # Optional radon dependency included in dev for test coverage of radon code path
     "radon>=6.0.0",
