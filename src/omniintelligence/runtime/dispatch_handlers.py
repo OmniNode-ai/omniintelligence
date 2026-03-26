@@ -140,9 +140,13 @@ _FALLBACK_TOPIC_PATTERN_STORED = "onex.evt.omniintelligence.pattern-stored.v1"
 DISPATCH_ALIAS_DECISION_RECORDED_CMD = "onex.cmd.omniintelligence.decision-recorded.v1"
 """Dispatch-compatible alias for decision-recorded command topic (OMN-6595)."""
 DISPATCH_ALIAS_CI_FAILURE_DETECTED_CMD = (
-    "onex.cmd.omniintelligence.ci-failure-detected.v1"
+    "onex.cmd.omniintelligence.ci-failure-detected-track.v1"
 )
-"""Dispatch-compatible alias for ci-failure-detected command topic (OMN-6597)."""
+"""Dispatch-compatible alias for ci-failure-detected tracking command topic (OMN-6597).
+
+Note: Distinct from DISPATCH_ALIAS_CI_FINGERPRINT which routes to the fingerprint
+compute handler. This alias routes to the failure tracker effect handler.
+"""
 DISPATCH_ALIAS_DEBUG_TRIGGER_RECORD_CREATED = (
     "onex.evt.omniintelligence.debug-trigger-record-created.v1"
 )
@@ -2825,15 +2829,38 @@ def create_intelligence_dispatch_engine(
             ),
         )
     )
+
+    # No-op handler for debug-trigger-record-created events.  This event is
+    # *published* by the CI failure tracker itself; routing it back to the same
+    # handler would be circular.  The route exists for dispatch-engine
+    # observability/topic visibility only.
+    async def _noop_debug_trigger_record_handler(
+        envelope: ModelEventEnvelope[object],
+        context: ProtocolHandlerContext,
+    ) -> str:
+        logger.debug(
+            "debug-trigger-record-created event received (passthrough): "
+            "correlation_id=%s",
+            envelope.correlation_id or "unknown",
+        )
+        return "ok"
+
+    engine.register_handler(
+        handler_id="intelligence-debug-trigger-record-handler",
+        handler=_noop_debug_trigger_record_handler,
+        category=EnumMessageCategory.EVENT,
+        node_kind=EnumNodeKind.EFFECT,
+        message_types=None,
+    )
     engine.register_route(
         ModelDispatchRoute(
             route_id="intelligence-debug-trigger-record-route",
             topic_pattern=DISPATCH_ALIAS_DEBUG_TRIGGER_RECORD_CREATED,
             message_category=EnumMessageCategory.EVENT,
-            handler_id="intelligence-ci-failure-tracker-handler",
+            handler_id="intelligence-debug-trigger-record-handler",
             description=(
                 "Routes debug-trigger-record-created events from CI "
-                "failure tracker (OMN-6597)."
+                "failure tracker for observability (OMN-6597)."
             ),
         )
     )
