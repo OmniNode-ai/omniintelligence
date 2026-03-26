@@ -1,3 +1,20 @@
+## v0.19.0 (2026-03-26)
+
+### Added
+- feat: wire CI intelligence nodes into dispatch engine [OMN-6597] (#469)
+- feat(crawl): add Postgres persistence to sync crawl pipeline (#474)
+
+### Changed
+- chore: standardize TODO markers with ticket references [OMN-6655] (#475)
+- chore: bump omnibase-spi to 0.20.1 [OMN-6691] (#476)
+- chore(deps): bump omnibase_core to 0.33.0
+- chore(deps-dev): bump requests from 2.32.5 to 2.33.0 (#473)
+
+### Dependencies
+- omnibase-core 0.32.0 -> 0.33.0
+- omnibase-spi 0.20.0 -> 0.20.1
+- omnibase-infra 0.27.0 -> 0.27.1
+
 ## v0.18.0 (2026-03-25)
 
 ### Added
