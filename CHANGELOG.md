@@ -1,3 +1,21 @@
+## v0.18.0 (2026-03-25)
+
+### Added
+- feat: wire model_selector DecisionEmitter into dispatch engine [OMN-6595] (#467)
+- feat: register review_pairing node package for topic discovery [OMN-6593] (#466)
+- feat(runtime): wire orchestrator, reducer, and CI nodes into dispatch engine [OMN-6590][OMN-6594][OMN-6598] (#470)
+- feat: add review_pairing PairingEngine to intelligence handler specs [OMN-6591] (#464)
+
+### Fixed
+- fix: add code_entities and code_relationships to schema manifest [OMN-5669] (#468)
+- fix: add relevance filters to file access pattern extraction [OMN-6566] (#465)
+- fix: correct stale DATABASE_URL default to omniintelligence database [OMN-6427] (#463)
+
+### Changed
+- feat(projection): truncate pattern_signature to 512 chars in projection snapshots [OMN-6341] (#461)
+- chore(deps): bump omnibase-core to 0.32.0, omnibase-infra to 0.27.0 (coordinated release)
+- chore(deps): bump omnibase_core to 0.31.0 (#462)
+
 ## v0.17.0 (2026-03-24)
 
 ### Added

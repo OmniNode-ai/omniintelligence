@@ -17,7 +17,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "omninode-intelligence"
-version = "0.17.0"
+version = "0.18.0"
 description = "Intelligence, indexing, and pattern services as first-class Omninode nodes"
 readme = "README.md"
 requires-python = ">=3.12,<4.0"
@@ -35,7 +35,7 @@ dependencies = [
     "tenacity>=8.2.0",
     "watchdog>=6.0.0",
     "adaptive-classifier>=0.1.2",
-    "omnibase-infra==0.24.1",
+    "omnibase-infra==0.27.0",
 ]
 
 [project.optional-dependencies]
@@ -92,9 +92,9 @@ core = [
     # ONEX private ecosystem dependencies (NOT on public PyPI)
     # Installed via editable installs from sibling repos or private registry.
     # Version bounds match Poetry caret syntax above.
-    "omnibase-core>=0.30.1",
+    "omnibase-core==0.32.0",
     "omnibase-spi==0.19.1",
-    "omnibase-infra==0.24.1",
+    "omnibase-infra==0.27.0",
     "pydantic>=2.12.5,<3.0.0",
     "pydantic-settings>=2.7.0,<3.0.0",
     # Web framework for API endpoints
@@ -360,6 +360,6 @@ markers = [
 [tool.uv]
 # Override omnibase-infra's transitive pins on core/spi so our direct pins win.
 override-dependencies = [
-    "omnibase-core>=0.30.2",
+    "omnibase-core==0.32.0",
     "omnibase-spi==0.19.1",
 ]
