@@ -93,7 +93,7 @@ core = [
     # Installed via editable installs from sibling repos or private registry.
     # Version bounds match Poetry caret syntax above.
     "omnibase-core==0.32.0",
-    "omnibase-spi==0.19.1",
+    "omnibase-spi==0.20.0",
     "omnibase-infra==0.27.0",
     "pydantic>=2.12.5,<3.0.0",
     "pydantic-settings>=2.7.0,<3.0.0",
@@ -361,5 +361,5 @@ markers = [
 # Override omnibase-infra's transitive pins on core/spi so our direct pins win.
 override-dependencies = [
     "omnibase-core==0.32.0",
-    "omnibase-spi==0.19.1",
+    "omnibase-spi==0.20.0",
 ]
