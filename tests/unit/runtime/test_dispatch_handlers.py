@@ -454,7 +454,7 @@ class TestCreateIntelligenceDispatchEngine:
             idempotency_store=mock_idempotency_store,
             intent_classifier=mock_intent_classifier,
         )
-        assert engine.route_count == 17
+        assert engine.route_count == 19
 
 
 # =============================================================================

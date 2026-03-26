@@ -88,6 +88,11 @@ _HANDLER_SPECS: list[tuple[str, str, bool]] = [
         False,
     ),
     (
+        "omniintelligence.nodes.node_ci_error_classifier_compute.handlers.handler_classifier",
+        "_parse_llm_response",
+        False,
+    ),
+    (
         "omniintelligence.nodes.node_ci_fingerprint_compute.handlers.handler_fingerprint",
         "compute_error_fingerprint",
         False,

@@ -65,6 +65,9 @@ EXPECTED_CODE_CRAWL_REQUESTED = "onex.cmd.omniintelligence.code-crawl-requested.
 EXPECTED_FINDING_OBSERVED = "onex.evt.review-pairing.finding-observed.v1"
 EXPECTED_FIX_APPLIED = "onex.evt.review-pairing.fix-applied.v1"
 
+# OMN-6597: ci_failure_tracker_effect subscribe topic
+EXPECTED_CI_FAILURE_DETECTED = "onex.cmd.omniintelligence.ci-failure-detected.v1"
+
 EXPECTED_TOPICS = {
     EXPECTED_CLAUDE_HOOK,
     EXPECTED_TOOL_CONTENT,
@@ -84,6 +87,7 @@ EXPECTED_TOPICS = {
     EXPECTED_CODE_CRAWL_REQUESTED,
     EXPECTED_FINDING_OBSERVED,
     EXPECTED_FIX_APPLIED,
+    EXPECTED_CI_FAILURE_DETECTED,
 }
 
 
@@ -95,10 +99,10 @@ EXPECTED_TOPICS = {
 class TestCollectSubscribeTopics:
     """Validate contract-driven topic collection."""
 
-    def test_returns_exactly_eighteen_topics(self) -> None:
-        """All intelligence effect nodes declare 18 subscribe topics total (OMN-6593: review_pairing adds 2, code_crawler adds 1)."""
+    def test_returns_exactly_nineteen_topics(self) -> None:
+        """All intelligence effect nodes declare 19 subscribe topics total (OMN-6593: review_pairing adds 2, code_crawler adds 1, OMN-6597: ci_failure_tracker adds 1)."""
         topics = collect_subscribe_topics_from_contracts()
-        assert len(topics) == 18
+        assert len(topics) == 19
 
     def test_contains_claude_hook_event_topic(self) -> None:
         """Claude hook event topic must be discovered from contract."""
