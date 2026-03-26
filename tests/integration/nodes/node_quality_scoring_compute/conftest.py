@@ -273,7 +273,9 @@ def create_user(name: str, email: str, age: int) -> UserModel:
 
 
 @pytest.fixture
-def low_quality_code() -> str:
+def low_quality_code() -> (
+    str
+):  # TODO_FORMAT_EXEMPT: fixture for quality scoring detector
     """Code sample with anti-patterns and poor quality.
 
     Returns:

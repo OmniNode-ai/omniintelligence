@@ -139,7 +139,9 @@ __all__ = ["UserInfo", "process_user"]
 
 
 @pytest.fixture
-def code_with_todo_comments() -> str:
+def code_with_todo_comments() -> (
+    str
+):  # TODO_FORMAT_EXEMPT: fixture for quality scoring detector
     """Sample code with TODO/FIXME comments."""
     return '''"""Module with technical debt markers."""
 

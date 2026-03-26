@@ -55,9 +55,9 @@ class TestEnforcementFeedbackIntegration:
           with LEAST(GREATEST(quality_score + $2, 0.0), 1.0)).
         - DELETE the test pattern in a finally block to avoid polluting the DB.
         """
-        # TODO: implement - see handler SQL for test requirements
+        # TODO(OMN-6655): implement - see handler SQL for test requirements
         pytest.skip(
-            "TODO: implement - verify SQL_ADJUST_QUALITY_SCORE decrements quality_score "
+            "TODO(OMN-6655): implement - verify SQL_ADJUST_QUALITY_SCORE decrements quality_score "
             "by CONFIDENCE_ADJUSTMENT_PER_VIOLATION (-0.01) for a confirmed violation "
             "(was_advised=True AND was_corrected=True) in the learned_patterns table"
         )
@@ -90,9 +90,9 @@ class TestEnforcementFeedbackIntegration:
             SET quality_score = LEAST(GREATEST(quality_score + $2, 0.0), 1.0)
             WHERE id = $1
         """
-        # TODO: implement - see handler SQL for test requirements
+        # TODO(OMN-6655): implement - see handler SQL for test requirements
         pytest.skip(
-            "TODO: implement - verify GREATEST(..., 0.0) clamping in SQL_ADJUST_QUALITY_SCORE "
+            "TODO(OMN-6655): implement - verify GREATEST(..., 0.0) clamping in SQL_ADJUST_QUALITY_SCORE "
             "prevents quality_score from going below 0.0 when a pattern already has score=0.0 "
             "and a confirmed violation applies CONFIDENCE_ADJUSTMENT_PER_VIOLATION (-0.01)"
         )
@@ -130,9 +130,9 @@ class TestEnforcementFeedbackIntegration:
         Kafka topic to publish to (from contract.yaml subscribe_topics):
             onex.evt.omniclaude.pattern-enforcement.v1
         """
-        # TODO: implement - see handler SQL for test requirements
+        # TODO(OMN-6655): implement - see handler SQL for test requirements
         pytest.skip(
-            "TODO: implement - end-to-end test publishing ModelEnforcementEvent to Kafka "
+            "TODO(OMN-6655): implement - end-to-end test publishing ModelEnforcementEvent to Kafka "
             "topic 'onex.evt.omniclaude.pattern-enforcement.v1' (the subscribe topic "
             "declared in contract.yaml for node_enforcement_feedback_effect) and verifying "
             "the handler consumes it and applies SQL_ADJUST_QUALITY_SCORE "
