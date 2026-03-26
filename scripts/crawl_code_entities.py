@@ -124,9 +124,16 @@ async def cmd_execute_kafka(repo_filter: str | None = None) -> None:
 
 
 async def cmd_execute_sync(repo_filter: str | None = None) -> None:
-    """Run the full pipeline synchronously (no Kafka)."""
+    """Run the full pipeline synchronously with Postgres persistence."""
+    import os
+
+    import asyncpg
+
     from omniintelligence.nodes.node_ast_extraction_compute.handlers.handler_extract_ast import (
         extract_entities_from_source,
+    )
+    from omniintelligence.nodes.node_ast_extraction_compute.repository.repository_code_entity import (
+        RepositoryCodeEntity,
     )
     from omniintelligence.nodes.node_code_crawler_effect.handlers.handler_crawl_files import (
         crawl_files,
@@ -134,56 +141,133 @@ async def cmd_execute_sync(repo_filter: str | None = None) -> None:
 
     config = _load_crawl_config()
 
+    # Connect to Postgres
+    db_url = os.environ.get(
+        "OMNIINTELLIGENCE_DB_URL",
+        os.environ.get(
+            "DATABASE_URL",
+            f"postgresql://postgres:{os.environ.get('POSTGRES_PASSWORD', '')}@localhost:5436/omniintelligence",
+        ),
+    )
+    pool = await asyncpg.create_pool(db_url, min_size=2, max_size=10)
+    repo_db = RepositoryCodeEntity(pool)
+
     total_files = 0
     total_entities = 0
     total_relationships = 0
+    total_persisted_entities = 0
+    total_persisted_relationships = 0
+    total_skipped = 0
     repo_stats: dict[str, dict[str, int]] = {}
 
-    for event in crawl_files(config, repo_filter=repo_filter):
-        # Resolve file path
-        repo_config = next(
-            (r for r in config.repos if r.name == event.repo_name), None
-        )
-        if repo_config is None:
-            continue
+    try:
+        for event in crawl_files(config, repo_filter=repo_filter):
+            # Resolve file path
+            repo_config = next(
+                (r for r in config.repos if r.name == event.repo_name), None
+            )
+            if repo_config is None:
+                continue
 
-        full_path = Path(repo_config.path) / event.file_path
-        if not full_path.exists():
-            continue
+            full_path = Path(repo_config.path) / event.file_path
+            if not full_path.exists():
+                continue
 
-        # Read and extract
-        source_code = full_path.read_text(encoding="utf-8", errors="replace")
-        result = extract_entities_from_source(
-            source_code,
-            file_path=event.file_path,
-            source_repo=event.repo_name,
-            file_hash=event.file_hash,
-        )
+            # Read and extract
+            source_code = full_path.read_text(encoding="utf-8", errors="replace")
+            result = extract_entities_from_source(
+                source_code,
+                file_path=event.file_path,
+                source_repo=event.repo_name,
+                file_hash=event.file_hash,
+            )
 
-        total_files += 1
-        total_entities += len(result.entities)
-        total_relationships += len(result.relationships)
+            total_files += 1
+            total_entities += len(result.entities)
+            total_relationships += len(result.relationships)
 
-        if event.repo_name not in repo_stats:
-            repo_stats[event.repo_name] = {
-                "files": 0,
-                "entities": 0,
-                "relationships": 0,
-            }
-        repo_stats[event.repo_name]["files"] += 1
-        repo_stats[event.repo_name]["entities"] += len(result.entities)
-        repo_stats[event.repo_name]["relationships"] += len(result.relationships)
+            if event.repo_name not in repo_stats:
+                repo_stats[event.repo_name] = {
+                    "files": 0,
+                    "entities": 0,
+                    "relationships": 0,
+                    "persisted_entities": 0,
+                    "persisted_relationships": 0,
+                }
+            repo_stats[event.repo_name]["files"] += 1
+            repo_stats[event.repo_name]["entities"] += len(result.entities)
+            repo_stats[event.repo_name]["relationships"] += len(result.relationships)
+
+            # Persist entities
+            entity_id_map: dict[str, str] = {}  # qualified_name -> db UUID
+            for entity in result.entities:
+                entity_dict = entity.model_dump()
+                try:
+                    db_id = await repo_db.upsert_entity(entity_dict)
+                    entity_id_map[entity.qualified_name] = db_id
+                    total_persisted_entities += 1
+                    repo_stats[event.repo_name]["persisted_entities"] += 1
+                except Exception as exc:
+                    logger.debug("Failed to upsert entity %s: %s", entity.qualified_name, exc)
+
+            # Persist relationships (resolve qualified names to entity IDs)
+            for rel in result.relationships:
+                source_id = entity_id_map.get(rel.source_entity)
+                target_id = entity_id_map.get(rel.target_entity)
+
+                # If target not in current file's entities, look up in DB
+                if source_id and not target_id:
+                    target_id = await repo_db.get_entity_id_by_qualified_name(
+                        rel.target_entity, event.repo_name
+                    )
+                if target_id and not source_id:
+                    source_id = await repo_db.get_entity_id_by_qualified_name(
+                        rel.source_entity, event.repo_name
+                    )
+
+                if source_id and target_id:
+                    try:
+                        await repo_db.upsert_relationship({
+                            "source_entity_id": source_id,
+                            "target_entity_id": target_id,
+                            "relationship_type": rel.relationship_type,
+                            "trust_tier": rel.trust_tier,
+                            "confidence": rel.confidence,
+                            "evidence": rel.evidence,
+                            "inject_into_context": rel.inject_into_context,
+                            "source_repo": event.repo_name,
+                        })
+                        total_persisted_relationships += 1
+                        repo_stats[event.repo_name]["persisted_relationships"] += 1
+                    except Exception as exc:
+                        logger.debug(
+                            "Failed to upsert relationship %s->%s: %s",
+                            rel.source_entity, rel.target_entity, exc,
+                        )
+                else:
+                    total_skipped += 1
+
+            # Progress indicator every 100 files
+            if total_files % 100 == 0:
+                print(f"  ... processed {total_files} files, {total_persisted_entities} entities persisted")
+
+        # Clean up stale entities per file is deferred to a separate sweep
+
+    finally:
+        await pool.close()
 
     print(f"\n{'='*60}")
-    print("Code Entity Crawl — Sync Execution (extract only, no persist)")
+    print("Code Entity Crawl — Sync Execution (with persistence)")
     print(f"{'='*60}")
-    print(f"\nTotal: {total_files} files, {total_entities} entities, {total_relationships} relationships")
+    print(f"\nExtracted: {total_files} files, {total_entities} entities, {total_relationships} relationships")
+    print(f"Persisted: {total_persisted_entities} entities, {total_persisted_relationships} relationships")
+    print(f"Skipped relationships (unresolved targets): {total_skipped}")
     print(f"\nBy repository:")
     for repo, stats in sorted(repo_stats.items()):
         print(
             f"  {repo}: {stats['files']} files, "
-            f"{stats['entities']} entities, "
-            f"{stats['relationships']} relationships"
+            f"{stats['entities']} entities ({stats['persisted_entities']} persisted), "
+            f"{stats['relationships']} relationships ({stats['persisted_relationships']} persisted)"
         )
     print()
 
