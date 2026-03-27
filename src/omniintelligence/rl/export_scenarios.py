@@ -46,8 +46,8 @@ class Scenario:
 
 BUCKET_NORMAL = "normal"
 BUCKET_DEGRADED_HEALTH = "degraded-health"
-BUCKET_HIGH_TOKEN = "high-token"  # noqa: S105 — not a password
-BUCKET_LOW_TOKEN = "low-token"  # noqa: S105 — not a password
+BUCKET_HIGH_TOKEN = "high-token"  # noqa: S105 — bucket name, not a password
+BUCKET_LOW_TOKEN = "low-token"  # noqa: S105 — bucket name, not a password
 BUCKET_MIXED_HEALTH = "mixed-health"
 
 ALL_BUCKETS: list[str] = [

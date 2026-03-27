@@ -59,8 +59,8 @@ def extract_architecture_patterns(
     sessions: Sequence[ModelSessionSnapshot],
     min_occurrences: int = 2,
     min_confidence: float = 0.6,
-    min_distinct_sessions: int = 2,  # noqa: ARG001 - Unused, for uniform interface
-    max_results_per_type: int = 20,  # noqa: ARG001 - Unused, for uniform interface
+    min_distinct_sessions: int = 2,
+    max_results_per_type: int = 20,
 ) -> list[ArchitecturePatternResult]:
     """Extract architecture patterns from Claude Code session snapshots.
 

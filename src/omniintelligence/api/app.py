@@ -164,7 +164,7 @@ def create_app(
     state = _AppState(database_url=database_url)
 
     @asynccontextmanager
-    async def lifespan(app: FastAPI) -> AsyncGenerator[None]:  # noqa: ARG001
+    async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         """Manage connection pool lifecycle."""
         logger.info("Connecting to database...")
         pool = await _create_pool(state.database_url)

@@ -805,7 +805,7 @@ async def check_and_demote_patterns(
 
 
 async def demote_pattern(
-    repository: ProtocolPatternRepository,  # noqa: ARG001 - kept for interface compat
+    repository: ProtocolPatternRepository,
     producer: ProtocolKafkaPublisher | None,
     pattern_id: UUID,
     pattern_data: DemotionPatternRecord,

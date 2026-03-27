@@ -462,7 +462,7 @@ class TestFireAndForgetEvaluate:
 
 
 try:
-    import omnibase_core as _omnibase_core_check  # noqa: F401
+    import omnibase_core as _omnibase_core_check  # noqa: F401 — availability check
 
     _OMNIBASE_CORE_AVAILABLE = True
 except ImportError:
