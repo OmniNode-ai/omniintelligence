@@ -2483,7 +2483,9 @@ def create_intelligence_dispatch_engine(
             UtilizationLLMClient,
         )
 
-        _utilization_llm_client = UtilizationLLMClient()
+        _utilization_llm_client = UtilizationLLMClient(
+            event_publisher=kafka_producer,
+        )
     except Exception:
         logger.warning(
             "Failed to create UtilizationLLMClient; utilization scoring "
