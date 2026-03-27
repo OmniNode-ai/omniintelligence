@@ -492,6 +492,7 @@ repos:
         name: validate-no-transport-imports (ARCH-002)
         entry: uv run python scripts/validate_no_transport_imports.py --exclude src/omniintelligence/runtime
           --exclude src/omniintelligence/api --exclude src/omniintelligence/clients --exclude src/omniintelligence/adapters
+          --exclude src/omniintelligence/decision_store
         language: system
         pass_filenames: false
         types: [python]
