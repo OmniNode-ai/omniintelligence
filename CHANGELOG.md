@@ -1,3 +1,12 @@
+## v0.19.1 (2026-03-27)
+
+### Fixed
+- fix: add tiktoken to dev dependencies [OMN-6716] (#480)
+
+### Changed
+- chore(lint): remove 17 stale noqa directives for globally-ignored rules [OMN-6669] (#481)
+- chore(deps): bump omnibase_core to 0.33.1, omnibase_spi to 0.20.2, omnibase_infra to 0.28.0
+
 ## v0.19.0 (2026-03-26)
 
 ### Added
