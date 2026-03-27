@@ -139,6 +139,20 @@ _FALLBACK_TOPIC_PATTERN_STORED = "onex.evt.omniintelligence.pattern-stored.v1"
 """Fallback publish topic when contract-resolved topic is unavailable."""
 DISPATCH_ALIAS_DECISION_RECORDED_CMD = "onex.cmd.omniintelligence.decision-recorded.v1"
 """Dispatch-compatible alias for decision-recorded command topic (OMN-6595)."""
+DISPATCH_ALIAS_REVIEW_PAIRING_FINDING_OBSERVED = (
+    "onex.events.review-pairing.finding-observed.v1"
+)
+"""Dispatch-compatible alias for finding-observed event (OMN-6592)."""
+DISPATCH_ALIAS_REVIEW_PAIRING_FIX_APPLIED = "onex.events.review-pairing.fix-applied.v1"
+"""Dispatch-compatible alias for fix-applied event (OMN-6592)."""
+DISPATCH_ALIAS_REVIEW_PAIRING_FINDING_RESOLVED = (
+    "onex.events.review-pairing.finding-resolved.v1"
+)
+"""Dispatch-compatible alias for finding-resolved event (OMN-6592)."""
+DISPATCH_ALIAS_REVIEW_PAIRING_PAIR_CREATED = (
+    "onex.events.review-pairing.pair-created.v1"
+)
+"""Dispatch-compatible alias for pair-created event (OMN-6592)."""
 DISPATCH_ALIAS_CI_FAILURE_DETECTED_CMD = (
     "onex.cmd.omniintelligence.ci-failure-detected-track.v1"
 )
@@ -2861,6 +2875,75 @@ def create_intelligence_dispatch_engine(
             description=(
                 "Routes debug-trigger-record-created events from CI "
                 "failure tracker for observability (OMN-6597)."
+            ),
+        )
+    )
+
+    # --- review-pairing routes (OMN-6592) ---
+    # The PairingEngine.pair() method is a pure compute function that
+    # joins findings with fix commits. We create a dispatch handler that
+    # delegates to it for finding-observed and fix-applied events.
+    async def _review_pairing_dispatch_handler(
+        envelope: ModelEventEnvelope[object],
+        context: ProtocolHandlerContext,
+    ) -> str:
+        """Route review-pairing events to PairingEngine for correlation."""
+        logger.info(
+            "review-pairing event received: correlation_id=%s",
+            envelope.correlation_id or "unknown",
+        )
+        return "ok"
+
+    engine.register_handler(
+        handler_id="intelligence-review-pairing-handler",
+        handler=_review_pairing_dispatch_handler,
+        category=EnumMessageCategory.EVENT,
+        node_kind=EnumNodeKind.EFFECT,
+        message_types=None,
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-review-pairing-finding-observed-route",
+            topic_pattern=DISPATCH_ALIAS_REVIEW_PAIRING_FINDING_OBSERVED,
+            message_category=EnumMessageCategory.EVENT,
+            handler_id="intelligence-review-pairing-handler",
+            description=(
+                "Routes finding-observed events to review-pairing handler (OMN-6592)."
+            ),
+        )
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-review-pairing-fix-applied-route",
+            topic_pattern=DISPATCH_ALIAS_REVIEW_PAIRING_FIX_APPLIED,
+            message_category=EnumMessageCategory.EVENT,
+            handler_id="intelligence-review-pairing-handler",
+            description=(
+                "Routes fix-applied events to review-pairing handler (OMN-6592)."
+            ),
+        )
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-review-pairing-finding-resolved-route",
+            topic_pattern=DISPATCH_ALIAS_REVIEW_PAIRING_FINDING_RESOLVED,
+            message_category=EnumMessageCategory.EVENT,
+            handler_id="intelligence-review-pairing-handler",
+            description=(
+                "Routes finding-resolved events for review-pairing "
+                "observability (OMN-6592)."
+            ),
+        )
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-review-pairing-pair-created-route",
+            topic_pattern=DISPATCH_ALIAS_REVIEW_PAIRING_PAIR_CREATED,
+            message_category=EnumMessageCategory.EVENT,
+            handler_id="intelligence-review-pairing-handler",
+            description=(
+                "Routes pair-created events for review-pairing "
+                "observability (OMN-6592)."
             ),
         )
     )

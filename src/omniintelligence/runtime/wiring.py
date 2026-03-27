@@ -107,6 +107,13 @@ _HANDLER_SPECS: list[tuple[str, str, bool]] = [
         "handle_trigger_record",
         False,
     ),
+    # DecisionRecordConsumer: import-verified only (OMN-6596).
+    # Runs as standalone Docker service (OMN-6607), not as in-plugin consumer.
+    (
+        "omniintelligence.decision_store.consumer",
+        "DecisionRecordConsumer",
+        False,
+    ),
 ]
 
 
