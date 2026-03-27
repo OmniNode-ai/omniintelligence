@@ -116,8 +116,8 @@ def extract_file_access_patterns(
     sessions: Sequence[ModelSessionSnapshot],
     min_occurrences: int = 5,
     min_confidence: float = 0.6,
-    min_distinct_sessions: int = 2,  # noqa: ARG001 - Unused, for uniform interface
-    max_results_per_type: int = 20,  # noqa: ARG001 - Unused, for uniform interface
+    min_distinct_sessions: int = 2,
+    max_results_per_type: int = 20,
 ) -> list[FileAccessPatternResult]:
     """Extract file access patterns from sessions.
 

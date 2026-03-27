@@ -146,7 +146,7 @@ class OnlineRoutingObservationBuilder:
         success_rates = self._pad_success_rates(success_rates)
 
         # Time encoding
-        now = datetime.now()  # noqa: DTZ005 -- local time intentional for time-of-day
+        now = datetime.now()
         hour = now.hour + now.minute / 60.0
         angle = 2.0 * math.pi * hour / 24.0
 

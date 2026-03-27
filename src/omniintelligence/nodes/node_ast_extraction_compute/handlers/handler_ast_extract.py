@@ -246,7 +246,7 @@ def _unparse_safe(node: ast.expr | None) -> str | None:
         return None
     try:
         return ast.unparse(node)
-    except Exception:  # noqa: BLE001
+    except Exception:
         return None
 
 
@@ -412,7 +412,7 @@ def _build_function_entity(
             args_str = ast.unparse(node.args)
             ret = f" -> {ast.unparse(node.returns)}" if node.returns else ""
             signature = f"({args_str}){ret}"
-        except Exception:  # noqa: BLE001
+        except Exception:
             signature = None
 
     docstring = _get_docstring(node) if cfg.extract_docstrings else None

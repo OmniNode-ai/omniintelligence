@@ -622,14 +622,14 @@ def main(argv: list[str] | None = None) -> int:
 
     # Fidelity check
     report = exporter.check_fidelity(config, scenarios=scenarios)
-    print(report.format_report())  # noqa: T201
+    print(report.format_report())
 
     # Diff mode
     if args.diff:
         diff_path = Path(args.diff)
         existing = yaml.safe_load(diff_path.read_text())
         diff_output = PolicyExporter.diff_configs(config, existing)
-        print(diff_output)  # noqa: T201
+        print(diff_output)
 
     elapsed = time.monotonic() - start
     logger.info("Export completed in %.1f seconds", elapsed)

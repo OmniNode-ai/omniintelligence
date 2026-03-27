@@ -223,7 +223,7 @@ def _execute_matching(
 def _create_validation_error_output(
     error_message: str,
     processing_time_ms: float,
-    correlation_id: str | None,  # noqa: ARG001 - threaded for architectural consistency
+    correlation_id: str | None,
 ) -> ModelSuccessCriteriaOutput:
     """Create output for validation errors.
 
@@ -257,7 +257,7 @@ def _create_validation_error_output(
 def _create_compute_error_output(
     error_message: str,
     processing_time_ms: float,
-    correlation_id: str | None,  # noqa: ARG001 - threaded for architectural consistency
+    correlation_id: str | None,
 ) -> ModelSuccessCriteriaOutput:
     """Create output for compute errors.
 
