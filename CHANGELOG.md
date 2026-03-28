@@ -1,3 +1,21 @@
+## v0.20.0 (2026-03-28)
+
+### Added
+- ci: add CodeQL security scanning workflow [OMN-5412] (#491)
+- feat(ci): add auto-merge-on-open workflow [OMN-6571] (#490)
+- feat(ci): add handler contract compliance check [OMN-6841] (#488)
+- feat(topics): centralize omnidash projection topics + emission regression tests [OMN-6808] (#487)
+
+### Fixed
+- fix(types): resolve 32 mypy strict errors across 15 files [OMN-6810] (#486)
+- fix: pass event_publisher to UtilizationLLMClient for LLM cost emission [OMN-6801] (#483)
+
+### Changed
+- chore(deps): bump omnibase-core to 0.34.0
+
+### Dependencies
+- omnibase-core 0.33.1 -> 0.34.0
+
 ## v0.19.1 (2026-03-27)
 
 ### Fixed
