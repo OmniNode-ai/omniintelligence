@@ -319,6 +319,32 @@ Reference: OMN-2472
 Deletion ticket: OMN-1546
 """
 
+TOPIC_COMPLIANCE_EVALUATED_V1: str = "onex.evt.omniintelligence.compliance-evaluated.v1"
+"""
+TEMP_BOOTSTRAP: Canonical topic for compliance evaluated events (OUTPUT).
+
+Canonical topic: onex.evt.omniintelligence.compliance-evaluated.v1
+
+NodeComplianceEvaluateEffect publishes after a compliance evaluation completes
+for a source file against applicable patterns.
+
+Reference: OMN-2339, OMN-6808
+Deletion ticket: OMN-1546
+"""
+
+TOPIC_EPISODE_BOUNDARY_V1: str = "onex.evt.omniintelligence.episode-boundary.v1"
+"""
+TEMP_BOOTSTRAP: Canonical topic for RL episode boundary events (OUTPUT).
+
+Canonical topic: onex.evt.omniintelligence.episode-boundary.v1
+
+EpisodeEmitter publishes episode_started and episode_completed events
+for the Learned Decision Optimization Platform.
+
+Reference: OMN-5559, OMN-6808
+Deletion ticket: OMN-1546
+"""
+
 TOPIC_UTILIZATION_SCORING_CMD_V1: str = (
     "onex.cmd.omniintelligence.utilization-scoring.v1"
 )
@@ -484,6 +510,7 @@ __all__ = [
     "TOPIC_BLOOM_EVAL_COMPLETED_V1",
     "TOPIC_BLOOM_EVAL_RUN_V1",
     "TOPIC_CI_DEBUG_ESCALATION_V1",
+    "TOPIC_COMPLIANCE_EVALUATED_V1",
     "TOPIC_CODE_CRAWL_REQUESTED_V1",
     "TOPIC_CODE_ENTITIES_CLASSIFIED_V1",
     "TOPIC_CODE_ENTITIES_EXTRACTED_V1",
@@ -493,6 +520,7 @@ __all__ = [
     "TOPIC_CONTEXT_UTILIZATION_EVT_V1",
     "TOPIC_DECISION_RECORDED_CMD_V1",
     "TOPIC_DECISION_RECORDED_EVT_V1",
+    "TOPIC_EPISODE_BOUNDARY_V1",
     "TOPIC_LLM_ROUTING_DECISION_PROCESSED",
     "TOPIC_OPERATION_COMPLETED_V1",
     "TOPIC_OPERATION_STARTED_V1",

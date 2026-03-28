@@ -24,13 +24,15 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any
 
+from omniintelligence.constants import TOPIC_EPISODE_BOUNDARY_V1
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Topic constant
+# Topic constant — imported from constants.py (single source of truth)
 # ---------------------------------------------------------------------------
 
-EPISODE_BOUNDARY_TOPIC = "onex.evt.omniintelligence.episode-boundary.v1"
+EPISODE_BOUNDARY_TOPIC = TOPIC_EPISODE_BOUNDARY_V1
 
 
 # ---------------------------------------------------------------------------

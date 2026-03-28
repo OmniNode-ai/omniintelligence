@@ -37,6 +37,7 @@ from datetime import UTC, datetime
 from typing import Final
 from uuid import UUID
 
+from omniintelligence.constants import TOPIC_COMPLIANCE_EVALUATED_V1
 from omniintelligence.nodes.node_compliance_evaluate_effect.models.model_compliance_evaluate_command import (
     ModelComplianceEvaluateCommand,
 )
@@ -64,8 +65,9 @@ from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
 logger = logging.getLogger(__name__)
 
-# Publish topic constant - matches contract.yaml publish_topics[0].
-PUBLISH_TOPIC: Final[str] = "onex.evt.omniintelligence.compliance-evaluated.v1"
+# Publish topic constant - imported from centralized constants.py (single source of truth).
+# Matches contract.yaml publish_topics[0].
+PUBLISH_TOPIC: Final[str] = TOPIC_COMPLIANCE_EVALUATED_V1
 DLQ_TOPIC: Final[str] = f"{PUBLISH_TOPIC}.dlq"
 
 # Status constants for the compliance-evaluated event.
