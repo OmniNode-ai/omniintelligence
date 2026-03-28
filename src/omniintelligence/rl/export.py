@@ -541,8 +541,10 @@ class PolicyExporter:
         if matching_rules:
             # Use highest-priority (lowest number) rule
             best = min(matching_rules, key=lambda r: r.get("priority", 100))
-            return best.get("backend_ids", [])
-        return list(config.get("default_backends", []))
+            backend_ids: list[str] = best.get("backend_ids", [])
+            return backend_ids
+        defaults: list[str] = list(config.get("default_backends", []))
+        return defaults
 
 
 # ---------------------------------------------------------------------------

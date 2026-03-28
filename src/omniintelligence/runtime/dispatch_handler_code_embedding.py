@@ -172,7 +172,8 @@ async def _get_embedding(
         )
         response.raise_for_status()
         data = response.json()
-        return data["data"][0]["embedding"]
+        embedding: list[float] = data["data"][0]["embedding"]
+        return embedding
     except (httpx.HTTPError, KeyError, IndexError):
         logger.warning("Embedding generation failed")
         return None

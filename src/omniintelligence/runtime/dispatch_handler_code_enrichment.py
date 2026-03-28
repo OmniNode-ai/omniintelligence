@@ -181,7 +181,8 @@ async def _enrich_single_entity(
         if content.startswith("```"):
             content = content.split("\n", 1)[1].rsplit("```", 1)[0].strip()
 
-        return json.loads(content)
+        result: dict[str, Any] = json.loads(content)
+        return result
     except (httpx.HTTPError, json.JSONDecodeError, KeyError, IndexError):
         logger.warning("LLM enrichment failed for %s", entity.get("entity_name"))
         return None

@@ -23,6 +23,8 @@ Note on quality_reward:
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 # -- Bounds ------------------------------------------------------------------
@@ -154,7 +156,7 @@ class RewardShaper:
 
     # -- Public API ----------------------------------------------------------
 
-    def compute(self, outcome_metrics: dict[str, object]) -> RewardSignal:
+    def compute(self, outcome_metrics: dict[str, Any]) -> RewardSignal:
         """Map outcome metrics to a bounded scalar reward.
 
         Args:

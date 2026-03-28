@@ -14,7 +14,6 @@ from __future__ import annotations
 import itertools
 import math
 from dataclasses import dataclass
-from typing import ClassVar
 
 from omniintelligence.rl.contracts.observations import (
     _NUM_ENDPOINTS,
@@ -59,7 +58,7 @@ ALL_BUCKETS: list[str] = [
 ]
 
 #: Buckets considered critical for fidelity reporting.
-CRITICAL_BUCKETS: ClassVar[set[str]] = {
+CRITICAL_BUCKETS: set[str] = {
     BUCKET_DEGRADED_HEALTH,
     BUCKET_HIGH_TOKEN,
     BUCKET_MIXED_HEALTH,

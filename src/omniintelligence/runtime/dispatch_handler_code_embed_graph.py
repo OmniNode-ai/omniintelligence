@@ -204,7 +204,8 @@ async def _get_embedding(text: str, embedding_url: str) -> list[float] | None:
                 json={"input": text, "model": "default"},
             )
             response.raise_for_status()
-            return response.json()["data"][0]["embedding"]
+            embedding: list[float] = response.json()["data"][0]["embedding"]
+            return embedding
     except Exception:
         logger.warning("Embedding request failed for text preview: %.50s...", text)
         return None

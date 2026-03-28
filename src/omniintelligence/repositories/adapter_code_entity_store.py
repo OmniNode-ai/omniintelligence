@@ -71,45 +71,45 @@ class AdapterCodeEntityStore:
         args = self._build_positional_args(
             "upsert_entity",
             {
-                "id": entity.entity_id,
-                "entity_type": entity.entity_type.value,
-                "name": entity.name,
-                "file_path": entity.file_path,
+                "id": entity.id,
+                "entity_type": entity.entity_type,
+                "name": entity.entity_name,
+                "file_path": entity.source_path,
                 "file_hash": entity.file_hash,
                 "source_repo": entity.source_repo,
-                "line_start": entity.line_start,
-                "line_end": entity.line_end,
+                "line_start": entity.line_number,
+                "line_end": entity.line_number,
                 "bases": json.dumps(entity.bases),
                 "methods": json.dumps(entity.methods),
                 "decorators": json.dumps(entity.decorators),
                 "docstring": entity.docstring,
-                "source_code": entity.source_code,
+                "source_code": entity.signature,
                 "confidence": entity.confidence,
             },
         )
         result = await self._runtime.call("upsert_entity", *args)
         if result and isinstance(result, dict) and "id" in result:
             return str(result["id"])
-        return entity.entity_id
+        return entity.id
 
     async def upsert_relationship(self, relationship: ModelCodeRelationship) -> str:
         """Upsert a code relationship via the contract runtime."""
         args = self._build_positional_args(
             "upsert_relationship",
             {
-                "id": relationship.relationship_id,
-                "source_entity_id": relationship.source_entity_id,
-                "target_entity_id": relationship.target_entity_id,
-                "relationship_type": relationship.relationship_type.value,
+                "id": relationship.id,
+                "source_entity_id": relationship.source_entity,
+                "target_entity_id": relationship.target_entity,
+                "relationship_type": relationship.relationship_type,
                 "confidence": relationship.confidence,
                 "trust_tier": relationship.trust_tier,
-                "metadata": json.dumps(dict(relationship.metadata)),
+                "metadata": json.dumps(relationship.evidence),
             },
         )
         result = await self._runtime.call("upsert_relationship", *args)
         if result and isinstance(result, dict) and "id" in result:
             return str(result["id"])
-        return relationship.relationship_id
+        return relationship.id
 
     async def delete_entities_by_file(self, source_repo: str, file_path: str) -> int:
         """Delete all entities for a file. Returns count deleted."""

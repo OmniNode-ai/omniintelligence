@@ -60,7 +60,8 @@ def _load_repos_config() -> list[dict[str, Any]]:
     contract_ref = importlib.resources.files(package).joinpath("contract.yaml")
     contract_text = contract_ref.read_text(encoding="utf-8")
     contract = yaml.safe_load(contract_text)
-    return contract.get("config", {}).get("repos", [])
+    repos: list[dict[str, Any]] = contract.get("config", {}).get("repos", [])
+    return repos
 
 
 # =============================================================================

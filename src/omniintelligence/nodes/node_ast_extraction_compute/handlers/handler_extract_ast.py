@@ -47,7 +47,11 @@ def _make_id() -> str:
 
 def _get_docstring(node: ast.AST) -> str | None:
     """Extract docstring from a class or function node."""
-    return ast.get_docstring(node)
+    if isinstance(
+        node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Module)
+    ):
+        return ast.get_docstring(node)
+    return None
 
 
 def _get_decorators(

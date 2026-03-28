@@ -150,7 +150,7 @@ async def async_parse_raw(
     except TimeoutError:
         # Kill the process on timeout.
         with contextlib.suppress(ProcessLookupError):
-            process.kill()  # type: ignore[possibly-undefined]
+            process.kill()
         return ModelExternalReviewResult(
             model=_CODEX_MODEL_KEY,
             prompt_version=PROMPT_VERSION,

@@ -237,7 +237,11 @@ def _file_path_to_module(file_path: str) -> str:
 
 def _get_docstring(node: ast.AST) -> str | None:
     """Return the docstring of a node, or ``None``."""
-    return ast.get_docstring(node)
+    if isinstance(
+        node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Module)
+    ):
+        return ast.get_docstring(node)
+    return None
 
 
 def _unparse_safe(node: ast.expr | None) -> str | None:

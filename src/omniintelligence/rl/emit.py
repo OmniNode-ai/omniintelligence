@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
+from typing import Any
 from uuid import uuid4
 
 from omniintelligence.protocols import ProtocolKafkaPublisher
@@ -28,7 +29,7 @@ async def emit_rl_routing_decision(
     agent_selected: str,
     confidence: float,
     shadow_mode: bool = True,
-    alternatives: list[dict[str, object]] | None = None,
+    alternatives: list[dict[str, Any]] | None = None,
 ) -> None:
     """Emit an RL routing decision event (fire-and-forget).
 

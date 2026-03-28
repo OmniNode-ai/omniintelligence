@@ -321,7 +321,7 @@ def _get_extraction_strategy(
     if language_extractors_config:
         lang_cfg = language_extractors_config.get(lang, {})
         if isinstance(lang_cfg, dict) and lang_cfg.get("enabled", False):
-            return lang_cfg.get("strategy", "regex")
+            return str(lang_cfg.get("strategy", "regex"))
 
     return "skip"
 
