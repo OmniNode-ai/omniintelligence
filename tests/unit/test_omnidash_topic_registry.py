@@ -151,3 +151,103 @@ class TestOmnidashTopicRegistry:
         """IntentTopic must have no duplicate values."""
         values = [member.value for member in IntentTopic]
         assert len(values) == len(set(values)), "IntentTopic contains duplicate values"
+
+
+class TestEmissionWiringPresence:
+    """Verify each omnidash projection handler has Kafka emission wired.
+
+    These tests inspect handler source to confirm that a ``publish()`` call
+    exists for each topic. This prevents silent regression where a handler's
+    Kafka emission is accidentally removed.
+
+    Ticket: OMN-6808
+    """
+
+    @pytest.mark.unit
+    def test_routing_feedback_emits_to_kafka(self) -> None:
+        """Routing feedback handler must call publish() with the correct topic."""
+        import inspect
+
+        from omniintelligence.nodes.node_routing_feedback_effect.handlers import (
+            handler_routing_feedback,
+        )
+
+        source = inspect.getsource(handler_routing_feedback)
+        assert "TOPIC_ROUTING_FEEDBACK_PROCESSED" in source
+        assert "kafka_publisher.publish(" in source
+
+    @pytest.mark.unit
+    def test_compliance_evaluate_emits_to_kafka(self) -> None:
+        """Compliance evaluate handler must call publish() with the correct topic."""
+        import inspect
+
+        from omniintelligence.nodes.node_compliance_evaluate_effect.handlers import (
+            handler_compliance_evaluate,
+        )
+
+        source = inspect.getsource(handler_compliance_evaluate)
+        assert "TOPIC_COMPLIANCE_EVALUATED_V1" in source
+        assert "producer.publish(" in source
+
+    @pytest.mark.unit
+    def test_evidence_collection_emits_run_evaluated(self) -> None:
+        """Evidence collection handler must emit RunEvaluatedEvent to Kafka."""
+        import inspect
+
+        from omniintelligence.nodes.node_evidence_collection_effect.handlers import (
+            handler_evidence_collection,
+        )
+
+        source = inspect.getsource(handler_evidence_collection)
+        assert "TOPIC_RUN_EVALUATED_V1" in source
+        assert "kafka_publisher.publish(" in source
+
+    @pytest.mark.unit
+    def test_episode_emitter_emits_to_kafka(self) -> None:
+        """EpisodeEmitter must produce to the episode boundary topic."""
+        import inspect
+
+        from omniintelligence.model_selector import episode_emitter
+
+        source = inspect.getsource(episode_emitter)
+        assert "EPISODE_BOUNDARY_TOPIC" in source
+        assert "self._publisher.produce(" in source
+
+    @pytest.mark.unit
+    def test_plan_reviewer_emits_to_kafka(self) -> None:
+        """Plan reviewer handler must call publish() with the correct topic."""
+        import inspect
+
+        from omniintelligence.nodes.node_plan_reviewer_multi_compute.handlers import (
+            handler_plan_reviewer_multi_compute,
+        )
+
+        source = inspect.getsource(handler_plan_reviewer_multi_compute)
+        assert "TOPIC_PLAN_REVIEW_STRATEGY_RUN_COMPLETED_V1" in source
+        assert "producer.publish(" in source
+
+    @pytest.mark.unit
+    def test_pattern_lifecycle_emits_to_kafka(self) -> None:
+        """Pattern lifecycle handler must emit transition events to Kafka."""
+        import inspect
+
+        from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers import (
+            handler_transition,
+        )
+
+        source = inspect.getsource(handler_transition)
+        assert "producer.publish(" in source
+        assert "_emit_transition_event" in source
+
+    @pytest.mark.unit
+    def test_intent_drift_emits_to_kafka(self) -> None:
+        """Intent drift signal must be emitted via hook event handler."""
+        import inspect
+
+        from omniintelligence.nodes.node_claude_hook_event_effect.handlers import (
+            handler_claude_event,
+        )
+
+        source = inspect.getsource(handler_claude_event)
+        assert "INTENT_DRIFT_DETECTED" in source
+        assert "kafka_producer.publish(" in source
