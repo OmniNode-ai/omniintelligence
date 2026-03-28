@@ -78,6 +78,8 @@ ALLOWED_ROOT_FILES: frozenset[str] = frozenset(
         "docker-compose.yml",
         "docker-compose.yaml",
         ".dockerignore",
+        # Architecture compliance allowlists (CI-consumed)
+        "arch-handler-contract-compliance-allowlist.yaml",
         # Build
         "Makefile",
         "justfile",

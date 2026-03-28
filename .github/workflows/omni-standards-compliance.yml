@@ -76,3 +76,29 @@ jobs:
             fi
           done
           echo "CI naming convention: PASS"
+
+  handler-contract-compliance:
+    name: Handler Contract Compliance
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: Install onex_change_control (pinned)
+        run: uv pip install --system "onex_change_control @ git+https://github.com/OmniNode-ai/onex_change_control.git@6f08269895488c9ce30a866e6415f1de9f6d1afc"
+
+      - name: Run handler contract compliance check
+        run: |
+          python -m onex_change_control.validators.arch_handler_contract_compliance \
+            --repo-root . \
+            --allowlist-path arch-handler-contract-compliance-allowlist.yaml
