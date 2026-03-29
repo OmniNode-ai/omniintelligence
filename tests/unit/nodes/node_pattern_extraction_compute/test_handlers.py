@@ -798,11 +798,12 @@ class TestEdgeCases:
     def test_single_session_with_low_threshold(
         self, sample_session: ModelSessionSnapshot
     ) -> None:
-        """Single session can produce patterns with min_occurrences=1."""
+        """Single session can produce patterns with min_occurrences=1 and min_distinct_sessions=1."""
         results = extract_file_access_patterns(
             (sample_session,),
             min_occurrences=1,
             min_confidence=0.1,
+            min_distinct_sessions=1,  # OMN-6965: explicitly allow single-session patterns
         )
 
         # Should detect some patterns from the single session

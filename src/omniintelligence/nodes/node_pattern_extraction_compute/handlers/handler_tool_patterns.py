@@ -171,9 +171,13 @@ def extract_tool_patterns(
     total_sessions = len(sessions) if sessions else 1
 
     # Generate tool sequence patterns (bigrams)
+    # Filter trivial same-tool sequences (Read->Read, Grep->Grep) [OMN-6965]
     for (t1, t2), count in tool_bigrams.most_common(20):
         if count < min_occurrences:
             break
+        # Same-tool bigrams are trivially common and uninformative
+        if t1 == t2:
+            continue
 
         confidence = min(
             1.0, count / (total_sessions * BIGRAM_SEQUENCE_SIGNIFICANCE_FACTOR)

@@ -172,8 +172,12 @@ def extract_file_access_patterns(
 
     # Track file co-occurrences across sessions
     file_pairs: Counter[tuple[str, str]] = Counter()
+    # Track which sessions each pair appears in for min_distinct_sessions [OMN-6965]
+    pair_sessions: defaultdict[tuple[str, str], set[str]] = defaultdict(set)
     entry_points: Counter[str] = Counter()
+    entry_point_sessions: defaultdict[str, set[str]] = defaultdict(set)
     modification_pairs: Counter[tuple[str, str]] = Counter()
+    mod_pair_sessions: defaultdict[tuple[str, str], set[str]] = defaultdict(set)
     session_files: dict[str, set[str]] = defaultdict(set)
 
     for session in sessions:
@@ -189,6 +193,7 @@ def extract_file_access_patterns(
         # Skip if the first file is a common excluded file
         if files_accessed and not _is_excluded_file(files_accessed[0]):
             entry_points[files_accessed[0]] += 1
+            entry_point_sessions[files_accessed[0]].add(session_id)
 
         # Track co-access pairs (files accessed together)
         # Use dict.fromkeys to preserve order while removing duplicates
@@ -202,6 +207,7 @@ def extract_file_access_patterns(
                 sorted_files = sorted([f1, f2])
                 pair: tuple[str, str] = (sorted_files[0], sorted_files[1])
                 file_pairs[pair] += 1
+                pair_sessions[pair].add(session_id)
 
         # Track modification clusters (files modified together)
         unique_modified = list(dict.fromkeys(files_modified))
@@ -213,13 +219,23 @@ def extract_file_access_patterns(
                 sorted_files = sorted([f1, f2])
                 pair = (sorted_files[0], sorted_files[1])
                 modification_pairs[pair] += 1
+                mod_pair_sessions[pair].add(session_id)
 
     total_sessions = len(sessions) if sessions else 1
 
+    # Output cardinality cap per type [OMN-6965]: prevent O(n^2) pair explosion
+    max_per_type = max_results_per_type
+
     # Generate co-access patterns
+    co_access_count = 0
     for (f1, f2), count in file_pairs.most_common():
         if count < min_occurrences:
             break
+        if co_access_count >= max_per_type:
+            break
+        # Skip patterns appearing in fewer than min_distinct_sessions [OMN-6965]
+        if len(pair_sessions.get((f1, f2), set())) < min_distinct_sessions:
+            continue
         # Confidence based on fraction of sessions containing pair
         confidence = min(1.0, count / (total_sessions * CO_ACCESS_SIGNIFICANCE_FACTOR))
         if confidence >= min_confidence:
@@ -239,11 +255,18 @@ def extract_file_access_patterns(
                     evidence_session_ids=evidence,
                 )
             )
+            co_access_count += 1
 
     # Generate entry point patterns
+    entry_count = 0
     for file_path, count in entry_points.most_common():
         if count < min_occurrences:
             break
+        if entry_count >= max_per_type:
+            break
+        # Skip if fewer than min_distinct_sessions [OMN-6965]
+        if len(entry_point_sessions.get(file_path, set())) < min_distinct_sessions:
+            continue
         # Confidence based on fraction of sessions starting with this file
         confidence = min(1.0, count / total_sessions)
         if confidence >= min_confidence:
@@ -260,11 +283,18 @@ def extract_file_access_patterns(
                     evidence_session_ids=evidence,
                 )
             )
+            entry_count += 1
 
     # Generate modification cluster patterns
+    mod_count = 0
     for (f1, f2), count in modification_pairs.most_common():
         if count < min_occurrences:
             break
+        if mod_count >= max_per_type:
+            break
+        # Skip if fewer than min_distinct_sessions [OMN-6965]
+        if len(mod_pair_sessions.get((f1, f2), set())) < min_distinct_sessions:
+            continue
         # Modification clusters are rarer than co-access patterns
         confidence = min(
             1.0, count / (total_sessions * MODIFICATION_CLUSTER_SIGNIFICANCE_FACTOR)
@@ -285,6 +315,7 @@ def extract_file_access_patterns(
                     evidence_session_ids=evidence,
                 )
             )
+            mod_count += 1
 
     return results
 

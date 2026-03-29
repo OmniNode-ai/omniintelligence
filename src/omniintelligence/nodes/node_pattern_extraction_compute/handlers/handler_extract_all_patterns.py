@@ -356,11 +356,18 @@ def _deduplicate_and_merge(
         insight_identity_key(i): i for i in existing
     }
 
+    # Placeholder descriptions that indicate junk patterns [OMN-6965]
+    _PLACEHOLDER_DESCRIPTIONS = frozenset({"general", "stored_placeholder", "unknown"})
+
     new_insights: list[ModelCodebaseInsight] = []
     updated_insights: list[ModelCodebaseInsight] = []
     seen_keys: set[str] = set()
 
     for pattern in new_patterns:
+        # Reject patterns with placeholder descriptions [OMN-6965]
+        if pattern.description.strip().lower() in _PLACEHOLDER_DESCRIPTIONS:
+            continue
+
         key = insight_identity_key(pattern)
         if key in seen_keys:
             continue
