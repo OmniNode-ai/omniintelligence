@@ -98,6 +98,9 @@ from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_ide
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_merge import (
     merge_insights,
 )
+from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_novelty import (
+    filter_novel_patterns,
+)
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_tool_failure_patterns import (
     extract_tool_failure_patterns,
 )
@@ -373,11 +376,18 @@ def _deduplicate_and_merge(
         else:
             new_insights.append(pattern)
 
+    # Novelty filter: reject near-duplicates of existing patterns (OMN-6966)
+    novel_insights, rejected = filter_novel_patterns(
+        new_insights, list(existing), novelty_threshold=0.1
+    )
+    if rejected:
+        logger.info("Novelty filter rejected %d near-duplicate patterns", len(rejected))
+
     # Limit per type
     type_counts: dict[str, int] = {}
     limited_new: list[ModelCodebaseInsight] = []
 
-    for insight in sorted(new_insights, key=lambda x: -x.confidence):
+    for insight in sorted(novel_insights, key=lambda x: -x.confidence):
         type_key = insight.insight_type.value
         count = type_counts.get(type_key, 0)
         if count < max_per_type:
