@@ -2950,6 +2950,35 @@ def create_intelligence_dispatch_engine(
         )
     )
 
+    # --- Handler: code-analysis (OMN-6969) ---
+    from omniintelligence.runtime.dispatch_handler_code_analysis import (
+        DISPATCH_ALIAS_CODE_ANALYSIS,
+        create_code_analysis_dispatch_handler,
+    )
+
+    code_analysis_handler = create_code_analysis_dispatch_handler(
+        kafka_producer=kafka_producer,
+    )
+    engine.register_handler(
+        handler_id="intelligence-code-analysis-handler",
+        handler=code_analysis_handler,
+        category=EnumMessageCategory.COMMAND,
+        node_kind=EnumNodeKind.EFFECT,
+        message_types=None,
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-code-analysis-route",
+            topic_pattern=DISPATCH_ALIAS_CODE_ANALYSIS,
+            message_category=EnumMessageCategory.COMMAND,
+            handler_id="intelligence-code-analysis-handler",
+            description=(
+                "Routes code-analysis commands to heuristic quality scoring "
+                "handler (OMN-6969). Produces completed/failed response events."
+            ),
+        )
+    )
+
     engine.freeze()
 
     if llm_client is None:

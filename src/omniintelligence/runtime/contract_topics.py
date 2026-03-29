@@ -51,6 +51,15 @@ _INTELLIGENCE_EFFECT_NODE_PACKAGES: list[str] = [
     "omniintelligence.nodes.node_ci_failure_tracker_effect",
 ]
 
+# Additional subscribe topics for dispatch handlers that are not backed
+# by a dedicated effect node contract. These are appended to the
+# contract-collected topics in collect_subscribe_topics_from_contracts().
+# Source: node_intelligence_orchestrator/contract.yaml (cross-repo command,
+# published by omniclaude IntelligenceEventClient).
+_ADDITIONAL_SUBSCRIBE_TOPICS: list[str] = [
+    "onex.cmd.omniintelligence.code-analysis.v1",  # OMN-6969
+]
+
 
 # ============================================================================
 # Public API
@@ -87,6 +96,10 @@ def collect_subscribe_topics_from_contracts(
     for package in packages:
         topics = _read_subscribe_topics(package)
         all_topics.extend(topics)
+
+    # Append additional topics not backed by dedicated effect node contracts
+    if node_packages is None:
+        all_topics.extend(_ADDITIONAL_SUBSCRIBE_TOPICS)
 
     logger.debug(
         "Collected %d intelligence subscribe topics from %d contracts",
