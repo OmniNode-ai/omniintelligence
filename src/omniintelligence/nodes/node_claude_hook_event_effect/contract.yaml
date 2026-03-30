@@ -304,6 +304,7 @@ event_bus:
     - "onex.evt.omniintelligence.intent-classified.v1"
     - "onex.cmd.omniintelligence.pattern-learning.v1"
     - "onex.evt.omniintelligence.intent-drift-detected.v1"
+    - "onex.evt.omniintelligence.llm-call-completed.v1"
 
   # Metadata for subscribed topics
   # Note: consumer_group is NOT specified here - it's runtime configuration
