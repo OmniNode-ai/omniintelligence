@@ -17,6 +17,8 @@ Ticket: OMN-2253
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import dataclasses
 import logging
 import os
@@ -177,7 +179,20 @@ def create_app(
         state.adapter = adapter
         logger.info("Database connection pool established")
 
+        # Start retention cleanup loop alongside the API server (OMN-7013)
+        from omniintelligence.api.retention_cleanup import start_retention_loop
+
+        retention_task = asyncio.create_task(
+            start_retention_loop(pool),
+            name="retention-cleanup",
+        )
+
         yield
+
+        # Stop retention cleanup before closing the pool
+        retention_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await retention_task
 
         logger.info("Closing database connection pool...")
         await pool.close()
