@@ -1,3 +1,14 @@
+## v0.21.1 (2026-03-31)
+
+### Changed
+- chore(deps): bump omnibase_core to 0.36.0, omnibase_infra to 0.30.1
+- ci: add onex compliance check to CI [OMN-7080] (#505)
+
+## v0.21.0 (2026-03-30)
+
+### Changed
+- chore(deps): bump omnibase_infra to 0.30.0 (#504)
+
 ## v0.20.0 (2026-03-28)
 
 ### Added
