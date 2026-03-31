@@ -84,6 +84,7 @@ _handler_mod = _load_module(
 )
 
 UNKNOWN_CONFIDENCE_THRESHOLD: float = _handler_mod.UNKNOWN_CONFIDENCE_THRESHOLD
+MIN_CLASSIFIABLE_LENGTH: int = _handler_mod.MIN_CLASSIFIABLE_LENGTH
 AdaptiveClassificationResult = _handler_mod.AdaptiveClassificationResult
 _load_label_store = _handler_mod._load_label_store
 classify_intent_adaptive = _handler_mod.classify_intent_adaptive
@@ -377,3 +378,84 @@ class TestAdaptiveClassificationSmoke:
             f"Classifier version '{version_from_func}' does not match "
             f"label store version '{version_from_store}'"
         )
+
+
+# ---------------------------------------------------------------------------
+# Minimum input length guard tests (OMN-7141)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestMinClassifiableLength:
+    """Tests for MIN_CLASSIFIABLE_LENGTH guard.
+
+    Inputs shorter than MIN_CLASSIFIABLE_LENGTH (after stripping) are returned
+    as unknown immediately without invoking the classifier. This filters junk
+    prompts like "t", "to", "if" that produce near-zero confidence scores.
+    """
+
+    def test_min_classifiable_length_constant_is_3(self) -> None:
+        """MIN_CLASSIFIABLE_LENGTH is set to 3."""
+        assert MIN_CLASSIFIABLE_LENGTH == 3
+
+    def test_single_char_returns_unknown(self) -> None:
+        """Single character 't' returns is_unknown=True, confidence 0.0."""
+        result = classify_intent_adaptive("t")
+        assert result.is_unknown is True
+        assert result.confidence == 0.0
+        assert result.intent_label == "unknown"
+
+    def test_two_char_returns_unknown(self) -> None:
+        """Two character 'to' returns is_unknown=True, confidence 0.0."""
+        result = classify_intent_adaptive("to")
+        assert result.is_unknown is True
+        assert result.confidence == 0.0
+        assert result.intent_label == "unknown"
+
+    def test_two_char_keyword_returns_unknown(self) -> None:
+        """Two character keyword 'if' returns is_unknown=True."""
+        result = classify_intent_adaptive("if")
+        assert result.is_unknown is True
+        assert result.confidence == 0.0
+
+    def test_two_char_keyword_go_returns_unknown(self) -> None:
+        """Two character keyword 'go' returns is_unknown=True."""
+        result = classify_intent_adaptive("go")
+        assert result.is_unknown is True
+        assert result.confidence == 0.0
+
+    def test_three_char_classifies_normally(self) -> None:
+        """Three character 'fix' runs through the classifier (not short-circuited)."""
+        result = classify_intent_adaptive("fix")
+        # "fix" is 3 chars after strip, so it should go through the classifier.
+        # The result may be unknown due to low confidence, but it should NOT be
+        # the short-circuit path (which returns confidence=0.0 and evidence=[]).
+        assert isinstance(result, AdaptiveClassificationResult)
+        # The classifier was invoked — evidence list should be non-empty
+        assert len(result.evidence) > 0
+
+    def test_whitespace_only_returns_unknown(self) -> None:
+        """Whitespace-only input '   ' returns is_unknown=True."""
+        result = classify_intent_adaptive("   ")
+        assert result.is_unknown is True
+        assert result.confidence == 0.0
+        assert result.intent_label == "unknown"
+
+    def test_whitespace_padded_short_returns_unknown(self) -> None:
+        """Whitespace-padded short input '  a ' returns is_unknown=True."""
+        result = classify_intent_adaptive("  a ")
+        assert result.is_unknown is True
+        assert result.confidence == 0.0
+
+    def test_two_char_db_returns_unknown(self) -> None:
+        """Two character 'db' returns is_unknown=True."""
+        result = classify_intent_adaptive("db")
+        assert result.is_unknown is True
+        assert result.confidence == 0.0
+
+    def test_short_circuit_returns_valid_version(self) -> None:
+        """Short-circuited result still includes a valid classifier version."""
+        result = classify_intent_adaptive("t")
+        assert result.classifier_version
+        parts = result.classifier_version.split(".")
+        assert len(parts) == 3, "Version must be semver"

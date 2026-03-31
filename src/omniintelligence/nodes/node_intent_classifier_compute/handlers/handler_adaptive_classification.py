@@ -52,6 +52,12 @@ _LABEL_STORE_PATH: Path = (
 # downstream event emission is suppressed (R2: Unknown class policy)
 UNKNOWN_CONFIDENCE_THRESHOLD: float = 0.4
 
+# Minimum input length (after stripping whitespace) to attempt classification.
+# Inputs shorter than this are returned as unknown immediately without invoking
+# the classifier. Filters junk prompts like "t", "to", "if" that produce
+# near-zero confidence scores and clutter the Intents dashboard.
+MIN_CLASSIFIABLE_LENGTH: int = 3
+
 # Embedding model used for adaptive-classifier (lightweight, sentence-level)
 _EMBEDDING_MODEL: str = "sentence-transformers/all-MiniLM-L6-v2"
 
@@ -236,6 +242,20 @@ def classify_intent_adaptive(
         FileNotFoundError: If label store YAML is missing (init only).
         RuntimeError: If adaptive-classifier fails to predict.
     """
+    # Guard: reject inputs shorter than MIN_CLASSIFIABLE_LENGTH after stripping.
+    # Short prompts ("t", "to", "if") produce near-zero confidence and clutter
+    # the Intents dashboard with unknown-0% entries.
+    stripped = text.strip()
+    if len(stripped) < MIN_CLASSIFIABLE_LENGTH:
+        _, version = _get_classifier()
+        return AdaptiveClassificationResult(
+            intent_label="unknown",
+            confidence=0.0,
+            classifier_version=version,
+            evidence=[],
+            is_unknown=True,
+        )
+
     clf, version = _get_classifier()
 
     # predict() returns List[Tuple[str, float]] sorted by score descending

@@ -6,13 +6,14 @@
 These tests verify the integration of the langextract semantic enrichment
 pipeline with TF-IDF classification inside handle_intent_classification().
 
-Gap Type: B — langextract output is consumed by handle_intent_classification
-but the orchestrating handler itself had zero direct unit test coverage.
-The semantic boost path (analyze_semantics → map_semantic_to_intent_boost →
-score_boosts kwarg in classify_intent) was untested end-to-end.
+Coverage includes:
+- Direct unit test coverage for the orchestrating handler
+- The semantic boost path (analyze_semantics -> map_semantic_to_intent_boost ->
+  score_boosts kwarg in classify_intent) tested end-to-end
+- Fallback behavior when semantic analysis fails
 
-Fix: OMN-2377 — wire langextract integration tests into the processing
-pipeline by testing handle_intent_classification directly.
+Originally tracked as OMN-2377 (langextract integration tests). All tests
+are complete and cover the full boost pipeline.
 """
 
 from __future__ import annotations
@@ -47,7 +48,7 @@ _DEFAULT_CONFIG = ModelClassificationConfig()
 
 
 # =============================================================================
-# Gap B: handle_intent_classification direct coverage
+# handle_intent_classification direct coverage
 # =============================================================================
 
 
