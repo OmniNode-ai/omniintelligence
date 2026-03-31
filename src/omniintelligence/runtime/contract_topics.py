@@ -25,31 +25,70 @@ from __future__ import annotations
 
 import importlib.resources
 import logging
+from pathlib import Path
 
 import yaml
 
 logger = logging.getLogger(__name__)
 
-# ============================================================================
-# Node packages that declare subscribe_topics
-# ============================================================================
-# Only effect nodes that receive events from the event bus are listed here.
-# Compute and orchestrator nodes do not subscribe to Kafka topics directly.
 
-_INTELLIGENCE_EFFECT_NODE_PACKAGES: list[str] = [
-    "omniintelligence.nodes.node_bloom_eval_orchestrator",
-    "omniintelligence.nodes.node_claude_hook_event_effect",
-    "omniintelligence.nodes.node_compliance_evaluate_effect",
-    "omniintelligence.nodes.node_crawl_scheduler_effect",
-    "omniintelligence.nodes.node_pattern_feedback_effect",
-    "omniintelligence.nodes.node_pattern_learning_effect",
-    "omniintelligence.nodes.node_pattern_lifecycle_effect",
-    "omniintelligence.nodes.node_pattern_projection_effect",
-    "omniintelligence.nodes.node_pattern_storage_effect",
-    "omniintelligence.nodes.node_code_crawler_effect",
-    "omniintelligence.review_pairing",
-    "omniintelligence.nodes.node_ci_failure_tracker_effect",
-]
+# ============================================================================
+# Dynamic node package discovery
+# ============================================================================
+
+
+def _discover_effect_node_packages() -> list[str]:
+    """Dynamically discover all packages with event_bus subscribe_topics.
+
+    Scans ``omniintelligence.nodes.*`` subpackages and
+    ``omniintelligence.review_pairing`` for ``contract.yaml`` files with
+    ``event_bus_enabled: true`` and non-empty ``subscribe_topics``.
+
+    Returns:
+        Sorted list of fully-qualified package names.
+    """
+    discovered: list[str] = []
+
+    # Scan nodes/ directory
+    nodes_path = importlib.resources.files("omniintelligence.nodes")
+    nodes_dir = Path(str(nodes_path))
+
+    for child in sorted(nodes_dir.iterdir()):
+        if not child.is_dir() or child.name.startswith(("_", ".")):
+            continue
+        contract_path = child / "contract.yaml"
+        if not contract_path.exists():
+            continue
+        if _has_subscribe_topics(contract_path):
+            discovered.append(f"omniintelligence.nodes.{child.name}")
+
+    # Also check review_pairing (lives outside nodes/)
+    review_path = importlib.resources.files("omniintelligence.review_pairing")
+    review_contract = Path(str(review_path)) / "contract.yaml"
+    if review_contract.exists() and _has_subscribe_topics(review_contract):
+        discovered.append("omniintelligence.review_pairing")
+
+    logger.debug(
+        "Discovered %d effect node packages with subscribe_topics",
+        len(discovered),
+    )
+    return discovered
+
+
+def _has_subscribe_topics(contract_path: Path) -> bool:
+    """Check if a contract.yaml has event_bus_enabled and subscribe_topics."""
+    with open(contract_path) as f:
+        contract = yaml.safe_load(f)
+    if not isinstance(contract, dict):
+        return False
+    event_bus = contract.get("event_bus", {})
+    if not isinstance(event_bus, dict):
+        return False
+    if not event_bus.get("event_bus_enabled", False):
+        return False
+    topics = event_bus.get("subscribe_topics", [])
+    return bool(topics)
+
 
 # Additional subscribe topics for dispatch handlers that are not backed
 # by a dedicated effect node contract. These are appended to the
@@ -90,7 +129,7 @@ def collect_subscribe_topics_from_contracts(
         FileNotFoundError: If a ``contract.yaml`` is missing from a package.
         yaml.YAMLError: If a ``contract.yaml`` is malformed YAML.
     """
-    packages = node_packages or _INTELLIGENCE_EFFECT_NODE_PACKAGES
+    packages = node_packages or _discover_effect_node_packages()
     all_topics: list[str] = []
 
     for package in packages:
@@ -275,4 +314,5 @@ __all__ = [
     "canonical_topic_to_dispatch_alias",
     "collect_publish_topics_for_dispatch",
     "collect_subscribe_topics_from_contracts",
+    "_discover_effect_node_packages",
 ]
