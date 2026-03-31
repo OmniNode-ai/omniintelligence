@@ -90,7 +90,7 @@ def mock_pattern_query_store() -> MagicMock:
     _row = {
         "id": _pattern_id,
         "pattern_signature": "Read -> Edit -> Bash(uv run pytest)",
-        "signature_hash": "abc123deadbeef",
+        "signature_hash": "test-sig-hash",
         "domain_id": "general",
         "confidence": 0.85,
         "status": "validated",
@@ -120,7 +120,7 @@ def _make_pattern_stored_envelope() -> Any:
         payload={
             "event_type": "PatternStored",
             "pattern_id": str(pattern_id),
-            "signature_hash": "abc123deadbeef",
+            "signature_hash": "test-sig-hash",
             "domain": "general",
             "confidence": 0.85,
             "stored_at": datetime.now(UTC).isoformat(),
