@@ -332,26 +332,26 @@ repos:
   - repo: local
     hooks:
       # --------------------------------------------------------------------------
-      # FULL CODEBASE FORMATTING: These hooks run on src/ and tests/ (not just staged files)
-      # to match CI behavior and prevent "works locally, fails in CI" issues.
+      # CHECK-ONLY FORMATTING: Validate formatting without modifying files.
+      # Auto-fix hooks cause silent commit failures when pre-commit's stash/restore
+      # conflicts with hook-modified files. Run formatting manually:
+      # uv run ruff format src/ tests/ && uv run ruff check --fix src/ tests/
       # --------------------------------------------------------------------------
       - id: ruff-format
-        name: ruff format (auto-format entire codebase)
-        entry: uv run ruff format src/ tests/
+        name: ruff format --check (entire codebase)
+        entry: uv run ruff format --check src/ tests/
         language: system
         pass_filenames: false
         always_run: true
         stages: [pre-commit]
 
-      - id: ruff-fix
-        name: ruff check (auto-fix entire codebase)
-        entry: uv run ruff check --fix --exit-non-zero-on-fix src/ tests/
+      - id: ruff-check
+        name: ruff check (entire codebase)
+        entry: uv run ruff check src/ tests/
         language: system
         pass_filenames: false
         always_run: true
         stages: [pre-commit]
-        # Note: --exit-non-zero-on-fix ensures pre-commit fails if files were modified,
-        # forcing you to re-stage the changes. This keeps pre-commit and CI in sync.
 
       # --------------------------------------------------------------------------
       # MYPY - Static type checking (pre-push stage for performance)
