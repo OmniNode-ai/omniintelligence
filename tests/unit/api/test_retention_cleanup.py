@@ -27,7 +27,7 @@ def test_retention_cleanup_sql_targets_stale_candidates() -> None:
     from omniintelligence.api.retention_cleanup import _CLEANUP_SQL_STALE_CANDIDATES
 
     assert "learned_patterns" in _CLEANUP_SQL_STALE_CANDIDATES
-    assert "lifecycle_status" in _CLEANUP_SQL_STALE_CANDIDATES
+    assert "status" in _CLEANUP_SQL_STALE_CANDIDATES
     assert "candidate" in _CLEANUP_SQL_STALE_CANDIDATES
     assert "14 days" in _CLEANUP_SQL_STALE_CANDIDATES
     assert "LIMIT 1000" in _CLEANUP_SQL_STALE_CANDIDATES
