@@ -309,10 +309,10 @@ class TestProjectionHandlerNotRegistered:
             intent_classifier=mock_intent_classifier,
             pattern_query_store=None,
         )
-        # Without projection handler, handler count should be the baseline (22)
-        # and route count should be the baseline (29)
-        assert engine.handler_count == 22
-        assert engine.route_count == 29
+        # Without projection handler, handler count should be the baseline (27)
+        # and route count should be the baseline (34) — OMN-6979
+        assert engine.handler_count == 27
+        assert engine.route_count == 34
 
     @pytest.mark.unit
     def test_projection_handler_skipped_logs_warning(

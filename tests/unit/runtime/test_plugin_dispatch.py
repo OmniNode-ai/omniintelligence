@@ -280,18 +280,18 @@ class TestPluginWireDispatchers:
         await _wire_plugin(plugin, config)
 
         assert plugin._dispatch_engine is not None
-        assert plugin._dispatch_engine.route_count == 15
+        assert plugin._dispatch_engine.route_count == 37
 
     @pytest.mark.asyncio
     async def test_wire_dispatchers_engine_has_expected_handlers(self) -> None:
-        """Engine should have expected handler count (OMN-5498: +1 promotion-check; OMN-5507: +1 utilization-scoring)."""
+        """Engine should have expected handler count (OMN-6979: +5 cmd topic handlers)."""
         plugin = PluginIntelligence()
         config = _make_config()
 
         await _wire_plugin(plugin, config)
 
         assert plugin._dispatch_engine is not None
-        assert plugin._dispatch_engine.handler_count == 11
+        assert plugin._dispatch_engine.handler_count == 28
 
     @pytest.mark.asyncio
     async def test_wire_dispatchers_returns_resources_created(self) -> None:

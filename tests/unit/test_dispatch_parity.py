@@ -143,10 +143,14 @@ def _extract_dispatch_aliases(filepath: Path) -> set[str]:
 
 
 def _extract_topic_constants_used_in_engine(dispatch_file: Path) -> set[str]:
-    """Extract TOPIC_* constant references used in register_route calls.
+    """Extract TOPIC_* and DISPATCH_ALIAS_* constant references used in register_route calls.
 
     Some routes use constants from omniintelligence.constants rather than
     inline DISPATCH_ALIAS strings. This reads those constants' values.
+
+    Also handles patterns like:
+        topic_pattern=canonical_topic_to_dispatch_alias(TOPIC_CODE_CRAWL_REQUESTED_V1)
+        topic_pattern=DISPATCH_ALIAS_PROMOTION_CHECK
     """
     topics: set[str] = set()
     content = dispatch_file.read_text()
@@ -164,6 +168,49 @@ def _extract_topic_constants_used_in_engine(dispatch_file: Path) -> set[str]:
                 topics.add(_to_canonical(value))
         except ImportError:
             pass
+
+    # Find references wrapped in canonical_topic_to_dispatch_alias()
+    # e.g. topic_pattern=canonical_topic_to_dispatch_alias(\n    TOPIC_CODE_CRAWL_REQUESTED_V1\n)
+    for match in re.finditer(
+        r"canonical_topic_to_dispatch_alias\(\s*(TOPIC_\w+)\s*\)", content
+    ):
+        const_name = match.group(1)
+        try:
+            from omniintelligence import constants as C
+
+            value = getattr(C, const_name, None)
+            if value and isinstance(value, str):
+                topics.add(_to_canonical(value))
+        except ImportError:
+            pass
+
+    # Find DISPATCH_ALIAS_* constants imported from external handler modules
+    # and used in register_route topic_pattern= calls.
+    for match in re.finditer(r"topic_pattern=(DISPATCH_ALIAS_\w+)", content):
+        const_name = match.group(1)
+        # Try to resolve from the dispatch_handlers module itself
+        try:
+            import omniintelligence.runtime.dispatch_handlers as DH
+
+            value = getattr(DH, const_name, None)
+            if value and isinstance(value, str):
+                topics.add(_to_canonical(value))
+                continue
+        except ImportError:
+            pass
+        # Try to resolve from handler modules that export DISPATCH_ALIAS_* constants
+        for handler_file in sorted(dispatch_file.parent.glob("dispatch_handler_*.py")):
+            module_name = f"omniintelligence.runtime.{handler_file.stem}"
+            try:
+                import importlib
+
+                mod = importlib.import_module(module_name)
+                value = getattr(mod, const_name, None)
+                if value and isinstance(value, str):
+                    topics.add(_to_canonical(value))
+                    break
+            except (ImportError, AttributeError):
+                continue
 
     return topics
 
@@ -193,22 +240,10 @@ def _collect_additional_subscribe_topics() -> set[str]:
 # WHY it is excluded.  When a handler IS wired, remove it from this set —
 # the test will catch the change.
 
-_KNOWN_UNWIRED_SUBSCRIBE_CMD: set[str] = {
-    # Orchestrator sub-commands routed internally, not via dispatch engine
-    "onex.cmd.omniintelligence.document-ingestion.v1",
-    "onex.cmd.omniintelligence.quality-assessment.v1",
-    # Bloom eval orchestrator: not yet wired to dispatch engine
-    "onex.cmd.omniintelligence.bloom-eval-run.v1",
-    # Code crawler: dispatched via canonical_topic_to_dispatch_alias in engine;
-    # the subscribe topic uses canonical form but the route uses dispatch alias
-    "onex.cmd.omniintelligence.code-crawl-requested.v1",
-    # Promotion check: subscribe topic uses different name than dispatch route
-    "onex.cmd.omniintelligence.promotion-check-requested.v1",
-    # Protocol handler: not yet wired to dispatch engine
-    "onex.cmd.omniintelligence.protocol-execute.v1",
-    # Cross-repo topic: handled by omnimemory, not omniintelligence dispatch
-    "onex.cmd.omnimemory.crawl-tick.v1",
-}
+_KNOWN_UNWIRED_SUBSCRIBE_CMD: set[str] = set()
+# All previously unwired command topics have been wired to dispatch handlers
+# as of OMN-6979. This set is empty — new unwired topics will cause test
+# failure until either wired or documented here.
 
 _KNOWN_UNWIRED_SUBSCRIBE_EVT: set[str] = {
     # Cross-repo topics consumed by dedicated node handlers, not dispatch engine
