@@ -64,6 +64,7 @@ def node_family_to_pattern_row(family: NodeFamily) -> dict:
         "keywords": [family.directory_name, family.source_repo] + roles_sorted,
         "confidence": confidence,
         "status": "validated",
+        "promoted_at": now,
         "source_session_ids": [],
         "recurrence_count": 1,
         "first_seen_at": now,
