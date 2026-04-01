@@ -29,12 +29,14 @@ Related:
 
 from __future__ import annotations
 
+import importlib.resources
 import logging
 import threading
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 from uuid import NAMESPACE_DNS, UUID, uuid5
 
+import yaml
 from omnibase_core.enums import EnumNodeKind
 from omnibase_infra.enums import EnumIntrospectionReason
 from omnibase_infra.mixins.mixin_node_introspection import MixinNodeIntrospection
@@ -88,42 +90,98 @@ class _NodeDescriptor:
         return uuid5(_NAMESPACE_INTELLIGENCE, f"omniintelligence.{self.name}")
 
 
-INTELLIGENCE_NODES: tuple[_NodeDescriptor, ...] = (
-    # Orchestrators
-    _NodeDescriptor("node_intelligence_orchestrator", EnumNodeKind.ORCHESTRATOR),
-    _NodeDescriptor("node_pattern_assembler_orchestrator", EnumNodeKind.ORCHESTRATOR),
-    # Reducers
-    _NodeDescriptor("node_doc_promotion_reducer", EnumNodeKind.REDUCER),
-    _NodeDescriptor("node_intelligence_reducer", EnumNodeKind.REDUCER),
-    # Compute nodes
-    _NodeDescriptor("node_doc_retrieval_compute", EnumNodeKind.COMPUTE),
-    _NodeDescriptor("node_document_parser_compute", EnumNodeKind.COMPUTE),
-    _NodeDescriptor("node_quality_scoring_compute", EnumNodeKind.COMPUTE),
-    _NodeDescriptor("node_semantic_analysis_compute", EnumNodeKind.COMPUTE),
-    _NodeDescriptor("node_pattern_extraction_compute", EnumNodeKind.COMPUTE),
-    _NodeDescriptor("node_pattern_learning_compute", EnumNodeKind.COMPUTE),
-    _NodeDescriptor("node_pattern_matching_compute", EnumNodeKind.COMPUTE),
-    _NodeDescriptor("node_intent_classifier_compute", EnumNodeKind.COMPUTE),
-    _NodeDescriptor("node_intent_drift_detect_compute", EnumNodeKind.COMPUTE),
-    _NodeDescriptor("node_execution_trace_parser_compute", EnumNodeKind.COMPUTE),
-    _NodeDescriptor("node_success_criteria_matcher_compute", EnumNodeKind.COMPUTE),
-    # Stream B — Document Ingestion Pipeline
-    _NodeDescriptor("node_chunk_classifier_compute", EnumNodeKind.COMPUTE),
-    # Effect nodes
-    _NodeDescriptor("node_context_item_writer_effect", EnumNodeKind.EFFECT),
-    _NodeDescriptor("node_doc_staleness_detector_effect", EnumNodeKind.EFFECT),
-    _NodeDescriptor("node_claude_hook_event_effect", EnumNodeKind.EFFECT),
-    _NodeDescriptor("node_pattern_storage_effect", EnumNodeKind.EFFECT),
-    _NodeDescriptor("node_pattern_promotion_effect", EnumNodeKind.EFFECT),
-    _NodeDescriptor("node_pattern_demotion_effect", EnumNodeKind.EFFECT),
-    _NodeDescriptor("node_pattern_feedback_effect", EnumNodeKind.EFFECT),
-    _NodeDescriptor("node_pattern_lifecycle_effect", EnumNodeKind.EFFECT),
-    _NodeDescriptor("node_pattern_projection_effect", EnumNodeKind.EFFECT),
-    _NodeDescriptor("node_document_fetch_effect", EnumNodeKind.EFFECT),
-    _NodeDescriptor("node_embedding_generation_effect", EnumNodeKind.EFFECT),
-    _NodeDescriptor("node_git_repo_crawler_effect", EnumNodeKind.EFFECT),
-    _NodeDescriptor("node_linear_crawler_effect", EnumNodeKind.EFFECT),
-)
+def _parse_node_type(raw_type: str) -> EnumNodeKind:
+    """Convert contract.yaml ``node_type`` string to ``EnumNodeKind``.
+
+    Contract YAML uses uppercase strings with optional ``_GENERIC`` suffix::
+
+        "EFFECT_GENERIC" -> EnumNodeKind.EFFECT
+        "COMPUTE_GENERIC" -> EnumNodeKind.COMPUTE
+        "ORCHESTRATOR_GENERIC" -> EnumNodeKind.ORCHESTRATOR
+        "REDUCER_GENERIC" -> EnumNodeKind.REDUCER
+    """
+    normalized = raw_type.replace("_GENERIC", "").lower()
+    return EnumNodeKind(normalized)
+
+
+def _discover_nodes_from_contracts(
+    base_package: str,
+) -> tuple[_NodeDescriptor, ...]:
+    """Discover node descriptors from ``contract.yaml`` files.
+
+    Scans all ``node_*/contract.yaml`` files under *base_package* and builds
+    ``_NodeDescriptor`` instances from the ``name`` and ``node_type`` fields.
+
+    Returns:
+        Tuple of ``_NodeDescriptor`` sorted by name for deterministic ordering.
+    """
+    descriptors: list[_NodeDescriptor] = []
+    package_files = importlib.resources.files(base_package)
+
+    for item in package_files.iterdir():
+        if not item.name.startswith("node_"):
+            continue
+        contract_path = item.joinpath("contract.yaml")
+        try:
+            content = contract_path.read_text(encoding="utf-8")
+        except (FileNotFoundError, TypeError, OSError):
+            continue
+
+        try:
+            contract = yaml.safe_load(content)
+        except yaml.YAMLError:
+            logger.warning(
+                "Invalid YAML in %s/%s/contract.yaml, skipping",
+                base_package,
+                item.name,
+            )
+            continue
+
+        if not isinstance(contract, dict):
+            continue
+
+        name = contract.get("name")
+        raw_type = contract.get("node_type")
+        if not isinstance(name, str) or not isinstance(raw_type, str):
+            logger.warning(
+                "Missing name or node_type in %s/%s/contract.yaml, skipping",
+                base_package,
+                item.name,
+            )
+            continue
+
+        try:
+            node_type = _parse_node_type(raw_type)
+        except ValueError:
+            logger.warning(
+                "Unknown node_type %r in %s/%s/contract.yaml, skipping",
+                raw_type,
+                base_package,
+                item.name,
+            )
+            continue
+
+        descriptors.append(_NodeDescriptor(name, node_type))
+
+    return tuple(sorted(descriptors, key=lambda d: d.name))
+
+
+def discover_intelligence_nodes() -> tuple[_NodeDescriptor, ...]:
+    """Discover intelligence node descriptors from ``contract.yaml`` files.
+
+    Replaces the former hardcoded ``INTELLIGENCE_NODES`` tuple with dynamic
+    contract-driven discovery. Scans all ``node_*/contract.yaml`` files
+    under ``omniintelligence.nodes``.
+
+    Returns:
+        Tuple of ``_NodeDescriptor`` instances sorted by name.
+    """
+    return _discover_nodes_from_contracts(
+        base_package="omniintelligence.nodes",
+    )
+
+
+INTELLIGENCE_NODES: tuple[_NodeDescriptor, ...] = discover_intelligence_nodes()
 
 
 # =============================================================================
@@ -431,6 +489,7 @@ __all__ = [
     "INTELLIGENCE_NODES",
     "IntelligenceNodeIntrospectionProxy",
     "IntrospectionResult",
+    "discover_intelligence_nodes",
     "publish_intelligence_introspection",
     "publish_intelligence_shutdown",
     "reset_introspection_guard",

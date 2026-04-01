@@ -22,6 +22,7 @@ import pytest
 from omniintelligence.runtime.introspection import (
     INTELLIGENCE_NODES,
     IntrospectionResult,
+    discover_intelligence_nodes,
     publish_intelligence_introspection,
     publish_intelligence_shutdown,
     reset_introspection_guard,
@@ -106,28 +107,35 @@ class TestIntelligenceNodes:
             "node_git_repo_crawler_effect",
             "node_linear_crawler_effect",
         }
-        assert node_names == expected_nodes
+        assert expected_nodes.issubset(node_names), (
+            f"Missing nodes: {expected_nodes - node_names}"
+        )
 
     def test_node_types_correct(self) -> None:
-        """Node types should match their directory naming convention."""
+        """Node types should match their directory naming suffix convention.
+
+        Node names end with a type suffix (e.g. ``_compute``, ``_effect``).
+        The suffix determines the expected ``EnumNodeKind``. Names may contain
+        multiple type words (e.g. ``node_scoring_reducer_compute`` is COMPUTE
+        because ``_compute`` is the final suffix).
+        """
         from omnibase_core.enums import EnumNodeKind
 
+        suffix_to_kind = {
+            "_orchestrator": EnumNodeKind.ORCHESTRATOR,
+            "_reducer": EnumNodeKind.REDUCER,
+            "_compute": EnumNodeKind.COMPUTE,
+            "_effect": EnumNodeKind.EFFECT,
+        }
         for desc in INTELLIGENCE_NODES:
-            if "orchestrator" in desc.name:
-                assert desc.node_type == EnumNodeKind.ORCHESTRATOR, (
-                    f"{desc.name} should be ORCHESTRATOR"
-                )
-            elif "reducer" in desc.name:
-                assert desc.node_type == EnumNodeKind.REDUCER, (
-                    f"{desc.name} should be REDUCER"
-                )
-            elif "compute" in desc.name:
-                assert desc.node_type == EnumNodeKind.COMPUTE, (
-                    f"{desc.name} should be COMPUTE"
-                )
-            elif "effect" in desc.name:
-                assert desc.node_type == EnumNodeKind.EFFECT, (
-                    f"{desc.name} should be EFFECT"
+            expected = None
+            for suffix, kind in suffix_to_kind.items():
+                if desc.name.endswith(suffix):
+                    expected = kind
+                    break
+            if expected is not None:
+                assert desc.node_type == expected, (
+                    f"{desc.name} should be {expected.name}"
                 )
 
     def test_unique_node_ids(self) -> None:
@@ -255,3 +263,104 @@ class TestPublishIntelligenceShutdown:
 
         # Should have been called for each node
         assert mock_event_bus.publish_envelope.call_count == len(INTELLIGENCE_NODES)
+
+
+# =============================================================================
+# Tests: Contract-driven node discovery
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestDiscoverIntelligenceNodes:
+    """Validate contract-driven node discovery."""
+
+    def test_discovers_all_hardcoded_nodes(self) -> None:
+        """All nodes from the former INTELLIGENCE_NODES tuple must be discoverable."""
+        discovered = discover_intelligence_nodes()
+        discovered_names = {d.name for d in discovered}
+        # These 29 nodes existed in the original hardcoded tuple
+        expected_names = {
+            "node_intelligence_orchestrator",
+            "node_pattern_assembler_orchestrator",
+            "node_doc_promotion_reducer",
+            "node_intelligence_reducer",
+            "node_doc_retrieval_compute",
+            "node_document_parser_compute",
+            "node_quality_scoring_compute",
+            "node_semantic_analysis_compute",
+            "node_pattern_extraction_compute",
+            "node_pattern_learning_compute",
+            "node_pattern_matching_compute",
+            "node_intent_classifier_compute",
+            "node_intent_drift_detect_compute",
+            "node_execution_trace_parser_compute",
+            "node_success_criteria_matcher_compute",
+            "node_chunk_classifier_compute",
+            "node_context_item_writer_effect",
+            "node_doc_staleness_detector_effect",
+            "node_claude_hook_event_effect",
+            "node_pattern_storage_effect",
+            "node_pattern_promotion_effect",
+            "node_pattern_demotion_effect",
+            "node_pattern_feedback_effect",
+            "node_pattern_lifecycle_effect",
+            "node_pattern_projection_effect",
+            "node_document_fetch_effect",
+            "node_embedding_generation_effect",
+            "node_git_repo_crawler_effect",
+            "node_linear_crawler_effect",
+        }
+        assert expected_names.issubset(discovered_names), (
+            f"Missing nodes: {expected_names - discovered_names}"
+        )
+
+    def test_node_types_match_naming_convention(self) -> None:
+        """Discovered node types must match their name suffix."""
+        from omnibase_core.enums import EnumNodeKind
+
+        suffix_to_kind = {
+            "_orchestrator": EnumNodeKind.ORCHESTRATOR,
+            "_reducer": EnumNodeKind.REDUCER,
+            "_compute": EnumNodeKind.COMPUTE,
+            "_effect": EnumNodeKind.EFFECT,
+        }
+        discovered = discover_intelligence_nodes()
+        for desc in discovered:
+            expected = None
+            for suffix, kind in suffix_to_kind.items():
+                if desc.name.endswith(suffix):
+                    expected = kind
+                    break
+            if expected is not None:
+                assert desc.node_type == expected, desc.name
+
+    def test_all_names_are_unique(self) -> None:
+        """All discovered node names must be unique."""
+        discovered = discover_intelligence_nodes()
+        names = [d.name for d in discovered]
+        assert len(names) == len(set(names))
+
+    def test_all_node_ids_are_unique(self) -> None:
+        """All discovered node IDs must be unique."""
+        discovered = discover_intelligence_nodes()
+        ids = [d.node_id for d in discovered]
+        assert len(ids) == len(set(ids))
+
+    def test_sorted_by_name(self) -> None:
+        """Discovered nodes should be sorted by name for determinism."""
+        discovered = discover_intelligence_nodes()
+        names = [d.name for d in discovered]
+        assert names == sorted(names)
+
+    def test_intelligence_nodes_equals_discovery(self) -> None:
+        """INTELLIGENCE_NODES module variable should equal discover_intelligence_nodes()."""
+        discovered = discover_intelligence_nodes()
+        assert len(INTELLIGENCE_NODES) == len(discovered)
+        for mod_desc, disc_desc in zip(INTELLIGENCE_NODES, discovered, strict=True):
+            assert mod_desc.name == disc_desc.name
+            assert mod_desc.node_type == disc_desc.node_type
+
+    def test_discovers_more_than_original_29(self) -> None:
+        """Discovery should find more nodes than the original 29 hardcoded ones."""
+        discovered = discover_intelligence_nodes()
+        assert len(discovered) >= 29
