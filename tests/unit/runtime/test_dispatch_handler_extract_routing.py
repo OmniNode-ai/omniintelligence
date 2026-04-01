@@ -88,6 +88,7 @@ class TestExtractHandlerTsRouting:
                 language_extractors_config=LANG_CONFIG,
             )
 
+            ts_content = ts_file.read_text()
             envelope = MagicMock()
             envelope.payload = {
                 "event_id": "evt-1",
@@ -96,6 +97,7 @@ class TestExtractHandlerTsRouting:
                 "file_path": "server/app.ts",
                 "file_hash": "abc123",
                 "file_size_bytes": 100,
+                "source_content": ts_content,
                 "timestamp": datetime.now(UTC).isoformat(),
             }
             context = MagicMock()

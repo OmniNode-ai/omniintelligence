@@ -14,6 +14,7 @@ Related:
 from __future__ import annotations
 
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
@@ -83,7 +84,9 @@ async def test_extract_publishes_entities() -> None:
                 "repo_name": "test_repo",
                 "file_path": "src/models.py",
                 "file_hash": "abc123",
-                "file_extension": ".py",
+                "file_size_bytes": len(SAMPLE_PYTHON.encode()),
+                "source_content": SAMPLE_PYTHON,
+                "timestamp": datetime.now(tz=timezone.utc).isoformat(),
             }
         )
 
@@ -97,8 +100,8 @@ async def test_extract_publishes_entities() -> None:
     value = call_kwargs["value"]
     assert value["repo_name"] == "test_repo"
     assert value["file_path"] == "src/models.py"
-    assert value["entity_count"] > 0
-    assert value["relationship_count"] > 0
+    assert len(value["entities"]) > 0
+    assert len(value["relationships"]) > 0
 
 
 @pytest.mark.unit
@@ -119,10 +122,48 @@ async def test_skips_non_python_files() -> None:
             "repo_name": "test_repo",
             "file_path": "README.md",
             "file_hash": "abc123",
-            "file_extension": ".md",
+            "file_size_bytes": 8,
+            "source_content": "# README",
+            "timestamp": datetime.now(tz=timezone.utc).isoformat(),
         }
     )
 
     result = await handler(envelope, _make_context())
     assert result == "ok"
     kafka_producer.publish.assert_not_called()
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_extract_handler_reads_content_from_event() -> None:
+    """Extract handler uses source_content from event, no filesystem needed."""
+    kafka_producer = AsyncMock()
+    kafka_producer.publish = AsyncMock()
+
+    # No repo_paths provided and no filesystem — handler must use source_content
+    handler = create_code_extract_dispatch_handler(
+        kafka_publisher=kafka_producer,
+        publish_topic="test.code-entities-extracted.v1",
+        repo_paths={},
+    )
+
+    envelope = _make_envelope(
+        {
+            "event_id": "evt_test",
+            "crawl_id": "crawl_test",
+            "repo_name": "nonexistent_repo",
+            "file_path": "src/models.py",
+            "file_hash": "abc123",
+            "file_size_bytes": len(SAMPLE_PYTHON.encode()),
+            "source_content": SAMPLE_PYTHON,
+            "timestamp": datetime.now(tz=timezone.utc).isoformat(),
+        }
+    )
+
+    result = await handler(envelope, _make_context())
+
+    assert result == "ok"
+    assert kafka_producer.publish.call_count == 1
+
+    value = kafka_producer.publish.call_args.kwargs["value"]
+    assert len(value["entities"]) > 0

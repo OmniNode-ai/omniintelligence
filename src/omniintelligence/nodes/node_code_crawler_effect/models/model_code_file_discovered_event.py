@@ -42,6 +42,7 @@ class ModelCodeFileDiscoveredEvent(BaseModel):
     file_path: str = Field(description="Relative path from repo root")
     file_hash: str = Field(description="SHA-256 hex digest of file content")
     file_size_bytes: int = Field(description="File size in bytes")
+    source_content: str = Field(description="Full source code content of the file")
     timestamp: datetime = Field(description="When the file was discovered")
     contract_version: str = Field(default="1.0.0", description="Event schema version")
 

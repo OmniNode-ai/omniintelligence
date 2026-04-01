@@ -46,7 +46,11 @@ SKIP_PATTERNS = {"test_", "_test", "__"}
 # Known repo locations
 REPO_ROOT = Path("/Volumes/PRO-G40/Code/omni_home")
 REPO_DIRS: dict[str, Path] = {
-    "omniintelligence": REPO_ROOT / "omniintelligence" / "src" / "omniintelligence" / "nodes",
+    "omniintelligence": REPO_ROOT
+    / "omniintelligence"
+    / "src"
+    / "omniintelligence"
+    / "nodes",
     "omniclaude": REPO_ROOT / "omniclaude" / "src" / "omniclaude",
     "omnibase_core": REPO_ROOT / "omnibase_core" / "src" / "omnibase_core",
     "omnibase_infra": REPO_ROOT / "omnibase_infra" / "src" / "omnibase_infra" / "nodes",
@@ -190,14 +194,18 @@ def generate_contract_yaml(analysis: NodeAnalysis) -> str:
 
     contract: dict[str, Any] = {
         "name": snake_name,
-        "description": analysis.docstring.split("\n")[0] if analysis.docstring else f"# TODO: add description for {analysis.node_name}",
+        "description": analysis.docstring.split("\n")[0]
+        if analysis.docstring
+        else f"# TODO: add description for {analysis.node_name}",
         "contract_version": {"major": 1, "minor": 0, "patch": 0},
         "node_version": {"major": 1, "minor": 0, "patch": 0},
         "node_type": analysis.node_type,
     }
 
     # Input/output models — only when we have strong evidence
-    has_handle = any("handle" in m.lower() or "execute" in m.lower() for m in analysis.methods)
+    has_handle = any(
+        "handle" in m.lower() or "execute" in m.lower() for m in analysis.methods
+    )
     if has_handle:
         contract["input_model"] = {
             "name": "# TODO: verify input model",
@@ -218,7 +226,9 @@ def generate_contract_yaml(analysis: NodeAnalysis) -> str:
                     "handler": {
                         "function": "# TODO: verify handler function",
                         "module": "# TODO: verify handler module",
-                        "type": "async" if any(isinstance(None, type(None)) for _ in []) or True else "sync",
+                        "type": "async"
+                        if any(isinstance(None, type(None)) for _ in []) or True
+                        else "sync",
                     },
                 }
             ],
@@ -242,10 +252,14 @@ def generate_contract_yaml(analysis: NodeAnalysis) -> str:
         "tags": ["ONEX", analysis.node_type.split("_")[0].lower()],
     }
 
-    return yaml.dump(contract, default_flow_style=False, sort_keys=False, allow_unicode=True)
+    return yaml.dump(
+        contract, default_flow_style=False, sort_keys=False, allow_unicode=True
+    )
 
 
-def scan_repo(repo_name: str, nodes_dir: Path, node_filter: str | None = None) -> list[NodeAnalysis]:
+def scan_repo(
+    repo_name: str, nodes_dir: Path, node_filter: str | None = None
+) -> list[NodeAnalysis]:
     """Scan a repo's nodes directory for Node* classes."""
     results: list[NodeAnalysis] = []
 
@@ -299,7 +313,8 @@ def main() -> None:
         help="Filter to a single node class name",
     )
     parser.add_argument(
-        "--verbose", "-v",
+        "--verbose",
+        "-v",
         action="store_true",
         help="Enable debug logging",
     )
@@ -317,7 +332,9 @@ def main() -> None:
     repos_to_scan = REPO_DIRS
     if args.repo:
         if args.repo not in REPO_DIRS:
-            logger.error("Unknown repo: %s (known: %s)", args.repo, list(REPO_DIRS.keys()))
+            logger.error(
+                "Unknown repo: %s (known: %s)", args.repo, list(REPO_DIRS.keys())
+            )
             sys.exit(1)
         repos_to_scan = {args.repo: REPO_DIRS[args.repo]}
 
@@ -334,9 +351,9 @@ def main() -> None:
     missing = [a for a in all_analyses if not a.has_existing_contract]
     existing = [a for a in all_analyses if a.has_existing_contract]
 
-    print(f"\n{'='*60}")
-    print(f"Contract Inference Report")
-    print(f"{'='*60}")
+    print(f"\n{'=' * 60}")
+    print("Contract Inference Report")
+    print(f"{'=' * 60}")
     print(f"  Total Node* classes found: {len(all_analyses)}")
     print(f"  With existing contract:    {len(existing)}")
     print(f"  Missing contract:          {len(missing)}")
@@ -381,7 +398,9 @@ def main() -> None:
 
         print(f"\nGenerated {generated} contract draft(s).")
         if generated > 0:
-            print("Review and refine the generated contracts — they are drafts with TODO markers.")
+            print(
+                "Review and refine the generated contracts — they are drafts with TODO markers."
+            )
 
 
 if __name__ == "__main__":

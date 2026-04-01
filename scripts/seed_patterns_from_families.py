@@ -194,7 +194,6 @@ async def main(dry_run: bool) -> None:
         )
         sys.exit(1)
 
-
     import asyncpg
 
     print("\nConnecting to database...")  # noqa: T201

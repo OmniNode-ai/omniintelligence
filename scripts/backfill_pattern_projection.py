@@ -33,7 +33,6 @@ import sys
 from datetime import UTC, datetime
 from uuid import uuid4
 
-
 _SQL_QUERY_ALL_PATTERNS = """\
 SELECT
     id,
@@ -80,7 +79,9 @@ def _compute_composite_score(row: dict) -> float:
     recurrence_norm = min(1.0, recurrence / 10.0)
     days_norm = min(1.0, days / 5.0)
 
-    return round(0.4 * quality + 0.3 * confidence + 0.2 * recurrence_norm + 0.1 * days_norm, 6)
+    return round(
+        0.4 * quality + 0.3 * confidence + 0.2 * recurrence_norm + 0.1 * days_norm, 6
+    )
 
 
 def _row_to_pattern_dict(row: dict) -> dict:
@@ -105,7 +106,9 @@ def _row_to_pattern_dict(row: dict) -> dict:
             "confidence": float(row.get("confidence") or 0.5),
             "recurrence_count": int(row.get("recurrence_count") or 1),
             "distinct_days_seen": int(row.get("distinct_days_seen") or 1),
-            "injection_count_rolling_20": int(row.get("injection_count_rolling_20") or 0),
+            "injection_count_rolling_20": int(
+                row.get("injection_count_rolling_20") or 0
+            ),
             "success_count_rolling_20": int(row.get("success_count_rolling_20") or 0),
             "failure_count_rolling_20": int(row.get("failure_count_rolling_20") or 0),
             "evidence_tier": row.get("evidence_tier", "unmeasured"),
@@ -132,7 +135,7 @@ async def main(dry_run: bool) -> None:
 
     import asyncpg
 
-    print(f"Connecting to database...")  # noqa: T201
+    print("Connecting to database...")  # noqa: T201
     conn = await asyncpg.connect(db_url)
 
     try:
@@ -170,15 +173,17 @@ async def main(dry_run: bool) -> None:
             s = p["status"]
             by_status[s] = by_status.get(s, 0) + 1
 
-        print(f"\nSnapshot summary:")  # noqa: T201
+        print("\nSnapshot summary:")  # noqa: T201
         print(f"  snapshot_id: {snapshot_id}")  # noqa: T201
         print(f"  total_count: {len(patterns)}")  # noqa: T201
         print(f"  by_status: {by_status}")  # noqa: T201
-        print(f"  composite_score: avg={avg_score:.4f}, min={min_score:.4f}, max={max_score:.4f}")  # noqa: T201
+        print(
+            f"  composite_score: avg={avg_score:.4f}, min={min_score:.4f}, max={max_score:.4f}"
+        )  # noqa: T201
 
         if dry_run:
-            print(f"\n[DRY RUN] Would publish snapshot to:")  # noqa: T201
-            print(f"  topic: onex.evt.omniintelligence.pattern-projection.v1")  # noqa: T201
+            print("\n[DRY RUN] Would publish snapshot to:")  # noqa: T201
+            print("  topic: onex.evt.omniintelligence.pattern-projection.v1")  # noqa: T201
             print(f"  kafka: {kafka_servers}")  # noqa: T201
             print(f"  payload size: {len(json.dumps(snapshot))} bytes")  # noqa: T201
             print("\nRun with --execute to actually publish")  # noqa: T201
@@ -193,7 +198,9 @@ async def main(dry_run: bool) -> None:
 
         # Chunk patterns into batches to stay under Kafka message size limits
         batch_size = 200  # ~200 patterns per message stays well under 1MB
-        batches = [patterns[i : i + batch_size] for i in range(0, len(patterns), batch_size)]
+        batches = [
+            patterns[i : i + batch_size] for i in range(0, len(patterns), batch_size)
+        ]
 
         producer = AIOKafkaProducer(
             bootstrap_servers=kafka_servers,
@@ -230,6 +237,8 @@ async def main(dry_run: bool) -> None:
 if __name__ == "__main__":
     is_dry_run = "--execute" not in sys.argv
     if is_dry_run and "--dry-run" not in sys.argv:
-        print("Usage: uv run python scripts/backfill_pattern_projection.py --dry-run|--execute")  # noqa: T201
+        print(
+            "Usage: uv run python scripts/backfill_pattern_projection.py --dry-run|--execute"
+        )  # noqa: T201
         sys.exit(1)
     asyncio.run(main(dry_run=is_dry_run))

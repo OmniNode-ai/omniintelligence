@@ -262,6 +262,28 @@ async def test_handler_generates_crawl_id_when_not_provided(tmp_path: Path) -> N
     assert events[0].crawl_id  # should be a non-empty generated UUID
 
 
+@pytest.mark.asyncio
+async def test_crawl_events_include_source_content(tmp_path: Path) -> None:
+    """Verify crawl events carry file source content."""
+    repo = tmp_path / "test_repo" / "src"
+    repo.mkdir(parents=True)
+    (repo / "foo.py").write_text("class Foo:\n    pass\n")
+
+    events = await handle_code_crawl(
+        repos_config=[
+            {
+                "name": "test_repo",
+                "path": str(tmp_path / "test_repo"),
+                "include": ["src/**/*.py"],
+                "exclude": [],
+            }
+        ]
+    )
+
+    assert len(events) == 1
+    assert events[0].source_content == "class Foo:\n    pass\n"
+
+
 # =============================================================================
 # Helpers
 # =============================================================================

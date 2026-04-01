@@ -169,7 +169,9 @@ def filter_agent_routing_row(
     # 4. Reconstructable observation features — need at least context or reasoning
     has_context = row.get("context_snapshot") is not None
     has_reasoning = row.get("reasoning") is not None and row["reasoning"].strip() != ""
-    has_request = row.get("user_request") is not None and row["user_request"].strip() != ""
+    has_request = (
+        row.get("user_request") is not None and row["user_request"].strip() != ""
+    )
     if not (has_context or has_reasoning or has_request):
         return None, "no_observation_features"
 

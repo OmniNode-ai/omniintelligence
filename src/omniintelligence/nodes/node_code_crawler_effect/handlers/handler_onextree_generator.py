@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
 import re
 import uuid
 from datetime import datetime, timezone
@@ -278,7 +279,8 @@ async def handle_code_crawl(
 
     for repo_cfg in repos_config:
         repo_name = repo_cfg["name"]
-        repo_path = Path(repo_cfg["path"])
+        raw_path = repo_cfg["path"]
+        repo_path = Path(os.path.expandvars(raw_path))
         include_patterns: list[str] = repo_cfg.get("include", [])
         exclude_patterns: list[str] = repo_cfg.get(
             "exclude", list(DEFAULT_EXCLUDE_PATTERNS)
@@ -300,10 +302,11 @@ async def handle_code_crawl(
         for node in file_nodes:
             full_path = repo_path / node.path
             try:
-                file_hash = _sha256_of_file(full_path)
-                file_size = node.size or 0
-            except (OSError, PermissionError) as e:
-                logger.warning("Cannot hash file %s: %s", full_path, e)
+                source_content = full_path.read_text(encoding="utf-8")
+                file_hash = hashlib.sha256(source_content.encode("utf-8")).hexdigest()
+                file_size = len(source_content.encode("utf-8"))
+            except (OSError, PermissionError, UnicodeDecodeError) as e:
+                logger.warning("Cannot read file %s: %s", full_path, e)
                 continue
 
             events.append(
@@ -314,6 +317,7 @@ async def handle_code_crawl(
                     file_path=node.path,
                     file_hash=file_hash,
                     file_size_bytes=file_size,
+                    source_content=source_content,
                     timestamp=datetime.now(tz=timezone.utc),
                 )
             )

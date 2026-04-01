@@ -26,6 +26,7 @@ Related:
 from __future__ import annotations
 
 import logging
+import os
 import uuid
 from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
@@ -128,41 +129,39 @@ def create_code_extract_dispatch_handler(
             logger.warning(msg)
             raise ValueError(msg) from e
 
-        # Resolve full file path
-        resolved_paths = repo_paths or _load_repo_paths()
-        repo_root = resolved_paths.get(discovered_event.repo_name)
+        # Read source content from event payload (no filesystem access needed)
+        source_content = getattr(discovered_event, "source_content", None)
 
-        if repo_root is None:
-            logger.warning(
-                "Unknown repo %r in code-file-discovered event, skipping "
-                "(correlation_id=%s)",
-                discovered_event.repo_name,
-                ctx_correlation_id,
-            )
-            return "ok"
-
-        full_path = Path(repo_root) / discovered_event.file_path
-
-        if not full_path.is_file():
-            logger.warning(
-                "File not found: %s (repo=%s, correlation_id=%s)",
-                full_path,
-                discovered_event.repo_name,
-                ctx_correlation_id,
-            )
-            return "ok"
-
-        # Read file content
-        try:
-            source_content = full_path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError) as e:
-            logger.warning(
-                "Cannot read file %s: %s (correlation_id=%s)",
-                full_path,
-                e,
-                ctx_correlation_id,
-            )
-            return "ok"
+        if source_content is None:
+            # Fallback for old events without source_content
+            resolved_paths = repo_paths or _load_repo_paths()
+            repo_root = resolved_paths.get(discovered_event.repo_name)
+            if repo_root is None:
+                logger.warning(
+                    "Unknown repo %r and no source_content, skipping "
+                    "(correlation_id=%s)",
+                    discovered_event.repo_name,
+                    ctx_correlation_id,
+                )
+                return "ok"
+            full_path = Path(repo_root) / discovered_event.file_path
+            if not full_path.is_file():
+                logger.warning(
+                    "File not found and no source_content: %s (correlation_id=%s)",
+                    full_path,
+                    ctx_correlation_id,
+                )
+                return "ok"
+            try:
+                source_content = full_path.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError) as e:
+                logger.warning(
+                    "Cannot read file %s: %s (correlation_id=%s)",
+                    full_path,
+                    e,
+                    ctx_correlation_id,
+                )
+                return "ok"
 
         logger.info(
             "Extracting entities from %s (repo=%s, hash=%s, correlation_id=%s)",
@@ -337,7 +336,7 @@ def _load_repo_paths() -> dict[str, str]:
     contract_text = contract_ref.read_text(encoding="utf-8")
     contract = yaml.safe_load(contract_text)
     repos = contract.get("config", {}).get("repos", [])
-    return {r["name"]: r["path"] for r in repos}
+    return {r["name"]: os.path.expandvars(r["path"]) for r in repos}
 
 
 # =============================================================================

@@ -47,26 +47,26 @@ config:
   repos:
     - name: omniintelligence
       enabled: true
-      path: /Volumes/PRO-G40/Code/omni_home/omniintelligence
+      path: ${OMNI_HOME}/omniintelligence
       include: ["src/**/*.py"]
       exclude: ["**/__pycache__/**", "**/node_tests/**"]
     - name: omniclaude
       enabled: true
-      path: /Volumes/PRO-G40/Code/omni_home/omniclaude
+      path: ${OMNI_HOME}/omniclaude
       include: ["src/**/*.py"]
       exclude: ["**/__pycache__/**"]
     - name: omnibase_core
       enabled: true
-      path: /Volumes/PRO-G40/Code/omni_home/omnibase_core
+      path: ${OMNI_HOME}/omnibase_core
       include: ["src/**/*.py"]
       exclude: ["**/__pycache__/**"]
     - name: omnibase_infra
       enabled: true
-      path: /Volumes/PRO-G40/Code/omni_home/omnibase_infra
+      path: ${OMNI_HOME}/omnibase_infra
       include: ["src/**/*.py"]
       exclude: ["**/__pycache__/**"]
     - name: omnidash
       enabled: true
-      path: /Volumes/PRO-G40/Code/omni_home/omnidash
+      path: ${OMNI_HOME}/omnidash
       include: ["server/**/*.ts", "server/**/*.js"]
       exclude: ["node_modules/**", "dist/**", "*.d.ts"]

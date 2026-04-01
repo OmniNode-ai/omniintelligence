@@ -286,7 +286,6 @@ async def main(dry_run: bool) -> None:
         print("ERROR: OMNIINTELLIGENCE_DB_URL not set in environment", file=sys.stderr)  # noqa: T201
         sys.exit(1)
 
-
     import hashlib
     import json
 

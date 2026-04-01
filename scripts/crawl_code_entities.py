@@ -23,12 +23,18 @@ import logging
 import sys
 from collections import Counter
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from omniintelligence.nodes.node_code_crawler_effect.models.model_crawl_config import (
+        ModelCrawlConfig,
+    )
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 
-def _load_crawl_config() -> "ModelCrawlConfig":
+def _load_crawl_config() -> ModelCrawlConfig:
     """Load crawl config from the crawler contract YAML."""
     import yaml
 
@@ -77,14 +83,14 @@ def cmd_dry_run(repo_filter: str | None = None) -> None:
         repo_counts[event.repo_name] += 1
         ext_counts[event.file_extension] += 1
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("Code Entity Crawl — Dry Run")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"\nTotal files: {len(events)}")
-    print(f"\nBy repository:")
+    print("\nBy repository:")
     for repo, count in sorted(repo_counts.items()):
         print(f"  {repo}: {count}")
-    print(f"\nBy extension:")
+    print("\nBy extension:")
     for ext, count in sorted(ext_counts.items()):
         print(f"  {ext}: {count}")
     print()
@@ -144,7 +150,10 @@ async def cmd_execute_sync(repo_filter: str | None = None) -> None:
     # Connect to Postgres
     db_url = os.environ.get("OMNIINTELLIGENCE_DB_URL") or os.environ.get("DATABASE_URL")
     if not db_url:
-        print("ERROR: OMNIINTELLIGENCE_DB_URL or DATABASE_URL must be set", file=sys.stderr)  # noqa: T201
+        print(
+            "ERROR: OMNIINTELLIGENCE_DB_URL or DATABASE_URL must be set",
+            file=sys.stderr,
+        )  # noqa: T201
         sys.exit(1)
     pool = await asyncpg.create_pool(db_url, min_size=2, max_size=10)
     repo_db = RepositoryCodeEntity(pool)
@@ -205,7 +214,9 @@ async def cmd_execute_sync(repo_filter: str | None = None) -> None:
                     total_persisted_entities += 1
                     repo_stats[event.repo_name]["persisted_entities"] += 1
                 except Exception as exc:
-                    logger.debug("Failed to upsert entity %s: %s", entity.qualified_name, exc)
+                    logger.debug(
+                        "Failed to upsert entity %s: %s", entity.qualified_name, exc
+                    )
 
             # Persist relationships (resolve qualified names to entity IDs)
             for rel in result.relationships:
@@ -224,42 +235,52 @@ async def cmd_execute_sync(repo_filter: str | None = None) -> None:
 
                 if source_id and target_id:
                     try:
-                        await repo_db.upsert_relationship({
-                            "source_entity_id": source_id,
-                            "target_entity_id": target_id,
-                            "relationship_type": rel.relationship_type,
-                            "trust_tier": rel.trust_tier,
-                            "confidence": rel.confidence,
-                            "evidence": rel.evidence,
-                            "inject_into_context": rel.inject_into_context,
-                            "source_repo": event.repo_name,
-                        })
+                        await repo_db.upsert_relationship(
+                            {
+                                "source_entity_id": source_id,
+                                "target_entity_id": target_id,
+                                "relationship_type": rel.relationship_type,
+                                "trust_tier": rel.trust_tier,
+                                "confidence": rel.confidence,
+                                "evidence": rel.evidence,
+                                "inject_into_context": rel.inject_into_context,
+                                "source_repo": event.repo_name,
+                            }
+                        )
                         total_persisted_relationships += 1
                         repo_stats[event.repo_name]["persisted_relationships"] += 1
                     except Exception as exc:
                         logger.debug(
                             "Failed to upsert relationship %s->%s: %s",
-                            rel.source_entity, rel.target_entity, exc,
+                            rel.source_entity,
+                            rel.target_entity,
+                            exc,
                         )
                 else:
                     total_skipped += 1
 
             # Progress indicator every 100 files
             if total_files % 100 == 0:
-                print(f"  ... processed {total_files} files, {total_persisted_entities} entities persisted")
+                print(
+                    f"  ... processed {total_files} files, {total_persisted_entities} entities persisted"
+                )
 
         # Clean up stale entities per file is deferred to a separate sweep
 
     finally:
         await pool.close()
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("Code Entity Crawl — Sync Execution (with persistence)")
-    print(f"{'='*60}")
-    print(f"\nExtracted: {total_files} files, {total_entities} entities, {total_relationships} relationships")
-    print(f"Persisted: {total_persisted_entities} entities, {total_persisted_relationships} relationships")
+    print(f"{'=' * 60}")
+    print(
+        f"\nExtracted: {total_files} files, {total_entities} entities, {total_relationships} relationships"
+    )
+    print(
+        f"Persisted: {total_persisted_entities} entities, {total_persisted_relationships} relationships"
+    )
     print(f"Skipped relationships (unresolved targets): {total_skipped}")
-    print(f"\nBy repository:")
+    print("\nBy repository:")
     for repo, stats in sorted(repo_stats.items()):
         print(
             f"  {repo}: {stats['files']} files, "
