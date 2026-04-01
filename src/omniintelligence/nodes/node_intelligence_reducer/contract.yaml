@@ -588,6 +588,7 @@ event_bus:
 
   # Topics this node subscribes to (receives events from)
   subscribe_topics:
+    - "onex.cmd.omniintelligence.pattern-lifecycle-process.v1"
     - "onex.evt.omniintelligence.intent-outcome-labeled.v1"
 
   # This reducer publishes one Kafka event: onex.evt.omniintelligence.intent-pattern-promoted.v1

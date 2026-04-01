@@ -97,6 +97,7 @@ def _has_subscribe_topics(contract_path: Path) -> bool:
 # published by omniclaude IntelligenceEventClient).
 _ADDITIONAL_SUBSCRIBE_TOPICS: list[str] = [
     "onex.cmd.omniintelligence.code-analysis.v1",  # OMN-6969
+    "onex.cmd.omniintelligence.utilization-scoring.v1",  # OMN-5507
 ]
 
 

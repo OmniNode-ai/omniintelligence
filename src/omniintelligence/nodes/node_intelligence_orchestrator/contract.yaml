@@ -220,6 +220,7 @@ event_bus:
     - "onex.cmd.omniintelligence.document-ingestion.v1"
     - "onex.cmd.omniintelligence.pattern-learning.v1"
     - "onex.cmd.omniintelligence.quality-assessment.v1"
+    - "onex.cmd.omniintelligence.intent-received.v1"
     - "onex.evt.omniintelligence.intent-drift-detected.v1"
 
   publish_topics:

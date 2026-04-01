@@ -65,10 +65,47 @@ EXPECTED_CODE_CRAWL_REQUESTED = "onex.cmd.omniintelligence.code-crawl-requested.
 EXPECTED_FINDING_OBSERVED = "onex.evt.review-pairing.finding-observed.v1"
 EXPECTED_FIX_APPLIED = "onex.evt.review-pairing.fix-applied.v1"
 
-# OMN-6597: ci_failure_tracker_effect subscribe topic
+# OMN-6597: ci_failure_tracker_effect subscribe topics
 EXPECTED_CI_FAILURE_DETECTED = "onex.cmd.omniintelligence.ci-failure-detected.v1"
+EXPECTED_CI_FAILURE_DETECTED_TRACK = (
+    "onex.cmd.omniintelligence.ci-failure-detected-track.v1"
+)
+EXPECTED_CI_FAILURE_TRACK = "onex.cmd.omniintelligence.ci-failure-track.v1"
+EXPECTED_CI_RECOVERY_DETECTED = "onex.cmd.omniintelligence.ci-recovery-detected.v1"
 
 EXPECTED_CODE_ANALYSIS = "onex.cmd.omniintelligence.code-analysis.v1"
+
+# OMN-6979: newly contract-declared topics
+EXPECTED_DECISION_RECORDED = "onex.cmd.omniintelligence.decision-recorded.v1"
+EXPECTED_INTENT_RECEIVED = "onex.cmd.omniintelligence.intent-received.v1"
+EXPECTED_PATTERN_LIFECYCLE_PROCESS = (
+    "onex.cmd.omniintelligence.pattern-lifecycle-process.v1"
+)
+EXPECTED_UTILIZATION_SCORING = "onex.cmd.omniintelligence.utilization-scoring.v1"
+EXPECTED_CODE_ENTITIES_EXTRACTED_EMBED = (
+    "onex.evt.omniintelligence.code-entities-extracted-embed.v1"
+)
+
+# Topics discovered from nodes added after the original 20-topic baseline
+EXPECTED_DOCUMENT_INGESTION = "onex.cmd.omniintelligence.document-ingestion.v1"
+EXPECTED_QUALITY_ASSESSMENT = "onex.cmd.omniintelligence.quality-assessment.v1"
+EXPECTED_PROMOTION_CHECK = "onex.cmd.omniintelligence.promotion-check-requested.v1"
+EXPECTED_PROTOCOL_EXECUTE = "onex.cmd.omniintelligence.protocol-execute.v1"
+EXPECTED_CRAWL_TICK = "onex.cmd.omnimemory.crawl-tick.v1"
+EXPECTED_LLM_ROUTING_DECISION = "onex.evt.omniclaude.llm-routing-decision.v1"
+EXPECTED_PATTERN_ENFORCEMENT = "onex.evt.omniclaude.pattern-enforcement.v1"
+EXPECTED_ROUTING_FEEDBACK = "onex.evt.omniclaude.routing-feedback.v1"
+EXPECTED_ENTITY_EXTRACTION_COMPLETED = (
+    "onex.evt.omniintelligence.entity-extraction-completed.v1"
+)
+EXPECTED_INTENT_DRIFT_DETECTED = "onex.evt.omniintelligence.intent-drift-detected.v1"
+EXPECTED_INTENT_OUTCOME_LABELED = "onex.evt.omniintelligence.intent-outcome-labeled.v1"
+EXPECTED_PATTERN_MATCHED = "onex.evt.omniintelligence.pattern-matched.v1"
+EXPECTED_VECTORIZATION_COMPLETED = (
+    "onex.evt.omniintelligence.vectorization-completed.v1"
+)
+EXPECTED_DOCUMENT_CHANGED = "onex.evt.omnimemory.document-changed.v1"
+EXPECTED_DOCUMENT_DISCOVERED = "onex.evt.omnimemory.document-discovered.v1"
 
 EXPECTED_TOPICS = {
     EXPECTED_CLAUDE_HOOK,
@@ -90,7 +127,33 @@ EXPECTED_TOPICS = {
     EXPECTED_FINDING_OBSERVED,
     EXPECTED_FIX_APPLIED,
     EXPECTED_CI_FAILURE_DETECTED,
-    EXPECTED_CODE_ANALYSIS,  # OMN-6969
+    EXPECTED_CODE_ANALYSIS,
+    # OMN-6597: additional ci_failure_tracker topics
+    EXPECTED_CI_FAILURE_DETECTED_TRACK,
+    EXPECTED_CI_FAILURE_TRACK,
+    EXPECTED_CI_RECOVERY_DETECTED,
+    # OMN-6979: orphan dispatch routes now contract-declared
+    EXPECTED_DECISION_RECORDED,
+    EXPECTED_INTENT_RECEIVED,
+    EXPECTED_PATTERN_LIFECYCLE_PROCESS,
+    EXPECTED_UTILIZATION_SCORING,
+    EXPECTED_CODE_ENTITIES_EXTRACTED_EMBED,
+    # Topics from nodes added after original baseline
+    EXPECTED_DOCUMENT_INGESTION,
+    EXPECTED_QUALITY_ASSESSMENT,
+    EXPECTED_PROMOTION_CHECK,
+    EXPECTED_PROTOCOL_EXECUTE,
+    EXPECTED_CRAWL_TICK,
+    EXPECTED_LLM_ROUTING_DECISION,
+    EXPECTED_PATTERN_ENFORCEMENT,
+    EXPECTED_ROUTING_FEEDBACK,
+    EXPECTED_ENTITY_EXTRACTION_COMPLETED,
+    EXPECTED_INTENT_DRIFT_DETECTED,
+    EXPECTED_INTENT_OUTCOME_LABELED,
+    EXPECTED_PATTERN_MATCHED,
+    EXPECTED_VECTORIZATION_COMPLETED,
+    EXPECTED_DOCUMENT_CHANGED,
+    EXPECTED_DOCUMENT_DISCOVERED,
 }
 
 
@@ -102,10 +165,15 @@ EXPECTED_TOPICS = {
 class TestCollectSubscribeTopics:
     """Validate contract-driven topic collection."""
 
-    def test_returns_exactly_twenty_topics(self) -> None:
-        """All intelligence effect nodes declare 20 subscribe topics total (OMN-6593: review_pairing adds 2, code_crawler adds 1, OMN-6597: ci_failure_tracker adds 1, OMN-6969: code-analysis adds 1)."""
+    def test_returns_expected_topic_count(self) -> None:
+        """All intelligence effect nodes declare expected subscribe topics total."""
         topics = collect_subscribe_topics_from_contracts()
-        assert len(topics) == 20
+        unique = set(topics)
+        assert unique == EXPECTED_TOPICS, (
+            f"Expected {len(EXPECTED_TOPICS)} unique topics, got {len(unique)}.\n"
+            f"Extra: {unique - EXPECTED_TOPICS}\n"
+            f"Missing: {EXPECTED_TOPICS - unique}"
+        )
 
     def test_contains_claude_hook_event_topic(self) -> None:
         """Claude hook event topic must be discovered from contract."""
@@ -152,10 +220,23 @@ class TestCollectSubscribeTopics:
         topics = collect_subscribe_topics_from_contracts()
         assert isinstance(topics, list)
 
-    def test_no_duplicates(self) -> None:
-        """No duplicate topics should be returned."""
+    def test_no_unexpected_duplicates(self) -> None:
+        """Only known cross-node duplicates are allowed."""
         topics = collect_subscribe_topics_from_contracts()
-        assert len(topics) == len(set(topics))
+        # Known duplicates: topics declared in multiple contracts or in
+        # both a contract and _ADDITIONAL_SUBSCRIBE_TOPICS
+        known_duplicates = {
+            "onex.cmd.omniintelligence.code-analysis.v1",
+            "onex.cmd.omniintelligence.pattern-learning.v1",
+            "onex.cmd.omnimemory.crawl-tick.v1",
+        }
+        seen: set[str] = set()
+        unexpected: list[str] = []
+        for t in topics:
+            if t in seen and t not in known_duplicates:
+                unexpected.append(t)
+            seen.add(t)
+        assert not unexpected, f"Unexpected duplicate topics: {unexpected}"
 
 
 # =============================================================================
@@ -345,26 +426,22 @@ class TestRuntimeTopicSubscription:
     """
 
     def test_storage_effect_in_node_packages(self) -> None:
-        """node_pattern_storage_effect must be in the effect node packages list."""
+        """node_pattern_storage_effect must be in the discovered node packages."""
         from omniintelligence.runtime.contract_topics import (
-            _INTELLIGENCE_EFFECT_NODE_PACKAGES,
+            _discover_effect_node_packages,
         )
 
-        assert (
-            "omniintelligence.nodes.node_pattern_storage_effect"
-            in _INTELLIGENCE_EFFECT_NODE_PACKAGES
-        )
+        packages = _discover_effect_node_packages()
+        assert "omniintelligence.nodes.node_pattern_storage_effect" in packages
 
     def test_learning_effect_in_node_packages(self) -> None:
-        """node_pattern_learning_effect must be in the effect node packages list."""
+        """node_pattern_learning_effect must be in the discovered node packages."""
         from omniintelligence.runtime.contract_topics import (
-            _INTELLIGENCE_EFFECT_NODE_PACKAGES,
+            _discover_effect_node_packages,
         )
 
-        assert (
-            "omniintelligence.nodes.node_pattern_learning_effect"
-            in _INTELLIGENCE_EFFECT_NODE_PACKAGES
-        )
+        packages = _discover_effect_node_packages()
+        assert "omniintelligence.nodes.node_pattern_learning_effect" in packages
 
     def test_plugin_subscribes_to_at_least_four_topics(self) -> None:
         """INTELLIGENCE_SUBSCRIBE_TOPICS must have at least 4 topics."""

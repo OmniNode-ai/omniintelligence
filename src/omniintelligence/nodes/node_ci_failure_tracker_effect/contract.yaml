@@ -33,6 +33,8 @@ event_bus:
   event_bus_enabled: true
   subscribe_topics:
     - "onex.cmd.omniintelligence.ci-failure-detected.v1"
+    - "onex.cmd.omniintelligence.ci-failure-detected-track.v1"
+    - "onex.cmd.omniintelligence.ci-failure-track.v1"
   publish_topics:
     - "onex.evt.omniintelligence.debug-trigger-record-created.v1"
     - "onex.evt.omniintelligence.ci-debug-escalation.v1"

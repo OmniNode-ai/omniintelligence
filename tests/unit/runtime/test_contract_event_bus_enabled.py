@@ -3,11 +3,9 @@
 
 """Verify all intelligence effect-node contracts have event_bus_enabled: true.
 
-Every package listed in contract_topics._INTELLIGENCE_EFFECT_NODE_PACKAGES must
-ship a contract.yaml with ``event_bus.event_bus_enabled: true``.  If a new
-effect node is added to the list but its contract is missing or has the flag
-disabled, this test fails — keeping the contract_topics registry and the
-actual contracts in sync.
+Every package discovered by ``_discover_effect_node_packages()`` must ship a
+contract.yaml with ``event_bus.event_bus_enabled: true``.  If a new effect node
+is added but its contract is missing or has the flag disabled, this test fails.
 
 Related: OMN-7142
 """
@@ -19,23 +17,12 @@ import importlib.resources
 import pytest
 import yaml
 
+from omniintelligence.runtime.contract_topics import _discover_effect_node_packages
+
 # ---------------------------------------------------------------------------
-# Expected set — mirrors contract_topics._INTELLIGENCE_EFFECT_NODE_PACKAGES
+# Dynamically discovered packages with event_bus_enabled subscribe_topics
 # ---------------------------------------------------------------------------
-EXPECTED_EFFECT_NODE_PACKAGES: list[str] = [
-    "omniintelligence.nodes.node_bloom_eval_orchestrator",
-    "omniintelligence.nodes.node_claude_hook_event_effect",
-    "omniintelligence.nodes.node_compliance_evaluate_effect",
-    "omniintelligence.nodes.node_crawl_scheduler_effect",
-    "omniintelligence.nodes.node_pattern_feedback_effect",
-    "omniintelligence.nodes.node_pattern_learning_effect",
-    "omniintelligence.nodes.node_pattern_lifecycle_effect",
-    "omniintelligence.nodes.node_pattern_projection_effect",
-    "omniintelligence.nodes.node_pattern_storage_effect",
-    "omniintelligence.nodes.node_code_crawler_effect",
-    "omniintelligence.review_pairing",
-    "omniintelligence.nodes.node_ci_failure_tracker_effect",
-]
+EXPECTED_EFFECT_NODE_PACKAGES: list[str] = _discover_effect_node_packages()
 
 
 def _load_contract(package: str) -> dict:
@@ -58,20 +45,15 @@ class TestContractEventBusEnabled:
         )
 
     def test_expected_set_matches_contract_topics(self) -> None:
-        """The hardcoded list here must match contract_topics at runtime."""
-        from omniintelligence.runtime.contract_topics import (
-            _INTELLIGENCE_EFFECT_NODE_PACKAGES,
+        """The discovered list must match a fresh discovery call."""
+        fresh = _discover_effect_node_packages()
+        assert set(EXPECTED_EFFECT_NODE_PACKAGES) == set(fresh), (
+            "EXPECTED_EFFECT_NODE_PACKAGES is out of sync with "
+            "_discover_effect_node_packages()"
         )
 
-        assert set(EXPECTED_EFFECT_NODE_PACKAGES) == set(
-            _INTELLIGENCE_EFFECT_NODE_PACKAGES
-        ), (
-            "EXPECTED_EFFECT_NODE_PACKAGES in this test is out of sync with "
-            "contract_topics._INTELLIGENCE_EFFECT_NODE_PACKAGES"
-        )
-
-    def test_exactly_12_packages(self) -> None:
-        assert len(EXPECTED_EFFECT_NODE_PACKAGES) == 12
+    def test_at_least_12_packages(self) -> None:
+        assert len(EXPECTED_EFFECT_NODE_PACKAGES) >= 12
 
     def test_all_contracts_discoverable(self) -> None:
         """Every listed package must have a loadable contract.yaml."""

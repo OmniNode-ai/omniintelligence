@@ -155,6 +155,7 @@ event_bus:
   event_bus_enabled: true
 
   subscribe_topics:
+    - "onex.cmd.omniintelligence.decision-recorded.v1"
     # NOTE: This topic uses 'evt' kind (not 'cmd') because it is produced by omniclaude.
     # The topic name is dictated by the producer; this is an intentional cross-system
     # exception to the convention that subscribe topics use 'cmd' kind.

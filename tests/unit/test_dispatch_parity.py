@@ -262,17 +262,10 @@ _KNOWN_UNWIRED_SUBSCRIBE_EVT: set[str] = {
     "onex.evt.omnimemory.document-discovered.v1",
 }
 
-_KNOWN_ORPHAN_DISPATCH_ROUTES: set[str] = {
-    # Dispatch routes registered for observability/future use that do not
-    # have a matching contract subscribe/publish topic yet.
-    "onex.cmd.omniintelligence.ci-failure-detected-track.v1",
-    "onex.cmd.omniintelligence.ci-failure-track.v1",
-    "onex.cmd.omniintelligence.decision-recorded.v1",
-    "onex.cmd.omniintelligence.intent-received.v1",
-    "onex.cmd.omniintelligence.pattern-lifecycle-process.v1",
-    "onex.cmd.omniintelligence.utilization-scoring.v1",
-    "onex.evt.omniintelligence.code-entities-extracted-embed.v1",
-}
+_KNOWN_ORPHAN_DISPATCH_ROUTES: set[str] = set()
+# All previously orphaned dispatch routes now have contract declarations
+# as of OMN-6979. This set is empty — new orphan routes will cause test
+# failure until either declared in a contract or documented here.
 
 
 # ---------------------------------------------------------------------------
