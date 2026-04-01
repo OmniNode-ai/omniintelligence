@@ -300,10 +300,11 @@ async def handle_code_crawl(
         for node in file_nodes:
             full_path = repo_path / node.path
             try:
-                file_hash = _sha256_of_file(full_path)
-                file_size = node.size or 0
-            except (OSError, PermissionError) as e:
-                logger.warning("Cannot hash file %s: %s", full_path, e)
+                source_content = full_path.read_text(encoding="utf-8")
+                file_hash = hashlib.sha256(source_content.encode("utf-8")).hexdigest()
+                file_size = len(source_content.encode("utf-8"))
+            except (OSError, PermissionError, UnicodeDecodeError) as e:
+                logger.warning("Cannot read file %s: %s", full_path, e)
                 continue
 
             events.append(
@@ -314,6 +315,7 @@ async def handle_code_crawl(
                     file_path=node.path,
                     file_hash=file_hash,
                     file_size_bytes=file_size,
+                    source_content=source_content,
                     timestamp=datetime.now(tz=timezone.utc),
                 )
             )
