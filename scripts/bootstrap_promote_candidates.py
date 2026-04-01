@@ -58,7 +58,7 @@ async def main(dry_run: bool) -> None:
             key=correlation_id.encode(),
             value=payload,
         )
-        print(f"Emitted promotion-check command")  # noqa: T201
+        print("Emitted promotion-check command")  # noqa: T201
         print(f"  topic: {topic}")  # noqa: T201
         print(f"  correlation_id: {correlation_id}")  # noqa: T201
         print(f"  bootstrap_servers: {bootstrap_servers}")  # noqa: T201

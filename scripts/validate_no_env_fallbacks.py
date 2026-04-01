@@ -65,7 +65,11 @@ def _is_test_file(path: Path) -> bool:
 
 def _is_comment_or_docstring_line(line: str) -> bool:
     stripped = line.strip()
-    return stripped.startswith("#") or stripped.startswith('"""') or stripped.startswith("'''")
+    return (
+        stripped.startswith("#")
+        or stripped.startswith('"""')
+        or stripped.startswith("'''")
+    )
 
 
 def scan() -> list[str]:

@@ -270,12 +270,14 @@ async def test_crawl_events_include_source_content(tmp_path: Path) -> None:
     (repo / "foo.py").write_text("class Foo:\n    pass\n")
 
     events = await handle_code_crawl(
-        repos_config=[{
-            "name": "test_repo",
-            "path": str(tmp_path / "test_repo"),
-            "include": ["src/**/*.py"],
-            "exclude": [],
-        }]
+        repos_config=[
+            {
+                "name": "test_repo",
+                "path": str(tmp_path / "test_repo"),
+                "include": ["src/**/*.py"],
+                "exclude": [],
+            }
+        ]
     )
 
     assert len(events) == 1

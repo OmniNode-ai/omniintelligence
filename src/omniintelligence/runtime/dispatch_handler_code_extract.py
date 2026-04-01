@@ -147,8 +147,7 @@ def create_code_extract_dispatch_handler(
             full_path = Path(repo_root) / discovered_event.file_path
             if not full_path.is_file():
                 logger.warning(
-                    "File not found and no source_content: %s "
-                    "(correlation_id=%s)",
+                    "File not found and no source_content: %s (correlation_id=%s)",
                     full_path,
                     ctx_correlation_id,
                 )

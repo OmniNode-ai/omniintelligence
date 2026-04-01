@@ -19,9 +19,7 @@ Reference: OMN-5509 - End-to-end verification.
 from __future__ import annotations
 
 import asyncio
-import json
 import os
-import sys
 
 
 async def check_pattern_lifecycle_status() -> bool:
@@ -87,7 +85,9 @@ async def check_context_utilization_events() -> bool:
                 print("[PASS] Context utilization events present")  # noqa: T201
                 return True
             else:
-                print("[WARN] No context utilization events yet (requires a session with pattern injection)")  # noqa: T201
+                print(
+                    "[WARN] No context utilization events yet (requires a session with pattern injection)"
+                )  # noqa: T201
                 return False
         finally:
             await conn.close()
@@ -119,7 +119,9 @@ async def check_promotion_topic_has_messages() -> bool:
                 print("[PASS] Promotion scheduler is emitting")  # noqa: T201
                 return True
             else:
-                print("[WARN] No promotion-check messages yet (scheduler may not have fired)")  # noqa: T201
+                print(
+                    "[WARN] No promotion-check messages yet (scheduler may not have fired)"
+                )  # noqa: T201
                 return False
         finally:
             await consumer.stop()
