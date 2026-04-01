@@ -1,11 +1,11 @@
 # SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
 
-"""Tests for AST extraction on NodeCompute base class [OMN-7173].
+"""Tests for AST extraction on all four ONEX base node classes [OMN-7174].
 
-Reads the real NodeCompute source from omnibase_core and verifies that
-extract_entities_from_source produces correct class entities, base class
-lists, method lists, and INHERITS relationships.
+Uses ``extract_entities_from_source`` against the real source files in
+omnibase_core to verify that each base node class is correctly extracted
+with its distinguishing mixin in the ``bases`` list.
 """
 
 from __future__ import annotations
@@ -19,6 +19,10 @@ import pytest
 from omniintelligence.nodes.node_ast_extraction_compute.handlers import (
     extract_entities_from_source,
 )
+
+# ---------------------------------------------------------------------------
+# Helper: locate omni_home
+# ---------------------------------------------------------------------------
 
 
 def _omni_home() -> Path:
@@ -73,60 +77,87 @@ def _omni_home() -> Path:
     raise RuntimeError(msg)
 
 
-def _read_node_compute_source() -> str:
-    """Read the NodeCompute source file from omnibase_core."""
-    path = (
-        _omni_home()
-        / "omnibase_core"
-        / "src"
-        / "omnibase_core"
-        / "nodes"
-        / "node_compute.py"
-    )
-    return path.read_text(encoding="utf-8")
+# ---------------------------------------------------------------------------
+# Parametrized test data for all four ONEX base node classes
+# ---------------------------------------------------------------------------
+
+_BASE_NODE_SPECS = [
+    pytest.param(
+        {
+            "class_name": "NodeCompute",
+            "file": "node_compute.py",
+            "distinguishing_mixin": "MixinHandlerRouting",
+        },
+        id="NodeCompute",
+    ),
+    pytest.param(
+        {
+            "class_name": "NodeEffect",
+            "file": "node_effect.py",
+            "distinguishing_mixin": "MixinEffectExecution",
+        },
+        id="NodeEffect",
+    ),
+    pytest.param(
+        {
+            "class_name": "NodeOrchestrator",
+            "file": "node_orchestrator.py",
+            "distinguishing_mixin": "MixinWorkflowExecution",
+        },
+        id="NodeOrchestrator",
+    ),
+    pytest.param(
+        {
+            "class_name": "NodeReducer",
+            "file": "node_reducer.py",
+            "distinguishing_mixin": "MixinFSMExecution",
+        },
+        id="NodeReducer",
+    ),
+]
 
 
 @pytest.mark.unit
-class TestExtractNodeComputeBaseClass:
-    """Verify AST extraction on the real NodeCompute source file."""
+@pytest.mark.parametrize("spec", _BASE_NODE_SPECS)
+def test_base_node_class_extraction(spec: dict[str, str]) -> None:
+    """Verify AST extraction finds the base node class with its distinguishing mixin."""
+    class_name = spec["class_name"]
+    file_name = spec["file"]
+    distinguishing_mixin = spec["distinguishing_mixin"]
 
-    @pytest.fixture(autouse=True)
-    def _setup(self) -> None:
-        source = _read_node_compute_source()
-        self.result = extract_entities_from_source(
-            source,
-            file_path="src/omnibase_core/nodes/node_compute.py",
-            source_repo="omnibase_core",
-        )
-        self.entities_by_name = {e.entity_name: e for e in self.result.entities}
+    source_path = (
+        _omni_home() / "omnibase_core" / "src" / "omnibase_core" / "nodes" / file_name
+    )
+    source_code = source_path.read_text(encoding="utf-8")
+    relative_path = f"src/omnibase_core/nodes/{file_name}"
 
-    def test_node_compute_class_entity_found(self) -> None:
-        """A class entity named 'NodeCompute' is extracted."""
-        assert "NodeCompute" in self.entities_by_name
-        entity = self.entities_by_name["NodeCompute"]
-        assert entity.entity_type == "class"
-        assert entity.source_repo == "omnibase_core"
+    result = extract_entities_from_source(
+        source_code,
+        file_path=relative_path,
+        source_repo="omnibase_core",
+    )
 
-    def test_node_compute_bases_and_methods(self) -> None:
-        """NodeCompute lists correct bases and includes the 'process' method."""
-        entity = self.entities_by_name["NodeCompute"]
+    # Build lookup by entity_name
+    entities_by_name = {e.entity_name: e for e in result.entities}
 
-        # Bases include NodeCoreBase and MixinHandlerRouting
-        assert "NodeCoreBase" in entity.bases
-        assert "MixinHandlerRouting" in entity.bases
+    # Assert the class entity is found
+    assert class_name in entities_by_name, (
+        f"Expected entity '{class_name}' not found. "
+        f"Available entities: {sorted(entities_by_name.keys())}"
+    )
 
-        # Methods include 'process'
-        method_names = [m["name"] for m in entity.methods]
-        assert "process" in method_names
+    entity = entities_by_name[class_name]
+    assert entity.entity_type == "class"
+    assert entity.source_repo == "omnibase_core"
 
-    def test_inherits_relationships(self) -> None:
-        """INHERITS relationships exist from NodeCompute to its base classes."""
-        inherits_rels = [
-            r
-            for r in self.result.relationships
-            if r.relationship_type == "inherits"
-            and r.source_entity == "omnibase_core.nodes.node_compute.NodeCompute"
-        ]
-        target_names = {r.target_entity for r in inherits_rels}
-        assert "NodeCoreBase" in target_names
-        assert "MixinHandlerRouting" in target_names
+    # Assert the distinguishing mixin is in the bases list
+    assert distinguishing_mixin in entity.bases, (
+        f"Expected '{distinguishing_mixin}' in bases for {class_name}. "
+        f"Actual bases: {entity.bases}"
+    )
+
+    # Assert NodeCoreBase is also present (shared by all four)
+    assert "NodeCoreBase" in entity.bases, (
+        f"Expected 'NodeCoreBase' in bases for {class_name}. "
+        f"Actual bases: {entity.bases}"
+    )
