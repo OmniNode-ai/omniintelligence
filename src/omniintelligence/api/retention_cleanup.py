@@ -4,7 +4,7 @@
 
 Deletes rows older than retention_days from:
 - agent_actions (tool_use logs, ~97K rows unbounded)
-- learned_patterns where lifecycle_status = 'candidate' and older than 14 days
+- learned_patterns where status = 'candidate' and older than 14 days
 
 OMN-7013: Prevents unbounded table growth by running batched DELETEs
 on a configurable interval.
@@ -38,7 +38,7 @@ _CLEANUP_SQL_STALE_CANDIDATES = """
 DELETE FROM learned_patterns
 WHERE ctid IN (
     SELECT ctid FROM learned_patterns
-    WHERE lifecycle_status = 'candidate'
+    WHERE status = 'candidate'
       AND created_at < NOW() - INTERVAL '14 days'
     LIMIT 1000
 )
