@@ -25,6 +25,10 @@ from omniintelligence.nodes.node_pattern_extraction_compute.models.model_insight
 from omniintelligence.nodes.node_pattern_extraction_compute.models.model_output import (
     ModelPatternExtractionOutput,
 )
+from omniintelligence.nodes.node_pattern_extraction_compute.models.model_pattern_definition import (
+    ModelPatternDefinition,
+    ModelPatternRole,
+)
 from omniintelligence.nodes.node_pattern_extraction_compute.models.model_pattern_extraction_metadata import (
     ModelPatternExtractionMetadata,
 )
@@ -40,9 +44,11 @@ __all__ = [
     "ModelCodebaseInsight",
     "ModelExtractionConfig",
     "ModelExtractionMetrics",
+    "ModelPatternDefinition",
     "ModelPatternExtractionInput",
     "ModelPatternExtractionMetadata",
     "ModelPatternExtractionOutput",
+    "ModelPatternRole",
     "ModelSessionSnapshot",
     "ModelToolExecution",
 ]
