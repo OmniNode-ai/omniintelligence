@@ -387,7 +387,7 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
             log_level=EnumLogLevel.DEBUG,
             event_bus=ModelEventBusConfig(
                 enabled=True,
-                bootstrap_servers="localhost:19092",
+                bootstrap_servers="${KAFKA_BOOTSTRAP_SERVERS}",
                 # NOTE(OMN-2438): PluginIntelligence.start_consumers() reads
                 # OMNIINTELLIGENCE_CONSUMER_GROUP directly; this value is used only
                 # by consumers that configure their own event bus independently.
@@ -401,7 +401,7 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
             handlers=[
                 ModelHandlerConfig(
                     handler_type=EnumHandlerType.KAFKA_PRODUCER,
-                    config={"bootstrap_servers": "localhost:19092"},
+                    config={"bootstrap_servers": "${KAFKA_BOOTSTRAP_SERVERS}"},
                 ),
             ],
             health_check_port=8080,

@@ -56,7 +56,7 @@ async def handle_code_embedding(
     )
 
     if qdrant_client is None:
-        qdrant_host = os.environ.get("QDRANT_HOST", "localhost")
+        qdrant_host = os.environ["QDRANT_HOST"]
         qdrant_port = int(os.environ.get("QDRANT_PORT", "6333"))
         try:
             qdrant_client = QdrantClient(host=qdrant_host, port=qdrant_port)

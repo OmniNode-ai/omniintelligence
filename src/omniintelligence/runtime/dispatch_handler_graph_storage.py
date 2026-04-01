@@ -30,6 +30,7 @@ Related:
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
 
 from neo4j import AsyncDriver, AsyncGraphDatabase
@@ -51,7 +52,7 @@ async def handle_graph_storage(
     *,
     repository: Any,  # RepositoryCodeEntity
     driver: AsyncDriver | None = None,
-    memgraph_uri: str = "bolt://localhost:7687",
+    memgraph_uri: str | None = None,
     rebuild: bool = False,
 ) -> dict[str, int]:
     """Sync entities and relationships from Postgres to Memgraph.
@@ -74,6 +75,8 @@ async def handle_graph_storage(
     owns_driver = driver is None
 
     if driver is None:
+        if memgraph_uri is None:
+            memgraph_uri = os.environ["MEMGRAPH_URI"]
         try:
             driver = AsyncGraphDatabase.driver(memgraph_uri)
             await driver.verify_connectivity()

@@ -41,7 +41,7 @@ class ModelEventBusConfig(BaseModel):
         description="Kafka bootstrap servers (supports env var interpolation). "
         "Empty string is valid when event_bus is disabled.",
         examples=[
-            "localhost:19092",
+            "${KAFKA_BOOTSTRAP_SERVERS}",
             "<kafka-broker>:9092",
         ],
     )

@@ -194,8 +194,6 @@ async def main(dry_run: bool) -> None:
         )
         sys.exit(1)
 
-    # Convert Docker-internal hostname to localhost for host-side scripts
-    db_url = db_url.replace("@postgres:5432/", "@localhost:5436/")
 
     import asyncpg
 
