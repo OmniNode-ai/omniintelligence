@@ -84,6 +84,13 @@ MODEL_REGISTRY: dict[str, ModelEndpointConfig] = {
         timeout_seconds=60.0,
         api_model_id="Qwen/Qwen3-14B-AWQ",
     ),
+    "qwen3-next": ModelEndpointConfig(
+        env_var="LLM_QWEN3_NEXT_URL",
+        default_url="http://192.168.86.200:8102",
+        kind="code_review",
+        timeout_seconds=120.0,
+        api_model_id="Qwen3-Next-80B-A3B",
+    ),
 }
 
 _DEFAULT_MODEL_KEY: str = "deepseek-r1"
