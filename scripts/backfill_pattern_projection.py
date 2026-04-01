@@ -128,10 +128,7 @@ async def main(dry_run: bool) -> None:
         print("ERROR: OMNIINTELLIGENCE_DB_URL not set in environment", file=sys.stderr)  # noqa: T201
         sys.exit(1)
 
-    # Convert Docker-internal hostname to localhost for host-side scripts
-    db_url = db_url.replace("@postgres:5432/", "@localhost:5436/")
-
-    kafka_servers = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "localhost:19092")
+    kafka_servers = os.environ["KAFKA_BOOTSTRAP_SERVERS"]
 
     import asyncpg
 

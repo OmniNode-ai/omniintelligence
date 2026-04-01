@@ -249,7 +249,7 @@ async def _query_omnimemory(
         # Step 2: search Qdrant
         from qdrant_client import AsyncQdrantClient  # lazy — not a banned module
 
-        qdrant_url = os.environ.get("QDRANT_URL", "http://localhost:6333")
+        qdrant_url = os.environ["QDRANT_URL"]
         collection_name = os.environ.get("OMNIMEMORY_COLLECTION", "omninode_memory")
 
         qdrant = AsyncQdrantClient(url=qdrant_url)

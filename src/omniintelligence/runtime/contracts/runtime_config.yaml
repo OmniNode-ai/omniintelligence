@@ -175,7 +175,7 @@ environments:
   development:
     log_level: "DEBUG"
     event_bus:
-      bootstrap_servers: "localhost:19092"
+      bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS}"
       consumer_group: "omniintelligence-dev"
       topics:
         commands: "onex.cmd.omniintelligence.claude-hook-event.v1"

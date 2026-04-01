@@ -11,6 +11,8 @@ Ticket: OMN-5562
 
 from __future__ import annotations
 
+import os
+
 from omniintelligence.rl.buffer import EpisodeReplayBuffer
 
 
@@ -22,7 +24,9 @@ class KafkaEpisodeSource:
     and add episodes to the replay buffer in real time.
     """
 
-    def __init__(self, bootstrap_servers: str = "localhost:19092") -> None:
+    def __init__(self, bootstrap_servers: str | None = None) -> None:
+        if bootstrap_servers is None:
+            bootstrap_servers = os.environ["KAFKA_BOOTSTRAP_SERVERS"]
         self._bootstrap_servers = bootstrap_servers
 
     async def populate_buffer(

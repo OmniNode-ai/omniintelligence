@@ -103,7 +103,7 @@ async def cmd_execute_kafka(repo_filter: str | None = None) -> None:
 
     from omniintelligence.constants import TOPIC_CODE_CRAWL_REQUESTED_V1
 
-    bootstrap_servers = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "localhost:19092")
+    bootstrap_servers = os.environ["KAFKA_BOOTSTRAP_SERVERS"]
     producer = Producer({"bootstrap.servers": bootstrap_servers})
 
     topic = TOPIC_CODE_CRAWL_REQUESTED_V1
@@ -142,13 +142,10 @@ async def cmd_execute_sync(repo_filter: str | None = None) -> None:
     config = _load_crawl_config()
 
     # Connect to Postgres
-    db_url = os.environ.get(
-        "OMNIINTELLIGENCE_DB_URL",
-        os.environ.get(
-            "DATABASE_URL",
-            f"postgresql://postgres:{os.environ.get('POSTGRES_PASSWORD', '')}@localhost:5436/omniintelligence",
-        ),
-    )
+    db_url = os.environ.get("OMNIINTELLIGENCE_DB_URL") or os.environ.get("DATABASE_URL")
+    if not db_url:
+        print("ERROR: OMNIINTELLIGENCE_DB_URL or DATABASE_URL must be set", file=sys.stderr)  # noqa: T201
+        sys.exit(1)
     pool = await asyncpg.create_pool(db_url, min_size=2, max_size=10)
     repo_db = RepositoryCodeEntity(pool)
 

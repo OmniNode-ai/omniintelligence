@@ -60,8 +60,7 @@ class ModelNavigationRetrieveInput(BaseModel):
         ),
     )
     qdrant_url: str = Field(
-        default="http://localhost:6333",
-        description="Base URL for the Qdrant instance.",
+        description="Base URL for the Qdrant instance. Required — callers must source from QDRANT_URL env var.",
     )
     qdrant_collection: str = Field(
         default=_DEFAULT_COLLECTION,

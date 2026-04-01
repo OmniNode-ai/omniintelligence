@@ -104,6 +104,7 @@ class TestEmbeddingUrlRequired:
             current_state=sample_state,
             graph=sample_graph,
             embedding_url="http://localhost:8100",
+            qdrant_url="http://localhost:6333",
         )
 
         assert model.embedding_url == "http://localhost:8100"
@@ -120,6 +121,7 @@ class TestEmbeddingUrlRequired:
             current_state=sample_state,
             graph=sample_graph,
             embedding_url="http://test:9999",
+            qdrant_url="http://test:6333",
         )
 
         # The value should be exactly what was passed, not any hardcoded fallback

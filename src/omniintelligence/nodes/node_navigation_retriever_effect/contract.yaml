@@ -119,7 +119,7 @@ embedding_config:
 # =============================================================================
 qdrant_config:
   collection: "navigation_paths"
-  default_url: "http://localhost:6333"
+  default_url: "${QDRANT_URL}"
   dimension: 1024
   distance: "Cosine"
   payload_fields:

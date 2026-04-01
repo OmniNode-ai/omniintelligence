@@ -63,7 +63,7 @@ class PostgresSourceConfig:
         """Create config from environment variables."""
         dsn = os.environ.get("OMNIDASH_ANALYTICS_DSN", "")
         if not dsn:
-            host = os.environ.get("POSTGRES_HOST", "localhost")
+            host = os.environ["POSTGRES_HOST"]
             port = os.environ.get("POSTGRES_PORT", "5436")
             user = os.environ.get("POSTGRES_USER", "postgres")
             password = os.environ.get("POSTGRES_PASSWORD", "")

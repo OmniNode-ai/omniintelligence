@@ -454,9 +454,12 @@ class PolicyExporter:
         backends: dict[str, dict[str, Any]] = {}
         for action in RoutingAction:
             backend_id = ACTION_TO_BACKEND[action]
-            url = self._backend_urls.get(
-                backend_id, f"http://localhost:800{action.value}"
-            )
+            url = self._backend_urls.get(backend_id)
+            if url is None:
+                raise ValueError(
+                    f"No URL configured for backend '{backend_id}'. "
+                    f"Pass backend_urls or set BACKEND_URLS."
+                )
             model = self._backend_models.get(backend_id)
             backend: dict[str, Any] = {
                 "backend_id": backend_id,

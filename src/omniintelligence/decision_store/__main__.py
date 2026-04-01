@@ -12,8 +12,7 @@ Runs as an independent process (Docker service) that:
 
 Environment Variables:
     OMNIINTELLIGENCE_DB_URL: PostgreSQL connection string (required).
-    DECISION_STORE_KAFKA_BOOTSTRAP_SERVERS: Kafka bootstrap servers
-        (default: localhost:19092).
+    DECISION_STORE_KAFKA_BOOTSTRAP_SERVERS: Kafka bootstrap servers (required).
     DECISION_STORE_KAFKA_GROUP_ID: Consumer group ID
         (default: decision-store-consumer).
     DECISION_STORE_HEALTH_CHECK_PORT: Health check HTTP port
@@ -60,8 +59,11 @@ async def _run() -> None:
         sys.exit(1)
 
     bootstrap_servers = os.environ.get(  # ONEX_FLAG_EXEMPT: config
-        "DECISION_STORE_KAFKA_BOOTSTRAP_SERVERS", "localhost:19092"
+        "DECISION_STORE_KAFKA_BOOTSTRAP_SERVERS", ""
     )
+    if not bootstrap_servers:
+        logger.error("DECISION_STORE_KAFKA_BOOTSTRAP_SERVERS is required but not set")
+        sys.exit(1)
     group_id = os.environ.get(  # ONEX_FLAG_EXEMPT: config
         "DECISION_STORE_KAFKA_GROUP_ID", "decision-store-consumer"
     )

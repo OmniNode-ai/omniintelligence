@@ -44,7 +44,7 @@ class ModelContextItemWriteInput(BaseModel):
     qdrant_collection: str = Field(default="context_items_v1")
     """Qdrant collection name."""
 
-    qdrant_url: str = Field(default="http://localhost:6333")
+    qdrant_url: str = Field()
     """Qdrant server URL."""
 
     emit_event: bool = Field(default=True)

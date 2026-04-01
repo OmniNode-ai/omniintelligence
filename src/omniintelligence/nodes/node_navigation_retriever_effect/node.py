@@ -87,7 +87,7 @@ class NodeNavigationRetrieverEffect(NodeEffect):
                     valid_transitions=frozenset([("node-start", "to_auth")]),
                 ),
                 embedding_url=os.environ["LLM_EMBEDDING_URL"],
-                qdrant_url="http://localhost:6333",
+                qdrant_url=os.environ["QDRANT_URL"],
             )
         )
         # result.paths — ranked list of RetrievedPath (may be empty on cold start)

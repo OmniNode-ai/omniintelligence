@@ -42,8 +42,8 @@ class ModelHandlerConfig(BaseModel):
         description="Handler-specific configuration (passed to handler constructor)",
         examples=[
             {"bootstrap_servers": "${KAFKA_BOOTSTRAP_SERVERS}"},
-            {"url": "http://localhost:6333", "collection": "intelligence"},
-            {"uri": "bolt://localhost:7687", "user": "neo4j"},
+            {"url": "${QDRANT_URL}", "collection": "intelligence"},
+            {"uri": "${MEMGRAPH_URI}", "user": "neo4j"},
         ],
     )
 
