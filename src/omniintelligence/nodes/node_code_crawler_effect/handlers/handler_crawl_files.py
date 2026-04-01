@@ -8,6 +8,7 @@ from __future__ import annotations
 import fnmatch
 import hashlib
 import logging
+import os
 from collections.abc import Iterator
 from pathlib import Path
 from uuid import uuid4
@@ -59,7 +60,7 @@ def _crawl_repo(
     crawl_id: str,
 ) -> Iterator[ModelCodeFileDiscoveredEvent]:
     """Crawl a single repo directory."""
-    repo_path = Path(repo_config.path)
+    repo_path = Path(os.path.expandvars(repo_config.path))
     if not repo_path.exists():
         logger.warning("Repo path does not exist: %s", repo_path)
         return
@@ -74,8 +75,13 @@ def _crawl_repo(
             if _matches_any_exclude(relative, repo_config.exclude):
                 continue
 
-            # Compute file hash
-            file_hash = _compute_file_hash(file_path)
+            # Read content and compute hash
+            try:
+                source_content = file_path.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError) as e:
+                logger.warning("Cannot read file %s: %s", file_path, e)
+                continue
+            file_hash = hashlib.sha256(source_content.encode("utf-8")).hexdigest()
 
             yield ModelCodeFileDiscoveredEvent(
                 event_id=f"evt_{uuid4().hex[:12]}",
@@ -84,6 +90,7 @@ def _crawl_repo(
                 file_path=relative,
                 file_hash=file_hash,
                 file_extension=file_path.suffix,
+                source_content=source_content,
             )
 
 

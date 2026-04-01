@@ -26,6 +26,7 @@ Related:
 from __future__ import annotations
 
 import logging
+import os
 import uuid
 from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
@@ -336,7 +337,7 @@ def _load_repo_paths() -> dict[str, str]:
     contract_text = contract_ref.read_text(encoding="utf-8")
     contract = yaml.safe_load(contract_text)
     repos = contract.get("config", {}).get("repos", [])
-    return {r["name"]: r["path"] for r in repos}
+    return {r["name"]: os.path.expandvars(r["path"]) for r in repos}
 
 
 # =============================================================================
