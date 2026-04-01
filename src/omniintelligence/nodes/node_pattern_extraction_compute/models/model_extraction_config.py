@@ -22,12 +22,12 @@ class ModelExtractionConfig(BaseModel):
         description="Extract error-prone file patterns",
     )
     extract_architecture_patterns: bool = Field(
-        default=True,
-        description="Extract architecture and module patterns",
+        default=False,
+        description="Extract architecture and module patterns (disabled: produces low-signal layer_pattern noise)",
     )
     extract_tool_patterns: bool = Field(
-        default=True,
-        description="Extract tool usage patterns",
+        default=False,
+        description="Extract tool usage patterns (disabled: produces low-signal tool_sequence noise)",
     )
     extract_tool_failure_patterns: bool = Field(
         default=True,

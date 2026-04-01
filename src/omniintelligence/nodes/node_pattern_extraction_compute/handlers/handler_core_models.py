@@ -42,6 +42,9 @@ from omnibase_core.types.type_json import JsonType
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_architecture_patterns import (
     extract_architecture_patterns,
 )
+from omniintelligence.nodes.node_pattern_extraction_compute.models.model_extraction_config import (
+    ModelExtractionConfig,
+)
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_converters import (
     convert_architecture_patterns,
     convert_error_patterns,
@@ -215,13 +218,18 @@ def handle_pattern_extraction_core(  # stub-ok: pattern-extraction-core-deferred
             )
             all_insights.extend(convert_error_patterns(results_err, ref_time))
 
-        if EnumPatternKind.ARCHITECTURE in kinds_to_extract:
+        # Architecture and tool-usage extractors are disabled by default
+        # (OMN-7231): they produce low-signal layer_pattern / tool_sequence
+        # noise.  Only run if explicitly enabled via config.
+        _defaults = ModelExtractionConfig()
+
+        if EnumPatternKind.ARCHITECTURE in kinds_to_extract and _defaults.extract_architecture_patterns:
             results_arch = extract_architecture_patterns(
                 sessions, min_occ, min_conf, min_distinct, max_results
             )
             all_insights.extend(convert_architecture_patterns(results_arch, ref_time))
 
-        if EnumPatternKind.TOOL_USAGE in kinds_to_extract:
+        if EnumPatternKind.TOOL_USAGE in kinds_to_extract and _defaults.extract_tool_patterns:
             results_tool = extract_tool_patterns(
                 sessions, min_occ, min_conf, min_distinct, max_results
             )

@@ -420,10 +420,10 @@ class TestExtractPatternsCore:
         # at least one error pattern at min_occurrences=1 / min_confidence=0.1
         assert len(err_patterns) > 0
 
-    def test_tool_usage_patterns_detected(
+    def test_tool_usage_patterns_disabled_by_default(
         self, raw_events_with_tools: list[dict]
     ) -> None:
-        """TOOL_USAGE patterns are detected from tool events."""
+        """TOOL_USAGE extractor is disabled by default (OMN-7231)."""
         core_input = CoreInput(
             raw_events=raw_events_with_tools,
             kinds=[EnumPatternKind.TOOL_USAGE],
@@ -434,15 +434,12 @@ class TestExtractPatternsCore:
 
         assert result.success is True
         tool_patterns = result.patterns_by_kind[EnumPatternKind.TOOL_USAGE]
-        assert len(tool_patterns) > 0
+        assert len(tool_patterns) == 0
 
-        for p in tool_patterns:
-            assert p.kind == EnumPatternKind.TOOL_USAGE
-
-    def test_architecture_patterns_detected(
+    def test_architecture_patterns_disabled_by_default(
         self, raw_events_architecture: list[dict]
     ) -> None:
-        """ARCHITECTURE patterns are detected from file access events."""
+        """ARCHITECTURE extractor is disabled by default (OMN-7231)."""
         core_input = CoreInput(
             raw_events=raw_events_architecture,
             kinds=[EnumPatternKind.ARCHITECTURE],
@@ -453,10 +450,7 @@ class TestExtractPatternsCore:
 
         assert result.success is True
         arch_patterns = result.patterns_by_kind[EnumPatternKind.ARCHITECTURE]
-        assert len(arch_patterns) > 0
-
-        for p in arch_patterns:
-            assert p.kind == EnumPatternKind.ARCHITECTURE
+        assert len(arch_patterns) == 0
 
     def test_kinds_filter_restricts_output(
         self, raw_events_file_access: list[dict]
