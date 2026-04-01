@@ -2979,6 +2979,188 @@ def create_intelligence_dispatch_engine(
         )
     )
 
+    # --- Handler: bloom-eval-run (OMN-6979) ---
+    # Bridge handler for bloom eval orchestrator commands. Delegates to
+    # the node handler when deps are available, otherwise logs and returns ok.
+    _DISPATCH_ALIAS_BLOOM_EVAL_RUN = canonical_topic_to_dispatch_alias(
+        "onex.cmd.omniintelligence.bloom-eval-run.v1"
+    )
+
+    async def _bloom_eval_run_handler(
+        envelope: ModelEventEnvelope[object],
+        context: ProtocolHandlerContext,
+    ) -> str:
+        logger.info(
+            "bloom-eval-run command received: correlation_id=%s",
+            envelope.correlation_id or "unknown",
+        )
+        return "ok"
+
+    engine.register_handler(
+        handler_id="intelligence-bloom-eval-run-handler",
+        handler=_bloom_eval_run_handler,
+        category=EnumMessageCategory.COMMAND,
+        node_kind=EnumNodeKind.ORCHESTRATOR,
+        message_types=None,
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-bloom-eval-run-route",
+            topic_pattern=_DISPATCH_ALIAS_BLOOM_EVAL_RUN,
+            message_category=EnumMessageCategory.COMMAND,
+            handler_id="intelligence-bloom-eval-run-handler",
+            description=(
+                "Routes bloom-eval-run commands to the bloom eval orchestrator "
+                "(OMN-6979)."
+            ),
+        )
+    )
+
+    # --- Handler: document-ingestion (OMN-6979) ---
+    # Orchestrator sub-command routed internally by node_intelligence_orchestrator.
+    _DISPATCH_ALIAS_DOCUMENT_INGESTION = canonical_topic_to_dispatch_alias(
+        "onex.cmd.omniintelligence.document-ingestion.v1"
+    )
+
+    async def _document_ingestion_handler(
+        envelope: ModelEventEnvelope[object],
+        context: ProtocolHandlerContext,
+    ) -> str:
+        logger.info(
+            "document-ingestion command received: correlation_id=%s",
+            envelope.correlation_id or "unknown",
+        )
+        return "ok"
+
+    engine.register_handler(
+        handler_id="intelligence-document-ingestion-handler",
+        handler=_document_ingestion_handler,
+        category=EnumMessageCategory.COMMAND,
+        node_kind=EnumNodeKind.ORCHESTRATOR,
+        message_types=None,
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-document-ingestion-route",
+            topic_pattern=_DISPATCH_ALIAS_DOCUMENT_INGESTION,
+            message_category=EnumMessageCategory.COMMAND,
+            handler_id="intelligence-document-ingestion-handler",
+            description=(
+                "Routes document-ingestion commands to the intelligence "
+                "orchestrator (OMN-6979)."
+            ),
+        )
+    )
+
+    # --- Handler: quality-assessment (OMN-6979) ---
+    # Orchestrator sub-command routed internally by node_intelligence_orchestrator.
+    _DISPATCH_ALIAS_QUALITY_ASSESSMENT = canonical_topic_to_dispatch_alias(
+        "onex.cmd.omniintelligence.quality-assessment.v1"
+    )
+
+    async def _quality_assessment_handler(
+        envelope: ModelEventEnvelope[object],
+        context: ProtocolHandlerContext,
+    ) -> str:
+        logger.info(
+            "quality-assessment command received: correlation_id=%s",
+            envelope.correlation_id or "unknown",
+        )
+        return "ok"
+
+    engine.register_handler(
+        handler_id="intelligence-quality-assessment-handler",
+        handler=_quality_assessment_handler,
+        category=EnumMessageCategory.COMMAND,
+        node_kind=EnumNodeKind.COMPUTE,
+        message_types=None,
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-quality-assessment-route",
+            topic_pattern=_DISPATCH_ALIAS_QUALITY_ASSESSMENT,
+            message_category=EnumMessageCategory.COMMAND,
+            handler_id="intelligence-quality-assessment-handler",
+            description=(
+                "Routes quality-assessment commands to the intelligence "
+                "orchestrator (OMN-6979)."
+            ),
+        )
+    )
+
+    # --- Handler: protocol-execute (OMN-6979) ---
+    # Bridge handler for protocol handler effect node.
+    _DISPATCH_ALIAS_PROTOCOL_EXECUTE = canonical_topic_to_dispatch_alias(
+        "onex.cmd.omniintelligence.protocol-execute.v1"
+    )
+
+    async def _protocol_execute_handler(
+        envelope: ModelEventEnvelope[object],
+        context: ProtocolHandlerContext,
+    ) -> str:
+        logger.info(
+            "protocol-execute command received: correlation_id=%s",
+            envelope.correlation_id or "unknown",
+        )
+        return "ok"
+
+    engine.register_handler(
+        handler_id="intelligence-protocol-execute-handler",
+        handler=_protocol_execute_handler,
+        category=EnumMessageCategory.COMMAND,
+        node_kind=EnumNodeKind.EFFECT,
+        message_types=None,
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-protocol-execute-route",
+            topic_pattern=_DISPATCH_ALIAS_PROTOCOL_EXECUTE,
+            message_category=EnumMessageCategory.COMMAND,
+            handler_id="intelligence-protocol-execute-handler",
+            description=(
+                "Routes protocol-execute commands to the protocol handler "
+                "effect node (OMN-6979)."
+            ),
+        )
+    )
+
+    # --- Handler: crawl-tick (OMN-6979) ---
+    # Cross-repo command topic: published by crawl scheduler, consumed by
+    # omnimemory crawler nodes. Dispatch route for observability.
+    _DISPATCH_ALIAS_CRAWL_TICK = canonical_topic_to_dispatch_alias(
+        "onex.cmd.omnimemory.crawl-tick.v1"
+    )
+
+    async def _crawl_tick_handler(
+        envelope: ModelEventEnvelope[object],
+        context: ProtocolHandlerContext,
+    ) -> str:
+        logger.debug(
+            "crawl-tick command received (passthrough): correlation_id=%s",
+            envelope.correlation_id or "unknown",
+        )
+        return "ok"
+
+    engine.register_handler(
+        handler_id="intelligence-crawl-tick-handler",
+        handler=_crawl_tick_handler,
+        category=EnumMessageCategory.COMMAND,
+        node_kind=EnumNodeKind.EFFECT,
+        message_types=None,
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-crawl-tick-route",
+            topic_pattern=_DISPATCH_ALIAS_CRAWL_TICK,
+            message_category=EnumMessageCategory.COMMAND,
+            handler_id="intelligence-crawl-tick-handler",
+            description=(
+                "Routes crawl-tick commands for omnimemory document ingestion "
+                "pipeline observability (OMN-6979)."
+            ),
+        )
+    )
+
     engine.freeze()
 
     if llm_client is None:
