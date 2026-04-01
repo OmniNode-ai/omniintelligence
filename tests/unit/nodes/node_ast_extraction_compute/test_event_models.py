@@ -27,6 +27,7 @@ class TestModelCodeFileDiscoveredEvent:
             file_path="src/main.py",
             file_hash="abc123",
             file_extension=".py",
+            source_content="print('hello')",
         )
 
         assert event.event_id == "evt_001"

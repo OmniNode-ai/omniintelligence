@@ -32,6 +32,7 @@ class ModelCodeFileDiscoveredEvent(BaseModel):
     file_path: str = Field(..., min_length=1)
     file_hash: str = Field(..., min_length=1)
     file_extension: str
+    source_content: str = Field(..., min_length=1, description="Full source code content")
     timestamp: datetime = Field(default_factory=_utc_now)
 
 

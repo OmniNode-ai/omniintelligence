@@ -72,6 +72,7 @@ async def test_crawl_handler_emits_file_discovered_events() -> None:
             file_path=f"src/module_{i}.py",
             file_hash=f"hash_{i}",
             file_size_bytes=100 * (i + 1),
+            source_content=f"# module {i}\nclass Mod{i}: pass\n",
             timestamp=datetime.now(tz=timezone.utc),
         )
         for i in range(3)
@@ -192,6 +193,7 @@ async def test_extract_handler_produces_entities_extracted_event() -> None:
         file_path="src/module.py",
         file_hash="abc123",
         file_size_bytes=500,
+        source_content="class MyClass:\n    pass\n",
         timestamp=datetime.now(tz=timezone.utc),
     ).model_dump(mode="json")
 
