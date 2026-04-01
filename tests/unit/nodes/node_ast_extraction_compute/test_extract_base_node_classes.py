@@ -21,6 +21,17 @@ from omniintelligence.nodes.node_ast_extraction_compute.handlers import (
 )
 
 # ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+FOUR_NODE_BASE_CLASSES = {
+    "NodeCompute",
+    "NodeEffect",
+    "NodeOrchestrator",
+    "NodeReducer",
+}
+
+# ---------------------------------------------------------------------------
 # Helper: locate omni_home
 # ---------------------------------------------------------------------------
 
@@ -160,4 +171,56 @@ def test_base_node_class_extraction(spec: dict[str, str]) -> None:
     assert "NodeCoreBase" in entity.bases, (
         f"Expected 'NodeCoreBase' in bases for {class_name}. "
         f"Actual bases: {entity.bases}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Role detection test [OMN-7175]
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_detect_compute_node_role() -> None:
+    """extract_entities_from_source detects NodeCompute role on a real file."""
+    target = (
+        _omni_home()
+        / "omniintelligence"
+        / "src"
+        / "omniintelligence"
+        / "nodes"
+        / "node_quality_scoring_compute"
+        / "node.py"
+    )
+    assert target.exists(), f"Target file not found: {target}"
+
+    source_code = target.read_text(encoding="utf-8")
+    result = extract_entities_from_source(
+        source_code,
+        file_path="src/omniintelligence/nodes/node_quality_scoring_compute/node.py",
+        source_repo="omniintelligence",
+    )
+
+    # Find the entity by exact name — never by index/position
+    entity = None
+    for e in result.entities:
+        if e.entity_name == "NodeQualityScoringCompute":
+            entity = e
+            break
+
+    assert entity is not None, (
+        "Entity 'NodeQualityScoringCompute' not found in extraction result. "
+        f"Found entities: {[e.entity_name for e in result.entities]}"
+    )
+
+    # Strip generic params from each base and detect role
+    detected_role: str | None = None
+    for base in entity.bases:
+        stripped = base.split("[")[0]
+        if stripped in FOUR_NODE_BASE_CLASSES:
+            detected_role = stripped
+            break
+
+    assert detected_role == "NodeCompute", (
+        f"Expected role 'NodeCompute' but detected '{detected_role}'. "
+        f"Raw bases: {entity.bases}"
     )
