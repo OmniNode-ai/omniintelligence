@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import contextlib
 import logging
 import time
 from datetime import UTC, datetime
@@ -46,7 +47,10 @@ from omniintelligence.nodes.node_evidence_collection_effect.handlers.handler_evi
     fire_and_forget_evaluate,
 )
 from omniintelligence.nodes.node_evidence_collection_effect.models.model_session_check_results import (
+    ModelGateCheckResult,
     ModelSessionCheckResults,
+    ModelStaticAnalysisResult,
+    ModelTestRunResult,
 )
 from omniintelligence.protocols import (
     ProtocolIntentClassifier,
@@ -736,6 +740,110 @@ async def _fire_and_forget_drift_detection(
         metadata["drift_detection"] = "error"
 
 
+def _extract_check_results_from_payload(
+    payload: ModelClaudeCodeHookEventPayload,
+    run_id: str,
+    session_id: str,
+    collected_at_utc: str,
+) -> ModelSessionCheckResults:
+    """Extract ChangeFrame data from the STOP event payload into check results.
+
+    Parses whatever structured data is available in the payload and constructs
+    a ModelSessionCheckResults. Fields that are absent or unparseable are
+    silently skipped — partial data is better than no data.
+
+    The payload may contain these fields (populated by omniclaude stop.sh):
+        - completion_status: "success" | "error" | "cancelled" | etc.
+        - gate_results: list of {gate_id, passed, pass_rate, ...}
+        - test_results: list of {test_suite, total_tests, passed_tests, ...}
+        - static_analysis_results: list of {tool, error_count, ...}
+        - cost_usd: float
+        - latency_seconds: float
+
+    Currently omniclaude only sends completion_status. As the hook payload
+    is enriched (OMN-7379), more fields will flow through automatically.
+
+    Args:
+        payload: The STOP event payload (extra="allow" model).
+        run_id: Agent session run ID.
+        session_id: Claude Code session ID.
+        collected_at_utc: ISO-8601 collection timestamp.
+
+    Returns:
+        ModelSessionCheckResults with whatever data could be extracted.
+
+    Related:
+        - OMN-7378: Wire ChangeFrame data into handle_stop evaluation
+        - OMN-7379: Enrich STOP hook payload with ChangeFrame (upstream)
+    """
+    # Access extra fields via model_extra (Pydantic extra="allow")
+    extra = payload.model_extra or {}
+
+    # --- Gate results ---
+    gate_results: list[ModelGateCheckResult] = []
+
+    # Synthesize a session_completion gate from completion_status
+    completion_status = extra.get("completion_status")
+    if isinstance(completion_status, str) and completion_status:
+        passed = completion_status in ("success", "completed", "complete")
+        gate_results.append(
+            ModelGateCheckResult(
+                gate_id="session_completion",
+                passed=passed,
+                pass_rate=1.0 if passed else 0.0,
+            )
+        )
+
+    # Parse explicit gate_results if present (future: OMN-7379)
+    raw_gates = extra.get("gate_results")
+    if isinstance(raw_gates, list):
+        for g in raw_gates:
+            if isinstance(g, dict) and "gate_id" in g:
+                with contextlib.suppress(Exception):
+                    gate_results.append(ModelGateCheckResult(**g))
+
+    # --- Test results ---
+    test_results: list[ModelTestRunResult] = []
+    raw_tests = extra.get("test_results")
+    if isinstance(raw_tests, list):
+        for t in raw_tests:
+            if isinstance(t, dict) and "test_suite" in t:
+                with contextlib.suppress(Exception):
+                    test_results.append(ModelTestRunResult(**t))
+
+    # --- Static analysis results ---
+    static_results: list[ModelStaticAnalysisResult] = []
+    raw_static = extra.get("static_analysis_results")
+    if isinstance(raw_static, list):
+        for s in raw_static:
+            if isinstance(s, dict) and "tool" in s:
+                with contextlib.suppress(Exception):
+                    static_results.append(ModelStaticAnalysisResult(**s))
+
+    # --- Cost and latency telemetry ---
+    cost_usd: float | None = None
+    raw_cost = extra.get("cost_usd")
+    if isinstance(raw_cost, (int, float)) and raw_cost >= 0:
+        cost_usd = float(raw_cost)
+
+    latency_seconds: float | None = None
+    raw_latency = extra.get("latency_seconds")
+    if isinstance(raw_latency, (int, float)) and raw_latency >= 0:
+        latency_seconds = float(raw_latency)
+
+    return ModelSessionCheckResults(
+        run_id=run_id,
+        session_id=session_id,
+        correlation_id=run_id,
+        gate_results=tuple(gate_results),
+        test_results=tuple(test_results),
+        static_analysis_results=tuple(static_results),
+        cost_usd=cost_usd,
+        latency_seconds=latency_seconds,
+        collected_at_utc=collected_at_utc,
+    )
+
+
 def _launch_objective_evaluation(
     *,
     event: ModelClaudeCodeHookEvent,
@@ -744,13 +852,9 @@ def _launch_objective_evaluation(
 ) -> None:
     """Schedule objective evaluation as a non-blocking asyncio background task.
 
-    Constructs a minimal ModelSessionCheckResults from the STOP event and
+    Extracts available ChangeFrame data from the STOP event payload and
     schedules fire_and_forget_evaluate as an asyncio.create_task. This
     ensures the session completion is never delayed.
-
-    The check results are sparse at this stage — they carry only the run_id,
-    session_id, and timestamp. Richer ChangeFrame data (gate/test/static results)
-    will be injected as the hook payload is extended in future tickets.
 
     Args:
         event: The Stop hook event.
@@ -759,21 +863,14 @@ def _launch_objective_evaluation(
 
     Related:
         - OMN-2578: Wire objective evaluation into agent execution trace
+        - OMN-7378: Wire ChangeFrame data into handle_stop evaluation
     """
     try:
         collected_at = datetime.now(UTC).isoformat()
-        check_results = ModelSessionCheckResults(
+        check_results = _extract_check_results_from_payload(
+            payload=event.payload,
             run_id=str(resolved_correlation_id),
             session_id=event.session_id,
-            # Gate/test/static results are empty here — future enrichment
-            # will populate these from the STOP event payload ChangeFrame data.
-            gate_results=(),
-            test_results=(),
-            static_analysis_results=(),
-            # Cost and latency are not available in the raw STOP event payload.
-            # They will be populated when hook payload telemetry is wired.
-            cost_usd=None,
-            latency_seconds=None,
             collected_at_utc=collected_at,
         )
         _task = asyncio.ensure_future(
