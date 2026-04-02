@@ -566,8 +566,8 @@ db_repository:
       mode: write
       description: |
         Insert a new pattern into the store.
-        Sets is_current=TRUE by default. Caller should first call
-        set_not_current if this is a new version of existing pattern.
+        is_current defaults to TRUE via DB column default.
+        Caller should first call set_not_current if this is a new version of existing pattern.
 
         Note: created_at and updated_at columns rely on database defaults
         (DEFAULT NOW()) and are not explicitly set by this operation.
@@ -589,7 +589,6 @@ db_repository:
           source_session_ids,
           recurrence_count,
           version,
-          is_current,
           supersedes,
           project_scope
         ) VALUES (
@@ -606,7 +605,6 @@ db_repository:
           $11,
           $12,
           $13,
-          TRUE,
           $14,
           $15
         )
@@ -1206,28 +1204,27 @@ db_repository:
     # Used by the dispatch bridge handler to idempotently store patterns from
     # pattern-learned and pattern.discovered events.  ON CONFLICT DO NOTHING
     # silently drops duplicate (pattern_signature, domain_id, version) rows.
-    # is_current defaults to TRUE — no version-2+ patterns exist yet, so every
-    # insert is the current version.  Version-swap mechanics (set_not_current)
-    # remain in place for future use.
+    # is_current relies on DB column default (TRUE).  Version-swap mechanics
+    # (set_not_current) remain in place for future use.
     upsert_pattern:
       mode: write
       description: |
         Idempotently insert a pattern, skipping duplicates by (pattern_signature, domain_id, version).
         ON CONFLICT DO NOTHING means duplicate rows are silently dropped.
-        is_current is set to TRUE; no version-2+ patterns exist yet.
+        is_current relies on DB column default (TRUE).
       sql: |
         INSERT INTO learned_patterns (
           id, pattern_signature, signature_hash, domain_id,
           domain_version, confidence, version,
           source_session_ids,
-          status, is_current,
+          status,
           project_scope
         )
         VALUES (
           $1, $2, $3, $4,
           $5, $6, $7,
           $8,
-          'candidate', TRUE,
+          'candidate',
           $9
         )
         ON CONFLICT (pattern_signature, domain_id, version)

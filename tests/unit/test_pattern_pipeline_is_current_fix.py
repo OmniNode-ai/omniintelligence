@@ -4,9 +4,9 @@ Root cause: patterns were inserted with is_current=FALSE, but every downstream
 query filtered on is_current=TRUE — making all patterns invisible to projection,
 promotion, and demotion.
 
-Fix: remove is_current from all read-path WHERE clauses and insert with TRUE.
-Version-swap UPDATE mechanics (set_not_current, store_with_version_transition)
-are preserved since they correctly need is_current in their WHERE clause.
+Fix: remove is_current from all read-path WHERE clauses and stop writing it
+in normal insert paths (DB column default handles it). Version-swap UPDATE
+mechanics (set_not_current, store_with_version_transition) are preserved.
 """
 
 from __future__ import annotations
@@ -107,17 +107,19 @@ class TestIsCurrentPreservedInVersionSwap:
 
 
 # ===========================================================================
-# 3. upsert_pattern inserts with is_current=TRUE
+# 3. Normal insert ops do not write is_current (DB default handles it)
 # ===========================================================================
-class TestUpsertPatternIsCurrentTrue:
-    def test_upsert_inserts_true(self, repo_contract: dict) -> None:
+class TestInsertOpsOmitIsCurrent:
+    def test_upsert_does_not_write_is_current(self, repo_contract: dict) -> None:
         sql = _get_op_sql(repo_contract, "upsert_pattern")
-        # The VALUES clause should contain TRUE (not FALSE) for is_current
-        assert "'candidate', TRUE" in sql, (
-            "upsert_pattern should insert with is_current=TRUE"
+        assert "is_current" not in sql, (
+            "upsert_pattern should not write is_current (DB default handles it)"
         )
-        assert "'candidate', FALSE" not in sql, (
-            "upsert_pattern should NOT insert with is_current=FALSE"
+
+    def test_store_does_not_write_is_current(self, repo_contract: dict) -> None:
+        sql = _get_op_sql(repo_contract, "store_pattern")
+        assert "is_current" not in sql, (
+            "store_pattern should not write is_current (DB default handles it)"
         )
 
 
