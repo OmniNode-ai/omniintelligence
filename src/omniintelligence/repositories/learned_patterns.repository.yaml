@@ -87,7 +87,6 @@ db_repository:
         Retrieve patterns eligible for injection into Claude sessions.
         Only returns patterns that are:
         - status IN ('validated', 'provisional') - enforced lifecycle filter
-        - is_current = TRUE (latest version)
         - compiled_snippet IS NOT NULL (has compiled form)
         Ordered by status (validated first), then quality_score DESC.
 
@@ -108,7 +107,6 @@ db_repository:
           compiled_token_count
         FROM learned_patterns
         WHERE status IN ('validated', 'provisional')
-          AND is_current = TRUE
           AND compiled_snippet IS NOT NULL
         ORDER BY
           CASE WHEN status = 'validated' THEN 0 ELSE 1 END,
@@ -203,7 +201,6 @@ db_repository:
         FROM learned_patterns
         WHERE signature_hash = $1
           AND domain_id = $2
-          AND is_current = TRUE
       param_order:
         - signature_hash
         - domain_id
@@ -250,7 +247,6 @@ db_repository:
           created_at
         FROM learned_patterns
         WHERE domain_id = $1
-          AND is_current = TRUE
           AND status IN ('validated', 'provisional')
         ORDER BY
           CASE WHEN status = 'validated' THEN 0 ELSE 1 END,
@@ -320,7 +316,6 @@ db_repository:
           created_at
         FROM learned_patterns
         WHERE status IN ('validated', 'provisional')
-          AND is_current = TRUE
           AND confidence >= $3
           AND ($1::text IS NULL OR domain_id = $1::text)
           AND ($2::text IS NULL OR $2::text = ANY(keywords))
@@ -418,7 +413,6 @@ db_repository:
           created_at
         FROM learned_patterns
         WHERE status IN ('validated', 'provisional')
-          AND is_current = TRUE
           AND confidence >= $1
         ORDER BY
           CASE WHEN status = 'validated' THEN 0 ELSE 1 END,
@@ -459,7 +453,6 @@ db_repository:
         SELECT *
         FROM learned_patterns
         WHERE status IN ('candidate', 'provisional')
-          AND is_current = TRUE
           AND quality_score >= $1
           AND distinct_days_seen >= $2
           AND recurrence_count >= $3
@@ -517,7 +510,6 @@ db_repository:
         SELECT *
         FROM learned_patterns
         WHERE status = 'validated'
-          AND is_current = TRUE
           AND (
             failure_streak >= $1
             OR (
@@ -574,8 +566,8 @@ db_repository:
       mode: write
       description: |
         Insert a new pattern into the store.
-        Sets is_current=TRUE by default. Caller should first call
-        set_not_current if this is a new version of existing pattern.
+        is_current defaults to TRUE via DB column default.
+        Caller should first call set_not_current if this is a new version of existing pattern.
 
         Note: created_at and updated_at columns rely on database defaults
         (DEFAULT NOW()) and are not explicitly set by this operation.
@@ -597,7 +589,6 @@ db_repository:
           source_session_ids,
           recurrence_count,
           version,
-          is_current,
           supersedes,
           project_scope
         ) VALUES (
@@ -614,7 +605,6 @@ db_repository:
           $11,
           $12,
           $13,
-          TRUE,
           $14,
           $15
         )
@@ -1214,8 +1204,8 @@ db_repository:
     # Used by the dispatch bridge handler to idempotently store patterns from
     # pattern-learned and pattern.discovered events.  ON CONFLICT DO NOTHING
     # silently drops duplicate (pattern_signature, domain_id, version) rows.
-    # is_current defaults to FALSE to avoid violating idx_current_pattern;
-    # version promotion (setting is_current=TRUE) is handled by the lifecycle handler.
+    # is_current relies on DB column default (TRUE).  Version-swap mechanics
+    # (set_not_current) remain in place for future use.
     upsert_pattern:
       mode: write
       description: |
@@ -1229,7 +1219,7 @@ db_repository:
           id, pattern_signature, signature_hash, domain_id,
           domain_version, confidence, version,
           source_session_ids,
-          status, is_current,
+          status,
           project_scope
         )
         VALUES (

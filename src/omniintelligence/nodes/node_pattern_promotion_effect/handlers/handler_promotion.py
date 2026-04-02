@@ -143,7 +143,6 @@ exactly 3 consecutive failures BLOCKS promotion.
 # Query to find provisional patterns eligible for promotion check
 # Filters out:
 #   - Non-provisional patterns (only check provisional status)
-#   - Non-current versions (is_current = TRUE)
 #   - Disabled patterns (LEFT JOIN with disabled_patterns_current)
 SQL_FETCH_PROVISIONAL_PATTERNS = """
 SELECT lp.id, lp.pattern_signature,
@@ -154,7 +153,6 @@ SELECT lp.id, lp.pattern_signature,
 FROM learned_patterns lp
 LEFT JOIN disabled_patterns_current dpc ON lp.id = dpc.pattern_id
 WHERE lp.status = 'provisional'
-  AND lp.is_current = TRUE
   AND dpc.pattern_id IS NULL
 ORDER BY lp.created_at ASC
 LIMIT 500
