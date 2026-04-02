@@ -188,6 +188,9 @@ class MockPatternRepository:
                     # Status guard passes - update the pattern
                     pattern["status"] = to_status
                     self._status_updates[pattern_id] = to_status
+                    # Track is_current=TRUE if the SQL sets it
+                    if "is_current" in query:
+                        pattern["is_current"] = True
                     return "UPDATE 1"
             return "UPDATE 0"  # Status guard failed
 

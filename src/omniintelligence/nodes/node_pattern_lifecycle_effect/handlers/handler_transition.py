@@ -109,10 +109,14 @@ PROVISIONAL_STATUS: EnumPatternLifecycleStatus = EnumPatternLifecycleStatus.PROV
 # SQL Queries
 # =============================================================================
 
-# Update pattern status with guard clause
+# Update pattern status with guard clause.
+# Also sets is_current=TRUE so promoted patterns are visible to projection
+# queries and the promotion scheduler (fixes patterns inserted via
+# upsert_pattern with is_current=FALSE before the version-1 fix).
 SQL_UPDATE_PATTERN_STATUS = """
 UPDATE learned_patterns
 SET status = $2,
+    is_current = TRUE,
     updated_at = $3
 WHERE id = $1
   AND status = $4
