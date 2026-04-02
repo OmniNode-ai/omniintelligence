@@ -163,28 +163,27 @@ class TestLifecycleTransitionIsCurrentFix:
 
 
 # =============================================================================
-# Test 3: Auto-promote handler SQL queries expect is_current = TRUE
+# Test 3: Auto-promote queries no longer filter on is_current (PR #535)
 # =============================================================================
 
 
 @pytest.mark.unit
 class TestAutoPromoteQueriesAreConsistent:
-    """Verify auto-promote queries align with the upsert_pattern fix."""
+    """Verify auto-promote queries align with PR #535 is_current removal."""
 
-    def test_candidate_query_requires_is_current_true(self) -> None:
-        """SQL_FETCH_CANDIDATE_PATTERNS must require is_current = TRUE."""
+    def test_candidate_query_does_not_filter_is_current(self) -> None:
+        """SQL_FETCH_CANDIDATE_PATTERNS must not filter on is_current (PR #535)."""
         from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_auto_promote import (
             SQL_FETCH_CANDIDATE_PATTERNS,
         )
 
-        assert "is_current = TRUE" in SQL_FETCH_CANDIDATE_PATTERNS, (
-            "SQL_FETCH_CANDIDATE_PATTERNS requires is_current = TRUE, "
-            "which means upsert_pattern must insert version-1 patterns "
-            "with is_current=TRUE"
+        assert "is_current = TRUE" not in SQL_FETCH_CANDIDATE_PATTERNS, (
+            "SQL_FETCH_CANDIDATE_PATTERNS should not filter on is_current "
+            "after PR #535 removed the is_current read filter"
         )
 
-    def test_projection_query_requires_is_current_true(self) -> None:
-        """query_patterns_projection must require is_current = TRUE."""
+    def test_projection_query_does_not_filter_is_current(self) -> None:
+        """query_patterns_projection must not filter on is_current (PR #535)."""
         package_files = importlib.resources.files("omniintelligence.repositories")
         contract_file = package_files.joinpath("learned_patterns.repository.yaml")
         content = contract_file.read_text()
@@ -193,7 +192,7 @@ class TestAutoPromoteQueriesAreConsistent:
         projection_sql = contract["db_repository"]["ops"]["query_patterns_projection"][
             "sql"
         ]
-        assert "is_current = TRUE" in projection_sql, (
-            "query_patterns_projection requires is_current = TRUE, "
-            "which means lifecycle transitions must set is_current=TRUE"
+        assert "is_current = TRUE" not in projection_sql, (
+            "query_patterns_projection should not filter on is_current "
+            "after PR #535 removed the is_current read filter"
         )
