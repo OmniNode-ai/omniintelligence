@@ -1211,7 +1211,9 @@ db_repository:
       description: |
         Idempotently insert a pattern, skipping duplicates by (pattern_signature, domain_id, version).
         ON CONFLICT DO NOTHING means duplicate rows are silently dropped.
-        is_current relies on DB column default (TRUE).
+        Version 1 patterns are inserted with is_current=TRUE so they are visible
+        to the promotion scheduler and projection queries. Higher versions use
+        is_current=FALSE; the lifecycle handler manages version transitions.
       sql: |
         INSERT INTO learned_patterns (
           id, pattern_signature, signature_hash, domain_id,
@@ -1224,7 +1226,7 @@ db_repository:
           $1, $2, $3, $4,
           $5, $6, $7,
           $8,
-          'candidate',
+          'candidate', ($7 = 1),
           $9
         )
         ON CONFLICT (pattern_signature, domain_id, version)

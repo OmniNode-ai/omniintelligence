@@ -1,164 +1,199 @@
-"""Tests for is_current removal from pattern pipeline queries.
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
 
-Root cause: patterns were inserted with is_current=FALSE, but every downstream
-query filtered on is_current=TRUE — making all patterns invisible to projection,
-promotion, and demotion.
+"""Tests for is_current fix in pattern learning pipeline.
 
-Fix: remove is_current from all read-path WHERE clauses and stop writing it
-in normal insert paths (DB column default handles it). Version-swap UPDATE
-mechanics (set_not_current, store_with_version_transition) are preserved.
+Verifies three fixes that unblock the pattern learning pipeline:
+1. upsert_pattern SQL sets is_current=TRUE for version 1 patterns
+2. SQL_UPDATE_PATTERN_STATUS sets is_current=TRUE during lifecycle transitions
+3. Promotion handler can find version-1 candidate patterns
+
+Root cause: upsert_pattern inserted all patterns with is_current=FALSE,
+making them invisible to the promotion scheduler and projection queries.
 """
 
 from __future__ import annotations
 
-import re
-from pathlib import Path
+import importlib.resources
+from datetime import UTC, datetime
+from uuid import UUID, uuid4
 
 import pytest
 import yaml
 
-# ---------------------------------------------------------------------------
-# Paths
-# ---------------------------------------------------------------------------
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-_SRC = _REPO_ROOT / "src" / "omniintelligence"
-_REPO_YAML = _SRC / "repositories" / "learned_patterns.repository.yaml"
-_HANDLER_AUTO_PROMOTE = (
-    _SRC
-    / "nodes"
-    / "node_pattern_promotion_effect"
-    / "handlers"
-    / "handler_auto_promote.py"
-)
-_HANDLER_PROMOTION = (
-    _SRC
-    / "nodes"
-    / "node_pattern_promotion_effect"
-    / "handlers"
-    / "handler_promotion.py"
-)
-_HANDLER_DEMOTION = (
-    _SRC
-    / "nodes"
-    / "node_pattern_demotion_effect"
-    / "handlers"
-    / "handler_demotion.py"
+from omniintelligence.enums import EnumPatternLifecycleStatus
+from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition import (
+    SQL_UPDATE_PATTERN_STATUS,
+    apply_transition,
 )
 
-
-@pytest.fixture(scope="module")
-def repo_contract() -> dict:
-    """Load the learned_patterns repository YAML once."""
-    return yaml.safe_load(_REPO_YAML.read_text())
+# =============================================================================
+# Test 1: upsert_pattern SQL uses is_current = ($7 = 1) expression
+# =============================================================================
 
 
-def _get_op_sql(contract: dict, op_name: str) -> str:
-    """Extract SQL string for a repository operation."""
-    ops = contract["db_repository"]["ops"]
-    assert op_name in ops, f"Operation '{op_name}' not found in repository YAML"
-    return ops[op_name]["sql"]
+@pytest.mark.unit
+class TestUpsertPatternIsCurrentFix:
+    """Verify upsert_pattern sets is_current=TRUE for version 1."""
 
+    def test_upsert_pattern_sql_contains_version_conditional(self) -> None:
+        """upsert_pattern SQL should use ($7 = 1) for is_current."""
+        package_files = importlib.resources.files("omniintelligence.repositories")
+        contract_file = package_files.joinpath("learned_patterns.repository.yaml")
+        content = contract_file.read_text()
+        contract = yaml.safe_load(content)
 
-# ===========================================================================
-# 1. is_current removed from all read-path WHERE clauses in repository YAML
-# ===========================================================================
-_READ_OPS_THAT_MUST_NOT_FILTER_IS_CURRENT = [
-    "query_patterns_projection",
-    "get_latest_by_lineage",
-    "list_by_domain",
-    "query_patterns",
-    "list_validated_patterns",
-    "list_promotion_candidates",
-    "list_demotion_candidates",
-]
+        upsert_sql = contract["db_repository"]["ops"]["upsert_pattern"]["sql"]
 
+        # Must contain the version-conditional expression, not hardcoded FALSE
+        assert "($7 = 1)" in upsert_sql, (
+            "upsert_pattern SQL should use '($7 = 1)' for is_current "
+            "so version-1 patterns are inserted with is_current=TRUE"
+        )
+        assert "'candidate', FALSE" not in upsert_sql, (
+            "upsert_pattern SQL should NOT hardcode is_current=FALSE"
+        )
 
-class TestIsCurrentRemovedFromQueryFilters:
-    """All read queries must NOT filter on is_current."""
+    def test_upsert_pattern_description_documents_behavior(self) -> None:
+        """upsert_pattern description should document the version-1 behavior."""
+        package_files = importlib.resources.files("omniintelligence.repositories")
+        contract_file = package_files.joinpath("learned_patterns.repository.yaml")
+        content = contract_file.read_text()
+        contract = yaml.safe_load(content)
 
-    @pytest.mark.parametrize("op_name", _READ_OPS_THAT_MUST_NOT_FILTER_IS_CURRENT)
-    def test_no_is_current_in_where(self, repo_contract: dict, op_name: str) -> None:
-        sql = _get_op_sql(repo_contract, op_name)
-        assert "is_current = TRUE" not in sql, (
-            f"Operation '{op_name}' still filters on is_current = TRUE in WHERE clause"
+        description = contract["db_repository"]["ops"]["upsert_pattern"]["description"]
+        assert "version 1" in description.lower() or "Version 1" in description, (
+            "upsert_pattern description should document the version-1 is_current behavior"
         )
 
 
-# ===========================================================================
-# 2. is_current preserved in version-swap UPDATE mechanics
-# ===========================================================================
-_VERSION_SWAP_OPS = [
-    "set_not_current",
-    "store_with_version_transition",
-]
+# =============================================================================
+# Test 2: SQL_UPDATE_PATTERN_STATUS sets is_current = TRUE
+# =============================================================================
 
 
-class TestIsCurrentPreservedInVersionSwap:
-    """Version-swap operations MUST still use is_current in their UPDATE WHERE."""
+@pytest.mark.unit
+class TestLifecycleTransitionIsCurrentFix:
+    """Verify lifecycle transitions set is_current=TRUE."""
 
-    @pytest.mark.parametrize("op_name", _VERSION_SWAP_OPS)
-    def test_is_current_still_in_update(
-        self, repo_contract: dict, op_name: str
-    ) -> None:
-        sql = _get_op_sql(repo_contract, op_name)
-        assert "is_current" in sql, (
-            f"Version-swap operation '{op_name}' should still reference is_current"
+    def test_sql_update_pattern_status_includes_is_current(self) -> None:
+        """SQL_UPDATE_PATTERN_STATUS must set is_current = TRUE."""
+        assert "is_current = TRUE" in SQL_UPDATE_PATTERN_STATUS, (
+            "SQL_UPDATE_PATTERN_STATUS must set is_current = TRUE "
+            "so promoted patterns are visible to projection queries"
         )
 
-
-# ===========================================================================
-# 3. Normal insert ops do not write is_current (DB default handles it)
-# ===========================================================================
-class TestInsertOpsOmitIsCurrent:
-    def test_upsert_does_not_write_is_current(self, repo_contract: dict) -> None:
-        sql = _get_op_sql(repo_contract, "upsert_pattern")
-        assert "is_current" not in sql, (
-            "upsert_pattern should not write is_current (DB default handles it)"
+    def test_sql_update_pattern_status_still_has_status_guard(self) -> None:
+        """SQL_UPDATE_PATTERN_STATUS must still use status guard clause."""
+        assert "AND status = $4" in SQL_UPDATE_PATTERN_STATUS, (
+            "SQL_UPDATE_PATTERN_STATUS must retain the status guard "
+            "for optimistic locking"
         )
 
-    def test_store_does_not_write_is_current(self, repo_contract: dict) -> None:
-        sql = _get_op_sql(repo_contract, "store_pattern")
-        assert "is_current" not in sql, (
-            "store_pattern should not write is_current (DB default handles it)"
+    @pytest.mark.asyncio
+    async def test_transition_sets_is_current_true(self) -> None:
+        """Promoting a pattern must set is_current=TRUE in the mock repository."""
+        from omniintelligence.nodes.node_pattern_lifecycle_effect.node_tests.conftest import (
+            MockIdempotencyStore,
+            MockPatternRepository,
         )
 
+        repo = MockPatternRepository()
+        pattern_id = UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
+        repo.add_pattern(
+            pattern_id,
+            status="candidate",
+            is_current=False,
+            evidence_tier="observed",
+        )
 
-# ===========================================================================
-# 4. Handler SQL constants don't filter on is_current
-# ===========================================================================
-class TestHandlerSqlNoIsCurrentFilter:
-    """Inline SQL in handler files must not filter on is_current."""
+        result = await apply_transition(
+            repository=repo,
+            idempotency_store=MockIdempotencyStore(),
+            producer=None,
+            request_id=uuid4(),
+            correlation_id=uuid4(),
+            pattern_id=pattern_id,
+            from_status=EnumPatternLifecycleStatus.CANDIDATE,
+            to_status=EnumPatternLifecycleStatus.PROVISIONAL,
+            trigger="auto_promote",
+            transition_at=datetime(2026, 4, 2, 12, 0, 0, tzinfo=UTC),
+        )
 
-    def _extract_sql_constants(self, filepath: Path) -> dict[str, str]:
-        """Extract SQL_* constants from a Python file (handles both ''' and f-strings)."""
-        text = filepath.read_text()
-        results = {}
-        for match in re.finditer(
-            r'^(SQL_\w+)\s*=\s*f?"""(.*?)"""', text, re.MULTILINE | re.DOTALL
-        ):
-            results[match.group(1)] = match.group(2)
-        return results
+        assert result.success is True
+        assert repo.patterns[pattern_id]["status"] == "provisional"
+        assert repo.patterns[pattern_id]["is_current"] is True, (
+            "Lifecycle transition must set is_current=TRUE so the pattern "
+            "becomes visible to projection queries and the promotion scheduler"
+        )
 
-    def test_auto_promote_candidate_query(self) -> None:
-        sqls = self._extract_sql_constants(_HANDLER_AUTO_PROMOTE)
-        sql = sqls.get("SQL_FETCH_CANDIDATE_PATTERNS", "")
-        assert sql, "SQL_FETCH_CANDIDATE_PATTERNS not found"
-        assert "is_current" not in sql
+    @pytest.mark.asyncio
+    async def test_transition_provisional_to_validated_sets_is_current(self) -> None:
+        """Promoting provisional->validated must also set is_current=TRUE."""
+        from omniintelligence.nodes.node_pattern_lifecycle_effect.node_tests.conftest import (
+            MockIdempotencyStore,
+            MockPatternRepository,
+        )
 
-    def test_auto_promote_provisional_query(self) -> None:
-        sqls = self._extract_sql_constants(_HANDLER_AUTO_PROMOTE)
-        sql = sqls.get("SQL_FETCH_PROVISIONAL_PATTERNS_WITH_TIER", "")
-        assert sql, "SQL_FETCH_PROVISIONAL_PATTERNS_WITH_TIER not found"
-        assert "is_current" not in sql
+        repo = MockPatternRepository()
+        pattern_id = UUID("cccccccc-cccc-cccc-cccc-cccccccccccc")
+        repo.add_pattern(
+            pattern_id,
+            status="provisional",
+            is_current=True,
+            evidence_tier="measured",
+        )
 
-    def test_promotion_provisional_query(self) -> None:
-        sqls = self._extract_sql_constants(_HANDLER_PROMOTION)
-        sql = sqls.get("SQL_FETCH_PROVISIONAL_PATTERNS", "")
-        assert sql, "SQL_FETCH_PROVISIONAL_PATTERNS not found"
-        assert "is_current" not in sql
+        result = await apply_transition(
+            repository=repo,
+            idempotency_store=MockIdempotencyStore(),
+            producer=None,
+            request_id=uuid4(),
+            correlation_id=uuid4(),
+            pattern_id=pattern_id,
+            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+            to_status=EnumPatternLifecycleStatus.VALIDATED,
+            trigger="promote",
+            transition_at=datetime(2026, 4, 2, 12, 0, 0, tzinfo=UTC),
+        )
 
-    def test_demotion_validated_query(self) -> None:
-        sqls = self._extract_sql_constants(_HANDLER_DEMOTION)
-        sql = sqls.get("SQL_FETCH_VALIDATED_PATTERNS", "")
-        assert sql, "SQL_FETCH_VALIDATED_PATTERNS not found"
-        assert "is_current" not in sql
+        assert result.success is True
+        assert repo.patterns[pattern_id]["status"] == "validated"
+        assert repo.patterns[pattern_id]["is_current"] is True
+
+
+# =============================================================================
+# Test 3: Auto-promote handler SQL queries expect is_current = TRUE
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestAutoPromoteQueriesAreConsistent:
+    """Verify auto-promote queries align with the upsert_pattern fix."""
+
+    def test_candidate_query_requires_is_current_true(self) -> None:
+        """SQL_FETCH_CANDIDATE_PATTERNS must require is_current = TRUE."""
+        from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_auto_promote import (
+            SQL_FETCH_CANDIDATE_PATTERNS,
+        )
+
+        assert "is_current = TRUE" in SQL_FETCH_CANDIDATE_PATTERNS, (
+            "SQL_FETCH_CANDIDATE_PATTERNS requires is_current = TRUE, "
+            "which means upsert_pattern must insert version-1 patterns "
+            "with is_current=TRUE"
+        )
+
+    def test_projection_query_requires_is_current_true(self) -> None:
+        """query_patterns_projection must require is_current = TRUE."""
+        package_files = importlib.resources.files("omniintelligence.repositories")
+        contract_file = package_files.joinpath("learned_patterns.repository.yaml")
+        content = contract_file.read_text()
+        contract = yaml.safe_load(content)
+
+        projection_sql = contract["db_repository"]["ops"]["query_patterns_projection"][
+            "sql"
+        ]
+        assert "is_current = TRUE" in projection_sql, (
+            "query_patterns_projection requires is_current = TRUE, "
+            "which means lifecycle transitions must set is_current=TRUE"
+        )
