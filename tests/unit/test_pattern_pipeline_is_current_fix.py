@@ -27,7 +27,6 @@ from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_trans
     apply_transition,
 )
 
-
 # =============================================================================
 # Test 1: upsert_pattern SQL uses is_current = ($7 = 1) expression
 # =============================================================================
@@ -39,9 +38,7 @@ class TestUpsertPatternIsCurrentFix:
 
     def test_upsert_pattern_sql_contains_version_conditional(self) -> None:
         """upsert_pattern SQL should use ($7 = 1) for is_current."""
-        package_files = importlib.resources.files(
-            "omniintelligence.repositories"
-        )
+        package_files = importlib.resources.files("omniintelligence.repositories")
         contract_file = package_files.joinpath("learned_patterns.repository.yaml")
         content = contract_file.read_text()
         contract = yaml.safe_load(content)
@@ -59,9 +56,7 @@ class TestUpsertPatternIsCurrentFix:
 
     def test_upsert_pattern_description_documents_behavior(self) -> None:
         """upsert_pattern description should document the version-1 behavior."""
-        package_files = importlib.resources.files(
-            "omniintelligence.repositories"
-        )
+        package_files = importlib.resources.files("omniintelligence.repositories")
         contract_file = package_files.joinpath("learned_patterns.repository.yaml")
         content = contract_file.read_text()
         contract = yaml.safe_load(content)
@@ -190,14 +185,14 @@ class TestAutoPromoteQueriesAreConsistent:
 
     def test_projection_query_requires_is_current_true(self) -> None:
         """query_patterns_projection must require is_current = TRUE."""
-        package_files = importlib.resources.files(
-            "omniintelligence.repositories"
-        )
+        package_files = importlib.resources.files("omniintelligence.repositories")
         contract_file = package_files.joinpath("learned_patterns.repository.yaml")
         content = contract_file.read_text()
         contract = yaml.safe_load(content)
 
-        projection_sql = contract["db_repository"]["ops"]["query_patterns_projection"]["sql"]
+        projection_sql = contract["db_repository"]["ops"]["query_patterns_projection"][
+            "sql"
+        ]
         assert "is_current = TRUE" in projection_sql, (
             "query_patterns_projection requires is_current = TRUE, "
             "which means lifecycle transitions must set is_current=TRUE"
