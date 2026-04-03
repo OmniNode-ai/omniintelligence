@@ -1,3 +1,43 @@
+## v0.23.0 (2026-04-03)
+
+### Features
+- feat: wire ChangeFrame data from STOP payload into objective evaluation [OMN-7378] (#536)
+- feat(intelligence): embed source content in crawl events [OMN-7232] (#532)
+- feat(review): add Qwen3-Next-80B-A3B to model registry (#528)
+- feat: add NodeFamily to learned_patterns bridge [OMN-7208] (#527)
+- feat: add NodeFamily grouping for subsystem pattern instances [OMN-7204] (#526)
+- feat: add match_pattern_role function for role detection [OMN-7177] (#522)
+- feat: add ModelPatternDefinition and ModelPatternRole [OMN-7176] (#521)
+- feat: add directory scanner for role occurrences [OMN-7178] (#523)
+- feat: add cross-repo pattern baseline scanner [OMN-7179] (#524)
+- feat: add contract declarations for 7 orphan dispatch routes [OMN-6979] (#516)
+- feat: wire dispatch handlers for 7 command topics [OMN-6979] (#515)
+- feat: replace hardcoded INTELLIGENCE_NODES with contract-driven discovery [OMN-7155] (#512)
+- feat: intelligence contract packages — auto-wiring migration [OMN-7142] (#510)
+- feat: add projection handler registration tests and pattern seed script [OMN-7140] (#508)
+
+### Bug Fixes
+- fix: update is_current test assertions after PR #535 removal [OMN-7040] (#537)
+- fix: remove is_current filter from pattern read queries (#535)
+- fix: set is_current=TRUE for version-1 patterns and lifecycle transitions (#534)
+- fix(api): use correct column name 'status' in retention cleanup SQL [OMN-7234] (#533)
+- fix(intelligence): disable old behavioral pattern extractors [OMN-7231] (#531)
+- fix(intelligence): remove all localhost fallbacks, require env vars [OMN-7227] (#530)
+- fix: update test fixtures to match ModelCodeEntity/ModelCodeRelationship schema (#529)
+- fix: update test fixtures to match ModelCodeEntity/ModelCodeRelationship schema (#517)
+- fix(ci): auto-tag workflow matches chore: release PR titles [OMN-6909] (#513)
+- fix: add MIN_CLASSIFIABLE_LENGTH guard and clean up OMN-2377 TODO [OMN-7141] (#507)
+
+### Other Changes
+- chore(deps): bump omnibase_core to 0.37.0 (#538)
+- test: verify role detection on real compute node file [OMN-7175] (#520)
+- test: verify AST extraction on all four ONEX base node classes [OMN-7174] (#519)
+- test: verify AST extraction on NodeCompute base class [OMN-7173] (#518)
+- test: document AST extraction quality baseline and known gaps [OMN-7180] (#525)
+- test: add dispatch parity contract test [OMN-6979] (#514)
+- chore: bump version to 0.22.0 for release (#511)
+- test: add CI pattern pipeline health checks and trigger verification [OMN-6981] (#509)
+
 ## v0.21.1 (2026-03-31)
 
 ### Changed
