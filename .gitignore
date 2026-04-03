@@ -50,6 +50,7 @@ htmlcov/
 .nox/
 nosetests.xml
 coverage.xml
+coverage.json
 .cache
 test_validation_summary.json
 
