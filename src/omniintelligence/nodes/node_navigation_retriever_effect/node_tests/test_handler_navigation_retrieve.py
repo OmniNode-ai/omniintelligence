@@ -181,6 +181,7 @@ def _make_input(
         timeout_seconds=timeout_seconds,
         correlation_id=correlation_id,
         embedding_url="http://localhost:8100",  # test default — sourced from LLM_EMBEDDING_URL in production
+        qdrant_url="http://localhost:6333",
     )
 
 

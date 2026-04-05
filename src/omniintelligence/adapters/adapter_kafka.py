@@ -294,7 +294,7 @@ class KafkaHandler:
                 break
             err = msg.error()
             if err is not None:
-                if err.code() == KafkaError._PARTITION_EOF:  # type: ignore[attr-defined]
+                if err.code() == KafkaError._PARTITION_EOF:
                     break
                 raise ConnectionError(f"Kafka consumer error: {err}")
 

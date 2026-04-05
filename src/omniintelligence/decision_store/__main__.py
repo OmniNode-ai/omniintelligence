@@ -214,7 +214,8 @@ def _extract_correlation_id(msg: object) -> str | None:
             payload = json.loads(
                 raw_value.decode("utf-8") if isinstance(raw_value, bytes) else raw_value
             )
-            return payload.get("correlation_id")
+            result: str | None = payload.get("correlation_id")
+            return result
         except (json.JSONDecodeError, UnicodeDecodeError, AttributeError):
             pass
 

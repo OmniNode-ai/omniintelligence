@@ -12,13 +12,14 @@ from __future__ import annotations
 import hashlib
 import uuid
 from datetime import datetime, timezone
+from typing import Any
 
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_group_node_families import (
     NodeFamily,
 )
 
 
-def node_family_to_pattern_row(family: NodeFamily) -> dict:
+def node_family_to_pattern_row(family: NodeFamily) -> dict[str, Any]:
     """Convert a NodeFamily to a dict compatible with learned_patterns INSERT.
 
     Confidence scoring:

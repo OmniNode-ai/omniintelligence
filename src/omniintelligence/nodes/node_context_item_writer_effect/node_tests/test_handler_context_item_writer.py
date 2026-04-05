@@ -105,6 +105,7 @@ def _make_input(
         crawl_scope="omninode/omniintelligence",
         emit_event=emit_event,
         correlation_id=correlation_id,
+        qdrant_url="http://localhost:6333",
     )
 
 
