@@ -42,7 +42,7 @@ def _discover_effect_node_packages() -> list[str]:
 
     Scans ``omniintelligence.nodes.*`` subpackages and
     ``omniintelligence.review_pairing`` for ``contract.yaml`` files with
-    ``event_bus_enabled: true`` and non-empty ``subscribe_topics``.
+    non-empty ``subscribe_topics``.
 
     Returns:
         Sorted list of fully-qualified package names.
@@ -76,15 +76,13 @@ def _discover_effect_node_packages() -> list[str]:
 
 
 def _has_subscribe_topics(contract_path: Path) -> bool:
-    """Check if a contract.yaml has event_bus_enabled and subscribe_topics."""
+    """Check if a contract.yaml has subscribe_topics."""
     with open(contract_path) as f:
         contract = yaml.safe_load(f)
     if not isinstance(contract, dict):
         return False
     event_bus = contract.get("event_bus", {})
     if not isinstance(event_bus, dict):
-        return False
-    if not event_bus.get("event_bus_enabled", False):
         return False
     topics = event_bus.get("subscribe_topics", [])
     return bool(topics)
@@ -257,7 +255,7 @@ def _read_event_bus_topics(package: str, field: str) -> list[str]:
         field: Topic field name (``"subscribe_topics"`` or ``"publish_topics"``).
 
     Returns:
-        List of topic strings (empty if event bus is disabled or field absent).
+        List of topic strings (empty if field absent).
     """
     package_files = importlib.resources.files(package)
     contract_file = package_files.joinpath("contract.yaml")
@@ -279,9 +277,6 @@ def _read_event_bus_topics(package: str, field: str) -> list[str]:
             package,
             type(event_bus).__name__,
         )
-        return []
-
-    if not event_bus.get("event_bus_enabled", False):
         return []
 
     topics: list[str] = event_bus.get(field, [])

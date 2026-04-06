@@ -190,7 +190,6 @@ handler_routing:
         module: "omniintelligence.nodes.node_ast_extraction_compute.handlers.handler_ast_extract"
         type: "sync"
 event_bus:
-  event_bus_enabled: false
   subscribe_topics:
     - "onex.evt.omniintelligence.code-file-discovered.v1"
   publish_topics:

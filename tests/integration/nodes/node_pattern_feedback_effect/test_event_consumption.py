@@ -149,7 +149,6 @@ class TestContractConfiguration:
             contract = yaml.safe_load(f)
 
         assert "event_bus" in contract, "Missing event_bus section"
-        assert contract["event_bus"]["event_bus_enabled"] is True
         assert "subscribe_topics" in contract["event_bus"]
         # Contracts use bare canonical onex.* names (no {env}. prefix).
         # The runtime strips any legacy {env}. prefix at the event-bus layer

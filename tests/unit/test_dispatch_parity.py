@@ -82,8 +82,6 @@ def _extract_subscribe_topics(contract_path: Path) -> list[str]:
     event_bus = contract.get("event_bus", {})
     if not isinstance(event_bus, dict):
         return []
-    if not event_bus.get("event_bus_enabled", False):
-        return []
     topics = event_bus.get("subscribe_topics", [])
     if not isinstance(topics, list):
         return []

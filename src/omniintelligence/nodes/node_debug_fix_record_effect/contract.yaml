@@ -27,7 +27,6 @@ output_model:
   description: "Payload emitted when a debug fix record is created."
 
 event_bus:
-  event_bus_enabled: true
   subscribe_topics:
     - "onex.cmd.omniintelligence.ci-recovery-detected.v1"
   publish_topics:

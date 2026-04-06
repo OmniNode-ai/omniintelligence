@@ -69,10 +69,10 @@ HANDLER_ROUTING_EXEMPT_TYPES = frozenset({"ORCHESTRATOR_GENERIC", "REDUCER_GENER
 NODES_WITH_HANDLER_ROUTING_OVERRIDE = frozenset({"node_pattern_assembler_orchestrator"})
 
 # EFFECT_GENERIC nodes that are direct-call leaf handlers (not Kafka consumers).
-# These legitimately have event_bus_enabled=false because they have no subscribe_topics
-# and are invoked directly rather than via RuntimeHostProcess consumer loop.
+# These have no subscribe_topics and are invoked directly rather than via
+# RuntimeHostProcess consumer loop.
 # See: node_pattern_compliance_effect/contract.yaml lines 75-77 (OMN-2256 architecture notes).
-EVENT_BUS_EXEMPT_EFFECT_NODES: frozenset[str] = frozenset(
+EFFECT_NODES_WITHOUT_SUBSCRIBE_TOPICS: frozenset[str] = frozenset(
     {"node_pattern_compliance_effect"}
 )
 
@@ -218,11 +218,9 @@ def _extract_subscribe_topics(data: dict[str, Any]) -> list[str]:
     """Extract subscribe_topics from event_bus configuration.
 
     Returns:
-        List of topic strings, empty if event_bus is disabled.
+        List of topic strings, empty if no event_bus section.
     """
     event_bus = data.get("event_bus") or {}
-    if not event_bus.get("event_bus_enabled"):
-        return []
     topics = event_bus.get("subscribe_topics") or []
     if not isinstance(topics, list):
         raise AssertionError("subscribe_topics must be a list")
@@ -233,11 +231,9 @@ def _extract_publish_topics(data: dict[str, Any]) -> list[str]:
     """Extract publish_topics from event_bus configuration.
 
     Returns:
-        List of topic strings, empty if event_bus is disabled.
+        List of topic strings, empty if no event_bus section.
     """
     event_bus = data.get("event_bus") or {}
-    if not event_bus.get("event_bus_enabled"):
-        return []
     topics = event_bus.get("publish_topics") or []
     if not isinstance(topics, list):
         raise AssertionError("publish_topics must be a list")
@@ -438,7 +434,7 @@ class TestKernelBootsWithIntelligencePlugin:
 
         assert len(all_subscribe_topics) > 0, (
             "No subscribe_topics found in any contract — "
-            "expected at least 1 effect node with event_bus_enabled"
+            "expected at least 1 effect node with subscribe_topics"
         )
 
         # Boot EventBusInmemory and subscribe to all topics
@@ -527,13 +523,14 @@ class TestKernelBootsWithIntelligencePlugin:
     # Phase 5: Wiring Inventory Assertions
     # -----------------------------------------------------------------
 
-    def test_effect_nodes_have_event_bus_enabled(
+    def test_effect_nodes_have_subscribe_topics(
         self, contracts: list[tuple[Path, dict[str, Any]]]
     ) -> None:
-        """All EFFECT_GENERIC nodes must have event_bus.event_bus_enabled: true.
+        """All EFFECT_GENERIC nodes must have event_bus.subscribe_topics.
 
-        Nodes listed in EVENT_BUS_EXEMPT_EFFECT_NODES are direct-call leaf handlers
-        that are intentionally invoked without a Kafka consumer loop and are exempt.
+        Nodes listed in EFFECT_NODES_WITHOUT_SUBSCRIBE_TOPICS are direct-call
+        leaf handlers that are intentionally invoked without a Kafka consumer
+        loop and are exempt.
         """
         errors: list[str] = []
         effect_count = 0
@@ -547,15 +544,16 @@ class TestKernelBootsWithIntelligencePlugin:
 
             effect_count += 1
 
-            if node_name in EVENT_BUS_EXEMPT_EFFECT_NODES:
+            if node_name in EFFECT_NODES_WITHOUT_SUBSCRIBE_TOPICS:
                 continue
 
             event_bus = data.get("event_bus") or {}
-            if not event_bus.get("event_bus_enabled"):
-                errors.append(f"{node_name}: EFFECT_GENERIC without event_bus_enabled")
+            topics = event_bus.get("subscribe_topics") or []
+            if not topics:
+                errors.append(f"{node_name}: EFFECT_GENERIC without subscribe_topics")
 
         assert effect_count > 0, "No EFFECT_GENERIC nodes found"
-        assert not errors, "Effect node event_bus errors:\n" + "\n".join(errors)
+        assert not errors, "Effect node subscribe_topics errors:\n" + "\n".join(errors)
 
     def test_no_duplicate_contract_names(
         self, contracts: list[tuple[Path, dict[str, Any]]]

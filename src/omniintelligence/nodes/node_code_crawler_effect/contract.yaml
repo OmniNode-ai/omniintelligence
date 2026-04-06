@@ -26,7 +26,6 @@ handler_routing:
         type: "sync"
 
 event_bus:
-  event_bus_enabled: true
   subscribe_topics:
     - "onex.cmd.omniintelligence.code-crawl-requested.v1"
   publish_topics:

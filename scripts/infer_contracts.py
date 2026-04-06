@@ -238,7 +238,6 @@ def generate_contract_yaml(analysis: NodeAnalysis) -> str:
 
     # Event bus
     contract["event_bus"] = {
-        "event_bus_enabled": bool(analysis.io_operations),
         "subscribe_topics": [],
         "publish_topics": [],
     }

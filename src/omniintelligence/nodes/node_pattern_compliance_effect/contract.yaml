@@ -82,7 +82,6 @@ event_bus:
     major: 1
     minor: 0
     patch: 0
-  event_bus_enabled: false
   subscribe_topics: []
   publish_topics:
     - "onex.evt.omniintelligence.pattern-compliance-evaluation.v1.dlq"

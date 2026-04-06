@@ -27,7 +27,6 @@ output_model:
   description: "Fix records annotated with time_decay_weight."
 
 event_bus:
-  event_bus_enabled: false
 
 dependencies:
   - name: debug_store

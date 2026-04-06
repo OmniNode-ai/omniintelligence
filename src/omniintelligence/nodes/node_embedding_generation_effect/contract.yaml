@@ -161,7 +161,6 @@ health_check:
 # EVENT BUS
 # =============================================================================
 event_bus:
-  event_bus_enabled: true
   subscribe_topics:
     - "onex.evt.omniintelligence.code-entities-extracted-embed.v1"
 

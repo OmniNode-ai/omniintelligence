@@ -203,7 +203,6 @@ event_bus:
     major: 1
     minor: 0
     patch: 0
-  event_bus_enabled: true
 
   # Topics this node subscribes to (receives events from)
   # Producer for crawl-requested.v1: node_watchdog_effect (omniintelligence) emits

@@ -400,15 +400,6 @@ class ContractLoader:
         """
         return self.event_bus.publish_topics
 
-    @property
-    def event_bus_enabled(self) -> bool:
-        """Check if event bus is enabled.
-
-        Returns:
-            True if event bus integration is enabled.
-        """
-        return self.event_bus.event_bus_enabled
-
     def get_topic_schema(self, topic: str, is_subscribe: bool = True) -> str | None:
         """Get schema reference for a topic.
 
