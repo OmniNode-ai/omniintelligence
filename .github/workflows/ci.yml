@@ -896,7 +896,7 @@ jobs:
 
       - name: Upload compliance report
         if: always() && steps.check-command.outputs.available == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: compliance-report
           path: .onex_state/compliance/report.yaml
