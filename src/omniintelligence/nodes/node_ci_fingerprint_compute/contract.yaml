@@ -27,6 +27,5 @@ output_model:
   description: "SHA-256 hex digest fingerprint."
 
 event_bus:
-  event_bus_enabled: false
 
 dependencies: []

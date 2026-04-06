@@ -109,12 +109,8 @@ class TestMalformedContractDegradation:
             # would be skipped by discovery since it's not in the package tree
             assert isinstance(topics, list)
 
-    def test_event_bus_disabled_returns_empty(self) -> None:
-        """Contract with event_bus_enabled=false returns no topics."""
-        # Use a real package but verify the logic path:
-        # If we had a package with event_bus_enabled=false, it would
-        # return empty. We test the function directly.
-        # node_ast_extraction_compute has no event_bus section at all
+    def test_no_subscribe_topics_returns_empty(self) -> None:
+        """Contract without subscribe_topics is not discovered."""
         packages = _discover_effect_node_packages()
         # Verify that compute nodes (no subscribe_topics) are excluded
         assert "omniintelligence.nodes.node_ast_extraction_compute" not in packages

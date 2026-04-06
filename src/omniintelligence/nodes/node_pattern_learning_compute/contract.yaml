@@ -107,7 +107,6 @@ event_bus:
     major: 1
     minor: 0
     patch: 0
-  event_bus_enabled: false
 
   # Compute nodes do not subscribe to or publish Kafka topics
   subscribe_topics: []

@@ -27,6 +27,5 @@ output_model:
   description: "Normalized classification, confidence, evidence, and unknowns."
 
 event_bus:
-  event_bus_enabled: false
 
 dependencies: []

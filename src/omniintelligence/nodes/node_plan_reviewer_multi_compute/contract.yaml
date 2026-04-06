@@ -90,7 +90,6 @@ event_bus:
     major: 1
     minor: 0
     patch: 0
-  event_bus_enabled: true
   publish_topics:
     - "onex.evt.omniintelligence.plan-review-strategy-run-completed.v1"
   publish_topic_metadata:

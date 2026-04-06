@@ -217,7 +217,6 @@ event_bus:
     major: 1
     minor: 0
     patch: 0
-  event_bus_enabled: true
 
   # Topics this node subscribes to (receives events from)
   # This node is typically triggered by scheduled jobs, not Kafka events

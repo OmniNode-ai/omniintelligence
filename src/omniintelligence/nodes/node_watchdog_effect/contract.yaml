@@ -165,7 +165,6 @@ event_bus:
     major: 1
     minor: 0
     patch: 0
-  event_bus_enabled: true
 
   # Topics this node subscribes to (receives events from)
   # WatchdogEffect is driven by OS events, not Kafka — no subscribe topics

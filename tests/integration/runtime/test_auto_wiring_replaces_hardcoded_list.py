@@ -46,7 +46,7 @@ class TestAutoWiringDiscovery:
         missing = _KNOWN_EFFECT_PACKAGES - discovered
         assert missing == set(), (
             f"Known packages not found by discovery: {missing}. "
-            "These packages may be missing contract.yaml or event_bus_enabled."
+            "These packages may be missing contract.yaml or subscribe_topics."
         )
 
     def test_discovery_finds_packages(self) -> None:

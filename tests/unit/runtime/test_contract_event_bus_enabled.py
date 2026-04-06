@@ -1,13 +1,13 @@
 # SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
 
-"""Verify all intelligence effect-node contracts have event_bus_enabled: true.
+"""Verify all intelligence effect-node contracts have subscribe_topics.
 
 Every package discovered by ``_discover_effect_node_packages()`` must ship a
-contract.yaml with ``event_bus.event_bus_enabled: true``.  If a new effect node
-is added but its contract is missing or has the flag disabled, this test fails.
+contract.yaml with non-empty ``event_bus.subscribe_topics``.  If a new effect
+node is added but its contract is missing topics, this test fails.
 
-Related: OMN-7142
+Related: OMN-7142, OMN-7658
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ import yaml
 from omniintelligence.runtime.contract_topics import _discover_effect_node_packages
 
 # ---------------------------------------------------------------------------
-# Dynamically discovered packages with event_bus_enabled subscribe_topics
+# Dynamically discovered packages with subscribe_topics
 # ---------------------------------------------------------------------------
 EXPECTED_EFFECT_NODE_PACKAGES: list[str] = _discover_effect_node_packages()
 
@@ -32,16 +32,16 @@ def _load_contract(package: str) -> dict:
 
 
 @pytest.mark.unit
-class TestContractEventBusEnabled:
-    """All intelligence effect-node contracts must have event_bus_enabled."""
+class TestContractSubscribeTopics:
+    """All intelligence effect-node contracts must have subscribe_topics."""
 
     @pytest.mark.parametrize("package", EXPECTED_EFFECT_NODE_PACKAGES)
-    def test_event_bus_enabled(self, package: str) -> None:
+    def test_has_subscribe_topics(self, package: str) -> None:
         contract = _load_contract(package)
         event_bus = contract.get("event_bus", {})
-        assert event_bus.get("event_bus_enabled") is True, (
-            f"{package}/contract.yaml: event_bus.event_bus_enabled is not true "
-            f"(got {event_bus.get('event_bus_enabled')!r})"
+        topics = event_bus.get("subscribe_topics", [])
+        assert topics, (
+            f"{package}/contract.yaml: event_bus.subscribe_topics is empty or missing"
         )
 
     def test_expected_set_matches_contract_topics(self) -> None:

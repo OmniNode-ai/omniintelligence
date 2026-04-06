@@ -151,7 +151,6 @@ event_bus:
     major: 1
     minor: 0
     patch: 0
-  event_bus_enabled: true
 
   subscribe_topics:
     # NOTE: This topic uses 'evt' kind (not 'cmd') because it is produced by omniclaude.
