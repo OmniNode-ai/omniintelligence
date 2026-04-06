@@ -22,6 +22,7 @@ import pytest
 from omniintelligence.nodes.node_claude_hook_event_effect.handlers.handler_claude_event import (
     ProtocolKafkaPublisher,
     _extract_check_results_from_payload,
+    _pattern_learning_emitted_sessions,
     handle_stop,
     route_hook_event,
 )
@@ -31,6 +32,12 @@ from omniintelligence.nodes.node_claude_hook_event_effect.models import (
     ModelClaudeCodeHookEvent,
     ModelClaudeCodeHookEventPayload,
 )
+
+
+@pytest.fixture(autouse=True)
+def _clear_dedup_set() -> None:
+    """Clear the pattern learning dedup set before each test (OMN-7608)."""
+    _pattern_learning_emitted_sessions.clear()
 
 
 def _make_stop_event() -> ModelClaudeCodeHookEvent:
@@ -165,6 +172,55 @@ class TestHandleStop:
         assert fallback_corr != "None"
         # Verify it parses as a valid UUID
         UUID(fallback_corr)
+
+    @pytest.mark.asyncio
+    async def test_dedup_skips_second_emission_for_same_session(self) -> None:
+        """OMN-7608: Second Stop for the same session_id should be deduped."""
+        event = _make_stop_event()
+        mock_producer = _make_mock_producer()
+
+        # First call — emits normally
+        result1 = await handle_stop(event=event, kafka_producer=mock_producer)
+        assert result1.metadata is not None
+        assert result1.metadata["pattern_learning_emission"] == "success"
+        assert mock_producer.publish.await_count == 1
+
+        # Second call — same session_id, should be deduped
+        result2 = await handle_stop(event=event, kafka_producer=mock_producer)
+        assert result2.status == EnumHookProcessingStatus.SUCCESS
+        assert result2.metadata is not None
+        assert result2.metadata["pattern_learning_emission"] == "dedup_skipped"
+        # Kafka publish should NOT have been called again
+        assert mock_producer.publish.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_dedup_allows_different_sessions(self) -> None:
+        """OMN-7608: Different session_ids should each emit once."""
+        mock_producer = _make_mock_producer()
+
+        event_a = ModelClaudeCodeHookEvent(
+            event_type=EnumClaudeCodeHookEventType.STOP,
+            session_id="session-a",
+            correlation_id=uuid4(),
+            timestamp_utc=datetime.now(UTC).isoformat(),
+            payload=ModelClaudeCodeHookEventPayload(),
+        )
+        event_b = ModelClaudeCodeHookEvent(
+            event_type=EnumClaudeCodeHookEventType.STOP,
+            session_id="session-b",
+            correlation_id=uuid4(),
+            timestamp_utc=datetime.now(UTC).isoformat(),
+            payload=ModelClaudeCodeHookEventPayload(),
+        )
+
+        result_a = await handle_stop(event=event_a, kafka_producer=mock_producer)
+        result_b = await handle_stop(event=event_b, kafka_producer=mock_producer)
+
+        assert result_a.metadata is not None
+        assert result_a.metadata["pattern_learning_emission"] == "success"
+        assert result_b.metadata is not None
+        assert result_b.metadata["pattern_learning_emission"] == "success"
+        assert mock_producer.publish.await_count == 2
 
 
 @pytest.mark.unit

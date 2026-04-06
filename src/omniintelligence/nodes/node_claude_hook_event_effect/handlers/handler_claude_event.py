@@ -61,6 +61,12 @@ from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
 logger = logging.getLogger(__name__)
 
+# OMN-7608: Module-level dedup set for pattern learning emission.
+# Stop events fire per tool call (hundreds per session), but pattern learning
+# only needs to run once per session. This set tracks which session_ids have
+# already emitted a PatternLearningRequested command.
+_pattern_learning_emitted_sessions: set[str] = set()
+
 # =============================================================================
 # Handler Class (Declarative Pattern with Constructor Injection)
 # =============================================================================
@@ -320,6 +326,37 @@ async def handle_stop(
         event.correlation_id if event.correlation_id is not None else uuid4()
     )
 
+    # OMN-7608: Deduplicate pattern learning emission per session.
+    # Stop fires per tool call (hundreds per session). Pattern learning
+    # only needs one emission per session_id.
+    if event.session_id in _pattern_learning_emitted_sessions:
+        logger.debug(
+            "Skipping duplicate pattern learning emission for session_id=%s",
+            event.session_id,
+        )
+        metadata["pattern_learning_emission"] = "dedup_skipped"
+
+        # Still run objective evaluation — it's idempotent and cheap
+        _launch_objective_evaluation(
+            event=event,
+            resolved_correlation_id=resolved_correlation_id,
+            kafka_producer=kafka_producer,
+        )
+        metadata["objective_evaluation"] = "dispatched"
+
+        processing_time_ms = (time.perf_counter() - start_time) * 1000
+        return ModelClaudeHookResult(
+            status=EnumHookProcessingStatus.SUCCESS,
+            event_type=str(event.event_type),
+            session_id=event.session_id,
+            correlation_id=resolved_correlation_id,
+            intent_result=None,
+            processing_time_ms=processing_time_ms,
+            processed_at=datetime.now(UTC),
+            error_message=None,
+            metadata=metadata,
+        )
+
     # Emit pattern learning command if Kafka is available
     pattern_learning_topic = TOPIC_SUFFIX_PATTERN_LEARNING_CMD_V1
     emitted_to_kafka = False
@@ -371,6 +408,8 @@ async def handle_stop(
     # SUCCESS when publish succeeded or no producer was configured.
     if emitted_to_kafka or kafka_producer is None:
         status = EnumHookProcessingStatus.SUCCESS
+        # OMN-7608: Mark session as emitted so subsequent Stop events are skipped
+        _pattern_learning_emitted_sessions.add(event.session_id)
     else:
         status = EnumHookProcessingStatus.PARTIAL
 
@@ -1396,6 +1435,7 @@ __all__ = [
     "ProtocolPatternRepository",
     "_launch_objective_evaluation",
     "_parse_semver_str",
+    "_pattern_learning_emitted_sessions",
     "handle_no_op",
     "handle_post_tool_use",
     "handle_stop",
