@@ -18,9 +18,9 @@ from uuid import uuid4
 import pytest
 
 from omniintelligence.review_pairing.models import (
-    ModelFindingFixPair,
     EnumFindingSeverity,
     EnumPairingType,
+    ModelFindingFixPair,
     ModelReviewFindingObserved,
 )
 from omniintelligence.review_pairing.verifier.verifier import (

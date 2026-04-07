@@ -25,7 +25,7 @@ from unittest.mock import patch
 
 import pytest
 
-from omniintelligence.review_pairing.models import ModelFindingFixPair, EnumPairingType
+from omniintelligence.review_pairing.models import EnumPairingType, ModelFindingFixPair
 from omniintelligence.review_pairing.reducer import (
     PatternCandidate,
     PatternCandidateReducer,

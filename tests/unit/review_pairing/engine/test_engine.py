@@ -22,9 +22,9 @@ from omniintelligence.review_pairing.engine.engine import (
     PairingEngine,
 )
 from omniintelligence.review_pairing.models import (
-    ModelFindingFixPair,
     EnumFindingSeverity,
     EnumPairingType,
+    ModelFindingFixPair,
     ModelReviewFindingObserved,
     ModelReviewFixApplied,
 )

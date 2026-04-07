@@ -24,9 +24,9 @@ import pytest
 from pydantic import ValidationError
 
 from omniintelligence.review_pairing.models import (
-    ModelFindingFixPair,
     EnumFindingSeverity,
     EnumPairingType,
+    ModelFindingFixPair,
     ModelReviewFindingObserved,
     ModelReviewFindingResolved,
     ModelReviewFixApplied,
