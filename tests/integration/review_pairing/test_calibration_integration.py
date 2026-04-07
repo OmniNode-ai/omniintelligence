@@ -458,7 +458,9 @@ class TestFewShotExtractionIntegration:
 class TestEndToEndCalibrationPipeline:
     """Full pipeline: config -> orchestrator -> alignment -> scoring -> few-shot."""
 
-    async def test_full_pipeline(self, calibration_config: ModelCalibrationConfig) -> None:
+    async def test_full_pipeline(
+        self, calibration_config: ModelCalibrationConfig
+    ) -> None:
         # Step 1: Configure and run orchestration
         orchestrator = CalibrationOrchestrator(
             config=calibration_config,
