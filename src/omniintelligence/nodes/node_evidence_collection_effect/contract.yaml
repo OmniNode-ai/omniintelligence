@@ -111,6 +111,14 @@ dependencies:
     optional: true
     description: "PostgreSQL for objective_evaluations table storage. Optional — skips DB if None."
 
+# Golden path: evaluation chain (run evaluated -> objective_evaluations table)
+golden_path:
+  - "Collect structured evidence from agent session check results"
+  - "Evaluate evidence against ObjectiveSpec via ScoringReducerCompute"
+  - "Emit run-evaluated event to onex.evt.omniintelligence.run-evaluated.v1"
+  - "Store EvaluationResult in objective_evaluations table"
+  - "Verify row exists with run_id, overall_score, evidence_bundle_fingerprint fields"
+
 # =============================================================================
 # METADATA
 # =============================================================================

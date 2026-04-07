@@ -207,6 +207,14 @@ capabilities:
     description: "Persist per-decision metadata (confidence, latency, agreement) for model performance
       analytics"
 
+# Golden path: routing chain (llm routing decision -> llm_routing_decisions table)
+golden_path:
+  - "Consume llm-routing-decision event from onex.evt.omniclaude.llm-routing-decision.v1"
+  - "Persist routing decision metadata to PostgreSQL llm_routing_decisions table"
+  - "Emit processed event to onex.evt.omniintelligence.llm-routing-decision-processed.v1"
+  - "Verify row exists in llm_routing_decisions with correlation_id, selected_model fields"
+  - "Golden chain test: omnimarket/tests/test_golden_chain_golden_chain_sweep.py (routing chain)"
+
 # =============================================================================
 # METADATA
 # =============================================================================
