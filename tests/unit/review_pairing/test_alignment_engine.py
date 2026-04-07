@@ -14,7 +14,7 @@ import pytest
 
 from omniintelligence.review_pairing.alignment_engine import FindingAlignmentEngine
 from omniintelligence.review_pairing.models_calibration import (
-    CalibrationFindingTuple,
+    ModelCalibrationFindingTuple,
 )
 
 
@@ -24,8 +24,8 @@ def _make_finding(
     description: str = "Issue found",
     severity: str = "error",
     source: str = "codex",
-) -> CalibrationFindingTuple:
-    return CalibrationFindingTuple(
+) -> ModelCalibrationFindingTuple:
+    return ModelCalibrationFindingTuple(
         category=category,
         location=location,
         description=description,

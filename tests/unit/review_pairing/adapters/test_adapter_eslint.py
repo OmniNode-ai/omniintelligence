@@ -18,7 +18,7 @@ from omniintelligence.review_pairing.adapters.adapter_eslint import (
     get_confidence_tier,
     parse_raw,
 )
-from omniintelligence.review_pairing.models import FindingSeverity
+from omniintelligence.review_pairing.models import EnumFindingSeverity
 
 _REPO = "OmniNode-ai/omnidash"
 _PR_ID = 7
@@ -57,7 +57,7 @@ class TestEslintAdapterHappyPath:
         assert len(findings) == 1
         f = findings[0]
         assert f.rule_id == "eslint:no-unused-vars"
-        assert f.severity == FindingSeverity.ERROR
+        assert f.severity == EnumFindingSeverity.ERROR
         assert f.file_path == "src/app.ts"
         assert f.line_start == 10
 
@@ -76,7 +76,7 @@ class TestEslintAdapterHappyPath:
             pr_id=_PR_ID,
             commit_sha=_SHA,
         )
-        assert findings[0].severity == FindingSeverity.ERROR
+        assert findings[0].severity == EnumFindingSeverity.ERROR
 
     @pytest.mark.unit
     def test_severity_1_is_warning(self) -> None:
@@ -86,7 +86,7 @@ class TestEslintAdapterHappyPath:
             pr_id=_PR_ID,
             commit_sha=_SHA,
         )
-        assert findings[0].severity == FindingSeverity.WARNING
+        assert findings[0].severity == EnumFindingSeverity.WARNING
 
     @pytest.mark.unit
     def test_severity_0_is_skipped(self) -> None:

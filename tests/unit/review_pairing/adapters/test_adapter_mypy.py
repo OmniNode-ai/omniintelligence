@@ -16,7 +16,7 @@ from omniintelligence.review_pairing.adapters.adapter_mypy import (
     get_confidence_tier,
     parse_raw,
 )
-from omniintelligence.review_pairing.models import FindingSeverity
+from omniintelligence.review_pairing.models import EnumFindingSeverity
 
 _REPO = "OmniNode-ai/omniintelligence"
 _PR_ID = 10
@@ -33,7 +33,7 @@ class TestMypyAdapterHappyPath:
         assert len(findings) == 1
         f = findings[0]
         assert f.rule_id == "mypy:return-value"
-        assert f.severity == FindingSeverity.ERROR
+        assert f.severity == EnumFindingSeverity.ERROR
         assert f.file_path == "src/foo/bar.py"
         assert f.line_start == 10
         assert f.line_end is None
@@ -43,7 +43,7 @@ class TestMypyAdapterHappyPath:
         raw = "src/bar.py:5: warning: Statement is unreachable  [unreachable]\n"
         findings = parse_raw(raw, repo=_REPO, pr_id=_PR_ID, commit_sha=_SHA)
         assert len(findings) == 1
-        assert findings[0].severity == FindingSeverity.WARNING
+        assert findings[0].severity == EnumFindingSeverity.WARNING
 
     @pytest.mark.unit
     def test_note_lines_are_skipped(self) -> None:

@@ -30,12 +30,15 @@ from pydantic import BaseModel, Field
 
 
 @unique
-class FindingSeverity(str, Enum):
+class EnumFindingSeverity(str, Enum):
     """Severity level of a review finding.
 
     Values mirror standard static-analysis severity classifications used
     by linters (ruff, flake8, mypy) and SAST tools.
     """
+
+    CRITICAL = "critical"
+    """Finding represents a critical security or data-loss issue."""
 
     ERROR = "error"
     """Finding represents a definite bug or hard failure."""
@@ -51,7 +54,54 @@ class FindingSeverity(str, Enum):
 
 
 @unique
-class PairingType(str, Enum):
+class EnumFindingCategory(str, Enum):
+    """Category of a review finding for the unified LLM workflow.
+
+    Used by the Finding Aggregator to classify and deduplicate findings
+    across multiple models.
+    """
+
+    SECURITY = "security"
+    """Security vulnerability or unsafe pattern."""
+
+    LOGIC_ERROR = "logic_error"
+    """Incorrect business logic or algorithmic error."""
+
+    INTEGRATION = "integration"
+    """Cross-component integration issue."""
+
+    SCOPE_VIOLATION = "scope_violation"
+    """Change exceeds the stated scope of the ticket."""
+
+    CONTRACT_BREACH = "contract_breach"
+    """Violation of a declared ONEX contract."""
+
+    STYLE = "style"
+    """Code style or formatting issue."""
+
+    INFORMATIONAL = "informational"
+    """Advisory finding with no actionability."""
+
+
+@unique
+class EnumFindingConfidence(str, Enum):
+    """Confidence tier for a review finding.
+
+    Used by the Finding Aggregator to weight findings from multiple models.
+    """
+
+    HIGH = "high"
+    """High confidence — finding confirmed by multiple models or strong evidence."""
+
+    MEDIUM = "medium"
+    """Medium confidence — single model with moderate evidence."""
+
+    LOW = "low"
+    """Low confidence — heuristic or weak evidence."""
+
+
+@unique
+class EnumPairingType(str, Enum):
     """How a fix commit was associated with a finding.
 
     Used to distinguish high-confidence pairings (same-file, explicit
@@ -74,7 +124,7 @@ class PairingType(str, Enum):
     """Pairing was inferred via heuristic (lowest confidence)."""
 
 
-class ReviewFindingObserved(BaseModel, frozen=True):
+class ModelReviewFindingObserved(BaseModel, frozen=True):
     """Event emitted when a review finding is captured from any review source.
 
     Published to ``onex.evt.review-pairing.finding-observed.v1`` whenever a
@@ -122,7 +172,7 @@ class ReviewFindingObserved(BaseModel, frozen=True):
         ),
         min_length=1,
     )
-    severity: FindingSeverity = Field(
+    severity: EnumFindingSeverity = Field(
         description="Severity level of the finding.",
     )
     file_path: str = Field(
@@ -167,9 +217,45 @@ class ReviewFindingObserved(BaseModel, frozen=True):
     observed_at: datetime = Field(
         description="UTC datetime when this event was generated.",
     )
+    code_snippet: str | None = Field(
+        default=None,
+        description=(
+            "Relevant code snippet from the finding location. "
+            "None when the tool does not provide inline code."
+        ),
+    )
+    category: EnumFindingCategory | None = Field(
+        default=None,
+        description=(
+            "Unified finding category for cross-model aggregation. "
+            "None for legacy findings that predate the unified workflow."
+        ),
+    )
+    confidence: EnumFindingConfidence | None = Field(
+        default=None,
+        description=(
+            "Confidence tier for this finding. "
+            "None for legacy findings that predate the unified workflow."
+        ),
+    )
+    source_model: str | None = Field(
+        default=None,
+        description=(
+            "Model key from model_registry.yaml that produced this finding. "
+            "None for non-LLM sources (e.g. ruff, mypy)."
+        ),
+    )
+    detection_method: str | None = Field(
+        default=None,
+        description=(
+            "Method used to detect this finding "
+            "(e.g. 'static_analysis', 'llm_review', 'ci_check'). "
+            "None for legacy findings."
+        ),
+    )
 
 
-class ReviewFixApplied(BaseModel, frozen=True):
+class ModelReviewFixApplied(BaseModel, frozen=True):
     """Event emitted when a fix commit is applied for a known finding.
 
     Published to ``onex.evt.review-pairing.fix-applied.v1`` when a developer
@@ -178,7 +264,7 @@ class ReviewFixApplied(BaseModel, frozen=True):
 
     Attributes:
         fix_id: Globally unique identifier for this fix event.
-        finding_id: Foreign key reference to the ``ReviewFindingObserved``
+        finding_id: Foreign key reference to the ``ModelReviewFindingObserved``
             event that this fix addresses.
         fix_commit_sha: Git SHA of the commit applying the fix.
         file_path: Relative path to the file modified by the fix.
@@ -197,7 +283,7 @@ class ReviewFixApplied(BaseModel, frozen=True):
         description="Globally unique identifier for this fix event.",
     )
     finding_id: UUID = Field(
-        description="Reference to the ReviewFindingObserved this fix addresses.",
+        description="Reference to the ModelReviewFindingObserved this fix addresses.",
     )
     fix_commit_sha: str = Field(
         description="Git SHA of the commit applying the fix.",
@@ -232,7 +318,7 @@ class ReviewFixApplied(BaseModel, frozen=True):
     )
 
 
-class ReviewFindingResolved(BaseModel, frozen=True):
+class ModelReviewFindingResolved(BaseModel, frozen=True):
     """Event emitted when a finding disappearance is confirmed post-fix.
 
     Published to ``onex.evt.review-pairing.finding-resolved.v1`` by the
@@ -241,7 +327,7 @@ class ReviewFindingResolved(BaseModel, frozen=True):
 
     Attributes:
         resolution_id: Globally unique identifier for this resolution event.
-        finding_id: Reference to the ``ReviewFindingObserved`` that was resolved.
+        finding_id: Reference to the ``ModelReviewFindingObserved`` that was resolved.
         fix_commit_sha: Git SHA of the fix commit that caused the resolution.
         verified_at_commit_sha: Git SHA of the commit at which disappearance
             was confirmed (may differ from ``fix_commit_sha`` if additional
@@ -255,7 +341,7 @@ class ReviewFindingResolved(BaseModel, frozen=True):
         description="Globally unique identifier for this resolution event.",
     )
     finding_id: UUID = Field(
-        description="Reference to the ReviewFindingObserved that was resolved.",
+        description="Reference to the ModelReviewFindingObserved that was resolved.",
     )
     fix_commit_sha: str = Field(
         description="Git SHA of the fix commit that caused the resolution.",
@@ -282,26 +368,26 @@ class ReviewFindingResolved(BaseModel, frozen=True):
     )
 
 
-class FindingFixPair(BaseModel, frozen=True):
+class ModelFindingFixPair(BaseModel, frozen=True):
     """Confidence-scored pairing of a review finding and its fix.
 
-    Produced by the Pairing Engine after joining ``ReviewFindingObserved``
-    and ``ReviewFixApplied`` events. The ``confidence_score`` reflects how
+    Produced by the Pairing Engine after joining ``ModelReviewFindingObserved``
+    and ``ModelReviewFixApplied`` events. The ``confidence_score`` reflects how
     certain the engine is that the fix actually addresses the finding.
 
     Published to ``onex.evt.review-pairing.pair-created.v1``.
 
     Attributes:
         pair_id: Globally unique identifier for this pairing record.
-        finding_id: Reference to the ``ReviewFindingObserved`` event.
+        finding_id: Reference to the ``ModelReviewFindingObserved`` event.
         fix_commit_sha: Git SHA of the commit that applies the fix.
-        diff_hunks: Copy of diff hunks from the associated ``ReviewFixApplied``
+        diff_hunks: Copy of diff hunks from the associated ``ModelReviewFixApplied``
             event, preserved here for downstream pattern extraction.
         confidence_score: Float in ``[0.0, 1.0]`` representing how confident
             the pairing engine is that this fix addresses the finding.
             Scores below 0.5 are considered low-confidence and excluded from
             pattern promotion.
-        disappearance_confirmed: ``True`` if a ``ReviewFindingResolved`` event
+        disappearance_confirmed: ``True`` if a ``ModelReviewFindingResolved`` event
             has been received for this pairing; ``False`` otherwise.
         pairing_type: How the fix was associated with the finding.
         created_at: UTC datetime when this pairing was created.
@@ -311,7 +397,7 @@ class FindingFixPair(BaseModel, frozen=True):
         description="Globally unique identifier for this pairing record.",
     )
     finding_id: UUID = Field(
-        description="Reference to the ReviewFindingObserved event.",
+        description="Reference to the ModelReviewFindingObserved event.",
     )
     fix_commit_sha: str = Field(
         description="Git SHA of the commit that applies the fix.",
@@ -321,7 +407,7 @@ class FindingFixPair(BaseModel, frozen=True):
     diff_hunks: list[str] = Field(
         default_factory=list,
         description=(
-            "Copy of diff hunks from the associated ReviewFixApplied event, "
+            "Copy of diff hunks from the associated ModelReviewFixApplied event, "
             "preserved for downstream pattern extraction."
         ),
     )
@@ -335,11 +421,11 @@ class FindingFixPair(BaseModel, frozen=True):
     )
     disappearance_confirmed: bool = Field(
         description=(
-            "True if a ReviewFindingResolved event has been received "
+            "True if a ModelReviewFindingResolved event has been received "
             "for this pairing; False otherwise."
         ),
     )
-    pairing_type: PairingType = Field(
+    pairing_type: EnumPairingType = Field(
         description="How the fix was associated with the finding.",
     )
     created_at: datetime = Field(

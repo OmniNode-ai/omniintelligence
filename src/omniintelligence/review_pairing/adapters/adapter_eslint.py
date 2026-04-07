@@ -4,7 +4,7 @@
 """ESLint JSON output adapter for the Review Signal Adapters.
 
 Parses ``eslint --format json`` output and converts each message into a
-``ReviewFindingObserved`` event.
+``ModelReviewFindingObserved`` event.
 
 ESLint JSON format::
 
@@ -29,8 +29,8 @@ ESLint JSON format::
     ]
 
 Severity mapping:
-    - ESLint ``severity: 2`` (error) → ``FindingSeverity.ERROR``
-    - ESLint ``severity: 1`` (warning) → ``FindingSeverity.WARNING``
+    - ESLint ``severity: 2`` (error) → ``EnumFindingSeverity.ERROR``
+    - ESLint ``severity: 1`` (warning) → ``EnumFindingSeverity.WARNING``
     - ESLint ``severity: 0`` (off) → skipped
 
 Confidence tier: ``deterministic`` (rule_id = ``eslint:{ruleId}``, exact location)
@@ -59,8 +59,8 @@ from omniintelligence.review_pairing.adapters.base import (
     utcnow,
 )
 from omniintelligence.review_pairing.models import (
-    FindingSeverity,
-    ReviewFindingObserved,
+    EnumFindingSeverity,
+    ModelReviewFindingObserved,
 )
 
 logger = logging.getLogger(__name__)
@@ -68,9 +68,9 @@ logger = logging.getLogger(__name__)
 _TOOL_NAME = "eslint"
 _UNKNOWN_VERSION = "unknown"
 
-_ESLINT_SEVERITY_MAP: dict[int, FindingSeverity] = {
-    2: FindingSeverity.ERROR,
-    1: FindingSeverity.WARNING,
+_ESLINT_SEVERITY_MAP: dict[int, EnumFindingSeverity] = {
+    2: EnumFindingSeverity.ERROR,
+    1: EnumFindingSeverity.WARNING,
 }
 
 
@@ -82,7 +82,7 @@ def parse_raw(
     commit_sha: str,
     eslint_version: str = _UNKNOWN_VERSION,
     repo_root: str = "",
-) -> list[ReviewFindingObserved]:
+) -> list[ModelReviewFindingObserved]:
     """Parse ``eslint --format json`` output into findings.
 
     Args:
@@ -96,7 +96,7 @@ def parse_raw(
             ``filePath`` values relative. If empty, paths are used as-is.
 
     Returns:
-        List of ``ReviewFindingObserved`` events.
+        List of ``ModelReviewFindingObserved`` events.
     """
     data: list[Any]
     if isinstance(raw, str):
@@ -108,7 +108,7 @@ def parse_raw(
     else:
         data = list(raw)
 
-    findings: list[ReviewFindingObserved] = []
+    findings: list[ModelReviewFindingObserved] = []
 
     for file_idx, file_result in enumerate(data):
         if not isinstance(file_result, dict):
@@ -167,8 +167,8 @@ def _parse_message(
     commit_sha: str,
     eslint_version: str,
     label: str,
-) -> ReviewFindingObserved | None:
-    """Parse a single ESLint message dict into a ``ReviewFindingObserved``.
+) -> ModelReviewFindingObserved | None:
+    """Parse a single ESLint message dict into a ``ModelReviewFindingObserved``.
 
     Returns ``None`` on malformed input or severity 0 (disabled rule).
     """
@@ -192,7 +192,7 @@ def _parse_message(
         rule_id = f"eslint:{rule_id_raw}"
         normalized = normalize_message(raw_message, _TOOL_NAME)
 
-        return ReviewFindingObserved(
+        return ModelReviewFindingObserved(
             finding_id=uuid4(),
             repo=repo,
             pr_id=pr_id,

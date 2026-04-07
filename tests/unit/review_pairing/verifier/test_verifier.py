@@ -18,10 +18,10 @@ from uuid import uuid4
 import pytest
 
 from omniintelligence.review_pairing.models import (
-    FindingFixPair,
-    FindingSeverity,
-    PairingType,
-    ReviewFindingObserved,
+    EnumFindingSeverity,
+    EnumPairingType,
+    ModelFindingFixPair,
+    ModelReviewFindingObserved,
 )
 from omniintelligence.review_pairing.verifier.verifier import (
     FindingDisappearanceVerifier,
@@ -47,13 +47,13 @@ def _make_finding(
     rule_id: str = _RULE,
     file_path: str = _FILE,
     line_start: int = 10,
-) -> ReviewFindingObserved:
-    return ReviewFindingObserved(
+) -> ModelReviewFindingObserved:
+    return ModelReviewFindingObserved(
         finding_id=uuid4(),
         repo=_REPO,
         pr_id=42,
         rule_id=rule_id,
-        severity=FindingSeverity.WARNING,
+        severity=EnumFindingSeverity.WARNING,
         file_path=file_path,
         line_start=line_start,
         tool_name="ruff",
@@ -65,15 +65,15 @@ def _make_finding(
     )
 
 
-def _make_pair(finding: ReviewFindingObserved) -> FindingFixPair:
-    return FindingFixPair(
+def _make_pair(finding: ModelReviewFindingObserved) -> ModelFindingFixPair:
+    return ModelFindingFixPair(
         pair_id=uuid4(),
         finding_id=finding.finding_id,
         fix_commit_sha=_SHA_FIX,
         diff_hunks=["@@ -8,5 +8,5 @@ E501\n-long\n+short"],
         confidence_score=0.80,
         disappearance_confirmed=False,
-        pairing_type=PairingType.TEMPORAL,
+        pairing_type=EnumPairingType.TEMPORAL,
         created_at=_NOW,
     )
 

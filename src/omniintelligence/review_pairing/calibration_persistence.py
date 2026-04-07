@@ -18,7 +18,7 @@ from typing import Any, Protocol
 from uuid import uuid4
 
 from omniintelligence.review_pairing.models_calibration import (
-    CalibrationRunResult,
+    ModelCalibrationRunResult,
 )
 
 logger = logging.getLogger(__name__)
@@ -61,7 +61,7 @@ class CalibrationPersistence:
 
     async def save_run(
         self,
-        result: CalibrationRunResult,
+        result: ModelCalibrationRunResult,
         content_hash: str,
     ) -> None:
         """Save a calibration run result with transactional outbox.

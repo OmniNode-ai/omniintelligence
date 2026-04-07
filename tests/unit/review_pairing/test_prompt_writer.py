@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from omniintelligence.review_pairing.models_calibration import FewShotExample
+from omniintelligence.review_pairing.models_calibration import ModelFewShotExample
 from omniintelligence.review_pairing.prompt_writer import PromptWriter
 
 if TYPE_CHECKING:
@@ -61,8 +61,8 @@ def _make_example(
     evidence: str = "User input concatenated into raw SQL",
     ground_truth_present: bool = True,
     explanation: str = "Clear TP: unescaped input reaches DB layer",
-) -> FewShotExample:
-    return FewShotExample(
+) -> ModelFewShotExample:
+    return ModelFewShotExample(
         example_type=example_type,  # type: ignore[arg-type]
         category=category,
         description=description,

@@ -20,8 +20,8 @@ from omniintelligence.review_pairing.calibration_persistence import (
     _compute_ema,
 )
 from omniintelligence.review_pairing.models_calibration import (
-    CalibrationMetrics,
-    CalibrationRunResult,
+    ModelCalibrationMetrics,
+    ModelCalibrationRunResult,
 )
 
 
@@ -53,13 +53,13 @@ class TestCalibrationPersistence:
         run_id: str = "run-001",
         challenger: str = "deepseek-r1",
         f1: float = 0.75,
-    ) -> CalibrationRunResult:
-        return CalibrationRunResult(
+    ) -> ModelCalibrationRunResult:
+        return ModelCalibrationRunResult(
             run_id=run_id,
             ground_truth_model="codex",
             challenger_model=challenger,
             alignments=[],
-            metrics=CalibrationMetrics(
+            metrics=ModelCalibrationMetrics(
                 model=challenger,
                 true_positives=5,
                 false_positives=2,
@@ -126,7 +126,7 @@ class TestCalibrationPersistence:
         conn = AsyncMock()
         conn.execute = AsyncMock()
         persistence = CalibrationPersistence(conn)
-        failed_result = CalibrationRunResult(
+        failed_result = ModelCalibrationRunResult(
             run_id="run-fail",
             ground_truth_model="codex",
             challenger_model="deepseek-r1",

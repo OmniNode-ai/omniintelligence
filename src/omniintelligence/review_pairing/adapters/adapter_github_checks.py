@@ -5,7 +5,7 @@
 
 Parses GitHub Checks API annotation objects (from ``GET /repos/{owner}/{repo}/check-runs``
 or ``GET /repos/{owner}/{repo}/check-runs/{check_run_id}/annotations``) and
-converts each annotation into a ``ReviewFindingObserved`` event.
+converts each annotation into a ``ModelReviewFindingObserved`` event.
 
 GitHub Checks annotation format::
 
@@ -23,14 +23,14 @@ GitHub Checks annotation format::
     }
 
 Annotation level mapping:
-    - ``failure`` → ``FindingSeverity.ERROR``
-    - ``warning`` → ``FindingSeverity.WARNING``
-    - ``notice`` → ``FindingSeverity.INFO``
+    - ``failure`` → ``EnumFindingSeverity.ERROR``
+    - ``warning`` → ``EnumFindingSeverity.WARNING``
+    - ``notice`` → ``EnumFindingSeverity.INFO``
 
 Confidence tier: ``semi_deterministic`` (has file+line but may lack rule_id)
 
 This adapter is a pure parser: it converts pre-fetched annotation dicts into
-``ReviewFindingObserved`` events. HTTP fetching belongs in the Effect layer
+``ModelReviewFindingObserved`` events. HTTP fetching belongs in the Effect layer
 (per ARCH-002: transport I/O must not appear in node source).
 
 Usage::
@@ -57,8 +57,8 @@ from omniintelligence.review_pairing.adapters.base import (
     utcnow,
 )
 from omniintelligence.review_pairing.models import (
-    FindingSeverity,
-    ReviewFindingObserved,
+    EnumFindingSeverity,
+    ModelReviewFindingObserved,
 )
 
 logger = logging.getLogger(__name__)
@@ -66,10 +66,10 @@ logger = logging.getLogger(__name__)
 _TOOL_NAME = "github-checks"
 _UNKNOWN_VERSION = "unknown"
 
-_LEVEL_MAP: dict[str, FindingSeverity] = {
-    "failure": FindingSeverity.ERROR,
-    "warning": FindingSeverity.WARNING,
-    "notice": FindingSeverity.INFO,
+_LEVEL_MAP: dict[str, EnumFindingSeverity] = {
+    "failure": EnumFindingSeverity.ERROR,
+    "warning": EnumFindingSeverity.WARNING,
+    "notice": EnumFindingSeverity.INFO,
 }
 
 
@@ -81,7 +81,7 @@ def parse_raw(
     commit_sha: str,
     check_run_name: str = "github-checks",
     tool_version: str = _UNKNOWN_VERSION,
-) -> list[ReviewFindingObserved]:
+) -> list[ModelReviewFindingObserved]:
     """Parse GitHub Checks annotation objects into findings.
 
     Args:
@@ -96,7 +96,7 @@ def parse_raw(
         tool_version: Version string, if known.
 
     Returns:
-        List of ``ReviewFindingObserved`` events.
+        List of ``ModelReviewFindingObserved`` events.
     """
     data: list[Any]
     if isinstance(raw, str):
@@ -114,7 +114,7 @@ def parse_raw(
         else _TOOL_NAME
     )
 
-    findings: list[ReviewFindingObserved] = []
+    findings: list[ModelReviewFindingObserved] = []
 
     for idx, annotation in enumerate(data):
         if not isinstance(annotation, dict):
@@ -148,8 +148,8 @@ def _parse_annotation(
     tool_name: str,
     tool_version: str,
     idx: int,
-) -> ReviewFindingObserved | None:
-    """Parse a single GitHub Checks annotation into a ``ReviewFindingObserved``.
+) -> ModelReviewFindingObserved | None:
+    """Parse a single GitHub Checks annotation into a ``ModelReviewFindingObserved``.
 
     Returns ``None`` on malformed/incomplete input.
     """
@@ -162,7 +162,7 @@ def _parse_annotation(
         annotation_level: str = str(
             annotation.get("annotation_level") or "notice"
         ).lower()
-        severity = _LEVEL_MAP.get(annotation_level, FindingSeverity.INFO)
+        severity = _LEVEL_MAP.get(annotation_level, EnumFindingSeverity.INFO)
 
         start_line_val = annotation.get("start_line")
         end_line_val = annotation.get("end_line")
@@ -184,7 +184,7 @@ def _parse_annotation(
 
         normalized = normalize_message(raw_message, "github-checks")
 
-        return ReviewFindingObserved(
+        return ModelReviewFindingObserved(
             finding_id=uuid4(),
             repo=repo,
             pr_id=pr_id,

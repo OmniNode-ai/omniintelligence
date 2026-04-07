@@ -3,7 +3,7 @@
 
 """Calibration Scorer for computing precision/recall/noise metrics.
 
-Computes CalibrationMetrics from a list of FindingAlignment results.
+Computes ModelCalibrationMetrics from a list of ModelFindingAlignment results.
 
 Reference: OMN-6168
 """
@@ -11,8 +11,8 @@ Reference: OMN-6168
 from __future__ import annotations
 
 from omniintelligence.review_pairing.models_calibration import (
-    CalibrationMetrics,
-    FindingAlignment,
+    ModelCalibrationMetrics,
+    ModelFindingAlignment,
 )
 
 
@@ -21,17 +21,17 @@ class CalibrationScorer:
 
     def score(
         self,
-        alignments: list[FindingAlignment],
+        alignments: list[ModelFindingAlignment],
         model: str,
-    ) -> CalibrationMetrics:
+    ) -> ModelCalibrationMetrics:
         """Compute precision, recall, F1, and noise ratio from alignments.
 
         Args:
-            alignments: List of FindingAlignment records from the alignment engine.
+            alignments: List of ModelFindingAlignment records from the alignment engine.
             model: Model key for these metrics.
 
         Returns:
-            CalibrationMetrics with computed values.
+            ModelCalibrationMetrics with computed values.
         """
         tp = sum(1 for a in alignments if a.alignment_type == "true_positive")
         fp = sum(1 for a in alignments if a.alignment_type == "false_positive")
@@ -46,7 +46,7 @@ class CalibrationScorer:
         )
         noise_ratio = fp / (tp + fp) if (tp + fp) > 0 else 0.0
 
-        return CalibrationMetrics(
+        return ModelCalibrationMetrics(
             model=model,
             true_positives=tp,
             false_positives=fp,

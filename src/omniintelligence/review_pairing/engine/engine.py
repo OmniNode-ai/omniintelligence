@@ -4,8 +4,8 @@
 """Pairing Engine: Confidence-Scored Finding-to-Fix Join.
 
 The ``PairingEngine`` is the core component of the Review-Fix Pairing system.
-It joins ``ReviewFindingObserved`` records with candidate fix commits to produce
-confidence-scored ``FindingFixPair`` records.
+It joins ``ModelReviewFindingObserved`` records with candidate fix commits to produce
+confidence-scored ``ModelFindingFixPair`` records.
 
 Architecture:
     - Pure computation: no Kafka or Postgres I/O (those belong in effect nodes)
@@ -42,10 +42,10 @@ from omniintelligence.review_pairing.engine.scorer import (
     is_formatter_batch_commit,
 )
 from omniintelligence.review_pairing.models import (
-    FindingFixPair,
-    PairingType,
-    ReviewFindingObserved,
-    ReviewFixApplied,
+    EnumPairingType,
+    ModelFindingFixPair,
+    ModelReviewFindingObserved,
+    ModelReviewFixApplied,
 )
 
 logger = logging.getLogger(__name__)
@@ -62,14 +62,14 @@ class CandidateFix:
     """A candidate fix commit for evaluation against a finding.
 
     Attributes:
-        fix: The ``ReviewFixApplied`` event for this fix commit.
-        disappearance_confirmed: Whether a ``ReviewFindingResolved`` event
+        fix: The ``ModelReviewFixApplied`` event for this fix commit.
+        disappearance_confirmed: Whether a ``ModelReviewFindingResolved`` event
             confirmed the finding is gone after this fix.
         all_pr_files: Set of all files modified in the same PR as this fix.
             Used for formatter batch detection and config change detection.
     """
 
-    fix: ReviewFixApplied
+    fix: ModelReviewFixApplied
     disappearance_confirmed: bool = False
     all_pr_files: set[str] = field(default_factory=set)
 
@@ -79,8 +79,8 @@ class PairingResult:
     """Result of attempting to pair a finding with candidate fixes.
 
     Attributes:
-        finding_id: UUID of the ``ReviewFindingObserved`` that was processed.
-        pairs: List of ``FindingFixPair`` records produced (may be empty if no
+        finding_id: UUID of the ``ModelReviewFindingObserved`` that was processed.
+        pairs: List of ``ModelFindingFixPair`` records produced (may be empty if no
             candidates met the storage threshold).
         promoted_pairs: Subset of ``pairs`` with ``confidence_score >= 0.75``
             and ``pairing_type != formatter_batch``.
@@ -88,8 +88,8 @@ class PairingResult:
     """
 
     finding_id: UUID
-    pairs: list[FindingFixPair]
-    promoted_pairs: list[FindingFixPair]
+    pairs: list[ModelFindingFixPair]
+    promoted_pairs: list[ModelFindingFixPair]
     skipped_reason: str | None = None
 
 
@@ -128,7 +128,7 @@ class PairingEngine:
 
     def pair(
         self,
-        finding: ReviewFindingObserved,
+        finding: ModelReviewFindingObserved,
         candidates: list[CandidateFix],
     ) -> PairingResult:
         """Pair a finding with its best candidate fix commit.
@@ -143,7 +143,7 @@ class PairingEngine:
         guaranteed, but the semantic content is identical).
 
         Args:
-            finding: The ``ReviewFindingObserved`` event to pair.
+            finding: The ``ModelReviewFindingObserved`` event to pair.
             candidates: List of ``CandidateFix`` candidates to evaluate.
 
         Returns:
@@ -239,8 +239,8 @@ class PairingEngine:
 
     def _within_temporal_window(
         self,
-        finding: ReviewFindingObserved,
-        fix: ReviewFixApplied,
+        finding: ModelReviewFindingObserved,
+        fix: ModelReviewFixApplied,
     ) -> bool:
         """Check if a fix commit is within the temporal window after the finding."""
         # Fix must occur after the finding was observed
@@ -251,7 +251,7 @@ class PairingEngine:
 
     def _is_ambiguous(
         self,
-        finding: ReviewFindingObserved,
+        finding: ModelReviewFindingObserved,
         candidates: list[CandidateFix],
     ) -> bool:
         """Check if multiple candidates touch the same file+line region.
@@ -284,7 +284,7 @@ class PairingEngine:
 
     def _build_context(
         self,
-        finding: ReviewFindingObserved,
+        finding: ModelReviewFindingObserved,
         candidate: CandidateFix,
         all_candidates: list[CandidateFix],
         ambiguous: bool,
@@ -317,7 +317,9 @@ class PairingEngine:
         )
 
     @staticmethod
-    def _rule_id_matches(finding: ReviewFindingObserved, fix: ReviewFixApplied) -> bool:
+    def _rule_id_matches(
+        finding: ModelReviewFindingObserved, fix: ModelReviewFixApplied
+    ) -> bool:
         """Check if the finding's rule_id appears in the diff hunks.
 
         Looks for the bare rule code (e.g., ``E501``) or the full rule_id
@@ -337,7 +339,7 @@ class PairingEngine:
 
     @staticmethod
     def _diff_removes_token(
-        finding: ReviewFindingObserved, fix: ReviewFixApplied
+        finding: ModelReviewFindingObserved, fix: ModelReviewFixApplied
     ) -> bool:
         """Check if the diff removes a line that overlaps with the finding's location.
 
@@ -372,41 +374,41 @@ class PairingEngine:
 
     def _determine_pairing_type(
         self,
-        finding: ReviewFindingObserved,
+        finding: ModelReviewFindingObserved,
         candidate: CandidateFix,
         ctx: ScoringContext,
-    ) -> PairingType:
+    ) -> EnumPairingType:
         """Determine the pairing type for a (finding, candidate) pair."""
         fix = candidate.fix
 
         if fix.tool_autofix:
-            return PairingType.AUTOFIX
+            return EnumPairingType.AUTOFIX
 
         if fix.fix_commit_sha == finding.commit_sha_observed:
-            return PairingType.SAME_COMMIT
+            return EnumPairingType.SAME_COMMIT
 
         # same_pr: fix commit is in the same PR (we don't have explicit PR info here,
         # so we use temporal proximity as a proxy)
         delta = fix.applied_at - finding.observed_at
         if delta.total_seconds() < 3600:  # within 1 hour = likely same PR session
-            return PairingType.SAME_PR
+            return EnumPairingType.SAME_PR
 
         if delta <= self._temporal_window:
-            return PairingType.TEMPORAL
+            return EnumPairingType.TEMPORAL
 
-        return PairingType.INFERRED
+        return EnumPairingType.INFERRED
 
     def _build_pair(
         self,
-        finding: ReviewFindingObserved,
+        finding: ModelReviewFindingObserved,
         candidate: CandidateFix,
         confidence_score: float,
         ctx: ScoringContext,
-    ) -> FindingFixPair:
-        """Build a ``FindingFixPair`` from a scored (finding, candidate) pair."""
+    ) -> ModelFindingFixPair:
+        """Build a ``ModelFindingFixPair`` from a scored (finding, candidate) pair."""
         pairing_type = self._determine_pairing_type(finding, candidate, ctx)
 
-        return FindingFixPair(
+        return ModelFindingFixPair(
             pair_id=uuid4(),
             finding_id=finding.finding_id,
             fix_commit_sha=candidate.fix.fix_commit_sha,

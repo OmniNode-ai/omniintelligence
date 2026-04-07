@@ -20,10 +20,10 @@ from datetime import UTC, datetime
 from omniintelligence.review_pairing.alignment_engine import FindingAlignmentEngine
 from omniintelligence.review_pairing.calibration_scorer import CalibrationScorer
 from omniintelligence.review_pairing.models_calibration import (
-    CalibrationConfig,
-    CalibrationFindingTuple,
-    CalibrationOrchestrationResult,
-    CalibrationRunResult,
+    ModelCalibrationConfig,
+    ModelCalibrationFindingTuple,
+    ModelCalibrationOrchestrationResult,
+    ModelCalibrationRunResult,
 )
 from omniintelligence.review_pairing.models_external_review import (
     ModelExternalReviewResult,
@@ -49,7 +49,7 @@ class CalibrationOrchestrator:
 
     def __init__(
         self,
-        config: CalibrationConfig,
+        config: ModelCalibrationConfig,
         codex_adapter: AdapterFunc,
         ai_adapter: AdapterFunc,
         alignment_engine: FindingAlignmentEngine | None = None,
@@ -68,7 +68,7 @@ class CalibrationOrchestrator:
         self,
         content: str,
         review_type: str = "plan",
-    ) -> CalibrationOrchestrationResult:
+    ) -> ModelCalibrationOrchestrationResult:
         """Execute a full calibration run.
 
         Args:
@@ -76,7 +76,7 @@ class CalibrationOrchestrator:
             review_type: Review type passed to adapters.
 
         Returns:
-            CalibrationOrchestrationResult with per-challenger results.
+            ModelCalibrationOrchestrationResult with per-challenger results.
         """
         # 1. Run ground truth model
         gt_result = await self._call_model(
@@ -84,7 +84,7 @@ class CalibrationOrchestrator:
         )
 
         if not gt_result.success:
-            return CalibrationOrchestrationResult(
+            return ModelCalibrationOrchestrationResult(
                 success=False,
                 error=(
                     f"Ground truth model '{self._config.ground_truth_model}' failed: "
@@ -113,7 +113,7 @@ class CalibrationOrchestrator:
             )
         )
 
-        return CalibrationOrchestrationResult(
+        return ModelCalibrationOrchestrationResult(
             success=True,
             ground_truth_findings=gt_tuples,
             challenger_results=list(challenger_results),
@@ -135,11 +135,11 @@ class CalibrationOrchestrator:
         challenger_model: str,
         content: str,
         review_type: str,
-        gt_tuples: list[CalibrationFindingTuple],
+        gt_tuples: list[ModelCalibrationFindingTuple],
         gt_prompt_version: str,
         sem: asyncio.Semaphore,
-    ) -> CalibrationRunResult:
-        """Run a single challenger model and produce a CalibrationRunResult."""
+    ) -> ModelCalibrationRunResult:
+        """Run a single challenger model and produce a ModelCalibrationRunResult."""
         run_id = str(uuid.uuid4())
         now = datetime.now(tz=UTC)
 
@@ -149,7 +149,7 @@ class CalibrationOrchestrator:
             )
 
         if not ch_result.success:
-            return CalibrationRunResult(
+            return ModelCalibrationRunResult(
                 run_id=run_id,
                 ground_truth_model=self._config.ground_truth_model,
                 challenger_model=challenger_model,
@@ -169,7 +169,7 @@ class CalibrationOrchestrator:
         # Score
         metrics = self._scorer.score(alignments, model=challenger_model)
 
-        return CalibrationRunResult(
+        return ModelCalibrationRunResult(
             run_id=run_id,
             ground_truth_model=self._config.ground_truth_model,
             challenger_model=challenger_model,

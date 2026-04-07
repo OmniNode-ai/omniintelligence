@@ -14,7 +14,7 @@ Usage:
         --challenger qwen3-coder
 
 CLI Stream Policy:
-    stdout: canonical CalibrationOrchestrationResult JSON
+    stdout: canonical ModelCalibrationOrchestrationResult JSON
     stderr: human-readable summary with metrics table
 
 Exit Codes:
@@ -38,10 +38,10 @@ from omniintelligence.review_pairing.alignment_engine import (
 )
 from omniintelligence.review_pairing.calibration_scorer import CalibrationScorer
 from omniintelligence.review_pairing.models_calibration import (
-    CalibrationConfig,
-    CalibrationMetrics,
-    CalibrationOrchestrationResult,
-    CalibrationRunResult,
+    ModelCalibrationConfig,
+    ModelCalibrationMetrics,
+    ModelCalibrationOrchestrationResult,
+    ModelCalibrationRunResult,
 )
 from omniintelligence.review_pairing.serializer_r1r6 import (
     serialize_external_finding,
@@ -112,11 +112,11 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def format_metrics_table(metrics: list[CalibrationMetrics]) -> str:
+def format_metrics_table(metrics: list[ModelCalibrationMetrics]) -> str:
     """Format metrics as a human-readable table for stderr.
 
     Args:
-        metrics: List of per-model CalibrationMetrics.
+        metrics: List of per-model ModelCalibrationMetrics.
 
     Returns:
         Formatted table string.
@@ -137,11 +137,11 @@ def format_metrics_table(metrics: list[CalibrationMetrics]) -> str:
 
 async def _run_calibration(
     content: str,
-    config: CalibrationConfig,
+    config: ModelCalibrationConfig,
     *,
     no_embedding: bool = False,
     r1r6_findings_path: str | None = None,
-) -> CalibrationOrchestrationResult:
+) -> ModelCalibrationOrchestrationResult:
     """Run calibration orchestration.
 
     Dispatches ground-truth and challenger reviews, aligns findings,
@@ -154,7 +154,7 @@ async def _run_calibration(
         r1r6_findings_path: Optional path to R1-R6 findings JSON.
 
     Returns:
-        CalibrationOrchestrationResult with per-challenger metrics.
+        ModelCalibrationOrchestrationResult with per-challenger metrics.
     """
     from omniintelligence.review_pairing.adapters.adapter_ai_reviewer import (
         async_parse_raw as llm_async_parse_raw,
@@ -163,7 +163,7 @@ async def _run_calibration(
         async_parse_raw as codex_async_parse_raw,
     )
     from omniintelligence.review_pairing.models_calibration import (
-        CalibrationFindingTuple,
+        ModelCalibrationFindingTuple,
     )
 
     # Get ground-truth findings.
@@ -178,7 +178,7 @@ async def _run_calibration(
         )
 
     if not gt_result.success:
-        return CalibrationOrchestrationResult(
+        return ModelCalibrationOrchestrationResult(
             success=False,
             error=f"Ground-truth model {gt_model} failed: {gt_result.error}",
             ground_truth_findings=[],
@@ -186,7 +186,7 @@ async def _run_calibration(
         )
 
     # Serialize ground-truth findings.
-    gt_findings: list[CalibrationFindingTuple] = [
+    gt_findings: list[ModelCalibrationFindingTuple] = [
         serialize_external_finding(f) for f in gt_result.findings
     ]
 
@@ -197,10 +197,10 @@ async def _run_calibration(
             r1r6_data = json.loads(r1r6_path.read_text(encoding="utf-8"))
             for item in r1r6_data:
                 from omniintelligence.review_pairing.models import (
-                    ReviewFindingObserved,
+                    ModelReviewFindingObserved,
                 )
 
-                finding = ReviewFindingObserved(**item)
+                finding = ModelReviewFindingObserved(**item)
                 gt_findings.append(serialize_external_finding(finding))
 
     # Build alignment engine.
@@ -222,7 +222,7 @@ async def _run_calibration(
     scorer = CalibrationScorer()
 
     # Run each challenger.
-    challenger_results: list[CalibrationRunResult] = []
+    challenger_results: list[ModelCalibrationRunResult] = []
     import uuid
     from datetime import datetime, timezone
 
@@ -239,7 +239,7 @@ async def _run_calibration(
 
             if not ch_result.success:
                 challenger_results.append(
-                    CalibrationRunResult(
+                    ModelCalibrationRunResult(
                         run_id=str(uuid.uuid4()),
                         ground_truth_model=gt_model,
                         challenger_model=challenger_model,
@@ -258,7 +258,7 @@ async def _run_calibration(
             metrics = scorer.score(alignments, challenger_model)
 
             challenger_results.append(
-                CalibrationRunResult(
+                ModelCalibrationRunResult(
                     run_id=str(uuid.uuid4()),
                     ground_truth_model=gt_model,
                     challenger_model=challenger_model,
@@ -271,7 +271,7 @@ async def _run_calibration(
             )
         except Exception as exc:
             challenger_results.append(
-                CalibrationRunResult(
+                ModelCalibrationRunResult(
                     run_id=str(uuid.uuid4()),
                     ground_truth_model=gt_model,
                     challenger_model=challenger_model,
@@ -284,7 +284,7 @@ async def _run_calibration(
             )
 
     any_succeeded = any(r.metrics is not None for r in challenger_results)
-    return CalibrationOrchestrationResult(
+    return ModelCalibrationOrchestrationResult(
         success=any_succeeded,
         ground_truth_findings=gt_findings,
         challenger_results=challenger_results,
@@ -319,7 +319,7 @@ def main(argv: list[str] | None = None) -> int:
 
     content = plan_path.read_text(encoding="utf-8")
 
-    config = CalibrationConfig(
+    config = ModelCalibrationConfig(
         ground_truth_model=args.ground_truth,
         challenger_models=args.challenger,
     )
@@ -379,8 +379,8 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _persist_results(
-    result: CalibrationOrchestrationResult,
-    config: CalibrationConfig,
+    result: ModelCalibrationOrchestrationResult,
+    config: ModelCalibrationConfig,
 ) -> None:
     """Persist calibration results to PostgreSQL.
 

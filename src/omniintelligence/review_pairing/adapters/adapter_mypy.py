@@ -4,7 +4,7 @@
 """mypy text output adapter for the Review Signal Adapters.
 
 Parses mypy text output (default format) and converts each diagnostic
-into a ``ReviewFindingObserved`` event.
+into a ``ModelReviewFindingObserved`` event.
 
 mypy output format::
 
@@ -39,8 +39,8 @@ from omniintelligence.review_pairing.adapters.base import (
     utcnow,
 )
 from omniintelligence.review_pairing.models import (
-    FindingSeverity,
-    ReviewFindingObserved,
+    EnumFindingSeverity,
+    ModelReviewFindingObserved,
 )
 
 logger = logging.getLogger(__name__)
@@ -61,9 +61,9 @@ _LINE_RE = re.compile(
     r"(?:\s*\[(?P<code>[^\]]+)\])?$"  # optional [error-code]
 )
 
-_SEVERITY_MAP: dict[str, FindingSeverity] = {
-    "error": FindingSeverity.ERROR,
-    "warning": FindingSeverity.WARNING,
+_SEVERITY_MAP: dict[str, EnumFindingSeverity] = {
+    "error": EnumFindingSeverity.ERROR,
+    "warning": EnumFindingSeverity.WARNING,
     # "note" is intentionally excluded — notes are skipped
 }
 
@@ -75,7 +75,7 @@ def parse_raw(
     pr_id: int,
     commit_sha: str,
     mypy_version: str = _UNKNOWN_VERSION,
-) -> list[ReviewFindingObserved]:
+) -> list[ModelReviewFindingObserved]:
     """Parse mypy text output into findings.
 
     Args:
@@ -86,10 +86,10 @@ def parse_raw(
         mypy_version: Version of the mypy tool, if known.
 
     Returns:
-        List of ``ReviewFindingObserved`` events. Empty list if parsing fails
+        List of ``ModelReviewFindingObserved`` events. Empty list if parsing fails
         or input contains no valid diagnostics.
     """
-    findings: list[ReviewFindingObserved] = []
+    findings: list[ModelReviewFindingObserved] = []
 
     for idx, line in enumerate(raw.splitlines()):
         line = line.strip()
@@ -117,8 +117,8 @@ def _parse_line(
     commit_sha: str,
     mypy_version: str,
     idx: int,
-) -> ReviewFindingObserved | None:
-    """Parse a single mypy output line into a ``ReviewFindingObserved``.
+) -> ModelReviewFindingObserved | None:
+    """Parse a single mypy output line into a ``ModelReviewFindingObserved``.
 
     Returns ``None`` for note-level lines, summary lines, and parse failures.
     """
@@ -156,7 +156,7 @@ def _parse_line(
     normalized = normalize_message(raw_message, _TOOL_NAME)
 
     try:
-        return ReviewFindingObserved(
+        return ModelReviewFindingObserved(
             finding_id=uuid4(),
             repo=repo,
             pr_id=pr_id,

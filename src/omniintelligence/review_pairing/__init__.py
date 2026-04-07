@@ -30,20 +30,24 @@ from omniintelligence.review_pairing.calibration_persistence import (
 from omniintelligence.review_pairing.calibration_scorer import CalibrationScorer
 from omniintelligence.review_pairing.fewshot_extractor import FewShotExtractor
 from omniintelligence.review_pairing.models import (
-    FindingFixPair,
-    ReviewFindingObserved,
-    ReviewFindingResolved,
-    ReviewFixApplied,
+    EnumFindingCategory,
+    EnumFindingConfidence,
+    EnumFindingSeverity,
+    EnumPairingType,
+    ModelFindingFixPair,
+    ModelReviewFindingObserved,
+    ModelReviewFindingResolved,
+    ModelReviewFixApplied,
 )
 from omniintelligence.review_pairing.models_calibration import (
-    CalibrationConfig,
-    CalibrationFindingTuple,
-    CalibrationMetrics,
-    CalibrationOrchestrationResult,
-    CalibrationRunCompletedEvent,
-    CalibrationRunResult,
-    FewShotExample,
-    FindingAlignment,
+    ModelCalibrationConfig,
+    ModelCalibrationFindingTuple,
+    ModelCalibrationMetrics,
+    ModelCalibrationOrchestrationResult,
+    ModelCalibrationRunCompletedEvent,
+    ModelCalibrationRunResult,
+    ModelFewShotExample,
+    ModelFindingAlignment,
 )
 from omniintelligence.review_pairing.prompt_writer import PromptWriter
 from omniintelligence.review_pairing.serializer_r1r6 import (
@@ -53,20 +57,25 @@ from omniintelligence.review_pairing.serializer_r1r6 import (
 )
 
 __all__ = [
+    # Review-Fix Pairing enums
+    "EnumFindingCategory",
+    "EnumFindingConfidence",
+    "EnumFindingSeverity",
+    "EnumPairingType",
     # Review-Fix Pairing models
-    "FindingFixPair",
-    "ReviewFindingObserved",
-    "ReviewFindingResolved",
-    "ReviewFixApplied",
+    "ModelFindingFixPair",
+    "ModelReviewFindingObserved",
+    "ModelReviewFindingResolved",
+    "ModelReviewFixApplied",
     # Calibration models
-    "CalibrationConfig",
-    "CalibrationFindingTuple",
-    "CalibrationMetrics",
-    "CalibrationOrchestrationResult",
-    "CalibrationRunCompletedEvent",
-    "CalibrationRunResult",
-    "FewShotExample",
-    "FindingAlignment",
+    "ModelCalibrationConfig",
+    "ModelCalibrationFindingTuple",
+    "ModelCalibrationMetrics",
+    "ModelCalibrationOrchestrationResult",
+    "ModelCalibrationRunCompletedEvent",
+    "ModelCalibrationRunResult",
+    "ModelFewShotExample",
+    "ModelFindingAlignment",
     # Calibration engines and services
     "CalibrationOrchestrator",
     "CalibrationPersistence",

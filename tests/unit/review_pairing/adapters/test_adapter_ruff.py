@@ -19,8 +19,8 @@ from omniintelligence.review_pairing.adapters.adapter_ruff import (
     parse_raw,
 )
 from omniintelligence.review_pairing.models import (
-    FindingSeverity,
-    ReviewFindingObserved,
+    EnumFindingSeverity,
+    ModelReviewFindingObserved,
 )
 
 _REPO = "OmniNode-ai/omniintelligence"
@@ -50,9 +50,9 @@ class TestRuffAdapterHappyPath:
         findings = parse_raw(raw, repo=_REPO, pr_id=_PR_ID, commit_sha=_SHA)
         assert len(findings) == 1
         f = findings[0]
-        assert isinstance(f, ReviewFindingObserved)
+        assert isinstance(f, ModelReviewFindingObserved)
         assert f.rule_id == "ruff:E501"
-        assert f.severity == FindingSeverity.ERROR
+        assert f.severity == EnumFindingSeverity.ERROR
         assert f.file_path == "src/foo/bar.py"
         assert f.line_start == 10
         assert f.repo == _REPO

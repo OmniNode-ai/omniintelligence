@@ -20,10 +20,10 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from omniintelligence.review_pairing.models import ReviewFindingObserved
+from omniintelligence.review_pairing.models import ModelReviewFindingObserved
 
 
-class CalibrationConfig(BaseModel, frozen=True):
+class ModelCalibrationConfig(BaseModel, frozen=True):
     """Configuration for a calibration run.
 
     Attributes:
@@ -85,7 +85,7 @@ class CalibrationConfig(BaseModel, frozen=True):
     )
 
 
-class CalibrationFindingTuple(BaseModel, frozen=True):
+class ModelCalibrationFindingTuple(BaseModel, frozen=True):
     """Normalized finding representation for calibration alignment.
 
     Attributes:
@@ -95,7 +95,7 @@ class CalibrationFindingTuple(BaseModel, frozen=True):
         severity: Severity level as string (e.g. "error", "warning").
         source_model: Model key that produced this finding.
         finding_id: Unique identifier for this finding instance.
-        raw_finding: Original ReviewFindingObserved if available, None for R1-R6 findings.
+        raw_finding: Original ModelReviewFindingObserved if available, None for R1-R6 findings.
     """
 
     category: str = Field(
@@ -116,15 +116,15 @@ class CalibrationFindingTuple(BaseModel, frozen=True):
     finding_id: UUID = Field(
         description="Unique identifier for this finding instance.",
     )
-    raw_finding: ReviewFindingObserved | None = Field(
+    raw_finding: ModelReviewFindingObserved | None = Field(
         default=None,
         description=(
-            "Original ReviewFindingObserved if available. None for R1-R6 findings."
+            "Original ModelReviewFindingObserved if available. None for R1-R6 findings."
         ),
     )
 
 
-class FindingAlignment(BaseModel, frozen=True):
+class ModelFindingAlignment(BaseModel, frozen=True):
     """Alignment record pairing a ground-truth finding with a challenger finding.
 
     Bidirectional:
@@ -142,10 +142,10 @@ class FindingAlignment(BaseModel, frozen=True):
             "jaccard-v1" for fallback string similarity.
     """
 
-    ground_truth: CalibrationFindingTuple | None = Field(
+    ground_truth: ModelCalibrationFindingTuple | None = Field(
         description="Ground-truth finding, or None for false positives.",
     )
-    challenger: CalibrationFindingTuple | None = Field(
+    challenger: ModelCalibrationFindingTuple | None = Field(
         description="Challenger finding, or None for false negatives.",
     )
     similarity_score: float = Field(
@@ -169,7 +169,7 @@ class FindingAlignment(BaseModel, frozen=True):
     )
 
 
-class CalibrationMetrics(BaseModel, frozen=True):
+class ModelCalibrationMetrics(BaseModel, frozen=True):
     """Per-model precision, recall, and noise metrics from a calibration run.
 
     Attributes:
@@ -220,7 +220,7 @@ class CalibrationMetrics(BaseModel, frozen=True):
     )
 
 
-class CalibrationRunResult(BaseModel, frozen=True):
+class ModelCalibrationRunResult(BaseModel, frozen=True):
     """Full result of one calibration run for a single challenger model.
 
     Results with error != None and metrics == None represent transport/execution
@@ -248,10 +248,10 @@ class CalibrationRunResult(BaseModel, frozen=True):
     challenger_model: str = Field(
         description="Model key being calibrated.",
     )
-    alignments: list[FindingAlignment] = Field(
+    alignments: list[ModelFindingAlignment] = Field(
         description="List of finding alignments from the alignment engine.",
     )
-    metrics: CalibrationMetrics | None = Field(
+    metrics: ModelCalibrationMetrics | None = Field(
         default=None,
         description="Computed metrics, or None on failure.",
     )
@@ -275,7 +275,7 @@ class CalibrationRunResult(BaseModel, frozen=True):
     )
 
 
-class FewShotExample(BaseModel, frozen=True):
+class ModelFewShotExample(BaseModel, frozen=True):
     """A single few-shot example extracted from calibration results.
 
     Used to inject high-value examples into adversarial reviewer prompts.
@@ -309,7 +309,7 @@ class FewShotExample(BaseModel, frozen=True):
     )
 
 
-class CalibrationOrchestrationResult(BaseModel, frozen=True):
+class ModelCalibrationOrchestrationResult(BaseModel, frozen=True):
     """Wrapper for the calibration orchestrator output.
 
     Attributes:
@@ -326,15 +326,15 @@ class CalibrationOrchestrationResult(BaseModel, frozen=True):
         default=None,
         description="Error message if orchestration failed, None on success.",
     )
-    ground_truth_findings: list[CalibrationFindingTuple] = Field(
+    ground_truth_findings: list[ModelCalibrationFindingTuple] = Field(
         description="Findings from the ground-truth model.",
     )
-    challenger_results: list[CalibrationRunResult] = Field(
+    challenger_results: list[ModelCalibrationRunResult] = Field(
         description="Per-challenger calibration run results.",
     )
 
 
-class CalibrationRunCompletedEvent(BaseModel, frozen=True):
+class ModelCalibrationRunCompletedEvent(BaseModel, frozen=True):
     """Kafka event emitted when a calibration run completes.
 
     Published to ``onex.evt.review-pairing.calibration-run-completed.v1``.

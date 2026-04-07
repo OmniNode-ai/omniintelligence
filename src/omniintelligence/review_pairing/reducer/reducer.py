@@ -3,7 +3,7 @@
 
 """Pattern Candidate Reducer: cluster, promote, and lifecycle state machine.
 
-Aggregates confirmed ``FindingFixPair`` records into pattern candidates,
+Aggregates confirmed ``ModelFindingFixPair`` records into pattern candidates,
 evaluates promotion gates, and drives the full pattern lifecycle state machine:
 
     CANDIDATE → VALIDATED → PROMOTED → STABLE → DECAYING → DEPRECATED
@@ -44,7 +44,7 @@ from datetime import UTC, datetime, timedelta
 from enum import Enum, unique
 from uuid import UUID, uuid4
 
-from omniintelligence.review_pairing.models import FindingFixPair
+from omniintelligence.review_pairing.models import ModelFindingFixPair
 
 logger = logging.getLogger(__name__)
 
@@ -165,7 +165,7 @@ class PatternCandidate:
         candidate_id: Globally unique identifier for this candidate.
         cluster_key: The AST cluster key that defines this pattern.
         state: Current lifecycle state.
-        confirmed_pairs: List of confirmed ``FindingFixPair`` records.
+        confirmed_pairs: List of confirmed ``ModelFindingFixPair`` records.
         reintroduced_pair_ids: Set of pair_ids that were reintroduced (reverted).
         pattern_score: Running quality score in [0.0, 1.0].
         transform_signature: Convergent diff transform string (set on VALIDATED).
@@ -183,7 +183,7 @@ class PatternCandidate:
         default_factory=lambda: PatternClusterKey(rule_id="unknown")
     )
     state: PatternLifecycleState = PatternLifecycleState.CANDIDATE
-    confirmed_pairs: list[FindingFixPair] = field(default_factory=list)
+    confirmed_pairs: list[ModelFindingFixPair] = field(default_factory=list)
     reintroduced_pair_ids: set[UUID] = field(default_factory=set)
     pattern_score: float = 1.0
     transform_signature: str = ""
@@ -248,14 +248,14 @@ def _edit_similarity(a: str, b: str) -> float:
     return 1.0 - distance / max(la, lb)
 
 
-def _transform_similarity(pairs: list[FindingFixPair]) -> float:
+def _transform_similarity(pairs: list[ModelFindingFixPair]) -> float:
     """Compute average pairwise edit-distance similarity of diff transforms.
 
     Uses the concatenated diff hunks from each pair as the transform
     representation. Returns 1.0 for a single pair (trivially convergent).
 
     Args:
-        pairs: Confirmed ``FindingFixPair`` records in the cluster.
+        pairs: Confirmed ``ModelFindingFixPair`` records in the cluster.
 
     Returns:
         Average similarity in [0.0, 1.0].
@@ -274,11 +274,11 @@ def _transform_similarity(pairs: list[FindingFixPair]) -> float:
     return total / count if count else 1.0
 
 
-def _tool_version_stability(pairs: list[FindingFixPair]) -> float:
+def _tool_version_stability(pairs: list[ModelFindingFixPair]) -> float:
     """Compute fraction of pairs sharing the majority tool_version.
 
     Args:
-        pairs: Confirmed ``FindingFixPair`` records.
+        pairs: Confirmed ``ModelFindingFixPair`` records.
 
     Returns:
         Fraction in [0.0, 1.0].
@@ -333,15 +333,15 @@ class PatternCandidateReducer:
     def ingest_pair(
         self,
         candidate: PatternCandidate,
-        pair: FindingFixPair,
+        pair: ModelFindingFixPair,
         *,
         cluster_key: PatternClusterKey | None = None,
     ) -> PatternCandidate:
-        """Add a confirmed ``FindingFixPair`` to a pattern cluster.
+        """Add a confirmed ``ModelFindingFixPair`` to a pattern cluster.
 
         Args:
             candidate: The ``PatternCandidate`` to update.
-            pair: A confirmed ``FindingFixPair`` (``disappearance_confirmed=True``).
+            pair: A confirmed ``ModelFindingFixPair`` (``disappearance_confirmed=True``).
             cluster_key: Optional override for the cluster key.
 
         Returns:
@@ -847,7 +847,7 @@ class PatternCandidateReducer:
     @staticmethod
     def new_candidate(
         cluster_key: PatternClusterKey,
-        initial_pair: FindingFixPair | None = None,
+        initial_pair: ModelFindingFixPair | None = None,
     ) -> PatternCandidate:
         """Create a new ``PatternCandidate`` for a cluster.
 

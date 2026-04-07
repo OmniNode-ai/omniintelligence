@@ -11,7 +11,7 @@ Four internal layers:
 1. build_review_prompt -- constructs system + user prompt
 2. call_model -- invokes LLM endpoint
 3. parse_review_response -- extracts structured JSON from model output
-4. to_review_findings -- maps to canonical ReviewFindingObserved models
+4. to_review_findings -- maps to canonical ModelReviewFindingObserved models
 
 Reference: OMN-5790
 """
@@ -31,8 +31,8 @@ from omniintelligence.review_pairing.adapters.base import (
     utcnow,
 )
 from omniintelligence.review_pairing.models import (
-    FindingSeverity,
-    ReviewFindingObserved,
+    EnumFindingSeverity,
+    ModelReviewFindingObserved,
 )
 from omniintelligence.review_pairing.models_external_review import (
     ModelEndpointConfig,
@@ -51,11 +51,11 @@ logger = logging.getLogger(__name__)
 # Severity mapping
 # ---------------------------------------------------------------------------
 
-_SEVERITY_MAP: dict[str, FindingSeverity] = {
-    "critical": FindingSeverity.ERROR,
-    "major": FindingSeverity.WARNING,
-    "minor": FindingSeverity.INFO,
-    "nit": FindingSeverity.HINT,
+_SEVERITY_MAP: dict[str, EnumFindingSeverity] = {
+    "critical": EnumFindingSeverity.ERROR,
+    "major": EnumFindingSeverity.WARNING,
+    "minor": EnumFindingSeverity.INFO,
+    "nit": EnumFindingSeverity.HINT,
 }
 
 # ---------------------------------------------------------------------------
@@ -278,14 +278,14 @@ def parse_review_response(raw_text: str) -> list[dict[str, Any]]:
     return []
 
 
-def map_severity(raw_severity: str) -> FindingSeverity:
-    """Map a raw severity string to canonical FindingSeverity.
+def map_severity(raw_severity: str) -> EnumFindingSeverity:
+    """Map a raw severity string to canonical EnumFindingSeverity.
 
     Args:
         raw_severity: Severity string from model output.
 
     Returns:
-        Canonical FindingSeverity enum value.
+        Canonical EnumFindingSeverity enum value.
     """
     normalized = raw_severity.strip().lower()
     severity = _SEVERITY_MAP.get(normalized)
@@ -295,7 +295,7 @@ def map_severity(raw_severity: str) -> FindingSeverity:
         "Unmapped severity '%s'; defaulting to INFO",
         raw_severity,
     )
-    return FindingSeverity.INFO
+    return EnumFindingSeverity.INFO
 
 
 def to_review_findings(
@@ -305,8 +305,8 @@ def to_review_findings(
     repo: str = "plan-review",
     pr_id: int = 0,
     commit_sha: str = "0000000",
-) -> list[ReviewFindingObserved]:
-    """Convert parsed finding dicts to canonical ReviewFindingObserved models.
+) -> list[ModelReviewFindingObserved]:
+    """Convert parsed finding dicts to canonical ModelReviewFindingObserved models.
 
     Args:
         parsed: List of finding dictionaries from parse_review_response.
@@ -316,9 +316,9 @@ def to_review_findings(
         commit_sha: Commit SHA (default placeholder for plan reviews).
 
     Returns:
-        List of ReviewFindingObserved instances.
+        List of ModelReviewFindingObserved instances.
     """
-    findings: list[ReviewFindingObserved] = []
+    findings: list[ModelReviewFindingObserved] = []
     now = utcnow()
 
     for item in parsed:
@@ -353,7 +353,7 @@ def to_review_findings(
         file_path = str(location) if location else "plan"
 
         findings.append(
-            ReviewFindingObserved(
+            ModelReviewFindingObserved(
                 finding_id=uuid4(),
                 repo=repo,
                 pr_id=max(pr_id, 1),
@@ -387,7 +387,7 @@ def parse_raw(
     commit_sha: str = "0000000",
     model: str = _DEFAULT_MODEL_KEY,
     **kwargs: Any,
-) -> list[ReviewFindingObserved]:
+) -> list[ModelReviewFindingObserved]:
     """Parse raw model output into canonical review findings.
 
     This is the synchronous entry point for the adapter interface.
@@ -402,7 +402,7 @@ def parse_raw(
         **kwargs: Additional keyword arguments (ignored).
 
     Returns:
-        List of ReviewFindingObserved instances.
+        List of ModelReviewFindingObserved instances.
     """
     # Validate model key.
     _resolve_model_url(model)
