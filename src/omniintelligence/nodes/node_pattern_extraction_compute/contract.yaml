@@ -144,20 +144,6 @@ configuration:
     # Tool patterns: minimum tool sequence length to track.
     tool_sequence_min_length: 2
 
-# =============================================================================
-# TODO(OMN-1580): Protocol Integration - ProtocolPatternExtractor
-# =============================================================================
-# Status: Backlog
-# Issue: https://linear.app/omninode/issue/OMN-1580
-#
-# Priority: Low (current implementation functional without protocol abstraction)
-# Description: Add ProtocolPatternExtractor to omnibase_spi
-#
-# When implemented:
-#   - Import from omnibase_spi.protocols.intelligence.ProtocolPatternExtractor
-#   - Node should implement the protocol interface
-#   - Uncomment dependency below
-# =============================================================================
 # Handler Routing (Declarative Pattern)
 # =====================================
 # Each declared operation maps to its specific handler function via operation_match routing.

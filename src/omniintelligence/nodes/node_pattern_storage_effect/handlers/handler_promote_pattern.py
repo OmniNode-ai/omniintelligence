@@ -423,9 +423,6 @@ async def handle_promote_pattern(
     # Implementations of ProtocolPatternStateManager are REQUIRED to wrap these
     # operations in a database transaction. See ProtocolPatternStateManager docstring.
     #
-    # TODO(OMN-1668): Consider adding a combined atomic_promote() method to the
-    # protocol that accepts both state and transition data, making atomicity
-    # explicit at the API level.
     # -------------------------------------------------------------------------
 
     # Step 3: Update state in database
