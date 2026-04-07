@@ -393,6 +393,14 @@ health_check:
   endpoint: "/health"
   interval_seconds: 30
 
+# Golden path: pattern_learning chain (pattern stored -> learned_patterns table)
+golden_path:
+  - "Receive pattern-learned event on onex.evt.omniintelligence.pattern-learned.v1"
+  - "Store pattern in PostgreSQL via ProtocolPatternStore"
+  - "Emit pattern-stored event to onex.evt.omniintelligence.pattern-stored.v1"
+  - "Event consumed by node_pattern_projection_effect in omniintelligence"
+  - "Verify row exists in learned_patterns with pattern_id, domain, confidence fields"
+
 # =============================================================================
 # METADATA
 # =============================================================================
