@@ -20,8 +20,8 @@ from omniintelligence.nodes.node_plan_reviewer_multi_compute.models import (
     PlanReviewFindingWithConfidence,
 )
 from omniintelligence.review_pairing.models import (
-    FindingSeverity,
-    ReviewFindingObserved,
+    EnumFindingSeverity,
+    ModelReviewFindingObserved,
 )
 from omniintelligence.review_pairing.serializer_r1r6 import (
     serialize_external_finding,
@@ -82,12 +82,12 @@ class TestSerializeExternalFinding:
     """Tests for serialize_external_finding."""
 
     def test_codex_rule_id(self) -> None:
-        finding = ReviewFindingObserved(
+        finding = ModelReviewFindingObserved(
             finding_id=uuid4(),
             repo="OmniNode-ai/omniintelligence",
             pr_id=100,
             rule_id="ai-reviewer:codex:architecture",
-            severity=FindingSeverity.ERROR,
+            severity=EnumFindingSeverity.ERROR,
             file_path="src/main.py",
             line_start=42,
             tool_name="ai-reviewer",
@@ -106,12 +106,12 @@ class TestSerializeExternalFinding:
         assert result.raw_finding == finding
 
     def test_unknown_rule_id_format(self) -> None:
-        finding = ReviewFindingObserved(
+        finding = ModelReviewFindingObserved(
             finding_id=uuid4(),
             repo="OmniNode-ai/omniintelligence",
             pr_id=100,
             rule_id="ruff:E501",
-            severity=FindingSeverity.WARNING,
+            severity=EnumFindingSeverity.WARNING,
             file_path="src/main.py",
             line_start=10,
             tool_name="ruff",
@@ -127,12 +127,12 @@ class TestSerializeExternalFinding:
 
     def test_preserves_finding_id(self) -> None:
         fid = uuid4()
-        finding = ReviewFindingObserved(
+        finding = ModelReviewFindingObserved(
             finding_id=fid,
             repo="OmniNode-ai/omniintelligence",
             pr_id=100,
             rule_id="ai-reviewer:codex:security",
-            severity=FindingSeverity.ERROR,
+            severity=EnumFindingSeverity.ERROR,
             file_path="src/auth.py",
             line_start=1,
             tool_name="ai-reviewer",

@@ -20,11 +20,11 @@ import pytest
 
 from omniintelligence.review_pairing.fewshot_extractor import FewShotExtractor
 from omniintelligence.review_pairing.models_calibration import (
-    CalibrationConfig,
-    CalibrationFindingTuple,
-    CalibrationMetrics,
-    CalibrationRunResult,
-    FindingAlignment,
+    ModelCalibrationConfig,
+    ModelCalibrationFindingTuple,
+    ModelCalibrationMetrics,
+    ModelCalibrationRunResult,
+    ModelFindingAlignment,
 )
 
 
@@ -34,8 +34,8 @@ def _make_finding(
     description: str = "test finding",
     source_model: str = "challenger-1",
     severity: str = "warning",
-) -> CalibrationFindingTuple:
-    return CalibrationFindingTuple(
+) -> ModelCalibrationFindingTuple:
+    return ModelCalibrationFindingTuple(
         category=category,
         location="src/foo.py",
         description=description,
@@ -50,8 +50,8 @@ def _make_tp_alignment(
     similarity_score: float = 0.9,
     category: str = "security",
     description: str = "test finding",
-) -> FindingAlignment:
-    return FindingAlignment(
+) -> ModelFindingAlignment:
+    return ModelFindingAlignment(
         ground_truth=_make_finding(
             source_model="codex", category=category, description=description
         ),
@@ -66,8 +66,8 @@ def _make_fp_alignment(
     *,
     category: str = "style",
     description: str = "noisy finding",
-) -> FindingAlignment:
-    return FindingAlignment(
+) -> ModelFindingAlignment:
+    return ModelFindingAlignment(
         ground_truth=None,
         challenger=_make_finding(category=category, description=description),
         similarity_score=0.0,
@@ -78,9 +78,9 @@ def _make_fp_alignment(
 
 def _make_run(
     *,
-    alignments: list[FindingAlignment],
+    alignments: list[ModelFindingAlignment],
     run_id: str | None = None,
-) -> CalibrationRunResult:
+) -> ModelCalibrationRunResult:
     tps = sum(1 for a in alignments if a.alignment_type == "true_positive")
     fps = sum(1 for a in alignments if a.alignment_type == "false_positive")
     fns = sum(1 for a in alignments if a.alignment_type == "false_negative")
@@ -94,12 +94,12 @@ def _make_run(
         else 0.0
     )
     noise = fps / total if total > 0 else 0.0
-    return CalibrationRunResult(
+    return ModelCalibrationRunResult(
         run_id=run_id or str(uuid4()),
         ground_truth_model="codex",
         challenger_model="challenger-1",
         alignments=alignments,
-        metrics=CalibrationMetrics(
+        metrics=ModelCalibrationMetrics(
             model="challenger-1",
             true_positives=tps,
             false_positives=fps,
@@ -119,8 +119,8 @@ def _default_config(
     min_runs: int = 3,
     tp_count: int = 3,
     fp_count: int = 3,
-) -> CalibrationConfig:
-    return CalibrationConfig(
+) -> ModelCalibrationConfig:
+    return ModelCalibrationConfig(
         ground_truth_model="codex",
         challenger_models=["challenger-1"],
         min_runs_for_fewshot=min_runs,
@@ -213,7 +213,7 @@ class TestFewShotExtractor:
         """Runs with error set and metrics=None should be excluded."""
         extractor = FewShotExtractor()
         good_runs = [_make_run(alignments=[_make_tp_alignment()]) for _ in range(3)]
-        failed_run = CalibrationRunResult(
+        failed_run = ModelCalibrationRunResult(
             run_id="failed",
             ground_truth_model="codex",
             challenger_model="challenger-1",

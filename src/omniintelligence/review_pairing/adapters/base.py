@@ -9,7 +9,7 @@ Provides:
 - Shared type aliases
 
 All adapters must be stateless pure functions:
-    parse_raw(raw: str | dict) -> list[ReviewFindingObserved]
+    parse_raw(raw: str | dict) -> list[ModelReviewFindingObserved]
 
 Reference: OMN-2542
 """

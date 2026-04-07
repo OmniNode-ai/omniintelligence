@@ -22,7 +22,7 @@ import textwrap
 from datetime import datetime, timezone
 from pathlib import Path
 
-from omniintelligence.review_pairing.models_calibration import FewShotExample
+from omniintelligence.review_pairing.models_calibration import ModelFewShotExample
 
 _BEGIN_SENTINEL = "# --- BEGIN FEW_SHOT_EXAMPLES ---"
 _END_SENTINEL = "# --- END FEW_SHOT_EXAMPLES ---"
@@ -58,7 +58,7 @@ class PromptWriter:
 
     def write_fewshot_examples(
         self,
-        examples: list[FewShotExample],
+        examples: list[ModelFewShotExample],
         prompt_path: Path | None = None,
     ) -> str:
         """Write few-shot examples into the adversarial reviewer prompt file.
@@ -126,7 +126,7 @@ class PromptWriter:
         return new_version
 
     @staticmethod
-    def _sanitize_examples(examples: list[FewShotExample]) -> None:
+    def _sanitize_examples(examples: list[ModelFewShotExample]) -> None:
         """Validate that example fields contain no dangerous Python constructs."""
         for ex in examples:
             for field_name in ("description", "evidence", "explanation", "category"):
@@ -150,7 +150,7 @@ class PromptWriter:
         return f"{parts[0]}.{int(parts[1]) + 1}.0"
 
     @staticmethod
-    def _format_fewshot_block(examples: list[FewShotExample]) -> str:
+    def _format_fewshot_block(examples: list[ModelFewShotExample]) -> str:
         """Format examples as a valid Python list-of-dicts constant."""
         items: list[str] = []
         for ex in examples:

@@ -15,23 +15,23 @@ import pytest
 from pydantic import ValidationError
 
 from omniintelligence.review_pairing.models_calibration import (
-    CalibrationConfig,
-    CalibrationFindingTuple,
-    CalibrationMetrics,
-    CalibrationOrchestrationResult,
-    CalibrationRunCompletedEvent,
-    CalibrationRunResult,
-    FewShotExample,
-    FindingAlignment,
+    ModelCalibrationConfig,
+    ModelCalibrationFindingTuple,
+    ModelCalibrationMetrics,
+    ModelCalibrationOrchestrationResult,
+    ModelCalibrationRunCompletedEvent,
+    ModelCalibrationRunResult,
+    ModelFewShotExample,
+    ModelFindingAlignment,
 )
 
 
 @pytest.mark.unit
 class TestCalibrationConfig:
-    """Tests for CalibrationConfig model."""
+    """Tests for ModelCalibrationConfig model."""
 
     def test_default_values(self) -> None:
-        config = CalibrationConfig(
+        config = ModelCalibrationConfig(
             ground_truth_model="codex",
             challenger_models=["deepseek-r1", "qwen3-coder"],
         )
@@ -46,7 +46,7 @@ class TestCalibrationConfig:
         assert config.category_families == {}
 
     def test_custom_values(self) -> None:
-        config = CalibrationConfig(
+        config = ModelCalibrationConfig(
             ground_truth_model="codex",
             challenger_models=["deepseek-r1"],
             similarity_threshold=0.8,
@@ -62,7 +62,7 @@ class TestCalibrationConfig:
         assert config.category_families == {"design": ["architecture", "structure"]}
 
     def test_frozen(self) -> None:
-        config = CalibrationConfig(
+        config = ModelCalibrationConfig(
             ground_truth_model="codex",
             challenger_models=["deepseek-r1"],
         )
@@ -70,17 +70,17 @@ class TestCalibrationConfig:
             config.ground_truth_model = "other"  # type: ignore[misc]
 
     def test_round_trip_json(self) -> None:
-        config = CalibrationConfig(
+        config = ModelCalibrationConfig(
             ground_truth_model="codex",
             challenger_models=["deepseek-r1", "qwen3-coder"],
             category_families={"design": ["architecture"]},
         )
         json_str = config.model_dump_json()
-        restored = CalibrationConfig.model_validate_json(json_str)
+        restored = ModelCalibrationConfig.model_validate_json(json_str)
         assert restored == config
 
     def test_empty_challenger_models_allowed(self) -> None:
-        config = CalibrationConfig(
+        config = ModelCalibrationConfig(
             ground_truth_model="codex",
             challenger_models=[],
         )
@@ -89,11 +89,11 @@ class TestCalibrationConfig:
 
 @pytest.mark.unit
 class TestCalibrationFindingTuple:
-    """Tests for CalibrationFindingTuple model."""
+    """Tests for ModelCalibrationFindingTuple model."""
 
     def test_basic_creation(self) -> None:
         fid = uuid4()
-        finding = CalibrationFindingTuple(
+        finding = ModelCalibrationFindingTuple(
             category="architecture",
             location="src/main.py:42",
             description="Missing error handling",
@@ -108,7 +108,7 @@ class TestCalibrationFindingTuple:
         assert finding.raw_finding is None
 
     def test_none_location(self) -> None:
-        finding = CalibrationFindingTuple(
+        finding = ModelCalibrationFindingTuple(
             category="design",
             location=None,
             description="Poor abstraction",
@@ -120,7 +120,7 @@ class TestCalibrationFindingTuple:
         assert finding.location is None
 
     def test_frozen(self) -> None:
-        finding = CalibrationFindingTuple(
+        finding = ModelCalibrationFindingTuple(
             category="design",
             location=None,
             description="Test",
@@ -133,7 +133,7 @@ class TestCalibrationFindingTuple:
             finding.category = "other"  # type: ignore[misc]
 
     def test_round_trip_json(self) -> None:
-        finding = CalibrationFindingTuple(
+        finding = ModelCalibrationFindingTuple(
             category="architecture",
             location="file.py",
             description="Issue found",
@@ -143,16 +143,16 @@ class TestCalibrationFindingTuple:
             raw_finding=None,
         )
         json_str = finding.model_dump_json()
-        restored = CalibrationFindingTuple.model_validate_json(json_str)
+        restored = ModelCalibrationFindingTuple.model_validate_json(json_str)
         assert restored == finding
 
 
 @pytest.mark.unit
 class TestFindingAlignment:
-    """Tests for FindingAlignment model."""
+    """Tests for ModelFindingAlignment model."""
 
-    def _make_finding(self, source: str = "codex") -> CalibrationFindingTuple:
-        return CalibrationFindingTuple(
+    def _make_finding(self, source: str = "codex") -> ModelCalibrationFindingTuple:
+        return ModelCalibrationFindingTuple(
             category="architecture",
             location="file.py",
             description="Issue",
@@ -165,7 +165,7 @@ class TestFindingAlignment:
     def test_true_positive(self) -> None:
         gt = self._make_finding("codex")
         ch = self._make_finding("deepseek-r1")
-        alignment = FindingAlignment(
+        alignment = ModelFindingAlignment(
             ground_truth=gt,
             challenger=ch,
             similarity_score=0.95,
@@ -178,7 +178,7 @@ class TestFindingAlignment:
 
     def test_false_negative(self) -> None:
         gt = self._make_finding("codex")
-        alignment = FindingAlignment(
+        alignment = ModelFindingAlignment(
             ground_truth=gt,
             challenger=None,
             similarity_score=0.0,
@@ -191,7 +191,7 @@ class TestFindingAlignment:
 
     def test_false_positive(self) -> None:
         ch = self._make_finding("deepseek-r1")
-        alignment = FindingAlignment(
+        alignment = ModelFindingAlignment(
             ground_truth=None,
             challenger=ch,
             similarity_score=0.0,
@@ -205,7 +205,7 @@ class TestFindingAlignment:
     def test_frozen(self) -> None:
         gt = self._make_finding()
         ch = self._make_finding("deepseek-r1")
-        alignment = FindingAlignment(
+        alignment = ModelFindingAlignment(
             ground_truth=gt,
             challenger=ch,
             similarity_score=0.9,
@@ -219,7 +219,7 @@ class TestFindingAlignment:
     def test_round_trip_json(self) -> None:
         gt = self._make_finding()
         ch = self._make_finding("deepseek-r1")
-        alignment = FindingAlignment(
+        alignment = ModelFindingAlignment(
             ground_truth=gt,
             challenger=ch,
             similarity_score=0.85,
@@ -228,16 +228,16 @@ class TestFindingAlignment:
             embedding_model_version="qwen3-embedding-8b",
         )
         json_str = alignment.model_dump_json()
-        restored = FindingAlignment.model_validate_json(json_str)
+        restored = ModelFindingAlignment.model_validate_json(json_str)
         assert restored == alignment
 
 
 @pytest.mark.unit
 class TestCalibrationMetrics:
-    """Tests for CalibrationMetrics model."""
+    """Tests for ModelCalibrationMetrics model."""
 
     def test_basic_metrics(self) -> None:
-        metrics = CalibrationMetrics(
+        metrics = ModelCalibrationMetrics(
             model="deepseek-r1",
             true_positives=8,
             false_positives=2,
@@ -252,7 +252,7 @@ class TestCalibrationMetrics:
         assert metrics.precision == 0.8
 
     def test_frozen(self) -> None:
-        metrics = CalibrationMetrics(
+        metrics = ModelCalibrationMetrics(
             model="test",
             true_positives=1,
             false_positives=0,
@@ -266,7 +266,7 @@ class TestCalibrationMetrics:
             metrics.model = "other"  # type: ignore[misc]
 
     def test_round_trip_json(self) -> None:
-        metrics = CalibrationMetrics(
+        metrics = ModelCalibrationMetrics(
             model="deepseek-r1",
             true_positives=5,
             false_positives=2,
@@ -277,16 +277,16 @@ class TestCalibrationMetrics:
             noise_ratio=0.286,
         )
         json_str = metrics.model_dump_json()
-        restored = CalibrationMetrics.model_validate_json(json_str)
+        restored = ModelCalibrationMetrics.model_validate_json(json_str)
         assert restored == metrics
 
 
 @pytest.mark.unit
 class TestCalibrationRunResult:
-    """Tests for CalibrationRunResult model."""
+    """Tests for ModelCalibrationRunResult model."""
 
     def test_successful_run(self) -> None:
-        metrics = CalibrationMetrics(
+        metrics = ModelCalibrationMetrics(
             model="deepseek-r1",
             true_positives=5,
             false_positives=2,
@@ -297,7 +297,7 @@ class TestCalibrationRunResult:
             noise_ratio=0.286,
         )
         now = datetime.now(tz=timezone.utc)
-        result = CalibrationRunResult(
+        result = ModelCalibrationRunResult(
             run_id="run-001",
             ground_truth_model="codex",
             challenger_model="deepseek-r1",
@@ -315,7 +315,7 @@ class TestCalibrationRunResult:
 
     def test_failed_run(self) -> None:
         now = datetime.now(tz=timezone.utc)
-        result = CalibrationRunResult(
+        result = ModelCalibrationRunResult(
             run_id="run-002",
             ground_truth_model="codex",
             challenger_model="deepseek-r1",
@@ -330,7 +330,7 @@ class TestCalibrationRunResult:
 
     def test_frozen(self) -> None:
         now = datetime.now(tz=timezone.utc)
-        result = CalibrationRunResult(
+        result = ModelCalibrationRunResult(
             run_id="run-003",
             ground_truth_model="codex",
             challenger_model="deepseek-r1",
@@ -344,7 +344,7 @@ class TestCalibrationRunResult:
 
     def test_round_trip_json(self) -> None:
         now = datetime.now(tz=timezone.utc)
-        result = CalibrationRunResult(
+        result = ModelCalibrationRunResult(
             run_id="run-004",
             ground_truth_model="codex",
             challenger_model="deepseek-r1",
@@ -357,16 +357,16 @@ class TestCalibrationRunResult:
             created_at=now,
         )
         json_str = result.model_dump_json()
-        restored = CalibrationRunResult.model_validate_json(json_str)
+        restored = ModelCalibrationRunResult.model_validate_json(json_str)
         assert restored == result
 
 
 @pytest.mark.unit
 class TestFewShotExample:
-    """Tests for FewShotExample model."""
+    """Tests for ModelFewShotExample model."""
 
     def test_true_positive_example(self) -> None:
-        example = FewShotExample(
+        example = ModelFewShotExample(
             example_type="true_positive",
             category="architecture",
             description="Missing error handling in API endpoint",
@@ -378,7 +378,7 @@ class TestFewShotExample:
         assert example.ground_truth_present is True
 
     def test_false_positive_example(self) -> None:
-        example = FewShotExample(
+        example = ModelFewShotExample(
             example_type="false_positive",
             category="style",
             description="Variable naming convention",
@@ -390,7 +390,7 @@ class TestFewShotExample:
         assert example.ground_truth_present is False
 
     def test_frozen(self) -> None:
-        example = FewShotExample(
+        example = ModelFewShotExample(
             example_type="false_negative",
             category="security",
             description="SQL injection risk",
@@ -402,7 +402,7 @@ class TestFewShotExample:
             example.category = "other"  # type: ignore[misc]
 
     def test_round_trip_json(self) -> None:
-        example = FewShotExample(
+        example = ModelFewShotExample(
             example_type="true_positive",
             category="architecture",
             description="Test description",
@@ -411,16 +411,16 @@ class TestFewShotExample:
             explanation="Test explanation",
         )
         json_str = example.model_dump_json()
-        restored = FewShotExample.model_validate_json(json_str)
+        restored = ModelFewShotExample.model_validate_json(json_str)
         assert restored == example
 
 
 @pytest.mark.unit
 class TestCalibrationOrchestrationResult:
-    """Tests for CalibrationOrchestrationResult model."""
+    """Tests for ModelCalibrationOrchestrationResult model."""
 
     def test_successful_orchestration(self) -> None:
-        finding = CalibrationFindingTuple(
+        finding = ModelCalibrationFindingTuple(
             category="architecture",
             location="file.py",
             description="Issue",
@@ -430,12 +430,12 @@ class TestCalibrationOrchestrationResult:
             raw_finding=None,
         )
         now = datetime.now(tz=timezone.utc)
-        run_result = CalibrationRunResult(
+        run_result = ModelCalibrationRunResult(
             run_id="run-001",
             ground_truth_model="codex",
             challenger_model="deepseek-r1",
             alignments=[],
-            metrics=CalibrationMetrics(
+            metrics=ModelCalibrationMetrics(
                 model="deepseek-r1",
                 true_positives=1,
                 false_positives=0,
@@ -448,7 +448,7 @@ class TestCalibrationOrchestrationResult:
             prompt_version="1.1.0",
             created_at=now,
         )
-        result = CalibrationOrchestrationResult(
+        result = ModelCalibrationOrchestrationResult(
             success=True,
             error=None,
             ground_truth_findings=[finding],
@@ -459,7 +459,7 @@ class TestCalibrationOrchestrationResult:
         assert len(result.challenger_results) == 1
 
     def test_failed_orchestration(self) -> None:
-        result = CalibrationOrchestrationResult(
+        result = ModelCalibrationOrchestrationResult(
             success=False,
             error="No ground truth findings available",
             ground_truth_findings=[],
@@ -469,7 +469,7 @@ class TestCalibrationOrchestrationResult:
         assert result.error is not None
 
     def test_frozen(self) -> None:
-        result = CalibrationOrchestrationResult(
+        result = ModelCalibrationOrchestrationResult(
             success=True,
             error=None,
             ground_truth_findings=[],
@@ -479,24 +479,24 @@ class TestCalibrationOrchestrationResult:
             result.success = False  # type: ignore[misc]
 
     def test_round_trip_json(self) -> None:
-        result = CalibrationOrchestrationResult(
+        result = ModelCalibrationOrchestrationResult(
             success=True,
             error=None,
             ground_truth_findings=[],
             challenger_results=[],
         )
         json_str = result.model_dump_json()
-        restored = CalibrationOrchestrationResult.model_validate_json(json_str)
+        restored = ModelCalibrationOrchestrationResult.model_validate_json(json_str)
         assert restored == result
 
 
 @pytest.mark.unit
 class TestCalibrationRunCompletedEvent:
-    """Tests for CalibrationRunCompletedEvent model."""
+    """Tests for ModelCalibrationRunCompletedEvent model."""
 
     def test_event_creation(self) -> None:
         now = datetime.now(tz=timezone.utc)
-        event = CalibrationRunCompletedEvent(
+        event = ModelCalibrationRunCompletedEvent(
             event_id=uuid4(),
             run_id="run-001",
             ground_truth_model="codex",
@@ -514,7 +514,7 @@ class TestCalibrationRunCompletedEvent:
 
     def test_frozen(self) -> None:
         now = datetime.now(tz=timezone.utc)
-        event = CalibrationRunCompletedEvent(
+        event = ModelCalibrationRunCompletedEvent(
             event_id=uuid4(),
             run_id="run-001",
             ground_truth_model="codex",
@@ -532,7 +532,7 @@ class TestCalibrationRunCompletedEvent:
 
     def test_round_trip_json(self) -> None:
         now = datetime.now(tz=timezone.utc)
-        event = CalibrationRunCompletedEvent(
+        event = ModelCalibrationRunCompletedEvent(
             event_id=uuid4(),
             run_id="run-001",
             ground_truth_model="codex",
@@ -546,5 +546,5 @@ class TestCalibrationRunCompletedEvent:
             created_at=now,
         )
         json_str = event.model_dump_json()
-        restored = CalibrationRunCompletedEvent.model_validate_json(json_str)
+        restored = ModelCalibrationRunCompletedEvent.model_validate_json(json_str)
         assert restored == event

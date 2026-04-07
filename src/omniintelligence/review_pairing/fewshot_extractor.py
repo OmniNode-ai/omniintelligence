@@ -14,10 +14,10 @@ from __future__ import annotations
 from collections import Counter
 
 from omniintelligence.review_pairing.models_calibration import (
-    CalibrationConfig,
-    CalibrationRunResult,
-    FewShotExample,
-    FindingAlignment,
+    ModelCalibrationConfig,
+    ModelCalibrationRunResult,
+    ModelFewShotExample,
+    ModelFindingAlignment,
 )
 
 
@@ -29,20 +29,20 @@ class FewShotExtractor:
     2. Collect all alignments across valid runs.
     3. TPs: deduplicate by description, rank by best similarity_score DESC.
     4. FPs: rank by recurrence frequency (how many runs contain that description).
-    5. Format as FewShotExample with explanation text.
+    5. Format as ModelFewShotExample with explanation text.
     """
 
     def extract(
         self,
-        runs: list[CalibrationRunResult],
-        config: CalibrationConfig,
-    ) -> list[FewShotExample]:
+        runs: list[ModelCalibrationRunResult],
+        config: ModelCalibrationConfig,
+    ) -> list[ModelFewShotExample]:
         valid_runs = [r for r in runs if r.error is None and r.metrics is not None]
 
         if len(valid_runs) < config.min_runs_for_fewshot:
             return []
 
-        all_alignments: list[FindingAlignment] = []
+        all_alignments: list[ModelFindingAlignment] = []
         for run in valid_runs:
             all_alignments.extend(run.alignments)
 
@@ -53,16 +53,16 @@ class FewShotExtractor:
 
     def _extract_tps(
         self,
-        alignments: list[FindingAlignment],
+        alignments: list[ModelFindingAlignment],
         count: int,
-    ) -> list[FewShotExample]:
+    ) -> list[ModelFewShotExample]:
         if count <= 0:
             return []
 
         tps = [a for a in alignments if a.alignment_type == "true_positive"]
 
         # Deduplicate by description, keeping the highest similarity score
-        best_by_desc: dict[str, FindingAlignment] = {}
+        best_by_desc: dict[str, ModelFindingAlignment] = {}
         for tp in tps:
             desc = tp.challenger.description if tp.challenger else ""
             existing = best_by_desc.get(desc)
@@ -79,15 +79,15 @@ class FewShotExtractor:
 
     def _extract_fps(
         self,
-        runs: list[CalibrationRunResult],
+        runs: list[ModelCalibrationRunResult],
         count: int,
-    ) -> list[FewShotExample]:
+    ) -> list[ModelFewShotExample]:
         if count <= 0:
             return []
 
         # Count how many runs each FP description appears in
         freq: Counter[str] = Counter()
-        fp_by_desc: dict[str, FindingAlignment] = {}
+        fp_by_desc: dict[str, ModelFindingAlignment] = {}
 
         for run in runs:
             seen_in_run: set[str] = set()
@@ -109,11 +109,11 @@ class FewShotExtractor:
         ]
 
     @staticmethod
-    def _tp_to_example(alignment: FindingAlignment) -> FewShotExample:
+    def _tp_to_example(alignment: ModelFindingAlignment) -> ModelFewShotExample:
         challenger = alignment.challenger
         category = challenger.category if challenger else "unknown"
         description = challenger.description if challenger else ""
-        return FewShotExample(
+        return ModelFewShotExample(
             example_type="true_positive",
             category=category,
             description=description,
@@ -127,13 +127,13 @@ class FewShotExtractor:
 
     @staticmethod
     def _fp_to_example(
-        alignment: FindingAlignment,
+        alignment: ModelFindingAlignment,
         frequency: int,
-    ) -> FewShotExample:
+    ) -> ModelFewShotExample:
         challenger = alignment.challenger
         category = challenger.category if challenger else "unknown"
         description = challenger.description if challenger else ""
-        return FewShotExample(
+        return ModelFewShotExample(
             example_type="false_positive",
             category=category,
             description=description,

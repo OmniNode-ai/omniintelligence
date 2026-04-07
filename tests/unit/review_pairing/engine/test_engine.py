@@ -22,11 +22,11 @@ from omniintelligence.review_pairing.engine.engine import (
     PairingEngine,
 )
 from omniintelligence.review_pairing.models import (
-    FindingFixPair,
-    FindingSeverity,
-    PairingType,
-    ReviewFindingObserved,
-    ReviewFixApplied,
+    ModelFindingFixPair,
+    EnumFindingSeverity,
+    EnumPairingType,
+    ModelReviewFindingObserved,
+    ModelReviewFixApplied,
 )
 
 # ---------------------------------------------------------------------------
@@ -53,13 +53,13 @@ def _make_finding(
     line_end: int | None = None,
     observed_at: datetime = _NOW,
     commit_sha: str = _SHA_FINDING,
-) -> ReviewFindingObserved:
-    return ReviewFindingObserved(
+) -> ModelReviewFindingObserved:
+    return ModelReviewFindingObserved(
         finding_id=uuid4(),
         repo=repo,
         pr_id=pr_id,
         rule_id=rule_id,
-        severity=FindingSeverity.WARNING,
+        severity=EnumFindingSeverity.WARNING,
         file_path=file_path,
         line_start=line_start,
         line_end=line_end,
@@ -81,8 +81,8 @@ def _make_fix(
     touched_line_range: tuple[int, int] = (8, 12),
     tool_autofix: bool = False,
     applied_at: datetime | None = None,
-) -> ReviewFixApplied:
-    return ReviewFixApplied(
+) -> ModelReviewFixApplied:
+    return ModelReviewFixApplied(
         fix_id=uuid4(),
         finding_id=finding_id or uuid4(),
         fix_commit_sha=fix_commit_sha,
@@ -95,7 +95,7 @@ def _make_fix(
 
 
 def _make_candidate(
-    fix: ReviewFixApplied | None = None,
+    fix: ModelReviewFixApplied | None = None,
     *,
     disappearance_confirmed: bool = False,
     all_pr_files: set[str] | None = None,
@@ -138,7 +138,7 @@ class TestPairingEngineBasic:
         )
         result = engine.pair(finding, [candidate])
         assert len(result.pairs) == 1
-        assert isinstance(result.pairs[0], FindingFixPair)
+        assert isinstance(result.pairs[0], ModelFindingFixPair)
 
     @pytest.mark.unit
     def test_result_contains_finding_id(self) -> None:
@@ -284,7 +284,7 @@ class TestPairingEnginePairingType:
         candidate = _make_candidate(fix, disappearance_confirmed=True)
         result = engine.pair(finding, [candidate])
         if result.pairs:
-            assert result.pairs[0].pairing_type == PairingType.AUTOFIX
+            assert result.pairs[0].pairing_type == EnumPairingType.AUTOFIX
 
     @pytest.mark.unit
     def test_same_commit_sha_produces_same_commit_pairing_type(self) -> None:
@@ -298,7 +298,7 @@ class TestPairingEnginePairingType:
         candidate = _make_candidate(fix)
         result = engine.pair(finding, [candidate])
         if result.pairs:
-            assert result.pairs[0].pairing_type == PairingType.SAME_COMMIT
+            assert result.pairs[0].pairing_type == EnumPairingType.SAME_COMMIT
 
 
 # ---------------------------------------------------------------------------

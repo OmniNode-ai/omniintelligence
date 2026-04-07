@@ -4,7 +4,7 @@
 """Ruff JSON output adapter for the Review Signal Adapters.
 
 Parses ``ruff check --output-format json`` output and converts each
-diagnostic into a ``ReviewFindingObserved`` event.
+diagnostic into a ``ModelReviewFindingObserved`` event.
 
 Ruff JSON format (single diagnostic):
 
@@ -46,8 +46,8 @@ from omniintelligence.review_pairing.adapters.base import (
     utcnow,
 )
 from omniintelligence.review_pairing.models import (
-    FindingSeverity,
-    ReviewFindingObserved,
+    EnumFindingSeverity,
+    ModelReviewFindingObserved,
 )
 
 logger = logging.getLogger(__name__)
@@ -57,7 +57,7 @@ _TOOL_NAME = "ruff"
 # Ruff does not provide severity in JSON output; all findings are treated as
 # "error" since ruff --output-format json only surfaces violations that would
 # cause a non-zero exit code (i.e., they are all rule violations).
-_DEFAULT_SEVERITY = FindingSeverity.ERROR
+_DEFAULT_SEVERITY = EnumFindingSeverity.ERROR
 
 # Version sentinel used when ruff_version is not provided
 _UNKNOWN_VERSION = "unknown"
@@ -70,7 +70,7 @@ def parse_raw(
     pr_id: int,
     commit_sha: str,
     ruff_version: str = _UNKNOWN_VERSION,
-) -> list[ReviewFindingObserved]:
+) -> list[ModelReviewFindingObserved]:
     """Parse ``ruff check --output-format json`` output into findings.
 
     Args:
@@ -82,7 +82,7 @@ def parse_raw(
         ruff_version: Version of the ruff tool, if known.
 
     Returns:
-        List of ``ReviewFindingObserved`` events. Empty list if parsing fails
+        List of ``ModelReviewFindingObserved`` events. Empty list if parsing fails
         or input contains no valid diagnostics.
     """
     data: list[Any]
@@ -95,7 +95,7 @@ def parse_raw(
     else:
         data = list(raw)
 
-    findings: list[ReviewFindingObserved] = []
+    findings: list[ModelReviewFindingObserved] = []
 
     for idx, item in enumerate(data):
         if not isinstance(item, dict):
@@ -127,8 +127,8 @@ def _parse_one(
     commit_sha: str,
     ruff_version: str,
     idx: int,
-) -> ReviewFindingObserved | None:
-    """Parse a single ruff diagnostic dict into a ``ReviewFindingObserved``.
+) -> ModelReviewFindingObserved | None:
+    """Parse a single ruff diagnostic dict into a ``ModelReviewFindingObserved``.
 
     Returns ``None`` on malformed/incomplete input (logs a warning).
     """
@@ -155,7 +155,7 @@ def _parse_one(
         rule_id = f"ruff:{code}"
         normalized = normalize_message(f"{code} {raw_message}", _TOOL_NAME)
 
-        return ReviewFindingObserved(
+        return ModelReviewFindingObserved(
             finding_id=uuid4(),
             repo=repo,
             pr_id=pr_id,

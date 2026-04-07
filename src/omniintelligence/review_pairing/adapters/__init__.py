@@ -5,7 +5,7 @@
 
 Each adapter is a stateless pure function:
 
-    parse_raw(raw: str | dict) -> list[ReviewFindingObserved]
+    parse_raw(raw: str | dict) -> list[ModelReviewFindingObserved]
 
 Supported sources (Phase 1 — deterministic):
     ruff       — Ruff JSON output (``ruff check --output-format json``)

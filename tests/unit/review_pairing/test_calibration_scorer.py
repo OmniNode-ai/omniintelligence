@@ -14,13 +14,13 @@ import pytest
 
 from omniintelligence.review_pairing.calibration_scorer import CalibrationScorer
 from omniintelligence.review_pairing.models_calibration import (
-    CalibrationFindingTuple,
-    FindingAlignment,
+    ModelCalibrationFindingTuple,
+    ModelFindingAlignment,
 )
 
 
-def _make_finding(source: str = "codex") -> CalibrationFindingTuple:
-    return CalibrationFindingTuple(
+def _make_finding(source: str = "codex") -> ModelCalibrationFindingTuple:
+    return ModelCalibrationFindingTuple(
         category="architecture",
         location="file.py",
         description="Issue",
@@ -31,8 +31,8 @@ def _make_finding(source: str = "codex") -> CalibrationFindingTuple:
     )
 
 
-def _make_tp() -> FindingAlignment:
-    return FindingAlignment(
+def _make_tp() -> ModelFindingAlignment:
+    return ModelFindingAlignment(
         ground_truth=_make_finding("codex"),
         challenger=_make_finding("deepseek-r1"),
         similarity_score=0.9,
@@ -42,8 +42,8 @@ def _make_tp() -> FindingAlignment:
     )
 
 
-def _make_fp() -> FindingAlignment:
-    return FindingAlignment(
+def _make_fp() -> ModelFindingAlignment:
+    return ModelFindingAlignment(
         ground_truth=None,
         challenger=_make_finding("deepseek-r1"),
         similarity_score=0.0,
@@ -53,8 +53,8 @@ def _make_fp() -> FindingAlignment:
     )
 
 
-def _make_fn() -> FindingAlignment:
-    return FindingAlignment(
+def _make_fn() -> ModelFindingAlignment:
+    return ModelFindingAlignment(
         ground_truth=_make_finding("codex"),
         challenger=None,
         similarity_score=0.0,

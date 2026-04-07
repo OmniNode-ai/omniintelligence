@@ -25,7 +25,7 @@ from unittest.mock import patch
 
 import pytest
 
-from omniintelligence.review_pairing.models import FindingFixPair, PairingType
+from omniintelligence.review_pairing.models import ModelFindingFixPair, EnumPairingType
 from omniintelligence.review_pairing.reducer import (
     PatternCandidate,
     PatternCandidateReducer,
@@ -44,16 +44,16 @@ def _make_pair(
     *,
     disappearance_confirmed: bool = True,
     diff_hunks: list[str] | None = None,
-) -> FindingFixPair:
-    """Create a minimal FindingFixPair for testing."""
-    return FindingFixPair(
+) -> ModelFindingFixPair:
+    """Create a minimal ModelFindingFixPair for testing."""
+    return ModelFindingFixPair(
         pair_id=uuid.uuid4(),
         finding_id=uuid.uuid4(),
         fix_commit_sha="abc1234",
         diff_hunks=diff_hunks or ["@@ -1,3 +1,3 @@\n-bad_code()\n+good_code()"],
         confidence_score=0.80,
         disappearance_confirmed=disappearance_confirmed,
-        pairing_type=PairingType.SAME_PR,
+        pairing_type=EnumPairingType.SAME_PR,
         created_at=datetime.now(tz=UTC),
     )
 

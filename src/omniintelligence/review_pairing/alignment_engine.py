@@ -18,8 +18,8 @@ import numpy as np
 from scipy.optimize import linear_sum_assignment
 
 from omniintelligence.review_pairing.models_calibration import (
-    CalibrationFindingTuple,
-    FindingAlignment,
+    ModelCalibrationFindingTuple,
+    ModelFindingAlignment,
 )
 
 if TYPE_CHECKING:
@@ -70,9 +70,9 @@ class FindingAlignmentEngine:
 
     async def align(
         self,
-        ground_truth: list[CalibrationFindingTuple],
-        challenger: list[CalibrationFindingTuple],
-    ) -> list[FindingAlignment]:
+        ground_truth: list[ModelCalibrationFindingTuple],
+        challenger: list[ModelCalibrationFindingTuple],
+    ) -> list[ModelFindingAlignment]:
         """Align ground-truth findings with challenger findings.
 
         Args:
@@ -80,14 +80,14 @@ class FindingAlignmentEngine:
             challenger: Findings from the challenger model.
 
         Returns:
-            List of FindingAlignment records covering all findings.
+            List of ModelFindingAlignment records covering all findings.
         """
         if not ground_truth and not challenger:
             return []
 
         if not ground_truth:
             return [
-                FindingAlignment(
+                ModelFindingAlignment(
                     ground_truth=None,
                     challenger=ch,
                     similarity_score=0.0,
@@ -100,7 +100,7 @@ class FindingAlignmentEngine:
 
         if not challenger:
             return [
-                FindingAlignment(
+                ModelFindingAlignment(
                     ground_truth=gt,
                     challenger=None,
                     similarity_score=0.0,
@@ -118,13 +118,13 @@ class FindingAlignmentEngine:
 
         matched_gt: set[int] = set()
         matched_ch: set[int] = set()
-        alignments: list[FindingAlignment] = []
+        alignments: list[ModelFindingAlignment] = []
 
         for r, c in zip(row_ind, col_ind, strict=True):
             score = float(sim_matrix[r, c])
             if score >= self._threshold:
                 alignments.append(
-                    FindingAlignment(
+                    ModelFindingAlignment(
                         ground_truth=ground_truth[r],
                         challenger=challenger[c],
                         similarity_score=score,
@@ -139,7 +139,7 @@ class FindingAlignmentEngine:
         for i, gt in enumerate(ground_truth):
             if i not in matched_gt:
                 alignments.append(
-                    FindingAlignment(
+                    ModelFindingAlignment(
                         ground_truth=gt,
                         challenger=None,
                         similarity_score=0.0,
@@ -152,7 +152,7 @@ class FindingAlignmentEngine:
         for j, ch in enumerate(challenger):
             if j not in matched_ch:
                 alignments.append(
-                    FindingAlignment(
+                    ModelFindingAlignment(
                         ground_truth=None,
                         challenger=ch,
                         similarity_score=0.0,
@@ -166,8 +166,8 @@ class FindingAlignmentEngine:
 
     async def _build_similarity_matrix(
         self,
-        ground_truth: list[CalibrationFindingTuple],
-        challenger: list[CalibrationFindingTuple],
+        ground_truth: list[ModelCalibrationFindingTuple],
+        challenger: list[ModelCalibrationFindingTuple],
     ) -> np.ndarray:
         """Build NxM composite similarity matrix."""
         n = len(ground_truth)

@@ -36,9 +36,9 @@ from uuid import UUID, uuid4
 
 from omniintelligence.review_pairing.engine.scorer import has_config_change
 from omniintelligence.review_pairing.models import (
-    FindingFixPair,
-    ReviewFindingObserved,
-    ReviewFindingResolved,
+    ModelFindingFixPair,
+    ModelReviewFindingObserved,
+    ModelReviewFindingResolved,
 )
 
 logger = logging.getLogger(__name__)
@@ -114,13 +114,13 @@ class VerificationResult:
     """Result of a finding disappearance verification attempt.
 
     Attributes:
-        pair_id: UUID of the ``FindingFixPair`` that was verified.
-        finding_id: UUID of the ``ReviewFindingObserved`` that was verified.
+        pair_id: UUID of the ``ModelFindingFixPair`` that was verified.
+        finding_id: UUID of the ``ModelReviewFindingObserved`` that was verified.
         outcome: The verification outcome.
         disappearance_confirmed: Whether the finding is confirmed absent.
         confidence_delta: Confidence score adjustment based on the outcome.
             Applied to the existing pair confidence.
-        resolved_event: If outcome is CONFIRMED, the ``ReviewFindingResolved``
+        resolved_event: If outcome is CONFIRMED, the ``ModelReviewFindingResolved``
             event to emit to Kafka. ``None`` for other outcomes.
         verification_source: How the verification was done.
         verified_at: UTC datetime of verification.
@@ -132,7 +132,7 @@ class VerificationResult:
     outcome: VerificationOutcome
     disappearance_confirmed: bool
     confidence_delta: float = 0.0
-    resolved_event: ReviewFindingResolved | None = None
+    resolved_event: ModelReviewFindingResolved | None = None
     verification_source: str = "ci_rerun"
     verified_at: datetime = field(default_factory=lambda: datetime.now(tz=UTC))
     notes: str = ""
@@ -161,8 +161,8 @@ class FindingDisappearanceVerifier:
 
     def verify(
         self,
-        finding: ReviewFindingObserved,
-        pair: FindingFixPair,
+        finding: ModelReviewFindingObserved,
+        pair: ModelFindingFixPair,
         post_fix_ci: PostFixCIFindings,
         *,
         resolution_id: UUID | None = None,
@@ -171,10 +171,10 @@ class FindingDisappearanceVerifier:
         """Verify whether a finding has disappeared after a fix.
 
         Args:
-            finding: The original ``ReviewFindingObserved`` event.
-            pair: The ``FindingFixPair`` to verify (must reference the same finding).
+            finding: The original ``ModelReviewFindingObserved`` event.
+            pair: The ``ModelFindingFixPair`` to verify (must reference the same finding).
             post_fix_ci: Post-fix CI results to compare against.
-            resolution_id: UUID for the ``ReviewFindingResolved`` event. Defaults to
+            resolution_id: UUID for the ``ModelReviewFindingResolved`` event. Defaults to
                 ``uuid4()``. Pass an explicit value for idempotent re-runs.
             verified_at: UTC timestamp of verification. Defaults to ``datetime.now(UTC)``.
                 Pass an explicit value for idempotent re-runs.
@@ -277,7 +277,7 @@ class FindingDisappearanceVerifier:
             )
 
         # Confirmed: finding is absent and the fix touched the right file
-        resolved_event = ReviewFindingResolved(
+        resolved_event = ModelReviewFindingResolved(
             resolution_id=_resolution_id,
             finding_id=finding.finding_id,
             fix_commit_sha=pair.fix_commit_sha,
@@ -305,7 +305,7 @@ class FindingDisappearanceVerifier:
 
     @staticmethod
     def _finding_still_present(
-        finding: ReviewFindingObserved,
+        finding: ModelReviewFindingObserved,
         post_fix_ci: PostFixCIFindings,
     ) -> bool:
         """Check if the finding is still present in the post-fix CI results.

@@ -18,7 +18,7 @@ from omniintelligence.review_pairing.adapters.adapter_github_checks import (
     get_confidence_tier,
     parse_raw,
 )
-from omniintelligence.review_pairing.models import FindingSeverity
+from omniintelligence.review_pairing.models import EnumFindingSeverity
 
 _REPO = "OmniNode-ai/omniintelligence"
 _PR_ID = 194
@@ -48,7 +48,7 @@ class TestGithubChecksAdapterHappyPath:
         findings = parse_raw([_annotation()], repo=_REPO, pr_id=_PR_ID, commit_sha=_SHA)
         assert len(findings) == 1
         f = findings[0]
-        assert f.severity == FindingSeverity.ERROR
+        assert f.severity == EnumFindingSeverity.ERROR
         assert f.file_path == "src/foo/bar.py"
         assert f.line_start == 10
         assert f.repo == _REPO
@@ -68,7 +68,7 @@ class TestGithubChecksAdapterHappyPath:
             pr_id=_PR_ID,
             commit_sha=_SHA,
         )
-        assert findings[0].severity == FindingSeverity.ERROR
+        assert findings[0].severity == EnumFindingSeverity.ERROR
 
     @pytest.mark.unit
     def test_warning_level_is_warning(self) -> None:
@@ -78,7 +78,7 @@ class TestGithubChecksAdapterHappyPath:
             pr_id=_PR_ID,
             commit_sha=_SHA,
         )
-        assert findings[0].severity == FindingSeverity.WARNING
+        assert findings[0].severity == EnumFindingSeverity.WARNING
 
     @pytest.mark.unit
     def test_notice_level_is_info(self) -> None:
@@ -88,7 +88,7 @@ class TestGithubChecksAdapterHappyPath:
             pr_id=_PR_ID,
             commit_sha=_SHA,
         )
-        assert findings[0].severity == FindingSeverity.INFO
+        assert findings[0].severity == EnumFindingSeverity.INFO
 
     @pytest.mark.unit
     def test_single_line_finding_has_none_line_end(self) -> None:
@@ -168,7 +168,7 @@ class TestGithubChecksAdapterMissingFields:
     def test_unknown_annotation_level_defaults_to_info(self) -> None:
         a = _annotation(annotation_level="unknown-level")
         findings = parse_raw([a], repo=_REPO, pr_id=_PR_ID, commit_sha=_SHA)
-        assert findings[0].severity == FindingSeverity.INFO
+        assert findings[0].severity == EnumFindingSeverity.INFO
 
 
 class TestGithubChecksAdapterMalformedInput:

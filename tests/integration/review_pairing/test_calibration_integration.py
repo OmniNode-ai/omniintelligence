@@ -26,12 +26,12 @@ from omniintelligence.review_pairing.calibration_orchestrator import (
 from omniintelligence.review_pairing.calibration_scorer import CalibrationScorer
 from omniintelligence.review_pairing.fewshot_extractor import FewShotExtractor
 from omniintelligence.review_pairing.models import (
-    FindingSeverity,
-    ReviewFindingObserved,
+    EnumFindingSeverity,
+    ModelReviewFindingObserved,
 )
 from omniintelligence.review_pairing.models_calibration import (
-    CalibrationConfig,
-    CalibrationRunResult,
+    ModelCalibrationConfig,
+    ModelCalibrationRunResult,
 )
 from omniintelligence.review_pairing.models_external_review import (
     ModelExternalReviewResult,
@@ -51,11 +51,11 @@ def _make_finding(
     category: str,
     message: str,
     file_path: str = "src/main.py",
-    severity: FindingSeverity = FindingSeverity.ERROR,
+    severity: EnumFindingSeverity = EnumFindingSeverity.ERROR,
     model: str = "codex",
-) -> ReviewFindingObserved:
-    """Build a ReviewFindingObserved with the given category/message."""
-    return ReviewFindingObserved(
+) -> ModelReviewFindingObserved:
+    """Build a ModelReviewFindingObserved with the given category/message."""
+    return ModelReviewFindingObserved(
         finding_id=uuid4(),
         repo="OmniNode-ai/test-repo",
         pr_id=1,
@@ -74,7 +74,7 @@ def _make_finding(
 
 
 # 5 ground-truth findings
-GROUND_TRUTH_FINDINGS: list[ReviewFindingObserved] = [
+GROUND_TRUTH_FINDINGS: list[ModelReviewFindingObserved] = [
     _make_finding("security", "SQL injection vulnerability in query builder"),
     _make_finding("architecture", "Circular dependency between module A and B"),
     _make_finding("performance", "N+1 query pattern in user listing endpoint"),
@@ -83,7 +83,7 @@ GROUND_TRUTH_FINDINGS: list[ReviewFindingObserved] = [
 ]
 
 # Challenger findings: 3 matching + 2 noise + 1 miss (the "testing" finding is missed)
-CHALLENGER_FINDINGS: list[ReviewFindingObserved] = [
+CHALLENGER_FINDINGS: list[ModelReviewFindingObserved] = [
     # Matches GT[0] - security/SQL injection (same words, high Jaccard)
     _make_finding(
         "security",
@@ -118,8 +118,8 @@ CHALLENGER_FINDINGS: list[ReviewFindingObserved] = [
 
 
 @pytest.fixture()
-def calibration_config() -> CalibrationConfig:
-    return CalibrationConfig(
+def calibration_config() -> ModelCalibrationConfig:
+    return ModelCalibrationConfig(
         ground_truth_model="codex",
         challenger_models=["challenger-a"],
         similarity_threshold=0.3,
@@ -131,9 +131,9 @@ def calibration_config() -> CalibrationConfig:
 
 
 @pytest.fixture()
-def multi_run_config() -> CalibrationConfig:
+def multi_run_config() -> ModelCalibrationConfig:
     """Config with min_runs_for_fewshot=5 for multi-run extraction tests."""
-    return CalibrationConfig(
+    return ModelCalibrationConfig(
         ground_truth_model="codex",
         challenger_models=["challenger-a"],
         similarity_threshold=0.3,
@@ -199,7 +199,7 @@ class TestAlignmentIntegration:
     """Tests for the alignment engine with realistic findings."""
 
     async def test_alignment_pairs_matching_findings(
-        self, calibration_config: CalibrationConfig
+        self, calibration_config: ModelCalibrationConfig
     ) -> None:
         engine = FindingAlignmentEngine(
             similarity_threshold=calibration_config.similarity_threshold,
@@ -219,7 +219,7 @@ class TestAlignmentIntegration:
         assert len(fn) == 2, f"Expected 2 FNs, got {len(fn)}"
 
     async def test_alignment_scores_above_threshold(
-        self, calibration_config: CalibrationConfig
+        self, calibration_config: ModelCalibrationConfig
     ) -> None:
         engine = FindingAlignmentEngine(
             similarity_threshold=calibration_config.similarity_threshold,
@@ -238,7 +238,7 @@ class TestAlignmentIntegration:
                 assert a.aligned is False
 
     async def test_alignment_preserves_finding_identity(
-        self, calibration_config: CalibrationConfig
+        self, calibration_config: ModelCalibrationConfig
     ) -> None:
         engine = FindingAlignmentEngine(
             similarity_threshold=calibration_config.similarity_threshold,
@@ -262,7 +262,7 @@ class TestScoringIntegration:
     """Tests for the scorer with alignment engine output."""
 
     async def test_metrics_match_expected_values(
-        self, calibration_config: CalibrationConfig
+        self, calibration_config: ModelCalibrationConfig
     ) -> None:
         engine = FindingAlignmentEngine(
             similarity_threshold=calibration_config.similarity_threshold,
@@ -292,7 +292,7 @@ class TestOrchestratorIntegration:
     """Tests for the full orchestrator flow with mock adapters."""
 
     async def test_end_to_end_orchestrator_flow(
-        self, calibration_config: CalibrationConfig
+        self, calibration_config: ModelCalibrationConfig
     ) -> None:
         orchestrator = CalibrationOrchestrator(
             config=calibration_config,
@@ -322,9 +322,9 @@ class TestOrchestratorIntegration:
         assert metrics.noise_ratio == pytest.approx(0.4, abs=0.01)
 
     async def test_orchestrator_handles_ground_truth_failure(
-        self, calibration_config: CalibrationConfig
+        self, calibration_config: ModelCalibrationConfig
     ) -> None:
-        config = CalibrationConfig(
+        config = ModelCalibrationConfig(
             ground_truth_model="codex",
             challenger_models=["challenger-a"],
             similarity_threshold=0.3,
@@ -344,7 +344,7 @@ class TestOrchestratorIntegration:
         assert len(result.challenger_results) == 0
 
     async def test_orchestrator_handles_challenger_failure(self) -> None:
-        config = CalibrationConfig(
+        config = ModelCalibrationConfig(
             ground_truth_model="codex",
             challenger_models=["failing-model"],
             similarity_threshold=0.3,
@@ -371,7 +371,7 @@ class TestFewShotExtractionIntegration:
     """Tests for few-shot extraction from calibration results."""
 
     async def test_fewshot_extraction_after_sufficient_runs(
-        self, calibration_config: CalibrationConfig
+        self, calibration_config: ModelCalibrationConfig
     ) -> None:
         orchestrator = CalibrationOrchestrator(
             config=calibration_config,
@@ -410,7 +410,7 @@ class TestFewShotExtractionIntegration:
             assert "recurrence_frequency" in ex.evidence
 
     async def test_fewshot_below_min_runs_returns_empty(
-        self, multi_run_config: CalibrationConfig
+        self, multi_run_config: ModelCalibrationConfig
     ) -> None:
         orchestrator = CalibrationOrchestrator(
             config=multi_run_config,
@@ -430,7 +430,7 @@ class TestFewShotExtractionIntegration:
         assert examples == []
 
     async def test_fewshot_extraction_after_multiple_runs(
-        self, multi_run_config: CalibrationConfig
+        self, multi_run_config: ModelCalibrationConfig
     ) -> None:
         orchestrator = CalibrationOrchestrator(
             config=multi_run_config,
@@ -438,7 +438,7 @@ class TestFewShotExtractionIntegration:
             ai_adapter=_mock_challenger_adapter,
         )
 
-        runs: list[CalibrationRunResult] = []
+        runs: list[ModelCalibrationRunResult] = []
         for _ in range(5):
             result = await orchestrator.run(content="mock plan content")
             assert result.success
@@ -458,7 +458,7 @@ class TestFewShotExtractionIntegration:
 class TestEndToEndCalibrationPipeline:
     """Full pipeline: config -> orchestrator -> alignment -> scoring -> few-shot."""
 
-    async def test_full_pipeline(self, calibration_config: CalibrationConfig) -> None:
+    async def test_full_pipeline(self, calibration_config: ModelCalibrationConfig) -> None:
         # Step 1: Configure and run orchestration
         orchestrator = CalibrationOrchestrator(
             config=calibration_config,
@@ -528,7 +528,7 @@ class TestEmbeddingAlignmentPath:
             pytest.skip("LLM_EMBEDDING_URL not set; skipping embedding tests")
 
     async def test_embedding_alignment_produces_valid_results(
-        self, calibration_config: CalibrationConfig
+        self, calibration_config: ModelCalibrationConfig
     ) -> None:
         """Smoke test: embedding path produces structurally valid alignments."""
         # This test only runs when LLM_EMBEDDING_URL is reachable.

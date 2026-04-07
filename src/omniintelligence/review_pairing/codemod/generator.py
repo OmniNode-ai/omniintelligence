@@ -77,7 +77,7 @@ class ReplayCase:
     """A single before/after code example for replay validation.
 
     Attributes:
-        pair_id: UUID of the ``FindingFixPair`` this example came from.
+        pair_id: UUID of the ``ModelFindingFixPair`` this example came from.
         input_source: Source code before the fix.
         expected_output: Source code after the fix (ground truth).
         file_path: Relative path to the file (for context).

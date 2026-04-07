@@ -25,8 +25,8 @@ from omniintelligence.review_pairing.adapters.adapter_ai_reviewer import (
     to_review_findings,
 )
 from omniintelligence.review_pairing.models import (
-    FindingSeverity,
-    ReviewFindingObserved,
+    EnumFindingSeverity,
+    ModelReviewFindingObserved,
 )
 from omniintelligence.review_pairing.models_external_review import (
     ModelExternalReviewResult,
@@ -150,29 +150,29 @@ class TestParseReviewResponse:
 @pytest.mark.unit
 class TestMapSeverity:
     def test_critical_maps_to_error(self) -> None:
-        assert map_severity("critical") == FindingSeverity.ERROR
+        assert map_severity("critical") == EnumFindingSeverity.ERROR
 
     def test_major_maps_to_warning(self) -> None:
-        assert map_severity("major") == FindingSeverity.WARNING
+        assert map_severity("major") == EnumFindingSeverity.WARNING
 
     def test_minor_maps_to_info(self) -> None:
-        assert map_severity("minor") == FindingSeverity.INFO
+        assert map_severity("minor") == EnumFindingSeverity.INFO
 
     def test_nit_maps_to_hint(self) -> None:
-        assert map_severity("nit") == FindingSeverity.HINT
+        assert map_severity("nit") == EnumFindingSeverity.HINT
 
     def test_case_insensitive(self) -> None:
-        assert map_severity("Critical") == FindingSeverity.ERROR
-        assert map_severity("MAJOR") == FindingSeverity.WARNING
+        assert map_severity("Critical") == EnumFindingSeverity.ERROR
+        assert map_severity("MAJOR") == EnumFindingSeverity.WARNING
 
     def test_strips_whitespace(self) -> None:
-        assert map_severity("  minor  ") == FindingSeverity.INFO
+        assert map_severity("  minor  ") == EnumFindingSeverity.INFO
 
     def test_unknown_defaults_to_info(self) -> None:
-        assert map_severity("major issue") == FindingSeverity.INFO
+        assert map_severity("major issue") == EnumFindingSeverity.INFO
 
     def test_empty_defaults_to_info(self) -> None:
-        assert map_severity("") == FindingSeverity.INFO
+        assert map_severity("") == EnumFindingSeverity.INFO
 
 
 # ---------------------------------------------------------------------------
@@ -191,7 +191,7 @@ class TestToReviewFindings:
             commit_sha=_SHA,
         )
         assert len(findings) == 2
-        assert all(isinstance(f, ReviewFindingObserved) for f in findings)
+        assert all(isinstance(f, ModelReviewFindingObserved) for f in findings)
 
     def test_rule_id_format(self) -> None:
         findings = to_review_findings(
@@ -213,8 +213,8 @@ class TestToReviewFindings:
             _well_formed_findings(),
             "deepseek-r1",
         )
-        assert findings[0].severity == FindingSeverity.ERROR  # critical
-        assert findings[1].severity == FindingSeverity.INFO  # minor
+        assert findings[0].severity == EnumFindingSeverity.ERROR  # critical
+        assert findings[1].severity == EnumFindingSeverity.INFO  # minor
 
     def test_confidence_tier_is_probabilistic(self) -> None:
         findings = to_review_findings(
@@ -262,7 +262,7 @@ class TestToReviewFindings:
         )
         assert len(findings) == 1
         assert findings[0].rule_id == "ai-reviewer:deepseek-r1:unknown"
-        assert findings[0].severity == FindingSeverity.WARNING
+        assert findings[0].severity == EnumFindingSeverity.WARNING
 
 
 # ---------------------------------------------------------------------------
@@ -276,7 +276,7 @@ class TestParseRaw:
         raw = json.dumps(_well_formed_findings())
         findings = parse_raw(raw, repo=_REPO, pr_id=_PR_ID, commit_sha=_SHA)
         assert len(findings) == 2
-        assert all(isinstance(f, ReviewFindingObserved) for f in findings)
+        assert all(isinstance(f, ModelReviewFindingObserved) for f in findings)
 
     def test_malformed_json_returns_empty(self) -> None:
         findings = parse_raw("not json", repo=_REPO, pr_id=_PR_ID, commit_sha=_SHA)

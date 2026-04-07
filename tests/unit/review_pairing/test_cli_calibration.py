@@ -24,9 +24,9 @@ from omniintelligence.review_pairing.cli_calibration import (
     main,
 )
 from omniintelligence.review_pairing.models_calibration import (
-    CalibrationMetrics,
-    CalibrationOrchestrationResult,
-    CalibrationRunResult,
+    ModelCalibrationMetrics,
+    ModelCalibrationOrchestrationResult,
+    ModelCalibrationRunResult,
 )
 
 
@@ -36,8 +36,8 @@ def _make_metrics(
     recall: float = 0.7,
     f1: float = 0.74,
     noise: float = 0.2,
-) -> CalibrationMetrics:
-    return CalibrationMetrics(
+) -> ModelCalibrationMetrics:
+    return ModelCalibrationMetrics(
         model=model,
         true_positives=4,
         false_positives=1,
@@ -53,11 +53,11 @@ def _make_run_result(
     model: str = "deepseek-r1",
     *,
     error: str | None = None,
-    metrics: CalibrationMetrics | None = None,
-) -> CalibrationRunResult:
+    metrics: ModelCalibrationMetrics | None = None,
+) -> ModelCalibrationRunResult:
     if metrics is None and error is None:
         metrics = _make_metrics(model=model)
-    return CalibrationRunResult(
+    return ModelCalibrationRunResult(
         run_id="test-run-1",
         ground_truth_model="codex",
         challenger_model=model,
@@ -73,11 +73,11 @@ def _make_run_result(
 def _make_orchestration_result(
     *,
     success: bool = True,
-    challenger_results: list[CalibrationRunResult] | None = None,
-) -> CalibrationOrchestrationResult:
+    challenger_results: list[ModelCalibrationRunResult] | None = None,
+) -> ModelCalibrationOrchestrationResult:
     if challenger_results is None:
         challenger_results = [_make_run_result()]
-    return CalibrationOrchestrationResult(
+    return ModelCalibrationOrchestrationResult(
         success=success,
         error=None if success else "all challengers failed",
         ground_truth_findings=[],

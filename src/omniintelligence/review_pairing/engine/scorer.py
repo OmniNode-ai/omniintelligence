@@ -80,7 +80,7 @@ class ScoringContext:
         rule_id_matched: Whether the finding's rule_id was found in the diff context.
         diff_removes_token: Whether the diff removes a token/construct flagged
             by the finding's rule.
-        disappearance_confirmed: Whether a ``ReviewFindingResolved`` event was
+        disappearance_confirmed: Whether a ``ModelReviewFindingResolved`` event was
             received for this finding after the candidate fix commit.
         anchored_to_hunk: Whether the finding's ``line_start`` falls within the
             modified lines of any hunk in the diff.

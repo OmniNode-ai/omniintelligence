@@ -17,12 +17,12 @@ from omniintelligence.review_pairing.calibration_orchestrator import (
     CalibrationOrchestrator,
 )
 from omniintelligence.review_pairing.models import (
-    FindingSeverity,
-    ReviewFindingObserved,
+    EnumFindingSeverity,
+    ModelReviewFindingObserved,
 )
 from omniintelligence.review_pairing.models_calibration import (
-    CalibrationConfig,
-    CalibrationOrchestrationResult,
+    ModelCalibrationConfig,
+    ModelCalibrationOrchestrationResult,
 )
 from omniintelligence.review_pairing.models_external_review import (
     ModelExternalReviewResult,
@@ -37,9 +37,9 @@ def _make_observed_finding(
     model: str = "codex",
     category: str = "architecture",
     message: str = "Issue found",
-) -> ReviewFindingObserved:
-    """Build a ReviewFindingObserved for testing."""
-    return ReviewFindingObserved(
+) -> ModelReviewFindingObserved:
+    """Build a ModelReviewFindingObserved for testing."""
+    return ModelReviewFindingObserved(
         finding_id=uuid4(),
         repo="OmniNode-ai/test",
         pr_id=1,
@@ -49,7 +49,7 @@ def _make_observed_finding(
         file_path="file.py",
         line_start=1,
         line_end=1,
-        severity=FindingSeverity.ERROR,
+        severity=EnumFindingSeverity.ERROR,
         normalized_message=message,
         raw_message=message,
         commit_sha_observed="abc1234",
@@ -60,7 +60,7 @@ def _make_observed_finding(
 def _make_review_result(
     model: str = "codex",
     success: bool = True,
-    findings: list[ReviewFindingObserved] | None = None,
+    findings: list[ModelReviewFindingObserved] | None = None,
     error: str | None = None,
 ) -> ModelExternalReviewResult:
     """Build a ModelExternalReviewResult for testing."""
@@ -78,8 +78,8 @@ def _make_review_result(
 def _default_config(
     ground_truth: str = "codex",
     challengers: list[str] | None = None,
-) -> CalibrationConfig:
-    return CalibrationConfig(
+) -> ModelCalibrationConfig:
+    return ModelCalibrationConfig(
         ground_truth_model=ground_truth,
         challenger_models=challengers or ["deepseek-r1"],
     )
@@ -117,7 +117,7 @@ async def test_happy_path_single_challenger() -> None:
     )
     result = await orchestrator.run("some plan content", review_type="plan")
 
-    assert isinstance(result, CalibrationOrchestrationResult)
+    assert isinstance(result, ModelCalibrationOrchestrationResult)
     assert result.success is True
     assert result.error is None
     assert len(result.ground_truth_findings) == 1

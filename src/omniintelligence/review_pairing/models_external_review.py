@@ -12,15 +12,12 @@ Reference: OMN-5790
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from pydantic import BaseModel, Field
 
-from omniintelligence.review_pairing.models import ReviewFindingObserved
+from omniintelligence.review_pairing.models import ModelReviewFindingObserved
 
 
-@dataclass(frozen=True)
-class ModelEndpointConfig:
+class ModelEndpointConfig(BaseModel, frozen=True):
     """Configuration for a model endpoint in the registry.
 
     Attributes:
@@ -28,13 +25,19 @@ class ModelEndpointConfig:
         default_url: Fallback URL when env var is not set.
         kind: Model capability category (reasoning, long_context, fast_review).
         timeout_seconds: Request timeout in seconds.
+        api_model_id: Model identifier for the API (empty string for CLI-only models).
     """
 
-    env_var: str
-    default_url: str
-    kind: str
-    timeout_seconds: float
-    api_model_id: str = ""
+    env_var: str = Field(description="Environment variable name for the endpoint URL.")
+    default_url: str = Field(description="Fallback URL when env var is not set.")
+    kind: str = Field(
+        description="Model capability category (reasoning, long_context, fast_review)."
+    )
+    timeout_seconds: float = Field(description="Request timeout in seconds.")
+    api_model_id: str = Field(
+        default="",
+        description="Model identifier for the API (empty string for CLI-only models).",
+    )
 
 
 class ModelExternalReviewResult(BaseModel, frozen=True):
@@ -55,7 +58,7 @@ class ModelExternalReviewResult(BaseModel, frozen=True):
     error: str | None = Field(
         default=None, description="Failure reason if success is False."
     )
-    findings: list[ReviewFindingObserved] = Field(
+    findings: list[ModelReviewFindingObserved] = Field(
         default_factory=list, description="Canonical review findings."
     )
     result_count: int = Field(
