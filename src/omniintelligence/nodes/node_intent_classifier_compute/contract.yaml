@@ -155,20 +155,6 @@ configuration:
       # Maximum number of domain indicators to return.
       max_domain_indicators: 5
 
-# =============================================================================
-# TODO(OMN-1478): Protocol Integration - ProtocolIntentClassifier
-# =============================================================================
-# Status: Backlog
-# Issue: https://linear.app/omninode/issue/OMN-1478
-#
-# Priority: Low (current implementation functional without protocol abstraction)
-# Description: Add ProtocolIntentClassifier to omnibase_spi
-#
-# When implemented:
-#   - Import from omnibase_spi.protocols.intelligence.ProtocolIntentClassifier
-#   - Node should implement the protocol interface
-#   - Uncomment dependency below
-# =============================================================================
 # Handler Routing (Declarative Pattern)
 # =====================================
 # Each declared operation maps to its corresponding handler function.
