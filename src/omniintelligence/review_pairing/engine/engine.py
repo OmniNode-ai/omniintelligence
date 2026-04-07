@@ -42,8 +42,8 @@ from omniintelligence.review_pairing.engine.scorer import (
     is_formatter_batch_commit,
 )
 from omniintelligence.review_pairing.models import (
-    ModelFindingFixPair,
     EnumPairingType,
+    ModelFindingFixPair,
     ModelReviewFindingObserved,
     ModelReviewFixApplied,
 )
@@ -317,7 +317,9 @@ class PairingEngine:
         )
 
     @staticmethod
-    def _rule_id_matches(finding: ModelReviewFindingObserved, fix: ModelReviewFixApplied) -> bool:
+    def _rule_id_matches(
+        finding: ModelReviewFindingObserved, fix: ModelReviewFixApplied
+    ) -> bool:
         """Check if the finding's rule_id appears in the diff hunks.
 
         Looks for the bare rule code (e.g., ``E501``) or the full rule_id
