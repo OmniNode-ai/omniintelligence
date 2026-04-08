@@ -107,6 +107,9 @@ EXPECTED_VECTORIZATION_COMPLETED = (
 EXPECTED_DOCUMENT_CHANGED = "onex.evt.omnimemory.document-changed.v1"
 EXPECTED_DOCUMENT_DISCOVERED = "onex.evt.omnimemory.document-discovered.v1"
 
+# OMN-7652: node_ast_extraction_compute subscribe topic now active
+EXPECTED_CODE_FILE_DISCOVERED = "onex.evt.omniintelligence.code-file-discovered.v1"
+
 EXPECTED_TOPICS = {
     EXPECTED_CLAUDE_HOOK,
     EXPECTED_TOOL_CONTENT,
@@ -154,6 +157,7 @@ EXPECTED_TOPICS = {
     EXPECTED_VECTORIZATION_COMPLETED,
     EXPECTED_DOCUMENT_CHANGED,
     EXPECTED_DOCUMENT_DISCOVERED,
+    EXPECTED_CODE_FILE_DISCOVERED,
 }
 
 
@@ -309,6 +313,16 @@ class TestCollectPublishTopicsForDispatch:
         """Pattern storage publish topic must be an .evt. topic."""
         result = collect_publish_topics_for_dispatch()
         assert ".evt." in result["pattern_storage"]
+
+    def test_contains_code_entities_extracted_key(self) -> None:
+        """Must contain 'code_entities_extracted' key for AST extraction events (OMN-7652)."""
+        result = collect_publish_topics_for_dispatch()
+        assert "code_entities_extracted" in result
+
+    def test_code_entities_extracted_topic_is_evt(self) -> None:
+        """AST extraction publish topic must be an .evt. topic (OMN-7652)."""
+        result = collect_publish_topics_for_dispatch()
+        assert ".evt." in result["code_entities_extracted"]
 
     def test_all_values_are_strings(self) -> None:
         """All publish topic values must be strings."""

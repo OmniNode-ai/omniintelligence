@@ -178,6 +178,7 @@ def collect_publish_topics_for_dispatch(
     """
     _DISPATCH_KEY_TO_PACKAGE: dict[str, str] = {
         "claude_hook": "omniintelligence.nodes.node_claude_hook_event_effect",
+        "code_entities_extracted": "omniintelligence.nodes.node_ast_extraction_compute",
         "compliance_evaluate": "omniintelligence.nodes.node_compliance_evaluate_effect",
         "lifecycle": "omniintelligence.nodes.node_pattern_lifecycle_effect",
         "pattern_learning": "omniintelligence.nodes.node_pattern_learning_effect",
