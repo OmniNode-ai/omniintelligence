@@ -88,11 +88,20 @@ def _row_to_pattern_dict(row: dict) -> dict:
     """Convert a learned_patterns row to the pattern dict expected by omnidash projection."""
     composite = _compute_composite_score(row)
 
+    # Use pattern_signature for display name derivation (OMN-5644).
+    # The omnidash projection handler calls derivePatternDisplayName() on
+    # pattern_signature to create a human-readable name. If we pass
+    # domain_id ("general") as pattern_name, the projection rejects it
+    # as a placeholder (OMN-7014 filter).
+    pattern_sig = row.get("pattern_signature", "")
+
     return {
         "id": str(row["id"]),
         "pattern_id": str(row["id"]),
         "domain_id": row["domain_id"],
-        "pattern_name": row["domain_id"],
+        "pattern_signature": pattern_sig,
+        "patternSignature": pattern_sig,
+        "pattern_name": pattern_sig or row["domain_id"],
         "pattern_type": row.get("evidence_tier", "unmeasured"),
         "status": row["status"],
         "lifecycle_state": row["status"],
@@ -119,7 +128,9 @@ def _row_to_pattern_dict(row: dict) -> dict:
         },
         "metadata": {
             "source": "backfill_pattern_projection",
+            "domain_id": row["domain_id"],
             "domain_version": row.get("domain_version", "1.0.0"),
+            "pattern_signature": pattern_sig,
         },
     }
 
