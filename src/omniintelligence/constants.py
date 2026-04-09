@@ -510,6 +510,26 @@ effectiveness scoring, routing patterns through the quality assessment FSM.
 Reference: OMN-8144
 """
 
+TOPIC_OMNICLAUDE_ROUTING_FEEDBACK_V1: str = "onex.evt.omniclaude.routing-feedback.v1"
+"""Canonical subscribe topic for routing feedback events from omniclaude (INPUT, cross-repo).
+
+Published by omniclaude hooks (omniclaude.hooks.event_registry, TopicBase.ROUTING_FEEDBACK).
+This is a cross-system exception: the topic uses 'evt' kind because it is produced by omniclaude.
+OMN-2622: Carries both produced and skipped outcomes via feedback_status field.
+
+Reference: OMN-2622, OMN-2366
+"""
+
+TOPIC_LEGACY_ROUTING_FEEDBACK_BARE: str = "routing.feedback"
+"""DEPRECATED (OMN-2366): Legacy bare topic name for routing feedback.
+
+Predates the canonical onex.evt.omniclaude.routing-feedback.v1 naming convention
+(OMN-2622). No active producers detected as of 2026-04-09.
+
+Subscribed in node_routing_feedback_effect contract.yaml for drain purposes only.
+Remove this constant after the topic is confirmed empty and purged from Redpanda.
+"""
+
 # =============================================================================
 # Exports
 # =============================================================================
@@ -537,6 +557,8 @@ __all__ = [
     "TOPIC_PATTERN_LIFECYCLE_CMD_V1",
     "TOPIC_PLAN_REVIEW_STRATEGY_RUN_COMPLETED_V1",
     "TOPIC_PROMOTION_CHECK_CMD_V1",
+    "TOPIC_LEGACY_ROUTING_FEEDBACK_BARE",
+    "TOPIC_OMNICLAUDE_ROUTING_FEEDBACK_V1",
     "TOPIC_QUALITY_ASSESSMENT_CMD_V1",
     "TOPIC_RATIONALE_MISMATCH_EVT_V1",
     "TOPIC_RL_ROUTING_DECISION_V1",

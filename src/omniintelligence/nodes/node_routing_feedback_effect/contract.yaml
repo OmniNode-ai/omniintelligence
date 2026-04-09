@@ -24,11 +24,11 @@ contract_name: "node_routing_feedback_effect"
 node_name: "node_routing_feedback_effect"
 contract_version:
   major: 1
-  minor: 1
+  minor: 2
   patch: 0
 node_version:
   major: 1
-  minor: 1
+  minor: 2
   patch: 0
 
 # Node type
@@ -78,6 +78,13 @@ handler_routing:
         - was_upserted
         - processed_at
         - error_message
+    - operation: "drain_legacy_routing_feedback"
+      handler:
+        function: "handle_legacy_routing_feedback_drain"
+        module: "omniintelligence.nodes.node_routing_feedback_effect.handlers.handler_routing_feedback"
+        type: "async"
+      description: "No-op drain handler for deprecated legacy routing.feedback bare topic (OMN-2366).
+        Logs warning and discards. Remove after topic is confirmed empty in Redpanda."
 
 # =============================================================================
 # IO OPERATIONS
@@ -159,6 +166,11 @@ event_bus:
     # OMN-2622: Switched back from routing-outcome-raw.v1 (deprecated) to routing-feedback.v1.
     # routing-feedback.v1 now carries both produced and skipped outcomes via feedback_status field.
     - "onex.evt.omniclaude.routing-feedback.v1"
+    # DEPRECATED (OMN-2366): Legacy bare topic name. No producers detected as of 2026-04-09.
+    # Subscribed here to drain any residual messages silently accumulating in Kafka.
+    # Do not remove until the topic is confirmed empty and purged from Redpanda.
+    # Drain handler: handle_legacy_routing_feedback_drain() in handler_routing_feedback.py.
+    - "routing.feedback"
 
   publish_topics:
     - "onex.evt.omniintelligence.routing-feedback-processed.v1"

@@ -48,7 +48,11 @@ import logging
 from datetime import UTC, datetime
 from typing import Final
 
-from omniintelligence.constants import TOPIC_ROUTING_FEEDBACK_PROCESSED
+from omniintelligence.constants import (
+    TOPIC_LEGACY_ROUTING_FEEDBACK_BARE,
+    TOPIC_OMNICLAUDE_ROUTING_FEEDBACK_V1,
+    TOPIC_ROUTING_FEEDBACK_PROCESSED,
+)
 from omniintelligence.nodes.node_routing_feedback_effect.models import (
     EnumRoutingFeedbackStatus,
     ModelRoutingFeedbackPayload,
@@ -361,7 +365,30 @@ async def _publish_processed_event(
         )
 
 
+async def handle_legacy_routing_feedback_drain(event: dict) -> None:
+    """No-op drain handler for the legacy bare topic ``routing.feedback`` (OMN-2366).
+
+    The legacy ``routing.feedback`` topic predates the canonical
+    ``onex.evt.omniclaude.routing-feedback.v1`` naming convention. No active
+    producers were detected as of 2026-04-09. This handler drains any residual
+    messages silently accumulating in Kafka and discards them with a warning log.
+
+    Do not remove until the topic is confirmed empty and purged from Redpanda.
+    """
+    logger.warning(
+        "Received message on deprecated topic %s (OMN-2366). "
+        "Message discarded. Producer should switch to %s.",
+        TOPIC_LEGACY_ROUTING_FEEDBACK_BARE,
+        TOPIC_OMNICLAUDE_ROUTING_FEEDBACK_V1,
+        extra={
+            "deprecated_topic": TOPIC_LEGACY_ROUTING_FEEDBACK_BARE,
+            "replacement_topic": TOPIC_OMNICLAUDE_ROUTING_FEEDBACK_V1,
+        },
+    )
+
+
 __all__ = [
     "DLQ_TOPIC",
+    "handle_legacy_routing_feedback_drain",
     "process_routing_feedback",
 ]
