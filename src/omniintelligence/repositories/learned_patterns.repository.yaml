@@ -1220,6 +1220,7 @@ db_repository:
           domain_version, confidence, version,
           source_session_ids,
           status,
+          is_current,
           project_scope
         )
         VALUES (
