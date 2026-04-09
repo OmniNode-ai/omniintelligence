@@ -35,6 +35,7 @@ pytestmark = pytest.mark.unit
 
 from omnibase_core.nodes.node_effect import NodeEffect
 
+from omniintelligence.constants import TOPIC_QUALITY_ASSESSMENT_CMD_V1
 from omniintelligence.enums import EnumHeuristicMethod
 from omniintelligence.nodes.node_pattern_feedback_effect.handlers import (
     compute_and_store_heuristics,
@@ -2611,3 +2612,111 @@ class TestUpdateEffectivenessScores:
         )
 
         assert abs(scores[sample_pattern_id] - 0.5) < 1e-9
+
+
+# =============================================================================
+# Quality Assessment Trigger Tests (OMN-8144)
+# =============================================================================
+
+
+class TestQualityAssessmentTrigger:
+    """Tests for quality-assessment Kafka command emission (OMN-8144).
+
+    Verifies the non-blocking publish step added after effectiveness scoring.
+    """
+
+    @pytest.mark.asyncio
+    async def test_producer_called_once_per_pattern(
+        self, mock_repository: MockPatternRepository
+    ) -> None:
+        """publish() is called once per updated pattern when producer is provided."""
+        from unittest.mock import AsyncMock
+
+        session_id = uuid4()
+        pattern_id_1 = uuid4()
+        pattern_id_2 = uuid4()
+
+        mock_repository.add_pattern(PatternState(id=pattern_id_1))
+        mock_repository.add_pattern(PatternState(id=pattern_id_2))
+        mock_repository.add_injection(
+            InjectionState(
+                injection_id=uuid4(),
+                session_id=session_id,
+                pattern_ids=[pattern_id_1, pattern_id_2],
+            )
+        )
+
+        mock_producer = AsyncMock()
+        mock_producer.publish = AsyncMock()
+
+        await record_session_outcome(
+            session_id,
+            True,
+            repository=mock_repository,
+            producer=mock_producer,
+        )
+
+        assert mock_producer.publish.call_count == 2
+        topics_published = {
+            call.kwargs["topic"] for call in mock_producer.publish.call_args_list
+        }
+        assert topics_published == {TOPIC_QUALITY_ASSESSMENT_CMD_V1}
+
+    @pytest.mark.asyncio
+    async def test_producer_none_does_not_publish(
+        self, mock_repository: MockPatternRepository
+    ) -> None:
+        """No publish attempt when producer=None (default)."""
+        session_id = uuid4()
+        pattern_id = uuid4()
+
+        mock_repository.add_pattern(PatternState(id=pattern_id))
+        mock_repository.add_injection(
+            InjectionState(
+                injection_id=uuid4(),
+                session_id=session_id,
+                pattern_ids=[pattern_id],
+            )
+        )
+
+        # Should complete without error — no producer provided
+        result = await record_session_outcome(
+            session_id,
+            True,
+            repository=mock_repository,
+            producer=None,
+        )
+        assert result.status == EnumOutcomeRecordingStatus.SUCCESS
+
+    @pytest.mark.asyncio
+    async def test_publish_failure_does_not_fail_operation(
+        self, mock_repository: MockPatternRepository
+    ) -> None:
+        """A Kafka publish failure must not fail the session outcome recording."""
+        from unittest.mock import AsyncMock
+
+        session_id = uuid4()
+        pattern_id = uuid4()
+
+        mock_repository.add_pattern(PatternState(id=pattern_id))
+        mock_repository.add_injection(
+            InjectionState(
+                injection_id=uuid4(),
+                session_id=session_id,
+                pattern_ids=[pattern_id],
+            )
+        )
+
+        mock_producer = AsyncMock()
+        mock_producer.publish = AsyncMock(side_effect=RuntimeError("Kafka unavailable"))
+
+        result = await record_session_outcome(
+            session_id,
+            True,
+            repository=mock_repository,
+            producer=mock_producer,
+        )
+
+        # Primary operation must succeed despite Kafka failure
+        assert result.status == EnumOutcomeRecordingStatus.SUCCESS
+        assert pattern_id in result.pattern_ids

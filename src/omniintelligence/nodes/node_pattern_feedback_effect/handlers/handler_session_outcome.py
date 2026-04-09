@@ -61,6 +61,7 @@ from omnibase_core.integrations.claude_code import (
     ClaudeSessionOutcome,
 )
 
+from omniintelligence.constants import TOPIC_QUALITY_ASSESSMENT_CMD_V1
 from omniintelligence.enums import EnumHeuristicMethod
 from omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_attribution_binder import (
     handle_attribution_binding,
@@ -72,7 +73,7 @@ from omniintelligence.nodes.node_pattern_feedback_effect.models import (
     EnumOutcomeRecordingStatus,
     ModelSessionOutcomeResult,
 )
-from omniintelligence.protocols import ProtocolPatternRepository
+from omniintelligence.protocols import ProtocolKafkaPublisher, ProtocolPatternRepository
 from omniintelligence.utils.pg_status import parse_pg_status_count
 
 logger = logging.getLogger(__name__)
@@ -277,6 +278,7 @@ async def record_session_outcome(
     repository: ProtocolPatternRepository,
     correlation_id: UUID | None = None,
     heuristic_method: EnumHeuristicMethod = EnumHeuristicMethod.EQUAL_SPLIT,
+    producer: ProtocolKafkaPublisher | None = None,
 ) -> ModelSessionOutcomeResult:
     """Record the outcome of a Claude Code session and update pattern metrics.
 
@@ -298,6 +300,11 @@ async def record_session_outcome(
         correlation_id: Optional correlation ID for distributed tracing.
         heuristic_method: Method for computing contribution attribution.
             Defaults to EQUAL_SPLIT. See EnumHeuristicMethod for options.
+        producer: Optional Kafka producer for emitting quality-assessment commands.
+            When provided, publishes one command per pattern to trigger quality
+            scoring. Operation succeeds regardless of Kafka availability — if
+            producer is None or publish fails, a warning is logged and the
+            primary outcome recording is unaffected.
 
     Returns:
         ModelSessionOutcomeResult with status, counts, and effectiveness scores.
@@ -514,6 +521,41 @@ async def record_session_outcome(
             ),
         },
     )
+
+    # Step 6b: Emit quality-assessment commands for each updated pattern (OMN-8144)
+    # Non-blocking — Kafka is optional; primary operation already completed above.
+    if producer is not None and pattern_ids:
+        for pattern_id in pattern_ids:
+            try:
+                await producer.publish(
+                    topic=TOPIC_QUALITY_ASSESSMENT_CMD_V1,
+                    key=str(pattern_id),
+                    value={
+                        "operation_type": "QUALITY_ASSESSMENT",
+                        "entity_id": str(pattern_id),
+                        "payload": {},
+                        "context": {
+                            "session_id": str(session_id),
+                            "source_repository": "omniintelligence",
+                        },
+                        "correlation_id": str(correlation_id)
+                        if correlation_id
+                        else str(session_id),
+                    },
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to emit quality-assessment command — non-critical, skipping",
+                    exc_info=True,
+                    extra={
+                        "event": "quality_assessment_emit_failed",
+                        "correlation_id": str(correlation_id)
+                        if correlation_id
+                        else None,
+                        "session_id": str(session_id),
+                        "pattern_id": str(pattern_id),
+                    },
+                )
 
     # Step 7: Bind attribution to measurement data (L1 Attribution Bridge, OMN-2133)
     # If attribution binding fails, the critical operations (marking injections

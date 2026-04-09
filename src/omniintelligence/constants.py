@@ -500,6 +500,16 @@ Reference: OMN-6123
 Deletion ticket: OMN-1546
 """
 
+TOPIC_QUALITY_ASSESSMENT_CMD_V1: str = "onex.cmd.omniintelligence.quality-assessment.v1"
+"""Canonical topic for quality-assessment commands (INPUT).
+
+Consumed by NodeIntelligenceOrchestrator to trigger quality scoring.
+NodePatternFeedbackEffect publishes one command per updated pattern after
+effectiveness scoring, routing patterns through the quality assessment FSM.
+
+Reference: OMN-8144
+"""
+
 # =============================================================================
 # Exports
 # =============================================================================
@@ -527,6 +537,7 @@ __all__ = [
     "TOPIC_PATTERN_LIFECYCLE_CMD_V1",
     "TOPIC_PLAN_REVIEW_STRATEGY_RUN_COMPLETED_V1",
     "TOPIC_PROMOTION_CHECK_CMD_V1",
+    "TOPIC_QUALITY_ASSESSMENT_CMD_V1",
     "TOPIC_RATIONALE_MISMATCH_EVT_V1",
     "TOPIC_RL_ROUTING_DECISION_V1",
     "TOPIC_ROUTING_FEEDBACK_PROCESSED",

@@ -19,11 +19,11 @@ contract_name: "node_pattern_feedback_effect"
 node_name: "node_pattern_feedback_effect"
 contract_version:
   major: 1
-  minor: 0
+  minor: 1
   patch: 0
 node_version:
   major: 1
-  minor: 0
+  minor: 1
   patch: 0
 
 # Node type
@@ -120,6 +120,13 @@ dependencies:
     description: "Pattern repository protocol for database operations (fetch/execute) on session outcomes
       and rolling metrics"
     required: true
+  - name: "kafka_producer"
+    type: "protocol"
+    class_name: "ProtocolKafkaPublisher"
+    module: "omniintelligence.protocols"
+    description: "Kafka publisher for emitting quality-assessment commands after effectiveness scoring.
+      Optional — operation succeeds when absent."
+    required: false
 
 # =============================================================================
 # ERROR HANDLING
@@ -165,7 +172,8 @@ event_bus:
   subscribe_topics:
     - "onex.cmd.omniintelligence.session-outcome.v1"
 
-  publish_topics: []
+  publish_topics:
+    - "onex.cmd.omniintelligence.quality-assessment.v1"
 
   subscribe_topic_metadata:
     "onex.cmd.omniintelligence.session-outcome.v1":
