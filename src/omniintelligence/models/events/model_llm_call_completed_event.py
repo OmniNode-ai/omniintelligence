@@ -7,19 +7,17 @@ Published by LLM clients (e.g., EvalLLMClient) after each successful
 LLM API call. Consumed by omnidash Cost Trends projection to display
 token volume and latency trends.
 
-Note:
-    ``cost_usd`` starts at 0.0 — cost estimation via per-token lookup
-    is a follow-up (OMN-5223). Until then, the Cost Trends page shows
-    token volume trends, not dollar costs.
-
-Reference: OMN-5184 (Dashboard Data Pipeline Gaps)
+Reference: OMN-5184 (Dashboard Data Pipeline Gaps), OMN-8019 (cost visibility)
 """
 
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+UsageSource = Literal["API", "ESTIMATED", "MISSING"]
 
 
 class ModelLLMCallCompletedEvent(BaseModel):
@@ -50,7 +48,17 @@ class ModelLLMCallCompletedEvent(BaseModel):
     total_tokens: int = Field(ge=0, description="input_tokens + output_tokens")
     cost_usd: float = Field(
         ge=0.0,
-        description="Estimated cost in USD. 0.0 until OMN-5223 wires cost lookup.",
+        description=(
+            "Estimated cost in USD. 0.0 for local models (infra cost only). "
+            "See usage_source for provenance."
+        ),
+    )
+    usage_source: UsageSource = Field(
+        default="ESTIMATED",
+        description=(
+            "Cost data provenance: API=cloud provider billing, "
+            "ESTIMATED=computed from token rates, MISSING=no cost data available."
+        ),
     )
     latency_ms: int = Field(
         ge=0, description="Wall-clock time of the HTTP call in milliseconds"
@@ -74,4 +82,4 @@ class ModelLLMCallCompletedEvent(BaseModel):
         return v
 
 
-__all__ = ["ModelLLMCallCompletedEvent"]
+__all__ = ["ModelLLMCallCompletedEvent", "UsageSource"]

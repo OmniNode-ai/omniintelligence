@@ -6,9 +6,10 @@
 Tests:
     1. Construction with valid data succeeds and fields are accessible
     2. Model is frozen (immutable) and rejects extra fields
-    3. JSON serialization produces exactly the 11 expected keys
+    3. JSON serialization produces exactly the 12 expected keys
+    4. usage_source defaults to ESTIMATED and accepts valid values
 
-Reference: OMN-5184 Task 1
+Reference: OMN-5184 Task 1, OMN-8019 (cost visibility)
 """
 
 from __future__ import annotations
@@ -57,6 +58,29 @@ class TestModelLLMCallCompletedEventConstruction:
         assert event.correlation_id == "abc-123-def"
         assert event.session_id == "sess-456"
 
+    def test_usage_source_defaults_to_estimated(
+        self, valid_event_kwargs: dict[str, object]
+    ) -> None:
+        event = ModelLLMCallCompletedEvent(**valid_event_kwargs)  # type: ignore[arg-type]
+        assert event.usage_source == "ESTIMATED"
+
+    def test_usage_source_accepts_valid_values(
+        self, valid_event_kwargs: dict[str, object]
+    ) -> None:
+        for source in ("API", "ESTIMATED", "MISSING"):
+            event = ModelLLMCallCompletedEvent(
+                **{**valid_event_kwargs, "usage_source": source}
+            )  # type: ignore[arg-type]
+            assert event.usage_source == source
+
+    def test_usage_source_rejects_invalid_value(
+        self, valid_event_kwargs: dict[str, object]
+    ) -> None:
+        with pytest.raises(ValueError):
+            ModelLLMCallCompletedEvent(
+                **{**valid_event_kwargs, "usage_source": "LOCAL"}
+            )  # type: ignore[arg-type]
+
     def test_emitted_at_must_be_tz_aware(
         self, valid_event_kwargs: dict[str, object]
     ) -> None:
@@ -101,6 +125,7 @@ class TestModelLLMCallCompletedEventSerialization:
             "output_tokens",
             "total_tokens",
             "cost_usd",
+            "usage_source",
             "latency_ms",
             "request_type",
             "correlation_id",

@@ -102,5 +102,6 @@ class TestLLMCallCompletedEventFlow:
         assert payload["correlation_id"] == "test-corr-id"
         assert payload["session_id"] == "test-sess-id"
         assert payload["cost_usd"] == 0.0
+        assert payload["usage_source"] == "ESTIMATED"
         assert "emitted_at" in payload
         assert payload["latency_ms"] >= 0

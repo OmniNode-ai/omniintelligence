@@ -38,6 +38,30 @@ _RETRY_BASE_DELAY = 1.0
 _HTTP_CLIENT_ERR_MIN = 400
 _HTTP_CLIENT_ERR_MAX = 500
 
+# Per-token cost rates in USD. Local self-hosted models have $0.00 infra-cost
+# rates so they appear in Cost Trends token charts with usage_source=ESTIMATED.
+# Cloud API models should be added here as needed.
+# Format: model_id_prefix -> (input_rate_per_token, output_rate_per_token)
+_MODEL_COST_RATES: dict[str, tuple[float, float]] = {
+    # Local models — no per-token billing, infra cost only
+    "qwen3": (0.0, 0.0),
+    "deepseek": (0.0, 0.0),
+    "default": (0.0, 0.0),
+}
+
+
+def _compute_cost_usd(model_id: str, input_tokens: int, output_tokens: int) -> float:
+    """Compute estimated cost from token counts and per-model rate table.
+
+    Matches on model_id prefix (case-insensitive). Falls back to "default"
+    rates (0.0) when the model is not in the table.
+    """
+    lower = model_id.lower()
+    for prefix, (in_rate, out_rate) in _MODEL_COST_RATES.items():
+        if lower.startswith(prefix):
+            return input_tokens * in_rate + output_tokens * out_rate
+    return 0.0
+
 
 class EvalLLMClientError(Exception):
     """Base error for EvalLLMClient failures."""
@@ -234,7 +258,8 @@ class EvalLLMClient:
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
                 total_tokens=input_tokens + output_tokens,
-                cost_usd=0.0,
+                cost_usd=_compute_cost_usd(model_id, input_tokens, output_tokens),
+                usage_source="ESTIMATED",
                 latency_ms=latency_ms,
                 request_type=request_type,
                 correlation_id=self._correlation_id,

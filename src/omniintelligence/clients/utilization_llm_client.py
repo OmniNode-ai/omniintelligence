@@ -7,6 +7,7 @@ Not reusing EvalLLMClient because it requires (generator_url, judge_url)
 and has no chat_completion method.
 
 Reference: OMN-5507 - Wire utilization scoring handler into dispatch engine.
+Reference: OMN-8019 - Cost visibility for local model calls.
 """
 
 from __future__ import annotations
@@ -18,6 +19,7 @@ from typing import Any
 
 import httpx
 
+from omniintelligence.clients.eval_llm_client import _compute_cost_usd
 from omniintelligence.protocols import ProtocolKafkaPublisher
 
 logger = logging.getLogger(__name__)
@@ -109,7 +111,8 @@ class UtilizationLLMClient:
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
                 total_tokens=input_tokens + output_tokens,
-                cost_usd=0.0,
+                cost_usd=_compute_cost_usd(model_id, input_tokens, output_tokens),
+                usage_source="ESTIMATED",
                 latency_ms=latency_ms,
                 request_type="classification",
                 correlation_id=self._correlation_id,
