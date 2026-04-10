@@ -365,7 +365,7 @@ async def _publish_processed_event(
         )
 
 
-async def handle_legacy_routing_feedback_drain(event: dict) -> None:
+async def handle_legacy_routing_feedback_drain(event: dict[str, object]) -> None:
     """No-op drain handler for the legacy bare topic ``routing.feedback`` (OMN-2366).
 
     The legacy ``routing.feedback`` topic predates the canonical

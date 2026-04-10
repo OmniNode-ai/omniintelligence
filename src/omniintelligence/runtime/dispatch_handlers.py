@@ -3161,6 +3161,64 @@ def create_intelligence_dispatch_engine(
         )
     )
 
+    # --- Handler: routing-feedback (OMN-8170) ---
+    from omniintelligence.runtime.dispatch_handler_routing_feedback import (
+        DISPATCH_ALIAS_LEGACY_ROUTING_FEEDBACK,
+        DISPATCH_ALIAS_ROUTING_FEEDBACK,
+        create_legacy_routing_feedback_drain_handler,
+        create_routing_feedback_dispatch_handler,
+    )
+
+    routing_feedback_handler = create_routing_feedback_dispatch_handler(
+        repository=repository,
+        kafka_producer=kafka_producer,
+    )
+    engine.register_handler(
+        handler_id="intelligence-routing-feedback-handler",
+        handler=routing_feedback_handler,
+        category=EnumMessageCategory.EVENT,
+        node_kind=EnumNodeKind.EFFECT,
+        message_types=None,
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-routing-feedback-route",
+            topic_pattern=DISPATCH_ALIAS_ROUTING_FEEDBACK,
+            message_category=EnumMessageCategory.EVENT,
+            handler_id="intelligence-routing-feedback-handler",
+            description=(
+                "Routes routing-feedback events from omniclaude to the "
+                "routing feedback effect handler (OMN-8170). Filters on "
+                "feedback_status: upserts produced events to "
+                "routing_feedback_scores, skips skipped events."
+            ),
+        )
+    )
+
+    legacy_routing_feedback_drain_handler = (
+        create_legacy_routing_feedback_drain_handler()
+    )
+    engine.register_handler(
+        handler_id="intelligence-legacy-routing-feedback-drain-handler",
+        handler=legacy_routing_feedback_drain_handler,
+        category=EnumMessageCategory.EVENT,
+        node_kind=EnumNodeKind.EFFECT,
+        message_types=None,
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-legacy-routing-feedback-drain-route",
+            topic_pattern=DISPATCH_ALIAS_LEGACY_ROUTING_FEEDBACK,
+            message_category=EnumMessageCategory.EVENT,
+            handler_id="intelligence-legacy-routing-feedback-drain-handler",
+            description=(
+                "Drains the deprecated legacy bare topic ``routing.feedback`` "
+                "(OMN-2366). No active producers. Messages are discarded with "
+                "a warning log. Remove after topic is confirmed empty in Redpanda."
+            ),
+        )
+    )
+
     engine.freeze()
 
     if llm_client is None:
