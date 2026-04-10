@@ -2697,6 +2697,38 @@ def create_intelligence_dispatch_engine(
         )
     )
 
+    # --- Handler 16: code-entities-extracted → learned patterns (OMN-7863) ---
+    from omniintelligence.runtime.dispatch_handler_code_entity_bridge import (
+        DISPATCH_ALIAS_CODE_ENTITY_BRIDGE,
+        create_code_entity_bridge_dispatch_handler,
+    )
+
+    code_entity_bridge_handler = create_code_entity_bridge_dispatch_handler(
+        pattern_store=pattern_upsert_store,
+        kafka_publisher=kafka_producer,
+        publish_topic=topics.get("code_entity_patterns_derived"),
+    )
+    engine.register_handler(
+        handler_id="intelligence-code-entity-bridge-handler",
+        handler=code_entity_bridge_handler,
+        category=EnumMessageCategory.EVENT,
+        node_kind=EnumNodeKind.COMPUTE,
+        message_types=None,
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-code-entity-bridge-route",
+            topic_pattern=DISPATCH_ALIAS_CODE_ENTITY_BRIDGE,
+            message_category=EnumMessageCategory.EVENT,
+            handler_id="intelligence-code-entity-bridge-handler",
+            description=(
+                "Routes code-entities-extracted events to the code entity → "
+                "learned pattern bridge (OMN-7863). Derives pattern signatures "
+                "and upserts into learned_patterns table."
+            ),
+        )
+    )
+
     # --- Handler: intelligence orchestrator (OMN-6590) ---
     orchestrator_handler = create_intelligence_orchestrator_dispatch_handler()
     engine.register_handler(

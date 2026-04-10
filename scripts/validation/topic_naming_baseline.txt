@@ -33,6 +33,7 @@ onex.commands.omniintelligence.code-crawl-requested.v1
 onex.events.omniintelligence.code-file-discovered.v1
 onex.events.omniintelligence.code-entities-extracted-persist.v1
 onex.events.omniintelligence.code-entities-extracted-embed.v1
+onex.events.omniintelligence.code-entities-extracted-bridge.v1
 onex.events.review-pairing.finding-observed.v1
 onex.events.review-pairing.fix-applied.v1
 onex.events.review-pairing.finding-resolved.v1

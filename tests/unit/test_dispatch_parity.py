@@ -247,7 +247,6 @@ _KNOWN_UNWIRED_SUBSCRIBE_EVT: set[str] = {
     # Cross-repo topics consumed by dedicated node handlers, not dispatch engine
     "onex.evt.omniclaude.llm-routing-decision.v1",
     "onex.evt.omniclaude.pattern-enforcement.v1",
-    "onex.evt.omniclaude.routing-feedback.v1",
     # Intelligence pipeline internal events — nodes handle directly
     "onex.evt.omniintelligence.entity-extraction-completed.v1",
     "onex.evt.omniintelligence.intent-drift-detected.v1",
@@ -260,10 +259,14 @@ _KNOWN_UNWIRED_SUBSCRIBE_EVT: set[str] = {
     "onex.evt.omnimemory.document-discovered.v1",
 }
 
-_KNOWN_ORPHAN_DISPATCH_ROUTES: set[str] = set()
-# All previously orphaned dispatch routes now have contract declarations
-# as of OMN-6979. This set is empty — new orphan routes will cause test
-# failure until either declared in a contract or documented here.
+_KNOWN_ORPHAN_DISPATCH_ROUTES: set[str] = {
+    # Dispatch aliases use a distinct topic form so the engine can register
+    # multiple routes on the same canonical event without collision.
+    # These aliases are intentional — they match no contract subscribe_topic
+    # but route to real handlers.
+    # OMN-7863: second route on code-entities-extracted.v1 for pattern bridge
+    "onex.evt.omniintelligence.code-entities-extracted-bridge.v1",
+}
 
 
 # ---------------------------------------------------------------------------
