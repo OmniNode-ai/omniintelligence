@@ -422,6 +422,17 @@ Consumed by Part 2 enrichment handlers (classification, quality scoring).
 Reference: OMN-5677
 """
 
+TOPIC_CODE_ENTITY_PATTERNS_DERIVED_V1: str = (
+    "onex.evt.omniintelligence.code-entity-patterns-derived.v1"
+)
+"""Canonical topic for code entity patterns derived events (OUTPUT).
+
+Emitted by the code entity bridge handler after deriving learned_patterns
+from code_entities. Consumed by downstream pattern storage pipeline.
+
+Reference: OMN-7863
+"""
+
 TOPIC_CODE_ENTITIES_CLASSIFIED_V1: str = (
     "onex.evt.omniintelligence.code-entities-classified.v1"
 )
@@ -546,6 +557,7 @@ __all__ = [
     "TOPIC_CODE_ENTITIES_EXTRACTED_V1",
     "TOPIC_CODE_ENTITIES_PERSISTED_V1",
     "TOPIC_CODE_ENTITIES_SCORED_V1",
+    "TOPIC_CODE_ENTITY_PATTERNS_DERIVED_V1",
     "TOPIC_CODE_FILE_DISCOVERED_V1",
     "TOPIC_CONTEXT_UTILIZATION_EVT_V1",
     "TOPIC_DECISION_RECORDED_CMD_V1",
