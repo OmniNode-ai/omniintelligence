@@ -110,6 +110,16 @@ EXPECTED_DOCUMENT_DISCOVERED = "onex.evt.omnimemory.document-discovered.v1"
 # OMN-7652: node_ast_extraction_compute subscribe topic now active
 EXPECTED_CODE_FILE_DISCOVERED = "onex.evt.omniintelligence.code-file-discovered.v1"
 
+# Subscribe topic for code-entities pipeline (node_code_extract_effect consumes
+# emitted entities downstream of node_ast_extraction_compute).
+EXPECTED_CODE_ENTITIES_EXTRACTED = (
+    "onex.evt.omniintelligence.code-entities-extracted.v1"
+)
+
+# Legacy bare routing feedback topic (drain subscription only — see
+# node_routing_feedback_effect/contract.yaml, OMN-2366).
+EXPECTED_ROUTING_FEEDBACK_LEGACY = "routing.feedback"
+
 EXPECTED_TOPICS = {
     EXPECTED_CLAUDE_HOOK,
     EXPECTED_TOOL_CONTENT,
@@ -158,6 +168,8 @@ EXPECTED_TOPICS = {
     EXPECTED_DOCUMENT_CHANGED,
     EXPECTED_DOCUMENT_DISCOVERED,
     EXPECTED_CODE_FILE_DISCOVERED,
+    EXPECTED_CODE_ENTITIES_EXTRACTED,
+    EXPECTED_ROUTING_FEEDBACK_LEGACY,
 }
 
 

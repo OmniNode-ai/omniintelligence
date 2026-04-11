@@ -2982,14 +2982,32 @@ def create_intelligence_dispatch_engine(
         )
     )
 
-    # --- Handler: code-analysis (OMN-6969) ---
+    # --- Handler: code-analysis (OMN-6969, OMN-6967) ---
     from omniintelligence.runtime.dispatch_handler_code_analysis import (
         DISPATCH_ALIAS_CODE_ANALYSIS,
         create_code_analysis_dispatch_handler,
     )
 
+    # Wire LLM adapter for semantic analysis (OMN-6967). The adapter lives in
+    # omnibase_infra and is optional — if the import fails the handler falls
+    # back to heuristic-only scoring.
+    _code_analysis_llm_adapter: object | None = None
+    try:
+        from omnibase_infra.adapters.llm.adapter_code_analysis_enrichment import (
+            AdapterCodeAnalysisEnrichment,
+        )
+
+        _code_analysis_llm_adapter = AdapterCodeAnalysisEnrichment()
+    except Exception:
+        logger.warning(
+            "AdapterCodeAnalysisEnrichment unavailable; code-analysis "
+            "will use heuristic-only scoring",
+            exc_info=True,
+        )
+
     code_analysis_handler = create_code_analysis_dispatch_handler(
         kafka_producer=kafka_producer,
+        llm_adapter=_code_analysis_llm_adapter,  # type: ignore[arg-type]
     )
     engine.register_handler(
         handler_id="intelligence-code-analysis-handler",
