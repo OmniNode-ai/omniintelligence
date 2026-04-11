@@ -487,16 +487,18 @@ def create_code_analysis_dispatch_handler(
 
             # Feed actionable LLM findings into pattern extraction.
             if analysis_source == "llm" and kafka_producer is not None:
-                issues = [
-                    str(i)
-                    for i in completed.results_summary.get("issues", [])
-                    if isinstance(i, str)
-                ]
-                recommendations = [
-                    str(r)
-                    for r in completed.results_summary.get("recommendations", [])
-                    if isinstance(r, str)
-                ]
+                raw_issues = completed.results_summary.get("issues", [])
+                raw_recs = completed.results_summary.get("recommendations", [])
+                issues: list[str] = (
+                    [str(i) for i in raw_issues if isinstance(i, str)]
+                    if isinstance(raw_issues, list)
+                    else []
+                )
+                recommendations: list[str] = (
+                    [str(r) for r in raw_recs if isinstance(r, str)]
+                    if isinstance(raw_recs, list)
+                    else []
+                )
                 if issues or recommendations:
                     events = _build_pattern_discovered_events(
                         issues=issues,
