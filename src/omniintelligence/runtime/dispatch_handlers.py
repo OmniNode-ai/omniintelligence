@@ -1611,8 +1611,7 @@ def create_compliance_evaluate_dispatch_handler(
                 command,
                 llm_client=llm_client,
                 kafka_producer=kafka_producer,
-                publish_topic=publish_topic
-                or _FALLBACK_TOPIC_COMPLIANCE_EVALUATED,
+                publish_topic=publish_topic or _FALLBACK_TOPIC_COMPLIANCE_EVALUATED,
             )
 
         logger.info(

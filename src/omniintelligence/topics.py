@@ -150,9 +150,7 @@ class IntelligenceCommandTopic(StrValueHelper, str, Enum):
     DECISION_RECORDED = "onex.cmd.omniintelligence.decision-recorded.v1"
     """Decision recorded command (OMN-6595)."""
 
-    CI_FAILURE_DETECTED_TRACK = (
-        "onex.cmd.omniintelligence.ci-failure-detected-track.v1"
-    )
+    CI_FAILURE_DETECTED_TRACK = "onex.cmd.omniintelligence.ci-failure-detected-track.v1"
     """CI failure detected tracking command (OMN-6597)."""
 
     BLOOM_EVAL_RUN = "onex.cmd.omniintelligence.bloom-eval-run.v1"
