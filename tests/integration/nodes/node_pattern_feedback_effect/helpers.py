@@ -93,17 +93,18 @@ async def create_test_pattern(
         f"test_feedback_{hashlib.sha256(signature.encode()).hexdigest()[:32]}"
     )
     # conn typed as object for test genericity; runtime is always asyncpg.Connection (OMN-2077)
+    # promoted_at must be NOT NULL for status='provisional' (check_promoted_at_status_consistency)
     await conn.execute(  # type: ignore[union-attr]
         """
         INSERT INTO learned_patterns (
             id, pattern_signature, signature_hash, domain_id, domain_version,
-            domain_candidates, confidence, status,
+            domain_candidates, confidence, status, promoted_at,
             source_session_ids, quality_score,
             injection_count_rolling_20, success_count_rolling_20,
             failure_count_rolling_20, failure_streak
         ) VALUES (
             $1, $2, $3, $4, $5,
-            $6::jsonb, $7, $8,
+            $6::jsonb, $7, $8, NOW(),
             $9, $10,
             $11, $12,
             $13, $14
