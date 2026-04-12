@@ -60,6 +60,8 @@ from omniintelligence.nodes.node_claude_hook_event_effect.models import (
 from omniintelligence.nodes.node_pattern_compliance_effect.handlers.protocols import (
     ProtocolLlmClient,
 )
+from omniintelligence.runtime.contract_topics import canonical_topic_to_dispatch_alias
+from omniintelligence.topics import IntelligenceCommandTopic, IntentTopic
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
 logger = logging.getLogger(__name__)
@@ -91,78 +93,108 @@ from omniintelligence.protocols import (
 #
 # Usage: when calling dispatch(), pass the alias instead of the raw topic.
 
-DISPATCH_ALIAS_CLAUDE_HOOK = "onex.commands.omniintelligence.claude-hook-event.v1"
+DISPATCH_ALIAS_CLAUDE_HOOK = canonical_topic_to_dispatch_alias(
+    IntelligenceCommandTopic.CLAUDE_HOOK_EVENT
+)
 """Dispatch-compatible alias for claude-hook-event canonical topic."""
-DISPATCH_ALIAS_SESSION_OUTCOME = "onex.commands.omniintelligence.session-outcome.v1"
+DISPATCH_ALIAS_SESSION_OUTCOME = canonical_topic_to_dispatch_alias(
+    IntelligenceCommandTopic.SESSION_OUTCOME
+)
 """Dispatch-compatible alias for session-outcome canonical topic."""
-DISPATCH_ALIAS_PATTERN_LIFECYCLE = (
-    "onex.commands.omniintelligence.pattern-lifecycle-transition.v1"
+DISPATCH_ALIAS_PATTERN_LIFECYCLE = canonical_topic_to_dispatch_alias(
+    IntelligenceCommandTopic.PATTERN_LIFECYCLE_TRANSITION
 )
 """Dispatch-compatible alias for pattern-lifecycle canonical topic."""
-DISPATCH_ALIAS_PATTERN_LEARNED = "onex.events.omniintelligence.pattern-learned.v1"
+DISPATCH_ALIAS_PATTERN_LEARNED = canonical_topic_to_dispatch_alias(
+    IntentTopic.PATTERN_LEARNED
+)
 """Dispatch-compatible alias for pattern-learned canonical topic."""
-DISPATCH_ALIAS_PATTERN_DISCOVERED = "onex.events.pattern.discovered.v1"
+DISPATCH_ALIAS_PATTERN_DISCOVERED = canonical_topic_to_dispatch_alias(
+    IntentTopic.PATTERN_DISCOVERED
+)
 """Dispatch-compatible alias for pattern.discovered canonical topic."""
-DISPATCH_ALIAS_TOOL_CONTENT = "onex.commands.omniintelligence.tool-content.v1"
+DISPATCH_ALIAS_TOOL_CONTENT = canonical_topic_to_dispatch_alias(
+    IntelligenceCommandTopic.TOOL_CONTENT
+)
 """Dispatch-compatible alias for tool-content canonical topic."""
-DISPATCH_ALIAS_PATTERN_LEARNING_CMD = (
-    "onex.commands.omniintelligence.pattern-learning.v1"
+DISPATCH_ALIAS_PATTERN_LEARNING_CMD = canonical_topic_to_dispatch_alias(
+    IntelligenceCommandTopic.PATTERN_LEARNING
 )
 """Dispatch-compatible alias for pattern-learning canonical topic."""
-DISPATCH_ALIAS_COMPLIANCE_EVALUATE = (
-    "onex.commands.omniintelligence.compliance-evaluate.v1"
+DISPATCH_ALIAS_COMPLIANCE_EVALUATE = canonical_topic_to_dispatch_alias(
+    IntelligenceCommandTopic.COMPLIANCE_EVALUATE
 )
 """Dispatch-compatible alias for compliance-evaluate canonical topic (OMN-2339)."""
-DISPATCH_ALIAS_PATTERN_STORED = "onex.events.omniintelligence.pattern-stored.v1"
+DISPATCH_ALIAS_PATTERN_STORED = canonical_topic_to_dispatch_alias(
+    IntentTopic.PATTERN_STORED
+)
 """Dispatch-compatible alias for pattern-stored canonical topic (OMN-5611)."""
-DISPATCH_ALIAS_PATTERN_PROMOTED = "onex.events.omniintelligence.pattern-promoted.v1"
+DISPATCH_ALIAS_PATTERN_PROMOTED = canonical_topic_to_dispatch_alias(
+    IntentTopic.PATTERN_PROMOTED
+)
 """Dispatch-compatible alias for pattern-promoted canonical topic (OMN-2424)."""
-DISPATCH_ALIAS_PATTERN_LIFECYCLE_TRANSITIONED = (
-    "onex.events.omniintelligence.pattern-lifecycle-transitioned.v1"
+DISPATCH_ALIAS_PATTERN_LIFECYCLE_TRANSITIONED = canonical_topic_to_dispatch_alias(
+    IntentTopic.PATTERN_LIFECYCLE_TRANSITIONED
 )
 """Dispatch-compatible alias for pattern-lifecycle-transitioned canonical topic (OMN-2424)."""
-DISPATCH_ALIAS_INTELLIGENCE_ORCHESTRATOR = (
-    "onex.cmd.omniintelligence.intent-received.v1"
+DISPATCH_ALIAS_INTELLIGENCE_ORCHESTRATOR = canonical_topic_to_dispatch_alias(
+    IntelligenceCommandTopic.INTENT_RECEIVED
 )
 """Dispatch-compatible alias for intelligence orchestrator intent reception (OMN-6590)."""
-DISPATCH_ALIAS_INTELLIGENCE_REDUCER = (
-    "onex.cmd.omniintelligence.pattern-lifecycle-process.v1"
+DISPATCH_ALIAS_INTELLIGENCE_REDUCER = canonical_topic_to_dispatch_alias(
+    IntelligenceCommandTopic.PATTERN_LIFECYCLE_PROCESS
 )
 """Dispatch-compatible alias for intelligence reducer process handler (OMN-6594)."""
-DISPATCH_ALIAS_CI_FINGERPRINT = "onex.cmd.omniintelligence.ci-failure-detected.v1"
+DISPATCH_ALIAS_CI_FINGERPRINT = canonical_topic_to_dispatch_alias(
+    IntelligenceCommandTopic.CI_FAILURE_DETECTED
+)
 """Dispatch-compatible alias for CI failure fingerprint compute (OMN-6598)."""
-DISPATCH_ALIAS_CI_FAILURE_TRACKER = "onex.cmd.omniintelligence.ci-failure-track.v1"
+DISPATCH_ALIAS_CI_FAILURE_TRACKER = canonical_topic_to_dispatch_alias(
+    IntelligenceCommandTopic.CI_FAILURE_TRACK
+)
 """Dispatch-compatible alias for CI failure tracker effect (OMN-6598)."""
-DISPATCH_ALIAS_CI_RECOVERY = "onex.cmd.omniintelligence.ci-recovery-detected.v1"
+DISPATCH_ALIAS_CI_RECOVERY = canonical_topic_to_dispatch_alias(
+    IntelligenceCommandTopic.CI_RECOVERY_DETECTED
+)
 """Dispatch-compatible alias for CI recovery handler (OMN-6598)."""
-_FALLBACK_TOPIC_PATTERN_STORED = "onex.evt.omniintelligence.pattern-stored.v1"
+_FALLBACK_TOPIC_PATTERN_STORED = canonical_topic_to_dispatch_alias(
+    IntentTopic.PATTERN_STORED
+)
 """Fallback publish topic when contract-resolved topic is unavailable."""
-DISPATCH_ALIAS_DECISION_RECORDED_CMD = "onex.cmd.omniintelligence.decision-recorded.v1"
+_FALLBACK_TOPIC_COMPLIANCE_EVALUATED = canonical_topic_to_dispatch_alias(
+    IntentTopic.COMPLIANCE_EVALUATED
+)
+"""Fallback compliance-evaluated publish topic when contract-resolved topic is unavailable."""
+DISPATCH_ALIAS_DECISION_RECORDED_CMD = canonical_topic_to_dispatch_alias(
+    IntelligenceCommandTopic.DECISION_RECORDED
+)
 """Dispatch-compatible alias for decision-recorded command topic (OMN-6595)."""
-DISPATCH_ALIAS_REVIEW_PAIRING_FINDING_OBSERVED = (
-    "onex.events.review-pairing.finding-observed.v1"
+DISPATCH_ALIAS_REVIEW_PAIRING_FINDING_OBSERVED = canonical_topic_to_dispatch_alias(
+    IntentTopic.FINDING_OBSERVED
 )
 """Dispatch-compatible alias for finding-observed event (OMN-6592)."""
-DISPATCH_ALIAS_REVIEW_PAIRING_FIX_APPLIED = "onex.events.review-pairing.fix-applied.v1"
+DISPATCH_ALIAS_REVIEW_PAIRING_FIX_APPLIED = canonical_topic_to_dispatch_alias(
+    IntentTopic.FIX_APPLIED
+)
 """Dispatch-compatible alias for fix-applied event (OMN-6592)."""
-DISPATCH_ALIAS_REVIEW_PAIRING_FINDING_RESOLVED = (
-    "onex.events.review-pairing.finding-resolved.v1"
+DISPATCH_ALIAS_REVIEW_PAIRING_FINDING_RESOLVED = canonical_topic_to_dispatch_alias(
+    IntentTopic.FINDING_RESOLVED
 )
 """Dispatch-compatible alias for finding-resolved event (OMN-6592)."""
-DISPATCH_ALIAS_REVIEW_PAIRING_PAIR_CREATED = (
-    "onex.events.review-pairing.pair-created.v1"
+DISPATCH_ALIAS_REVIEW_PAIRING_PAIR_CREATED = canonical_topic_to_dispatch_alias(
+    IntentTopic.PAIR_CREATED
 )
 """Dispatch-compatible alias for pair-created event (OMN-6592)."""
-DISPATCH_ALIAS_CI_FAILURE_DETECTED_CMD = (
-    "onex.cmd.omniintelligence.ci-failure-detected-track.v1"
+DISPATCH_ALIAS_CI_FAILURE_DETECTED_CMD = canonical_topic_to_dispatch_alias(
+    IntelligenceCommandTopic.CI_FAILURE_DETECTED_TRACK
 )
 """Dispatch-compatible alias for ci-failure-detected tracking command topic (OMN-6597).
 
 Note: Distinct from DISPATCH_ALIAS_CI_FINGERPRINT which routes to the fingerprint
 compute handler. This alias routes to the failure tracker effect handler.
 """
-DISPATCH_ALIAS_DEBUG_TRIGGER_RECORD_CREATED = (
-    "onex.evt.omniintelligence.debug-trigger-record-created.v1"
+DISPATCH_ALIAS_DEBUG_TRIGGER_RECORD_CREATED = canonical_topic_to_dispatch_alias(
+    IntentTopic.DEBUG_TRIGGER_RECORD_CREATED
 )
 """Dispatch-compatible alias for debug-trigger-record-created event topic (OMN-6597)."""
 # =============================================================================
@@ -1580,7 +1612,7 @@ def create_compliance_evaluate_dispatch_handler(
                 llm_client=llm_client,
                 kafka_producer=kafka_producer,
                 publish_topic=publish_topic
-                or "onex.evt.omniintelligence.compliance-evaluated.v1",
+                or _FALLBACK_TOPIC_COMPLIANCE_EVALUATED,
             )
 
         logger.info(
@@ -2310,7 +2342,7 @@ def create_intelligence_dispatch_engine(
         kafka_producer=kafka_producer,
         publish_topic=topics.get(
             "pattern_learning",
-            "onex.evt.omniintelligence.pattern-learned.v1",
+            DISPATCH_ALIAS_PATTERN_LEARNED,
         ),
     )
     engine.register_handler(
@@ -2571,9 +2603,6 @@ def create_intelligence_dispatch_engine(
         TOPIC_CODE_CRAWL_REQUESTED_V1,
         TOPIC_CODE_ENTITIES_EXTRACTED_V1,
         TOPIC_CODE_FILE_DISCOVERED_V1,
-    )
-    from omniintelligence.runtime.contract_topics import (
-        canonical_topic_to_dispatch_alias,
     )
     from omniintelligence.runtime.dispatch_handler_code_crawl import (
         create_code_crawl_dispatch_handler,
@@ -3033,7 +3062,7 @@ def create_intelligence_dispatch_engine(
     # Bridge handler for bloom eval orchestrator commands. Delegates to
     # the node handler when deps are available, otherwise logs and returns ok.
     _DISPATCH_ALIAS_BLOOM_EVAL_RUN = canonical_topic_to_dispatch_alias(
-        "onex.cmd.omniintelligence.bloom-eval-run.v1"
+        IntelligenceCommandTopic.BLOOM_EVAL_RUN
     )
 
     async def _bloom_eval_run_handler(
@@ -3069,7 +3098,7 @@ def create_intelligence_dispatch_engine(
     # --- Handler: document-ingestion (OMN-6979) ---
     # Orchestrator sub-command routed internally by node_intelligence_orchestrator.
     _DISPATCH_ALIAS_DOCUMENT_INGESTION = canonical_topic_to_dispatch_alias(
-        "onex.cmd.omniintelligence.document-ingestion.v1"
+        IntelligenceCommandTopic.DOCUMENT_INGESTION
     )
 
     async def _document_ingestion_handler(
@@ -3105,7 +3134,7 @@ def create_intelligence_dispatch_engine(
     # --- Handler: quality-assessment (OMN-6979) ---
     # Orchestrator sub-command routed internally by node_intelligence_orchestrator.
     _DISPATCH_ALIAS_QUALITY_ASSESSMENT = canonical_topic_to_dispatch_alias(
-        "onex.cmd.omniintelligence.quality-assessment.v1"
+        IntelligenceCommandTopic.QUALITY_ASSESSMENT
     )
 
     async def _quality_assessment_handler(
@@ -3141,7 +3170,7 @@ def create_intelligence_dispatch_engine(
     # --- Handler: protocol-execute (OMN-6979) ---
     # Bridge handler for protocol handler effect node.
     _DISPATCH_ALIAS_PROTOCOL_EXECUTE = canonical_topic_to_dispatch_alias(
-        "onex.cmd.omniintelligence.protocol-execute.v1"
+        IntelligenceCommandTopic.PROTOCOL_EXECUTE
     )
 
     async def _protocol_execute_handler(
@@ -3178,7 +3207,7 @@ def create_intelligence_dispatch_engine(
     # Cross-repo command topic: published by crawl scheduler, consumed by
     # omnimemory crawler nodes. Dispatch route for observability.
     _DISPATCH_ALIAS_CRAWL_TICK = canonical_topic_to_dispatch_alias(
-        "onex.cmd.omnimemory.crawl-tick.v1"
+        IntelligenceCommandTopic.CRAWL_TICK
     )
 
     async def _crawl_tick_handler(
