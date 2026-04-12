@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import ast
 import logging
+import os
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -44,7 +45,7 @@ NODE_TYPE_FROM_BASE: dict[str, str] = {
 SKIP_PATTERNS = {"test_", "_test", "__"}
 
 # Known repo locations
-REPO_ROOT = Path("/Volumes/PRO-G40/Code/omni_home")
+REPO_ROOT = Path(os.environ.get("OMNI_HOME", str(Path(__file__).resolve().parents[2])))
 REPO_DIRS: dict[str, Path] = {
     "omniintelligence": REPO_ROOT
     / "omniintelligence"

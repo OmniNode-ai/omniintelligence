@@ -19,7 +19,7 @@ Usage:
 
     # With explicit DB URL
     uv run python scripts/run_promotion_check.py --execute \
-        --db-url postgresql://postgres:password@192.168.86.201:5436/omniintelligence
+        --db-url postgresql://postgres:password@localhost:5436/omniintelligence
 
 Environment:
     OMNIINTELLIGENCE_DB_URL — PostgreSQL connection string (required unless --db-url)

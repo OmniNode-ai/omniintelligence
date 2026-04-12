@@ -8,7 +8,7 @@ directories, groups them into node families, and prints a summary report
 with per-repo counts and role composition.
 
 Usage:
-    OMNI_HOME=/Volumes/PRO-G40/Code/omni_home uv run python scripts/report_node_families.py
+    OMNI_HOME=/path/to/omni_home uv run python scripts/report_node_families.py
 """
 
 from __future__ import annotations
