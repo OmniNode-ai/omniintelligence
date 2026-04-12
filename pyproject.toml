@@ -119,6 +119,7 @@ node_semantic_analysis_compute = "omniintelligence.nodes.node_semantic_analysis_
 node_storage_router_effect = "omniintelligence.nodes.node_storage_router_effect"
 node_success_criteria_matcher_compute = "omniintelligence.nodes.node_success_criteria_matcher_compute"
 node_watchdog_effect = "omniintelligence.nodes.node_watchdog_effect"
+node_audit = "omniintelligence.nodes.audit"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/omniintelligence"]
