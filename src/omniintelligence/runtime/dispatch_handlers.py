@@ -2181,7 +2181,8 @@ def create_intelligence_dispatch_engine(
         kafka_producer: Optional Kafka publisher (graceful degradation).
         publish_topics: Optional mapping of handler name to publish topic.
             Keys: "claude_hook", "lifecycle", "pattern_storage",
-            "pattern_learning", "compliance_evaluate", "pattern_projection".
+            "pattern_learning", "compliance_evaluate", "pattern_projection",
+            "quality_assessment".
             Values: full topic strings from contract event_bus.publish_topics.
             Note: crawl scheduler handlers (crawl-requested, document-indexed)
             do not use publish_topics — the crawl-tick topic is embedded in
@@ -3130,20 +3131,150 @@ def create_intelligence_dispatch_engine(
         )
     )
 
-    # --- Handler: quality-assessment (OMN-6979) ---
-    # Orchestrator sub-command routed internally by node_intelligence_orchestrator.
+    # --- Handler: quality-assessment (SOW Phase 2 Quality Score Lineage) ---
+    # Calls NodeQualityScoringCompute with real scoring logic and emits
+    # quality-assessment-completed.v1 with computed scores.
     _DISPATCH_ALIAS_QUALITY_ASSESSMENT = canonical_topic_to_dispatch_alias(
         IntelligenceCommandTopic.QUALITY_ASSESSMENT
+    )
+    _QUALITY_ASSESSMENT_COMPLETED_TOPIC = topics.get(
+        "quality_assessment",
+        "onex.evt.omniintelligence.quality-assessment-completed.v1",
     )
 
     async def _quality_assessment_handler(
         envelope: ModelEventEnvelope[object],
         context: ProtocolHandlerContext,
     ) -> str:
-        logger.info(
-            "quality-assessment command received: correlation_id=%s",
-            envelope.correlation_id or "unknown",
+        import json as _json
+
+        from omniintelligence.constants import TOPIC_QUALITY_ASSESSMENT_COMPLETED_V1
+        from omniintelligence.nodes.node_quality_scoring_compute.handlers.handler_compute import (
+            handle_quality_scoring_compute,
         )
+        from omniintelligence.nodes.node_quality_scoring_compute.models.model_quality_scoring_input import (
+            ModelQualityScoringInput,
+        )
+
+        correlation_id = str(envelope.correlation_id or uuid4())
+        payload: dict[str, Any] = {}
+        raw_payload = envelope.payload
+        if raw_payload is not None:
+            if isinstance(raw_payload, dict):
+                payload = raw_payload
+            elif hasattr(raw_payload, "model_dump"):
+                payload = raw_payload.model_dump()
+            elif hasattr(raw_payload, "__dict__"):
+                payload = dict(raw_payload.__dict__)
+
+        # Commands from NodePatternFeedbackEffect carry entity_id (pattern_id)
+        # and an optional nested payload dict. Content may be at top level or nested.
+        inner: dict[str, Any] = {}
+        raw_inner = payload.get("payload")
+        if isinstance(raw_inner, dict):
+            inner = raw_inner
+        elif isinstance(raw_inner, str):
+            with contextlib.suppress(Exception):
+                inner = _json.loads(raw_inner)
+
+        content: str = inner.get("content") or payload.get("content") or ""
+        source_path: str = (
+            inner.get("source_path")
+            or inner.get("file_path")
+            or payload.get("source_path")
+            or payload.get("file_path")
+            or payload.get("entity_id")
+            or "unknown"
+        )
+        language: str = inner.get("language") or payload.get("language") or "python"
+
+        logger.info(
+            "quality-assessment command received: correlation_id=%s source_path=%s",
+            correlation_id,
+            source_path,
+        )
+
+        _publish_topic = (
+            _QUALITY_ASSESSMENT_COMPLETED_TOPIC or TOPIC_QUALITY_ASSESSMENT_COMPLETED_V1
+        )
+
+        if not content:
+            logger.warning(
+                "quality-assessment command missing content — emitting zero-score event: "
+                "correlation_id=%s source_path=%s",
+                correlation_id,
+                source_path,
+            )
+            if kafka_producer is not None:
+                with contextlib.suppress(Exception):
+                    await kafka_producer.publish(
+                        topic=_publish_topic,
+                        key=source_path,
+                        value={
+                            "source_path": source_path,
+                            "quality_score": 0.0,
+                            "onex_compliant": False,
+                            "dimensions": {},
+                            "recommendations": [
+                                "[missing_content] No source content provided in command payload"
+                            ],
+                            "correlation_id": correlation_id,
+                        },
+                    )
+            return "ok"
+
+        scoring_input = ModelQualityScoringInput(
+            source_path=source_path,
+            content=content,
+            language=language,
+        )
+        result = handle_quality_scoring_compute(scoring_input)
+
+        logger.info(
+            "quality-assessment scored: correlation_id=%s source_path=%s "
+            "quality_score=%.4f onex_compliant=%s",
+            correlation_id,
+            source_path,
+            result.quality_score,
+            result.onex_compliant,
+        )
+
+        if kafka_producer is not None:
+            with contextlib.suppress(Exception):
+                await kafka_producer.publish(
+                    topic=_publish_topic,
+                    key=source_path,
+                    value={
+                        "source_path": source_path,
+                        "quality_score": result.quality_score,
+                        "onex_compliant": result.onex_compliant,
+                        "dimensions": dict(result.dimensions)
+                        if result.dimensions
+                        else {},
+                        "recommendations": list(result.recommendations),
+                        "metadata": {
+                            "status": result.metadata.status
+                            if result.metadata
+                            else None,
+                            "source_language": (
+                                result.metadata.source_language
+                                if result.metadata
+                                else None
+                            ),
+                            "analysis_version": (
+                                result.metadata.analysis_version
+                                if result.metadata
+                                else None
+                            ),
+                            "processing_time_ms": (
+                                result.metadata.processing_time_ms
+                                if result.metadata
+                                else None
+                            ),
+                        },
+                        "correlation_id": correlation_id,
+                    },
+                )
         return "ok"
 
     engine.register_handler(
@@ -3160,8 +3291,9 @@ def create_intelligence_dispatch_engine(
             message_category=EnumMessageCategory.COMMAND,
             handler_id="intelligence-quality-assessment-handler",
             description=(
-                "Routes quality-assessment commands to the intelligence "
-                "orchestrator (OMN-6979)."
+                "Routes quality-assessment commands to NodeQualityScoringCompute "
+                "and emits quality-assessment-completed.v1 with real scores "
+                "(SOW Phase 2 Quality Score Lineage)."
             ),
         )
     )
