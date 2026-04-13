@@ -1207,7 +1207,7 @@ def create_pattern_storage_dispatch_handler(
         pattern_upsert_store: REQUIRED store for idempotent pattern storage.
         kafka_producer: Optional Kafka producer (graceful degradation if absent).
         publish_topic: Full topic for pattern-stored events (from contract).
-            Falls back to "onex.evt.omniintelligence.pattern-stored.v1" if None.
+            Falls back to IntentTopic.PATTERN_STORED if None.
         correlation_id: Optional fixed correlation ID for tracing.
 
     Returns:

@@ -103,6 +103,22 @@ class IntentTopic(StrValueHelper, str, Enum):
     PAIR_CREATED = "onex.evt.review-pairing.pair-created.v1"
     """Review pairing pair created (OMN-6592, OMN-8605)."""
 
+    CODE_ANALYSIS_COMPLETED = "onex.evt.omniintelligence.code-analysis-completed.v1"
+    """Code analysis completed event (OMN-8605)."""
+
+    CODE_ANALYSIS_FAILED = "onex.evt.omniintelligence.code-analysis-failed.v1"
+    """Code analysis failed event (OMN-8605)."""
+
+    CODE_ENTITIES_EXTRACTED_EMBED = (
+        "onex.evt.omniintelligence.code-entities-extracted-embed.v1"
+    )
+    """Code entities extracted → embed+graph handler dispatch topic (OMN-8605)."""
+
+    CODE_ENTITIES_EXTRACTED_BRIDGE = (
+        "onex.evt.omniintelligence.code-entities-extracted-bridge.v1"
+    )
+    """Code entities extracted → bridge handler dispatch topic (OMN-8605)."""
+
 
 @unique
 class IntelligenceCommandTopic(StrValueHelper, str, Enum):
@@ -167,6 +183,15 @@ class IntelligenceCommandTopic(StrValueHelper, str, Enum):
 
     CRAWL_TICK = "onex.cmd.omnimemory.crawl-tick.v1"
     """Crawl scheduler tick command (cross-domain, produced for omnimemory)."""
+
+    CODE_ANALYSIS = "onex.cmd.omniintelligence.code-analysis.v1"
+    """Code analysis compute command (OMN-8605)."""
+
+    CRAWL_REQUESTED = "onex.cmd.omnimemory.crawl-requested.v1"
+    """Crawl requested command (cross-domain, consumed by omnimemory, OMN-8605)."""
+
+    DOCUMENT_INDEXED = "onex.evt.omnimemory.document-indexed.v1"
+    """Document indexed event (cross-domain, produced by omnimemory, OMN-8605)."""
 
 
 __all__ = ["IntentTopic", "IntelligenceCommandTopic"]
