@@ -51,9 +51,10 @@ async def handle_code_embedding(
 
     Returns dict with 'embedded_count' and 'failed_count'.
     """
-    endpoint = embedding_endpoint or os.environ.get(
-        "LLM_EMBEDDING_URL", "http://192.168.86.200:8100"
-    )
+    endpoint = embedding_endpoint or os.environ.get("LLM_EMBEDDING_URL", "")
+    if not endpoint:
+        logger.warning("LLM_EMBEDDING_URL not set — skipping embedding")
+        return {"embedded_count": 0, "failed_count": 0}
 
     if qdrant_client is None:
         qdrant_host = os.environ["QDRANT_HOST"]

@@ -65,28 +65,28 @@ _SEVERITY_MAP: dict[str, EnumFindingSeverity] = {
 MODEL_REGISTRY: dict[str, ModelEndpointConfig] = {
     "deepseek-r1": ModelEndpointConfig(
         env_var="LLM_DEEPSEEK_R1_URL",
-        default_url="http://192.168.86.200:8101",
+        default_url="",
         kind="reasoning",
         timeout_seconds=300.0,
         api_model_id="mlx-community/DeepSeek-R1-Distill-Qwen-32B-bf16",
     ),
     "qwen3-coder": ModelEndpointConfig(
         env_var="LLM_CODER_URL",
-        default_url="http://192.168.86.201:8000",
+        default_url="",
         kind="long_context",
         timeout_seconds=120.0,
         api_model_id="cyankiwi/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit",
     ),
     "qwen3-14b": ModelEndpointConfig(
         env_var="LLM_CODER_FAST_URL",
-        default_url="http://192.168.86.201:8001",
+        default_url="",
         kind="fast_review",
         timeout_seconds=60.0,
         api_model_id="Qwen/Qwen3-14B-AWQ",
     ),
     "qwen3-next": ModelEndpointConfig(
         env_var="LLM_QWEN3_NEXT_URL",
-        default_url="http://192.168.86.200:8102",
+        default_url="",
         kind="code_review",
         timeout_seconds=120.0,
         api_model_id="Qwen3-Next-80B-A3B",
@@ -149,7 +149,13 @@ def _resolve_model_url(model_key: str) -> str:
         valid = ", ".join(sorted(MODEL_REGISTRY.keys()))
         raise ValueError(f"Unknown model '{model_key}'. Valid: {valid}")
     config = MODEL_REGISTRY[model_key]
-    return os.environ.get(config.env_var, config.default_url)
+    url = os.environ.get(config.env_var, "")
+    if not url:
+        raise ValueError(
+            f"LLM endpoint not configured for '{model_key}'. "
+            f"Set the {config.env_var} environment variable."
+        )
+    return url
 
 
 async def call_model(
@@ -196,7 +202,12 @@ async def call_model(
     if not os.environ.get("LOCAL_LLM_SHARED_SECRET"):
         os.environ["LOCAL_LLM_SHARED_SECRET"] = "cli-review-unsigned"  # noqa: S105  # pragma: allowlist secret
 
-    base_url = os.environ.get(config.env_var, config.default_url)
+    base_url = os.environ.get(config.env_var, "")
+    if not base_url:
+        raise ValueError(
+            f"LLM endpoint not configured for '{model_key}'. "
+            f"Set the {config.env_var} environment variable."
+        )
 
     transport = TransportHolderLlmHttp(
         target_name=f"ai-reviewer-{model_key}",

@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
 import time
 from collections import Counter, defaultdict
@@ -63,12 +64,12 @@ ACTION_TO_BACKEND: dict[RoutingAction, str] = {
     RoutingAction.EMBEDDING: "embedding",
 }
 
-#: Default backend URLs (match the LLM topology from CLAUDE.md).
+#: Default backend URLs — resolved from env vars at import time.
 BACKEND_URLS: dict[str, str] = {
-    "qwen3-30b": "http://192.168.86.201:8000",
-    "qwen3-14b": "http://192.168.86.201:8001",
-    "deepseek-r1": "http://192.168.86.200:8101",
-    "embedding": "http://192.168.86.200:8100",
+    "qwen3-30b": os.environ.get("LLM_CODER_URL", ""),
+    "qwen3-14b": os.environ.get("LLM_CODER_FAST_URL", ""),
+    "deepseek-r1": os.environ.get("LLM_DEEPSEEK_R1_URL", ""),
+    "embedding": os.environ.get("LLM_EMBEDDING_URL", ""),
 }
 
 #: Model names for each backend.

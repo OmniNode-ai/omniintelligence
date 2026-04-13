@@ -17,6 +17,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from pathlib import Path
@@ -154,11 +155,11 @@ def create_code_quality_dispatch_handler(
 def _read_source_file(repo_name: str, source_path: str) -> str | None:
     """Best-effort read of source file for quality analysis."""
     try:
-        # Try common repo locations
-        for base in [
-            Path("/Volumes/PRO-G40/Code/omni_home"),
-            Path("/Volumes/PRO-G40/Code/omni_worktrees"),
-        ]:
+        omni_home = Path(os.environ["OMNI_HOME"])
+        omni_worktrees = Path(
+            os.environ.get("OMNI_WORKTREES", str(omni_home.parent / "omni_worktrees"))
+        )
+        for base in [omni_home, omni_worktrees]:
             full = base / repo_name / source_path
             if full.exists():
                 return full.read_text()
