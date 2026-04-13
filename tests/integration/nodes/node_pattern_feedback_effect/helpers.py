@@ -4,8 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """Integration test helpers for pattern feedback effect node (OMN-2077).
 
-This module provides helper functions for integration tests that verify
-session-outcome event consumption and effectiveness score updates against
+Covers session-outcome event consumption and effectiveness score updates against
 a real PostgreSQL database.
 
 Helpers included:
