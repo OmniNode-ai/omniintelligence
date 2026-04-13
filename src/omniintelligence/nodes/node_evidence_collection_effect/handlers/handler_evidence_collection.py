@@ -39,6 +39,7 @@ import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
+from omniintelligence.constants import TOPIC_RUN_EVALUATED_V1
 from omniintelligence.nodes.node_evidence_collection_effect.errors import (
     DisallowedEvidenceSourceError,
 )
@@ -539,10 +540,6 @@ async def _store_to_db(
             extra={"run_id": run_id, "bundle_fingerprint": bundle_fingerprint},
         )
         return False
-
-
-# Topic constant for RunEvaluatedEvent
-TOPIC_RUN_EVALUATED_V1: str = "onex.evt.omniintelligence.run-evaluated.v1"
 
 
 async def collect_and_evaluate(

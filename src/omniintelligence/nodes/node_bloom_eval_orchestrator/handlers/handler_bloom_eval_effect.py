@@ -29,6 +29,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, ConfigDict, Field
 
 from omniintelligence.clients.eval_llm_client import EvalLLMClient
+from omniintelligence.constants import TOPIC_BLOOM_EVAL_COMPLETED_V1
 from omniintelligence.nodes.node_bloom_eval_orchestrator.catalog import get_spec
 from omniintelligence.nodes.node_bloom_eval_orchestrator.models.enum_eval_domain import (
     EnumEvalDomain,
@@ -48,7 +49,7 @@ from omniintelligence.protocols import ProtocolKafkaPublisher
 
 logger = logging.getLogger(__name__)
 
-_BLOOM_COMPLETED_TOPIC = "onex.evt.omniintelligence.bloom-eval-completed.v1"
+_BLOOM_COMPLETED_TOPIC = TOPIC_BLOOM_EVAL_COMPLETED_V1
 _DEFAULT_SCENARIOS_PER_SPEC = 5
 _PASS_SCORE_THRESHOLD = 0.5
 

@@ -89,7 +89,7 @@ class HandlerClaudeHookEvent:
         >>> handler = HandlerClaudeHookEvent(
         ...     kafka_publisher=kafka_producer,
         ...     intent_classifier=classifier,
-        ...     publish_topic="onex.evt.omniintelligence.intent-classified.v1",
+        ...     publish_topic=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,  # from omniintelligence.constants
         ...     repository=db_repo,
         ... )
         >>> result = await handler.handle(event)

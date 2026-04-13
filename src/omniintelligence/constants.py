@@ -531,6 +531,52 @@ OMN-2622: Carries both produced and skipped outcomes via feedback_status field.
 Reference: OMN-2622, OMN-2366
 """
 
+TOPIC_GMAIL_INTENT_EVALUATED_V1: str = (
+    "onex.evt.omniintelligence.gmail-intent-evaluated.v1"
+)
+"""Canonical topic for Gmail intent evaluation result events (OUTPUT).
+
+Canonical topic: onex.evt.omniintelligence.gmail-intent-evaluated.v1
+
+NodeGmailIntentEvaluatorEffect emits one event per evaluated Gmail message.
+
+Reference: OMN-8632
+"""
+
+TOPIC_GMAIL_INTENT_SURFACED_V1: str = (
+    "onex.evt.omniintelligence.gmail-intent-surfaced.v1"
+)
+"""Canonical topic for Gmail intent surfaced events (OUTPUT).
+
+Canonical topic: onex.evt.omniintelligence.gmail-intent-surfaced.v1
+
+NodeGmailIntentEvaluatorEffect emits this event when verdict is SURFACE.
+
+Reference: OMN-8632
+"""
+
+TOPIC_CRAWL_TICK_V1: str = "onex.cmd.omnimemory.crawl-tick.v1"
+"""Canonical topic for crawl-tick commands (OUTPUT, cross-domain to omnimemory).
+
+Canonical topic: onex.cmd.omnimemory.crawl-tick.v1
+
+NodeCrawlSchedulerEffect emits on each scheduler tick (subject to debounce).
+Consumed by omnimemory crawl nodes.
+
+Reference: OMN-2384
+"""
+
+TOPIC_CRAWL_REQUESTED_V1: str = "onex.cmd.omnimemory.crawl-requested.v1"
+"""Canonical topic for crawl-requested commands (OUTPUT, cross-domain to omnimemory).
+
+Canonical topic: onex.cmd.omnimemory.crawl-requested.v1
+
+NodeWatchdogEffect emits when a filesystem change triggers a crawl request.
+Consumed by omnimemory crawl nodes.
+
+Reference: OMN-2384
+"""
+
 TOPIC_LEGACY_ROUTING_FEEDBACK_BARE: str = "routing.feedback"
 """DEPRECATED (OMN-2366): Legacy bare topic name for routing feedback.
 
@@ -569,6 +615,10 @@ __all__ = [
     "TOPIC_PATTERN_LIFECYCLE_CMD_V1",
     "TOPIC_PLAN_REVIEW_STRATEGY_RUN_COMPLETED_V1",
     "TOPIC_PROMOTION_CHECK_CMD_V1",
+    "TOPIC_CRAWL_REQUESTED_V1",
+    "TOPIC_CRAWL_TICK_V1",
+    "TOPIC_GMAIL_INTENT_EVALUATED_V1",
+    "TOPIC_GMAIL_INTENT_SURFACED_V1",
     "TOPIC_LEGACY_ROUTING_FEEDBACK_BARE",
     "TOPIC_OMNICLAUDE_ROUTING_FEEDBACK_V1",
     "TOPIC_QUALITY_ASSESSMENT_CMD_V1",
