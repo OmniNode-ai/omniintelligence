@@ -50,6 +50,7 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
+from omniintelligence.constants import TOPIC_CRAWL_REQUESTED_V1
 from omniintelligence.nodes.node_watchdog_effect.models.enum_watchdog_status import (
     EnumWatchdogStatus,
 )
@@ -63,18 +64,6 @@ from omniintelligence.protocols import ProtocolKafkaPublisher
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
 logger = logging.getLogger(__name__)
-
-# Topic published by this handler.
-#
-# This is the BARE canonical topic string without the ``{env}.`` prefix.
-# RuntimeHostProcess injects the environment prefix (e.g. ``dev.``, ``prod.``)
-# at runtime for subscriptions declared in contract.yaml.  Direct publishes in
-# handler code use this bare constant; the Kafka publisher wrapper resolves the
-# full topic name (including env prefix) from its own configuration, consistent
-# with the pattern used by TOPIC_ROUTING_FEEDBACK_PROCESSED in constants.py.
-#
-# Full runtime topic: ``{env}.onex.cmd.omnimemory.crawl-requested.v1``
-TOPIC_CRAWL_REQUESTED_V1: str = "onex.cmd.omnimemory.crawl-requested.v1"
 
 # CrawlerType value used in the emitted event payload.
 # WatchdogEffect triggers are routed as WATCHDOG-type crawl requests.

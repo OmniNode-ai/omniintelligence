@@ -149,7 +149,7 @@ class RegistryPatternLifecycleEffect:
         ...     repository=db_connection,
         ...     idempotency_store=idempotency_store,
         ...     producer=kafka_producer,
-        ...     publish_topic="onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1",
+        ...     publish_topic=TOPIC_SUFFIX_PATTERN_LIFECYCLE_TRANSITIONED_V1,  # from omniintelligence.constants
         ... )
         >>> handler = registry.apply_transition
         >>> result = await handler(intent)

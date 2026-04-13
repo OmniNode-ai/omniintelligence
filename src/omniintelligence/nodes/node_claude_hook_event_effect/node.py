@@ -68,7 +68,7 @@ class NodeClaudeHookEventEffect(NodeEffect):
             event=hook_event,
             intent_classifier=classifier_impl,
             kafka_producer=producer_impl,
-            publish_topic="onex.evt.omniintelligence.intent-classified.v1",
+            publish_topic=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,  # from omniintelligence.constants
         )
 
         # Or use RuntimeHostProcess for event-driven execution

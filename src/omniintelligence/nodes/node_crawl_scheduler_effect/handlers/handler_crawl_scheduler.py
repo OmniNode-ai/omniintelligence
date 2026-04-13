@@ -51,6 +51,7 @@ import logging
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
+from omniintelligence.constants import TOPIC_CRAWL_TICK_V1
 from omniintelligence.nodes.node_crawl_scheduler_effect.handlers.debounce_state import (
     DebounceStateManager,
 )
@@ -67,10 +68,6 @@ from omniintelligence.protocols import ProtocolKafkaPublisher
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
 logger = logging.getLogger(__name__)
-
-# Topic published by this handler (bare, without {env} prefix).
-# RuntimeHostProcess injects the environment prefix at runtime.
-TOPIC_CRAWL_TICK_V1: str = "onex.cmd.omnimemory.crawl-tick.v1"
 
 
 async def schedule_crawl_tick(

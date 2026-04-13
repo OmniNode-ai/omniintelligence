@@ -39,6 +39,7 @@ from datetime import UTC, datetime
 from typing import Final
 from uuid import UUID
 
+from omniintelligence.constants import TOPIC_COMPLIANCE_EVALUATED_V1
 from omniintelligence.nodes.node_pattern_compliance_effect.handlers.exceptions import (
     ComplianceValidationError,
 )
@@ -74,7 +75,7 @@ STATUS_PARSE_ERROR: Final[str] = "parse_error"
 STATUS_UNKNOWN_ERROR: Final[str] = "unknown_error"
 
 # DLQ topic for failed compliance evaluations.
-DLQ_TOPIC: Final[str] = "onex.evt.omniintelligence.pattern-compliance-evaluation.v1.dlq"
+DLQ_TOPIC: Final[str] = f"{TOPIC_COMPLIANCE_EVALUATED_V1}.dlq"
 
 # System prompt for the LLM.
 _SYSTEM_PROMPT: Final[str] = (

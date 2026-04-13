@@ -63,6 +63,10 @@ from omniintelligence.clients.gmail_intent_http_client import (
 from omniintelligence.clients.gmail_intent_http_client import (
     make_asyncpg_repository as _make_asyncpg_repository,
 )
+from omniintelligence.constants import (
+    TOPIC_GMAIL_INTENT_EVALUATED_V1,
+    TOPIC_GMAIL_INTENT_SURFACED_V1,
+)
 from omniintelligence.nodes.node_gmail_intent_evaluator_effect.models.model_gmail_intent_evaluation_result import (
     ModelGmailIntentEvaluationResult,
     ModelMemoryHit,
@@ -797,7 +801,7 @@ async def _handle_gmail_intent_evaluate_inner(
     # Step 9: Build downstream events
     # -------------------------------------------------------------------------
     evaluated_event: dict[str, Any] = {
-        "event_type": "onex.evt.omniintelligence.gmail-intent-evaluated.v1",
+        "event_type": TOPIC_GMAIL_INTENT_EVALUATED_V1,
         "evaluation_id": evaluation_id,
         "message_id": config.message_id,
         "verdict": verdict,
@@ -811,7 +815,7 @@ async def _handle_gmail_intent_evaluate_inner(
 
     if verdict == "SURFACE":
         surfaced_event: dict[str, Any] = {
-            "event_type": "onex.evt.omniintelligence.gmail-intent-surfaced.v1",
+            "event_type": TOPIC_GMAIL_INTENT_SURFACED_V1,
             "evaluation_id": evaluation_id,
             "message_id": config.message_id,
             "subject": config.subject,
