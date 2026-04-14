@@ -245,6 +245,7 @@ class TestCollectSubscribeTopics:
             "onex.cmd.omniintelligence.code-analysis.v1",
             "onex.cmd.omniintelligence.pattern-learning.v1",
             "onex.cmd.omnimemory.crawl-tick.v1",
+            "onex.cmd.omniintelligence.quality-assessment.v1",
         }
         seen: set[str] = set()
         unexpected: list[str] = []

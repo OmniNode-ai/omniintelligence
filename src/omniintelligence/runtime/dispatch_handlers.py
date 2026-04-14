@@ -2726,9 +2726,11 @@ def create_intelligence_dispatch_engine(
         )
     )
 
-    # --- Handler 16: code-entities-extracted → learned patterns (OMN-7863) ---
+    # --- Handler 16: code-entities-extracted → learned patterns (OMN-7863, OMN-8706) ---
+    # Bug fix OMN-8706: was registered on DISPATCH_ALIAS_CODE_ENTITY_BRIDGE (a virtual
+    # topic nobody publishes to Kafka). Must use the canonical dispatch alias so the
+    # dispatch engine fan-out includes this handler alongside the persist handler (H14).
     from omniintelligence.runtime.dispatch_handler_code_entity_bridge import (
-        DISPATCH_ALIAS_CODE_ENTITY_BRIDGE,
         create_code_entity_bridge_dispatch_handler,
     )
 
@@ -2747,13 +2749,16 @@ def create_intelligence_dispatch_engine(
     engine.register_route(
         ModelDispatchRoute(
             route_id="intelligence-code-entity-bridge-route",
-            topic_pattern=DISPATCH_ALIAS_CODE_ENTITY_BRIDGE,
+            topic_pattern=canonical_topic_to_dispatch_alias(
+                TOPIC_CODE_ENTITIES_EXTRACTED_V1
+            ),
             message_category=EnumMessageCategory.EVENT,
             handler_id="intelligence-code-entity-bridge-handler",
             description=(
                 "Routes code-entities-extracted events to the code entity → "
-                "learned pattern bridge (OMN-7863). Derives pattern signatures "
-                "and upserts into learned_patterns table."
+                "learned pattern bridge (OMN-7863, OMN-8706). Derives pattern "
+                "signatures and upserts into learned_patterns table. Fan-out "
+                "alongside the persist handler on the same canonical topic."
             ),
         )
     )
