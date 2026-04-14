@@ -42,14 +42,16 @@ from omniintelligence.nodes.node_code_entity_bridge_compute.models.model_output 
 from omniintelligence.nodes.node_code_entity_bridge_compute.node import (
     NodeCodeEntityBridgeCompute,
 )
+from omniintelligence.runtime.contract_topics import canonical_topic_to_dispatch_alias
+from omniintelligence.topics import IntentTopic
 
 logger = logging.getLogger(__name__)
 
 # Dispatch alias — a distinct topic alias that lets the dispatch engine register
 # a second route on code-entities-extracted.v1 without colliding with the persist
 # handler's route on the canonical topic.
-DISPATCH_ALIAS_CODE_ENTITY_BRIDGE = (
-    "onex.events.omniintelligence.code-entities-extracted-bridge.v1"
+DISPATCH_ALIAS_CODE_ENTITY_BRIDGE = canonical_topic_to_dispatch_alias(
+    IntentTopic.CODE_ENTITIES_EXTRACTED_BRIDGE
 )
 
 DispatchHandler = Callable[

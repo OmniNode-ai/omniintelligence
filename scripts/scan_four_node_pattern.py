@@ -13,8 +13,8 @@ It does NOT group occurrences into pattern instances (Sense 2) -- only
 individual role matches (Sense 1).
 
 Usage:
-    cd /Volumes/PRO-G40/Code/omni_home/omniintelligence
-    OMNI_HOME=/Volumes/PRO-G40/Code/omni_home uv run python scripts/scan_four_node_pattern.py
+    cd $OMNI_HOME/omniintelligence
+    OMNI_HOME=/path/to/omni_home uv run python scripts/scan_four_node_pattern.py
 """
 
 from __future__ import annotations
@@ -90,7 +90,7 @@ REPOS = [
 
 
 def main() -> None:
-    omni_home = Path(os.environ.get("OMNI_HOME", "/Volumes/PRO-G40/Code/omni_home"))
+    omni_home = Path(os.environ.get("OMNI_HOME", str(Path(__file__).resolve().parents[2])))
 
     if not omni_home.is_dir():
         print(f"ERROR: OMNI_HOME={omni_home} does not exist", file=sys.stderr)

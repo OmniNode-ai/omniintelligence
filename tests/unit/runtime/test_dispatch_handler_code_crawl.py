@@ -82,7 +82,7 @@ async def test_crawl_publishes_discovered_events() -> None:
         )
 
         with patch(
-            "omniintelligence.runtime.dispatch_handler_code_crawl._load_crawl_config",
+            "omniintelligence.runtime.dispatch_handler_code_crawl._load_repos_config",
             return_value=test_config,
         ):
             envelope = _make_envelope({"crawl_id": "test_crawl_123"})
@@ -126,7 +126,7 @@ async def test_crawl_without_kafka_producer() -> None:
         )
 
         with patch(
-            "omniintelligence.runtime.dispatch_handler_code_crawl._load_crawl_config",
+            "omniintelligence.runtime.dispatch_handler_code_crawl._load_repos_config",
             return_value=test_config,
         ):
             result = await handler(_make_envelope(), _make_context())

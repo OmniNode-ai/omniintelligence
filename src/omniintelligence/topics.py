@@ -1,9 +1,9 @@
 # SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
 
-"""Canonical Kafka topic registry for omniintelligence events.
+"""Canonical Kafka topic registry for omniintelligence events and commands.
 
-Defines all omniintelligence output Kafka topics as a StrEnum. All topic names
+Defines all omniintelligence Kafka topics as StrEnums. All topic names
 follow ONEX canonical format: ``onex.{kind}.{producer}.{event-name}.v{n}``
 
 This module is the single source of truth for omniintelligence topic names.
@@ -20,7 +20,7 @@ ONEX Compliance:
     - All `emitted_at` fields in envelope models must be injected by callers.
     - No datetime.now() defaults permitted.
 
-Reference: OMN-2487, OMN-6808
+Reference: OMN-2487, OMN-6808, OMN-8605
 """
 
 from __future__ import annotations
@@ -74,5 +74,124 @@ class IntentTopic(StrValueHelper, str, Enum):
     )
     """Pattern lifecycle state change applied (OMN-1805)."""
 
+    PATTERN_LEARNED = "onex.evt.omniintelligence.pattern-learned.v1"
+    """Pattern learning pipeline completed (OMN-8605)."""
 
-__all__ = ["IntentTopic"]
+    PATTERN_STORED = "onex.evt.omniintelligence.pattern-stored.v1"
+    """Pattern persisted to storage (OMN-5611, OMN-8605)."""
+
+    PATTERN_PROMOTED = "onex.evt.omniintelligence.pattern-promoted.v1"
+    """Pattern promoted to validated status (OMN-2424, OMN-8605)."""
+
+    DEBUG_TRIGGER_RECORD_CREATED = (
+        "onex.evt.omniintelligence.debug-trigger-record-created.v1"
+    )
+    """Debug trigger record created (OMN-6597, OMN-8605)."""
+
+    PATTERN_DISCOVERED = "onex.evt.pattern.discovered.v1"
+    """Pattern discovered from external producer (OMN-8605)."""
+
+    FINDING_OBSERVED = "onex.evt.review-pairing.finding-observed.v1"
+    """Review pairing finding observed (OMN-6592, OMN-8605)."""
+
+    FIX_APPLIED = "onex.evt.review-pairing.fix-applied.v1"
+    """Review pairing fix applied (OMN-6592, OMN-8605)."""
+
+    FINDING_RESOLVED = "onex.evt.review-pairing.finding-resolved.v1"
+    """Review pairing finding resolved (OMN-6592, OMN-8605)."""
+
+    PAIR_CREATED = "onex.evt.review-pairing.pair-created.v1"
+    """Review pairing pair created (OMN-6592, OMN-8605)."""
+
+    CODE_ANALYSIS_COMPLETED = "onex.evt.omniintelligence.code-analysis-completed.v1"
+    """Code analysis completed event (OMN-8605)."""
+
+    CODE_ANALYSIS_FAILED = "onex.evt.omniintelligence.code-analysis-failed.v1"
+    """Code analysis failed event (OMN-8605)."""
+
+    CODE_ENTITIES_EXTRACTED_EMBED = (
+        "onex.evt.omniintelligence.code-entities-extracted-embed.v1"
+    )
+    """Code entities extracted → embed+graph handler dispatch topic (OMN-8605)."""
+
+    CODE_ENTITIES_EXTRACTED_BRIDGE = (
+        "onex.evt.omniintelligence.code-entities-extracted-bridge.v1"
+    )
+    """Code entities extracted → bridge handler dispatch topic (OMN-8605)."""
+
+
+@unique
+class IntelligenceCommandTopic(StrValueHelper, str, Enum):
+    """Canonical Kafka topic names for omniintelligence input commands.
+
+    All topics use ``onex.cmd.omniintelligence.*`` or ``onex.cmd.*`` as the
+    consumer namespace (kind: ``cmd``).
+    """
+
+    CLAUDE_HOOK_EVENT = "onex.cmd.omniintelligence.claude-hook-event.v1"
+    """Claude Code hook event command."""
+
+    SESSION_OUTCOME = "onex.cmd.omniintelligence.session-outcome.v1"
+    """Session outcome command."""
+
+    PATTERN_LIFECYCLE_TRANSITION = (
+        "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
+    )
+    """Pattern lifecycle transition command."""
+
+    TOOL_CONTENT = "onex.cmd.omniintelligence.tool-content.v1"
+    """Tool content command."""
+
+    PATTERN_LEARNING = "onex.cmd.omniintelligence.pattern-learning.v1"
+    """Pattern learning command."""
+
+    COMPLIANCE_EVALUATE = "onex.cmd.omniintelligence.compliance-evaluate.v1"
+    """Compliance evaluate command (OMN-2339)."""
+
+    INTENT_RECEIVED = "onex.cmd.omniintelligence.intent-received.v1"
+    """Intelligence orchestrator intent reception (OMN-6590)."""
+
+    PATTERN_LIFECYCLE_PROCESS = "onex.cmd.omniintelligence.pattern-lifecycle-process.v1"
+    """Intelligence reducer process handler (OMN-6594)."""
+
+    CI_FAILURE_DETECTED = "onex.cmd.omniintelligence.ci-failure-detected.v1"
+    """CI failure fingerprint compute (OMN-6598)."""
+
+    CI_FAILURE_TRACK = "onex.cmd.omniintelligence.ci-failure-track.v1"
+    """CI failure tracker effect (OMN-6598)."""
+
+    CI_RECOVERY_DETECTED = "onex.cmd.omniintelligence.ci-recovery-detected.v1"
+    """CI recovery handler (OMN-6598)."""
+
+    DECISION_RECORDED = "onex.cmd.omniintelligence.decision-recorded.v1"
+    """Decision recorded command (OMN-6595)."""
+
+    CI_FAILURE_DETECTED_TRACK = "onex.cmd.omniintelligence.ci-failure-detected-track.v1"
+    """CI failure detected tracking command (OMN-6597)."""
+
+    BLOOM_EVAL_RUN = "onex.cmd.omniintelligence.bloom-eval-run.v1"
+    """Bloom eval orchestrator run command (OMN-6979)."""
+
+    DOCUMENT_INGESTION = "onex.cmd.omniintelligence.document-ingestion.v1"
+    """Document ingestion orchestrator sub-command (OMN-6979)."""
+
+    QUALITY_ASSESSMENT = "onex.cmd.omniintelligence.quality-assessment.v1"
+    """Quality assessment orchestrator sub-command (OMN-6979)."""
+
+    PROTOCOL_EXECUTE = "onex.cmd.omniintelligence.protocol-execute.v1"
+    """Protocol execution command (OMN-6979)."""
+
+    CRAWL_TICK = "onex.cmd.omnimemory.crawl-tick.v1"
+    """Crawl scheduler tick command (cross-domain, produced for omnimemory)."""
+
+    CODE_ANALYSIS = "onex.cmd.omniintelligence.code-analysis.v1"
+    """Code analysis compute command (OMN-8605)."""
+
+    CRAWL_REQUESTED = "onex.cmd.omnimemory.crawl-requested.v1"
+    """Crawl requested command (cross-domain, consumed by omnimemory, OMN-8605)."""
+
+    DOCUMENT_INDEXED = "onex.evt.omnimemory.document-indexed.v1"
+    """Document indexed event (cross-domain, produced by omnimemory, OMN-8605)."""
+
+
+__all__ = ["IntentTopic", "IntelligenceCommandTopic"]

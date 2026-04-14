@@ -87,8 +87,8 @@ Defaults to 2.0 seconds."""
 _TAXONOMY_VERSION: str = "1.0.0"
 """Domain taxonomy version included in pattern metadata."""
 _DEFAULT_DOMAIN_ID: str = "general"
-"""Default domain_id for all patterns. Insight type stored in metadata for
-later migration to a richer taxonomy."""
+"""Fallback domain_id when insight_type is unavailable. Rejected by OMN-7014
+filter — used only as a last resort; triggers a warning when hit."""
 # =============================================================================
 # SQL (READ-ONLY) for session enrichment
 # =============================================================================
@@ -565,8 +565,10 @@ def _transform_insights_to_pattern_events(
     for insight in insights:
         pattern_id = uuid4()
 
+        raw_insight_type = insight.insight_type.value if insight.insight_type else None
+
         # Build deterministic signature from insight type + description
-        signature = f"{insight.insight_type.value}::{insight.description}"
+        signature = f"{raw_insight_type or _DEFAULT_DOMAIN_ID}::{insight.description}"
 
         # SHA256 hash of signature -- NEVER empty
         signature_hash = hashlib.sha256(signature.encode("utf-8")).hexdigest()
@@ -586,7 +588,7 @@ def _transform_insights_to_pattern_events(
         event_metadata: dict[
             str, object
         ] = {  # ONEX_EXCLUDE: dict_str_any - wire-format event payload serialized to Kafka
-            "insight_type": insight.insight_type.value,
+            "insight_type": raw_insight_type,
             "taxonomy_version": _TAXONOMY_VERSION,
             "insight_id": insight.insight_id,
             "occurrence_count": insight.occurrence_count,
@@ -600,12 +602,25 @@ def _transform_insights_to_pattern_events(
         if insight.working_directory:
             event_metadata["working_directory"] = insight.working_directory
 
+        if raw_insight_type:
+            domain_id = raw_insight_type
+        else:
+            logger.warning(
+                "pattern_learning: insight_type missing for insight_id=%s; "
+                "falling back to _DEFAULT_DOMAIN_ID=%r — event will be rejected "
+                "by OMN-7014 filter",
+                insight.insight_id,
+                _DEFAULT_DOMAIN_ID,
+            )
+            domain_id = _DEFAULT_DOMAIN_ID
+        assert domain_id, "domain_id must not be empty before publishing"
+
         event_payload: dict[str, object] = {
             "event_type": "PatternLearned",
             "pattern_id": str(pattern_id),
             "signature": signature,
             "signature_hash": signature_hash,
-            "domain_id": _DEFAULT_DOMAIN_ID,
+            "domain_id": domain_id,
             "domain_version": _TAXONOMY_VERSION,
             "confidence": confidence,
             "version": 1,

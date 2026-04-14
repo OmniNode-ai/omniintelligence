@@ -42,6 +42,8 @@ from omnibase_core.protocols.handler.protocol_handler_context import (
     ProtocolHandlerContext,
 )
 
+from omniintelligence.runtime.contract_topics import canonical_topic_to_dispatch_alias
+from omniintelligence.topics import IntelligenceCommandTopic
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
 logger = logging.getLogger(__name__)
@@ -50,9 +52,13 @@ logger = logging.getLogger(__name__)
 # Dispatch alias constants for CrawlScheduler topics
 # =============================================================================
 
-DISPATCH_ALIAS_CRAWL_REQUESTED = "onex.commands.omnimemory.crawl-requested.v1"
+DISPATCH_ALIAS_CRAWL_REQUESTED = canonical_topic_to_dispatch_alias(
+    IntelligenceCommandTopic.CRAWL_REQUESTED
+)
 """Dispatch-compatible alias for crawl-requested canonical topic."""
-DISPATCH_ALIAS_DOCUMENT_INDEXED = "onex.events.omnimemory.document-indexed.v1"
+DISPATCH_ALIAS_DOCUMENT_INDEXED = canonical_topic_to_dispatch_alias(
+    IntelligenceCommandTopic.DOCUMENT_INDEXED
+)
 """Dispatch-compatible alias for document-indexed canonical topic."""
 # =============================================================================
 # Bridge Handler: crawl-requested.v1

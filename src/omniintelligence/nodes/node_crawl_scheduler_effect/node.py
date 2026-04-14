@@ -66,7 +66,7 @@ class NodeCrawlSchedulerEffect(NodeEffect):
         result = await schedule_crawl_tick(
             crawl_type=CrawlerType.FILESYSTEM,
             crawl_scope="omninode/omniintelligence",
-            source_ref="/Volumes/PRO-G40/Code/omniintelligence",
+            source_ref=os.environ["OMNI_REPO_ROOT"],
             debounce_state=debounce_manager,
             config=ModelCrawlSchedulerConfig(),
             kafka_publisher=producer,

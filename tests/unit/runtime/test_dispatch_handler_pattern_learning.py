@@ -17,7 +17,7 @@ Validates:
     - Insight-to-event transformation field correctness
     - Deterministic signature_hash
     - Confidence clamping [0.5, 1.0]
-    - domain_id always 'general'
+    - domain_id derived from insight_type.value (OMN-7891); fallback to _DEFAULT_DOMAIN_ID with warning
     - Metadata fields (insight_type, taxonomy_version)
 
 Related:
@@ -890,28 +890,84 @@ class TestInsightTransformer:
         assert events[0]["confidence"] == 1.0
 
     @pytest.mark.unit
-    def test_insight_transformer_domain_id_always_general(
+    def test_insight_transformer_domain_id_uses_insight_type(
         self,
         correlation_id: UUID,
         sample_session_id: str,
     ) -> None:
-        """domain_id is always 'general' regardless of insight_type."""
+        """domain_id equals insight_type.value — passes OMN-7014 filter."""
+        insight = _make_insight(
+            insight_type=EnumInsightType.FILE_ACCESS_PATTERN,
+        )
+        events = _transform_insights_to_pattern_events(
+            insights=[insight],
+            session_id=sample_session_id,
+            correlation_id=correlation_id,
+        )
+        assert events[0]["domain_id"] == "file_access_pattern"
+
+    @pytest.mark.unit
+    def test_insight_transformer_domain_id_uses_insight_type_all_variants(
+        self,
+        correlation_id: UUID,
+        sample_session_id: str,
+    ) -> None:
+        """domain_id equals insight_type.value for every EnumInsightType variant."""
         for insight_type in EnumInsightType:
             insight = _make_insight(
                 insight_type=insight_type,
                 description=f"Test pattern for {insight_type.value}",
             )
+            events = _transform_insights_to_pattern_events(
+                insights=[insight],
+                session_id=sample_session_id,
+                correlation_id=correlation_id,
+            )
+            assert events[0]["domain_id"] == insight_type.value, (
+                f"domain_id should be {insight_type.value!r}, "
+                f"got {events[0]['domain_id']!r}"
+            )
 
+    @pytest.mark.unit
+    def test_insight_transformer_domain_id_fallback_logs_warning(
+        self,
+        correlation_id: UUID,
+        sample_session_id: str,
+    ) -> None:
+        """When insight_type is None, domain_id falls back to _DEFAULT_DOMAIN_ID and warns."""
+        from datetime import UTC, datetime
+
+        from omniintelligence.runtime.dispatch_handler_pattern_learning import (
+            _DEFAULT_DOMAIN_ID,
+        )
+
+        now = datetime.now(UTC)
+        # model_construct bypasses Pydantic validation to inject None insight_type
+        insight = ModelCodebaseInsight.model_construct(
+            insight_id="insight-fallback-test",
+            insight_type=None,
+            description="fallback test pattern",
+            confidence=0.8,
+            evidence_files=("src/utils/config.py",),
+            evidence_session_ids=(),
+            occurrence_count=1,
+            working_directory=None,
+            first_observed=now,
+            last_observed=now,
+            metadata={},
+        )
+
+        with patch(
+            "omniintelligence.runtime.dispatch_handler_pattern_learning.logger"
+        ) as mock_logger:
             events = _transform_insights_to_pattern_events(
                 insights=[insight],
                 session_id=sample_session_id,
                 correlation_id=correlation_id,
             )
 
-            assert events[0]["domain_id"] == "general", (
-                f"domain_id should be 'general' for {insight_type.value}, "
-                f"got {events[0]['domain_id']}"
-            )
+        assert events[0]["domain_id"] == _DEFAULT_DOMAIN_ID
+        mock_logger.warning.assert_called_once()
 
     @pytest.mark.unit
     def test_insight_transformer_insight_type_in_metadata(

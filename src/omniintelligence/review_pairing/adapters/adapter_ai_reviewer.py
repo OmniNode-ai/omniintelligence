@@ -22,6 +22,8 @@ import json
 import logging
 import os
 import re
+import socket
+import urllib.parse
 from typing import Any
 from uuid import uuid4
 
@@ -72,26 +74,39 @@ MODEL_REGISTRY: dict[str, ModelEndpointConfig] = {
     ),
     "qwen3-coder": ModelEndpointConfig(
         env_var="LLM_CODER_URL",
-        default_url="http://192.168.86.201:8000",
+        default_url="",
         kind="long_context",
         timeout_seconds=120.0,
         api_model_id="cyankiwi/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit",
     ),
     "qwen3-14b": ModelEndpointConfig(
         env_var="LLM_CODER_FAST_URL",
-        default_url="http://192.168.86.201:8001",
+        default_url="",
         kind="fast_review",
         timeout_seconds=60.0,
         api_model_id="Qwen/Qwen3-14B-AWQ",
     ),
     "qwen3-next": ModelEndpointConfig(
         env_var="LLM_QWEN3_NEXT_URL",
-        default_url="http://192.168.86.200:8102",
+        default_url="",
         kind="code_review",
         timeout_seconds=120.0,
         api_model_id="Qwen3-Next-80B-A3B",
     ),
+    # --- API fallback models (reachable from cloud CI) ---
+    "claude-api": ModelEndpointConfig(
+        env_var="ANTHROPIC_API_BASE_URL",
+        default_url="https://api.anthropic.com",
+        kind="api_fallback",
+        timeout_seconds=120.0,
+        api_model_id="claude-sonnet-4-6",
+    ),
 }
+
+_LOCAL_MODEL_KEYS: frozenset[str] = frozenset(
+    {"deepseek-r1", "qwen3-coder", "qwen3-14b", "qwen3-next"}
+)
+_API_FALLBACK_KEYS: tuple[str, ...] = ("claude-api",)
 
 _DEFAULT_MODEL_KEY: str = "deepseek-r1"
 
@@ -100,6 +115,64 @@ _DEFAULT_MAX_TOKENS: int = 4096
 
 # Default temperature for consistent review output.
 _DEFAULT_TEMPERATURE: float = 0.3
+
+# TCP probe timeout for reachability checks (seconds).
+_PROBE_TIMEOUT_SECONDS: float = 2.0
+
+
+# ---------------------------------------------------------------------------
+# Reachability probing
+# ---------------------------------------------------------------------------
+
+
+def _probe_tcp(host: str, port: int, timeout: float = _PROBE_TIMEOUT_SECONDS) -> bool:
+    """Return True if a TCP connection to host:port succeeds within timeout."""
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+def probe_local_reachability(model_keys: list[str]) -> dict[str, bool]:
+    """TCP-probe reachability for each local model endpoint in model_keys."""
+    results: dict[str, bool] = {}
+    for key in model_keys:
+        if key not in _LOCAL_MODEL_KEYS:
+            continue
+        config = MODEL_REGISTRY.get(key)
+        if config is None:
+            continue
+        url = os.environ.get(config.env_var, config.default_url)
+        try:
+            parsed = urllib.parse.urlparse(url)
+            host = parsed.hostname or ""
+            port = parsed.port or 80
+        except Exception:  # noqa: BLE001
+            results[key] = False
+            continue
+        results[key] = _probe_tcp(host, port)
+    return results
+
+
+def select_models_with_fallback(
+    requested_keys: list[str],
+) -> tuple[list[str], list[str]]:
+    """Return (models_to_run, skipped) applying reachability probe and API fallback."""
+    local_requested = [k for k in requested_keys if k in _LOCAL_MODEL_KEYS]
+    non_local_requested = [k for k in requested_keys if k not in _LOCAL_MODEL_KEYS]
+
+    if not local_requested:
+        return list(requested_keys), []
+
+    reachability = probe_local_reachability(local_requested)
+    reachable_local = [k for k in local_requested if reachability.get(k, False)]
+    unreachable_local = [k for k in local_requested if not reachability.get(k, False)]
+
+    if reachable_local:
+        return reachable_local + non_local_requested, unreachable_local
+
+    return list(_API_FALLBACK_KEYS) + non_local_requested, unreachable_local
 
 
 # ---------------------------------------------------------------------------
@@ -149,7 +222,55 @@ def _resolve_model_url(model_key: str) -> str:
         valid = ", ".join(sorted(MODEL_REGISTRY.keys()))
         raise ValueError(f"Unknown model '{model_key}'. Valid: {valid}")
     config = MODEL_REGISTRY[model_key]
-    return os.environ.get(config.env_var, config.default_url)
+    url = os.environ.get(config.env_var, config.default_url)
+    if not url:
+        raise ValueError(
+            f"LLM endpoint not configured for '{model_key}'. "
+            f"Set the {config.env_var} environment variable."
+        )
+    return url
+
+
+async def _call_claude_api(
+    system_prompt: str,
+    user_prompt: str,
+    config: ModelEndpointConfig,
+) -> str:
+    """Call the Anthropic Claude API for api_fallback models. Requires ANTHROPIC_API_KEY."""
+    import urllib.request as _urlreq
+
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        raise RuntimeError(
+            "claude-api fallback requires ANTHROPIC_API_KEY environment variable"
+        )
+    payload = json.dumps(
+        {
+            "model": config.api_model_id or "claude-sonnet-4-6",
+            "max_tokens": _DEFAULT_MAX_TOKENS,
+            "system": system_prompt,
+            "messages": [{"role": "user", "content": user_prompt}],
+        }
+    ).encode()
+    req = _urlreq.Request(  # noqa: S310
+        "https://api.anthropic.com/v1/messages",
+        data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+        },
+        method="POST",
+    )
+    try:
+        with _urlreq.urlopen(req, timeout=config.timeout_seconds) as resp:  # noqa: S310
+            data = json.loads(resp.read())
+    except Exception as exc:
+        raise RuntimeError(f"Claude API call failed: {exc}") from exc
+    try:
+        return str(data["content"][0]["text"])
+    except (KeyError, IndexError, TypeError) as exc:
+        raise RuntimeError(f"Unexpected Claude API response shape: {data!r}") from exc
 
 
 async def call_model(
@@ -157,11 +278,7 @@ async def call_model(
     user_prompt: str,
     model_key: str = _DEFAULT_MODEL_KEY,
 ) -> str:
-    """Invoke LLM via HandlerLlmOpenaiCompatible.
-
-    Uses infrastructure transport per ARCH-002. Sets a default
-    LOCAL_LLM_SHARED_SECRET if not configured, since the local LLM
-    endpoints do not verify HMAC signatures.
+    """Invoke LLM via HandlerLlmOpenaiCompatible, or Claude API for api_fallback models.
 
     Args:
         system_prompt: System prompt for the model.
@@ -175,6 +292,14 @@ async def call_model(
         ValueError: If model_key is not in the registry.
         RuntimeError: On LLM call failure.
     """
+    config = MODEL_REGISTRY.get(model_key)
+    if config is None:
+        valid = ", ".join(sorted(MODEL_REGISTRY.keys()))
+        raise ValueError(f"Unknown model '{model_key}'. Valid: {valid}")
+
+    if config.kind == "api_fallback":
+        return await _call_claude_api(system_prompt, user_prompt, config)
+
     from omnibase_infra.adapters.llm.adapter_llm_provider_openai import (
         TransportHolderLlmHttp,
     )
@@ -186,17 +311,17 @@ async def call_model(
         ModelLlmInferenceRequest,
     )
 
-    config = MODEL_REGISTRY.get(model_key)
-    if config is None:
-        valid = ", ".join(sorted(MODEL_REGISTRY.keys()))
-        raise ValueError(f"Unknown model '{model_key}'. Valid: {valid}")
-
     # Ensure HMAC secret is set. Local LLM endpoints do not verify
     # signatures, so a placeholder is sufficient for CLI use.
     if not os.environ.get("LOCAL_LLM_SHARED_SECRET"):
         os.environ["LOCAL_LLM_SHARED_SECRET"] = "cli-review-unsigned"  # noqa: S105  # pragma: allowlist secret
 
     base_url = os.environ.get(config.env_var, config.default_url)
+    if not base_url:
+        raise ValueError(
+            f"LLM endpoint not configured for '{model_key}'. "
+            f"Set the {config.env_var} environment variable."
+        )
 
     transport = TransportHolderLlmHttp(
         target_name=f"ai-reviewer-{model_key}",

@@ -209,31 +209,57 @@ class TestMain:
         plan_file = tmp_path / "plan.md"
         plan_file.write_text("# Test Plan")
 
-        with patch(
-            "omniintelligence.review_pairing.cli_review.llm_async_parse_raw",
-            new_callable=AsyncMock,
-            return_value=_success_result(),
+        with (
+            patch(
+                "omniintelligence.review_pairing.cli_review.select_models_with_fallback",
+                return_value=(["deepseek-r1", "qwen3-coder"], []),
+            ),
+            patch(
+                "omniintelligence.review_pairing.cli_review.llm_async_parse_raw",
+                new_callable=AsyncMock,
+                return_value=_success_result(),
+            ),
         ):
-            code = main(["--file", str(plan_file)])
+            code = main(
+                [
+                    "--file",
+                    str(plan_file),
+                    "--model",
+                    "deepseek-r1",
+                    "--model",
+                    "qwen3-coder",
+                ]
+            )
         assert code == 0
 
     def test_exit_1_on_all_failed(self, tmp_path: Path) -> None:
         plan_file = tmp_path / "plan.md"
         plan_file.write_text("# Test Plan")
 
-        with patch(
-            "omniintelligence.review_pairing.cli_review.llm_async_parse_raw",
-            new_callable=AsyncMock,
-            return_value=_failure_result("deepseek-r1", "fail"),
+        with (
+            patch(
+                "omniintelligence.review_pairing.cli_review.select_models_with_fallback",
+                return_value=(["deepseek-r1"], []),
+            ),
+            patch(
+                "omniintelligence.review_pairing.cli_review.llm_async_parse_raw",
+                new_callable=AsyncMock,
+                return_value=_failure_result("deepseek-r1", "fail"),
+            ),
         ):
-            code = main(["--file", str(plan_file)])
+            code = main(["--file", str(plan_file), "--model", "deepseek-r1"])
         assert code == 1
 
     def test_exit_0_on_partial_success(self, tmp_path: Path) -> None:
+        """Two models requested; one fails → only 1 succeeded → DEGRADED (exit 2)."""
         plan_file = tmp_path / "plan.md"
         plan_file.write_text("# Test Plan")
 
         with (
+            patch(
+                "omniintelligence.review_pairing.cli_review.select_models_with_fallback",
+                return_value=(["deepseek-r1", "codex"], []),
+            ),
             patch(
                 "omniintelligence.review_pairing.cli_review.llm_async_parse_raw",
                 new_callable=AsyncMock,
@@ -248,7 +274,8 @@ class TestMain:
             code = main(
                 ["--file", str(plan_file), "--model", "deepseek-r1", "--model", "codex"]
             )
-        assert code == 0
+        # Only 1 model succeeded → DEGRADED (exit 2)
+        assert code == 2
 
     def test_file_not_found(self) -> None:
         code = main(["--file", "/nonexistent/plan.md"])
@@ -259,12 +286,29 @@ class TestMain:
         plan_file.write_text("# Test Plan")
         output_file = tmp_path / "results.json"
 
-        with patch(
-            "omniintelligence.review_pairing.cli_review.llm_async_parse_raw",
-            new_callable=AsyncMock,
-            return_value=_success_result(),
+        with (
+            patch(
+                "omniintelligence.review_pairing.cli_review.select_models_with_fallback",
+                return_value=(["deepseek-r1", "qwen3-coder"], []),
+            ),
+            patch(
+                "omniintelligence.review_pairing.cli_review.llm_async_parse_raw",
+                new_callable=AsyncMock,
+                return_value=_success_result(),
+            ),
         ):
-            code = main(["--file", str(plan_file), "--output", str(output_file)])
+            code = main(
+                [
+                    "--file",
+                    str(plan_file),
+                    "--output",
+                    str(output_file),
+                    "--model",
+                    "deepseek-r1",
+                    "--model",
+                    "qwen3-coder",
+                ]
+            )
 
         assert code == 0
         assert output_file.exists()
@@ -286,3 +330,117 @@ class TestMain:
         mock_llm.assert_called_once()
         call_kwargs = mock_llm.call_args
         assert call_kwargs[1]["model"] == "deepseek-r1"
+
+
+# ---------------------------------------------------------------------------
+# DEGRADED verdict and exit codes (OMN-8654)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestDegradedExitCodes:
+    def test_exit_2_when_single_model_succeeds(self, tmp_path: Path) -> None:
+        plan_file = tmp_path / "plan.md"
+        plan_file.write_text("# Test Plan")
+
+        with (
+            patch(
+                "omniintelligence.review_pairing.cli_review.select_models_with_fallback",
+                return_value=(["deepseek-r1"], []),
+            ),
+            patch(
+                "omniintelligence.review_pairing.cli_review.llm_async_parse_raw",
+                new_callable=AsyncMock,
+                return_value=_success_result("deepseek-r1"),
+            ),
+        ):
+            code = main(["--file", str(plan_file), "--model", "deepseek-r1"])
+
+        assert code == 2
+
+    def test_exit_0_when_two_models_succeed(self, tmp_path: Path) -> None:
+        plan_file = tmp_path / "plan.md"
+        plan_file.write_text("# Test Plan")
+
+        with (
+            patch(
+                "omniintelligence.review_pairing.cli_review.select_models_with_fallback",
+                return_value=(["deepseek-r1", "qwen3-coder"], []),
+            ),
+            patch(
+                "omniintelligence.review_pairing.cli_review.llm_async_parse_raw",
+                new_callable=AsyncMock,
+                return_value=_success_result("deepseek-r1"),
+            ),
+        ):
+            code = main(
+                [
+                    "--file",
+                    str(plan_file),
+                    "--model",
+                    "deepseek-r1",
+                    "--model",
+                    "qwen3-coder",
+                ]
+            )
+
+        assert code == 0
+
+    def test_exit_1_when_all_models_fail(self, tmp_path: Path) -> None:
+        plan_file = tmp_path / "plan.md"
+        plan_file.write_text("# Test Plan")
+
+        with (
+            patch(
+                "omniintelligence.review_pairing.cli_review.select_models_with_fallback",
+                return_value=(["deepseek-r1"], []),
+            ),
+            patch(
+                "omniintelligence.review_pairing.cli_review.llm_async_parse_raw",
+                new_callable=AsyncMock,
+                return_value=_failure_result("deepseek-r1", "Connection refused"),
+            ),
+        ):
+            code = main(["--file", str(plan_file), "--model", "deepseek-r1"])
+
+        assert code == 1
+
+    def test_api_fallback_activates_when_locals_unreachable(
+        self, tmp_path: Path
+    ) -> None:
+        plan_file = tmp_path / "plan.md"
+        plan_file.write_text("# Test Plan")
+
+        with (
+            patch(
+                "omniintelligence.review_pairing.cli_review.select_models_with_fallback",
+                return_value=(["claude-api"], ["deepseek-r1"]),
+            ),
+            patch(
+                "omniintelligence.review_pairing.cli_review.llm_async_parse_raw",
+                new_callable=AsyncMock,
+                return_value=_success_result("claude-api"),
+            ),
+        ):
+            code = main(["--file", str(plan_file), "--model", "deepseek-r1"])
+
+        # 1 model succeeded → DEGRADED (exit 2)
+        assert code == 2
+
+    def test_no_fallback_flag_skips_probe(self, tmp_path: Path) -> None:
+        plan_file = tmp_path / "plan.md"
+        plan_file.write_text("# Test Plan")
+
+        with (
+            patch(
+                "omniintelligence.review_pairing.cli_review.select_models_with_fallback"
+            ) as mock_select,
+            patch(
+                "omniintelligence.review_pairing.cli_review.llm_async_parse_raw",
+                new_callable=AsyncMock,
+                return_value=_success_result("deepseek-r1"),
+            ),
+        ):
+            main(["--file", str(plan_file), "--model", "deepseek-r1", "--no-fallback"])
+
+        mock_select.assert_not_called()

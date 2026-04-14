@@ -74,7 +74,7 @@ jobs:
           echo "actor=$ACTOR" >> "$GITHUB_OUTPUT"
           echo "skip=false" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Enable auto-merge
         if: steps.resolve.outputs.skip != 'true' && steps.resolve.outputs.actor == 'jonahgabriel'
@@ -84,7 +84,7 @@ jobs:
           PR: ${{ steps.resolve.outputs.pr }}
         run: |
           set -euo pipefail
-          if output=$(gh pr merge "$PR" --repo "$GH_REPO" --auto 2>&1); then
+          if output=$(gh pr merge "$PR" --repo "$GH_REPO" --auto --merge 2>&1); then
             echo "auto-merge enabled: $output"
             exit 0
           fi

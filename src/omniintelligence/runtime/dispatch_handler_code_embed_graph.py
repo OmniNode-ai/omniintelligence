@@ -30,6 +30,9 @@ from omnibase_core.protocols.handler.protocol_handler_context import (
     ProtocolHandlerContext,
 )
 
+from omniintelligence.runtime.contract_topics import canonical_topic_to_dispatch_alias
+from omniintelligence.topics import IntentTopic
+
 logger = logging.getLogger(__name__)
 
 # =============================================================================
@@ -61,8 +64,8 @@ class ProtocolBoltHandler(Protocol):
 # Dispatch alias
 # =============================================================================
 
-DISPATCH_ALIAS_CODE_ENTITIES_EXTRACTED_EMBED = (
-    "onex.events.omniintelligence.code-entities-extracted-embed.v1"
+DISPATCH_ALIAS_CODE_ENTITIES_EXTRACTED_EMBED = canonical_topic_to_dispatch_alias(
+    IntentTopic.CODE_ENTITIES_EXTRACTED_EMBED
 )
 """Dispatch-compatible alias for code-entities-extracted → embed+graph handler."""
 

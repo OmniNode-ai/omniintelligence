@@ -36,7 +36,8 @@ CLI Stream Policy:
     stderr: human-readable summary
 
 Exit Codes:
-    0: at least one model succeeded
+    0: at least 2 models succeeded (full review)
+    2: exactly 1 model succeeded (DEGRADED — single opinion)
     1: all models failed
 
 Reference: OMN-5793, OMN-5819, OMN-6228
@@ -52,6 +53,7 @@ from pathlib import Path
 
 from omniintelligence.review_pairing.adapters.adapter_ai_reviewer import (
     MODEL_REGISTRY,
+    select_models_with_fallback,
 )
 from omniintelligence.review_pairing.adapters.adapter_ai_reviewer import (
     async_parse_raw as llm_async_parse_raw,
@@ -133,6 +135,15 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="FILE",
         help=(
             "Path to a custom system prompt .md file. Ignored if --persona is also set."
+        ),
+    )
+    parser.add_argument(
+        "--no-fallback",
+        action="store_true",
+        default=False,
+        help=(
+            "Disable automatic API fallback when local models are unreachable. "
+            "Unreachable local models will cause the run to exit 1."
         ),
     )
     return parser
@@ -263,8 +274,26 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         review_content = plan_path.read_text(encoding="utf-8")
 
-    # Resolve model keys.
-    model_keys: list[str] = args.model if args.model else [_DEFAULT_MODEL]
+    # Resolve model keys, applying reachability probe + API fallback unless suppressed.
+    requested_keys: list[str] = args.model if args.model else [_DEFAULT_MODEL]
+
+    if args.no_fallback:
+        model_keys = requested_keys
+        skipped: list[str] = []
+    else:
+        model_keys, skipped = select_models_with_fallback(requested_keys)
+        if skipped:
+            print(
+                f"WARNING: local model(s) unreachable, skipped: {', '.join(skipped)}",
+                file=sys.stderr,
+            )
+        if set(model_keys) != set(requested_keys):
+            activated = [k for k in model_keys if k not in requested_keys]
+            if activated:
+                print(
+                    f"INFO: API fallback activated — using: {', '.join(activated)}",
+                    file=sys.stderr,
+                )
 
     # Determine review type.
     review_type = "pr" if args.pr is not None else "plan"
@@ -333,8 +362,24 @@ def main(argv: list[str] | None = None) -> int:
         file=sys.stderr,
     )
 
-    # Exit code: 0 if at least one model succeeded.
-    return 0 if result.models_succeeded else 1
+    succeeded_count = len(result.models_succeeded)
+
+    if succeeded_count == 0:
+        print(
+            "ERROR: All models failed. Review could not be performed.",
+            file=sys.stderr,
+        )
+        return 1
+
+    if succeeded_count < 2:
+        print(
+            f"WARNING: DEGRADED review — only {succeeded_count} model(s) succeeded. "
+            "A minimum of 2 models is required for a full pass.",
+            file=sys.stderr,
+        )
+        return 2
+
+    return 0
 
 
 if __name__ == "__main__":

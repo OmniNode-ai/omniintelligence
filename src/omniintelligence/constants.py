@@ -521,6 +521,18 @@ effectiveness scoring, routing patterns through the quality assessment FSM.
 Reference: OMN-8144
 """
 
+TOPIC_QUALITY_ASSESSMENT_COMPLETED_V1: str = (
+    "onex.evt.omniintelligence.quality-assessment-completed.v1"
+)
+"""Canonical topic for quality-assessment completion events (OUTPUT).
+
+Published by the quality-assessment dispatch handler after computing real
+quality scores via NodeQualityScoringCompute. Consumed by omnidash to project
+computed scores into pattern_quality_metrics.
+
+Reference: SOW Phase 2 Quality Score Lineage
+"""
+
 TOPIC_OMNICLAUDE_ROUTING_FEEDBACK_V1: str = "onex.evt.omniclaude.routing-feedback.v1"
 """Canonical subscribe topic for routing feedback events from omniclaude (INPUT, cross-repo).
 
@@ -622,6 +634,7 @@ __all__ = [
     "TOPIC_LEGACY_ROUTING_FEEDBACK_BARE",
     "TOPIC_OMNICLAUDE_ROUTING_FEEDBACK_V1",
     "TOPIC_QUALITY_ASSESSMENT_CMD_V1",
+    "TOPIC_QUALITY_ASSESSMENT_COMPLETED_V1",
     "TOPIC_RATIONALE_MISMATCH_EVT_V1",
     "TOPIC_RL_ROUTING_DECISION_V1",
     "TOPIC_ROUTING_FEEDBACK_PROCESSED",

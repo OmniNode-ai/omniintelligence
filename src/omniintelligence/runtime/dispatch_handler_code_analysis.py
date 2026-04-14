@@ -49,25 +49,23 @@ from omniintelligence.protocols import ProtocolKafkaPublisher
 from omniintelligence.runtime.contract_topics import (
     canonical_topic_to_dispatch_alias,
 )
+from omniintelligence.topics import IntelligenceCommandTopic, IntentTopic
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
 logger = logging.getLogger(__name__)
 
-# Canonical topic strings (ONEX naming: .cmd. / .evt.)
-_CANONICAL_CMD = "onex.cmd.omniintelligence.code-analysis.v1"  # noqa: topic-naming-lint
-_CANONICAL_COMPLETED = "onex.evt.omniintelligence.code-analysis-completed.v1"  # noqa: topic-naming-lint
-_CANONICAL_FAILED = "onex.evt.omniintelligence.code-analysis-failed.v1"  # noqa: topic-naming-lint
-
 # Dispatch alias — derived from canonical topic via bridge conversion.
-DISPATCH_ALIAS_CODE_ANALYSIS = canonical_topic_to_dispatch_alias(_CANONICAL_CMD)
+DISPATCH_ALIAS_CODE_ANALYSIS = canonical_topic_to_dispatch_alias(
+    IntelligenceCommandTopic.CODE_ANALYSIS
+)
 
 # Default publish topics for response events
-TOPIC_CODE_ANALYSIS_COMPLETED = _CANONICAL_COMPLETED
-TOPIC_CODE_ANALYSIS_FAILED = _CANONICAL_FAILED
+TOPIC_CODE_ANALYSIS_COMPLETED = IntentTopic.CODE_ANALYSIS_COMPLETED
+TOPIC_CODE_ANALYSIS_FAILED = IntentTopic.CODE_ANALYSIS_FAILED
 
 # Pattern.discovered topic for actionable findings feed (OMN-6967).
 # Canonical multi-producer topic consumed by NodePatternStorageEffect.
-TOPIC_PATTERN_DISCOVERED = "onex.evt.pattern.discovered.v1"  # noqa: topic-naming-lint
+TOPIC_PATTERN_DISCOVERED = IntentTopic.PATTERN_DISCOVERED
 
 # Stable marker for patterns emitted from this handler.
 _PATTERN_TYPE_CODE_ANALYSIS = "code_analysis_pattern"
