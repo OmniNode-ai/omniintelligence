@@ -52,7 +52,7 @@ def _make_entity_dict(
         "decorators": [],
         "docstring": f"The {name} entity.",
         "signature": None,
-        "file_hash": "abc123def456",
+        "file_hash": "abc123def456",  # pragma: allowlist secret
         "source_language": "python",
         "confidence": confidence,
     }
@@ -68,7 +68,7 @@ def _make_extracted_payload(
         "crawl_id": "crawl_test_001",
         "repo_name": "omniintelligence",
         "file_path": "src/omniintelligence/nodes/foo/node.py",
-        "file_hash": "abc123def456",
+        "file_hash": "abc123def456",  # pragma: allowlist secret
         "entities": [_make_entity_dict(f"Entity{i}") for i in range(entity_count)],
         "relationships": [],
         "entity_count": entity_count,
