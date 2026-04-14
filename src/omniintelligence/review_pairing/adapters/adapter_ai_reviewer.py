@@ -65,10 +65,10 @@ _SEVERITY_MAP: dict[str, EnumFindingSeverity] = {
 MODEL_REGISTRY: dict[str, ModelEndpointConfig] = {
     "deepseek-r1": ModelEndpointConfig(
         env_var="LLM_DEEPSEEK_R1_URL",
-        default_url="http://192.168.86.200:8101",
+        default_url="http://192.168.86.201:8001",
         kind="reasoning",
         timeout_seconds=300.0,
-        api_model_id="mlx-community/DeepSeek-R1-Distill-Qwen-32B-bf16",
+        api_model_id="Corianas/DeepSeek-R1-Distill-Qwen-14B-AWQ",
     ),
     "qwen3-coder": ModelEndpointConfig(
         env_var="LLM_CODER_URL",

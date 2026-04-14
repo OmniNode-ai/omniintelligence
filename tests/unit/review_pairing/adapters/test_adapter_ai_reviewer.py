@@ -454,7 +454,22 @@ class TestModelRegistry:
 
         with patch.dict("os.environ", {}, clear=True):
             url = _resolve_model_url("deepseek-r1")
-        assert url == "http://192.168.86.200:8101"
+        assert url == "http://192.168.86.201:8001"
+
+    def test_deepseek_r1_default_model_id(self) -> None:
+        """Assert deepseek-r1 resolves correct live model ID (OMN-8654)."""
+        config = MODEL_REGISTRY["deepseek-r1"]
+        assert config.api_model_id == "Corianas/DeepSeek-R1-Distill-Qwen-14B-AWQ"
+
+    def test_deepseek_r1_default_url_is_201_8001(self) -> None:
+        """Assert deepseek-r1 default URL points to .201:8001 (OMN-8654)."""
+        from omniintelligence.review_pairing.adapters.adapter_ai_reviewer import (
+            _resolve_model_url,
+        )
+
+        with patch.dict("os.environ", {}, clear=True):
+            url = _resolve_model_url("deepseek-r1")
+        assert url == "http://192.168.86.201:8001"
 
     def test_unknown_model_raises(self) -> None:
         from omniintelligence.review_pairing.adapters.adapter_ai_reviewer import (
