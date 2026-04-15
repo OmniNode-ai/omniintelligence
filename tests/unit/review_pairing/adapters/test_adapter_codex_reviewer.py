@@ -12,12 +12,14 @@ Reference: OMN-5792
 from __future__ import annotations
 
 import json
+import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from omniintelligence.review_pairing.adapters.adapter_codex_reviewer import (
     _extract_assistant_content,
+    _resolve_codex_binary,
     async_parse_raw,
 )
 from omniintelligence.review_pairing.models_external_review import (
@@ -133,6 +135,84 @@ class TestExtractAssistantContent:
 
 
 # ---------------------------------------------------------------------------
+# _resolve_codex_binary
+# ---------------------------------------------------------------------------
+
+_MODULE = "omniintelligence.review_pairing.adapters.adapter_codex_reviewer"
+
+
+@pytest.mark.unit
+class TestResolveCodexBinary:
+    def test_env_var_override_takes_priority(
+        self, tmp_path: pytest.TempPathFactory
+    ) -> None:
+        fake_bin = tmp_path / "codex"
+        fake_bin.write_text("#!/bin/sh\n")
+        fake_bin.chmod(0o755)
+
+        with (
+            patch.dict(os.environ, {"CODEX_BINARY": str(fake_bin)}),
+            patch("shutil.which", return_value="/other/codex"),
+        ):
+            result = _resolve_codex_binary()
+
+        assert result == str(fake_bin)
+
+    def test_env_var_ignored_if_not_executable(
+        self, tmp_path: pytest.TempPathFactory
+    ) -> None:
+        fake_bin = tmp_path / "codex"
+        fake_bin.write_text("#!/bin/sh\n")
+        fake_bin.chmod(0o644)  # not executable
+
+        with (
+            patch.dict(os.environ, {"CODEX_BINARY": str(fake_bin)}),
+            patch("shutil.which", return_value="/via/path/codex"),
+        ):
+            result = _resolve_codex_binary()
+
+        assert result == "/via/path/codex"
+
+    def test_shutil_which_used_when_no_env_var(self) -> None:
+        with (
+            patch.dict(os.environ, {}, clear=False),
+            patch(f"{_MODULE}.os.environ.get", return_value=None),
+            patch("shutil.which", return_value="/opt/homebrew/bin/codex"),
+        ):
+            result = _resolve_codex_binary()
+
+        assert result == "/opt/homebrew/bin/codex"
+
+    def test_fallback_dirs_checked_when_not_on_path(
+        self, tmp_path: pytest.TempPathFactory
+    ) -> None:
+        fake_bin = tmp_path / "codex"
+        fake_bin.write_text("#!/bin/sh\n")
+        fake_bin.chmod(0o755)
+
+        with (
+            patch.dict(os.environ, {}, clear=False),
+            patch(f"{_MODULE}.os.environ.get", return_value=None),
+            patch("shutil.which", return_value=None),
+            patch(f"{_MODULE}._CODEX_FALLBACK_DIRS", (str(tmp_path),)),
+        ):
+            result = _resolve_codex_binary()
+
+        assert result == str(fake_bin)
+
+    def test_returns_none_when_not_found_anywhere(self) -> None:
+        with (
+            patch.dict(os.environ, {}, clear=False),
+            patch(f"{_MODULE}.os.environ.get", return_value=None),
+            patch("shutil.which", return_value=None),
+            patch(f"{_MODULE}._CODEX_FALLBACK_DIRS", ()),
+        ):
+            result = _resolve_codex_binary()
+
+        assert result is None
+
+
+# ---------------------------------------------------------------------------
 # async_parse_raw
 # ---------------------------------------------------------------------------
 
@@ -141,12 +221,13 @@ class TestExtractAssistantContent:
 class TestAsyncParseRaw:
     @pytest.mark.asyncio
     async def test_missing_codex_binary(self) -> None:
-        with patch("shutil.which", return_value=None):
+        with patch(f"{_MODULE}._resolve_codex_binary", return_value=None):
             result = await async_parse_raw("# Test Plan")
 
         assert isinstance(result, ModelExternalReviewResult)
         assert result.success is False
-        assert result.error == "codex CLI not found"
+        assert result.error is not None
+        assert "codex CLI not found" in result.error
         assert result.model == "codex"
 
     @pytest.mark.asyncio
@@ -159,7 +240,10 @@ class TestAsyncParseRaw:
         mock_process.communicate = AsyncMock(return_value=(ndjson_output.encode(), b""))
 
         with (
-            patch("shutil.which", return_value="/usr/bin/codex"),
+            patch(
+                f"{_MODULE}._resolve_codex_binary",
+                return_value="/opt/homebrew/bin/codex",
+            ),
             patch(
                 "asyncio.create_subprocess_exec",
                 return_value=mock_process,
@@ -182,7 +266,10 @@ class TestAsyncParseRaw:
         mock_process.communicate = AsyncMock(return_value=(ndjson_output.encode(), b""))
 
         with (
-            patch("shutil.which", return_value="/usr/bin/codex"),
+            patch(
+                f"{_MODULE}._resolve_codex_binary",
+                return_value="/opt/homebrew/bin/codex",
+            ),
             patch(
                 "asyncio.create_subprocess_exec",
                 return_value=mock_process,
@@ -200,7 +287,10 @@ class TestAsyncParseRaw:
         mock_process.kill = MagicMock()
 
         with (
-            patch("shutil.which", return_value="/usr/bin/codex"),
+            patch(
+                f"{_MODULE}._resolve_codex_binary",
+                return_value="/opt/homebrew/bin/codex",
+            ),
             patch(
                 "asyncio.create_subprocess_exec",
                 return_value=mock_process,
@@ -233,7 +323,10 @@ class TestAsyncParseRaw:
         mock_process.communicate = AsyncMock(return_value=(ndjson_output.encode(), b""))
 
         with (
-            patch("shutil.which", return_value="/usr/bin/codex"),
+            patch(
+                f"{_MODULE}._resolve_codex_binary",
+                return_value="/opt/homebrew/bin/codex",
+            ),
             patch(
                 "asyncio.create_subprocess_exec",
                 return_value=mock_process,
@@ -247,7 +340,10 @@ class TestAsyncParseRaw:
     @pytest.mark.asyncio
     async def test_subprocess_exception(self) -> None:
         with (
-            patch("shutil.which", return_value="/usr/bin/codex"),
+            patch(
+                f"{_MODULE}._resolve_codex_binary",
+                return_value="/opt/homebrew/bin/codex",
+            ),
             patch(
                 "asyncio.create_subprocess_exec",
                 side_effect=OSError("Permission denied"),
@@ -260,7 +356,7 @@ class TestAsyncParseRaw:
 
     @pytest.mark.asyncio
     async def test_prompt_version_in_result(self) -> None:
-        with patch("shutil.which", return_value=None):
+        with patch(f"{_MODULE}._resolve_codex_binary", return_value=None):
             result = await async_parse_raw("# Plan")
         assert result.prompt_version == PROMPT_VERSION
 
@@ -275,7 +371,10 @@ class TestAsyncParseRaw:
         mock_process.communicate = AsyncMock(return_value=(ndjson_output.encode(), b""))
 
         with (
-            patch("shutil.which", return_value="/usr/bin/codex"),
+            patch(
+                f"{_MODULE}._resolve_codex_binary",
+                return_value="/opt/homebrew/bin/codex",
+            ),
             patch(
                 "asyncio.create_subprocess_exec",
                 return_value=mock_process,

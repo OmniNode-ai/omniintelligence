@@ -18,7 +18,9 @@ import asyncio
 import contextlib
 import json
 import logging
+import os
 import shutil
+from pathlib import Path
 
 from omniintelligence.review_pairing.adapters.adapter_ai_reviewer import (
     parse_review_response,
@@ -42,6 +44,44 @@ _CODEX_TIMEOUT_SECONDS: float = 180.0
 
 # Model key used in rule_id and result envelope.
 _CODEX_MODEL_KEY: str = "codex"
+
+# Known Homebrew/system locations where codex may be installed.
+# shutil.which only searches PATH, which may be narrow in subprocess contexts.
+_CODEX_FALLBACK_DIRS: tuple[str, ...] = (
+    "/opt/homebrew/bin",
+    "/usr/local/bin",
+    os.path.expanduser("~/.local/bin"),
+)
+
+
+def _resolve_codex_binary() -> str | None:
+    """Resolve the codex binary path.
+
+    Resolution order:
+    1. ``CODEX_BINARY`` env var (explicit override, cross-machine safe)
+    2. ``shutil.which("codex")`` against the current PATH
+    3. Direct stat against known Homebrew/system fallback directories
+
+    Returns the resolved path string, or None if not found.
+    """
+    env_override = os.environ.get("CODEX_BINARY")
+    if (
+        env_override
+        and Path(env_override).is_file()
+        and os.access(env_override, os.X_OK)
+    ):
+        return env_override
+
+    via_path = shutil.which("codex")
+    if via_path is not None:
+        return via_path
+
+    for directory in _CODEX_FALLBACK_DIRS:
+        candidate = Path(directory) / "codex"
+        if candidate.is_file() and os.access(candidate, os.X_OK):
+            return str(candidate)
+
+    return None
 
 
 def _extract_assistant_content(ndjson_output: str) -> str | None:
@@ -117,13 +157,16 @@ async def async_parse_raw(
         ModelExternalReviewResult with findings or error.
     """
     # Check codex binary availability.
-    codex_path = shutil.which("codex")
+    codex_path = _resolve_codex_binary()
     if codex_path is None:
         return ModelExternalReviewResult(
             model=_CODEX_MODEL_KEY,
             prompt_version=PROMPT_VERSION,
             success=False,
-            error="codex CLI not found",
+            error=(
+                "codex CLI not found — set CODEX_BINARY env var to the absolute path "
+                "or ensure the binary is on PATH"
+            ),
         )
 
     # Build the prompt.
