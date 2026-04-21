@@ -642,3 +642,11 @@ exclude: |
     # Git internals - not user code
     \.git/.*
   )$
+
+  - repo: local
+    hooks:
+      - id: normalization-symmetry
+        name: normalization-symmetry
+        entry: uv run python -m omnibase_core.validators.normalization-symmetry
+        language: system
+        pass_filenames: false
