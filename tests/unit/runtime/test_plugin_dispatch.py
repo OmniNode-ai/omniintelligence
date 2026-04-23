@@ -21,6 +21,8 @@ Related:
 
 from __future__ import annotations
 
+import asyncio
+import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
@@ -174,6 +176,29 @@ class _StubEventBus:
             if sub.topic == topic:
                 return sub
         return None
+
+
+class _DelayedStubEventBus(_StubEventBus):
+    """Event bus stub that simulates slow subscribe() calls."""
+
+    def __init__(self, delay_seconds: float) -> None:
+        super().__init__()
+        self.delay_seconds = delay_seconds
+
+    async def subscribe(
+        self,
+        topic: str,
+        group_id: str = "",
+        on_message: Callable[[Any], Awaitable[None]] | None = None,
+        **kwargs: Any,
+    ) -> Callable[[], Awaitable[None]]:
+        await asyncio.sleep(self.delay_seconds)
+        return await super().subscribe(
+            topic=topic,
+            group_id=group_id,
+            on_message=on_message,
+            **kwargs,
+        )
 
 
 assert isinstance(_StubEventBus(), ProtocolEventBus)
@@ -474,6 +499,27 @@ class TestPluginStartConsumersDispatch:
 
         # Pass as dict (inmemory event bus style) - should not raise
         await sub.on_message(payload)
+
+    @pytest.mark.asyncio
+    async def test_topic_subscriptions_start_concurrently(self) -> None:
+        """Slow topic joins should overlap instead of serializing the full list."""
+        event_bus = _DelayedStubEventBus(delay_seconds=0.02)
+        plugin = PluginIntelligence()
+        config = _make_config(event_bus=event_bus)
+
+        await _wire_plugin(plugin, config)
+
+        start = time.perf_counter()
+        result = await plugin.start_consumers(config)
+        elapsed = time.perf_counter() - start
+
+        assert result.success
+        assert len(event_bus.subscriptions) == len(INTELLIGENCE_SUBSCRIBE_TOPICS)
+        serial_baseline = len(INTELLIGENCE_SUBSCRIBE_TOPICS) * event_bus.delay_seconds
+        assert elapsed < serial_baseline / 2, (
+            f"Expected concurrent startup below half the serial baseline "
+            f"({serial_baseline:.3f}s), got {elapsed:.3f}s"
+        )
 
 
 # =============================================================================
