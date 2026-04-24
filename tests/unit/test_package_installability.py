@@ -156,11 +156,6 @@ HANDLER_ENTRY_POINTS = [
         "omniintelligence.nodes.node_enforcement_feedback_effect.handlers",
         "process_enforcement_feedback",
     ),
-    # --- Reducer ---
-    (
-        "omniintelligence.nodes.node_intelligence_reducer.handlers",
-        "handle_pattern_lifecycle_transition",
-    ),
     # --- Orchestrator (with handler routing) ---
     (
         "omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers",

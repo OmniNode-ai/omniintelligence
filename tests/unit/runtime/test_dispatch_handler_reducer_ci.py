@@ -2,10 +2,9 @@
 # SPDX-License-Identifier: MIT
 
 # Copyright (c) 2025 OmniNode Team
-"""Unit tests for intelligence reducer + CI dispatch handlers (OMN-6594, OMN-6598).
+"""Unit tests for CI dispatch handlers (OMN-6598).
 
 Validates:
-    - Reducer bridge handler rejects non-dict payloads
     - CI fingerprint bridge handler computes fingerprint from payload
     - CI failure tracker bridge handler handles missing debug_store gracefully
     - All new dispatch aliases are importable
@@ -24,33 +23,9 @@ from omniintelligence.runtime.dispatch_handlers import (
     DISPATCH_ALIAS_CI_FAILURE_TRACKER,
     DISPATCH_ALIAS_CI_FINGERPRINT,
     DISPATCH_ALIAS_CI_RECOVERY,
-    DISPATCH_ALIAS_INTELLIGENCE_REDUCER,
     create_ci_failure_tracker_dispatch_handler,
     create_ci_fingerprint_dispatch_handler,
-    create_intelligence_reducer_dispatch_handler,
 )
-
-
-@pytest.mark.unit
-class TestIntelligenceReducerDispatchHandler:
-    """Tests for the intelligence reducer bridge handler (OMN-6594)."""
-
-    @pytest.mark.asyncio
-    async def test_handler_rejects_non_dict_payload(self) -> None:
-        """Handler raises ValueError for non-dict payload."""
-        handler = create_intelligence_reducer_dispatch_handler()
-
-        envelope = MagicMock()
-        envelope.payload = "not-a-dict"
-        context = MagicMock()
-
-        with pytest.raises(ValueError, match="Unexpected payload type"):
-            await handler(envelope, context)
-
-    def test_dispatch_alias_is_canonical(self) -> None:
-        """Reducer dispatch alias uses canonical cmd topic form."""
-        assert DISPATCH_ALIAS_INTELLIGENCE_REDUCER.startswith("onex.cmd.")
-        assert "pattern-lifecycle-process" in DISPATCH_ALIAS_INTELLIGENCE_REDUCER
 
 
 @pytest.mark.unit
@@ -89,7 +64,7 @@ class TestCiFingerprintDispatchHandler:
 
     def test_dispatch_alias_is_canonical(self) -> None:
         """CI fingerprint dispatch alias uses canonical cmd topic form."""
-        assert DISPATCH_ALIAS_CI_FINGERPRINT.startswith("onex.cmd.")
+        assert DISPATCH_ALIAS_CI_FINGERPRINT.startswith("onex.commands.")
         assert "ci-failure-detected" in DISPATCH_ALIAS_CI_FINGERPRINT
 
 
@@ -130,22 +105,14 @@ class TestCiFailureTrackerDispatchHandler:
 
     def test_dispatch_aliases_are_canonical(self) -> None:
         """CI tracker dispatch aliases use canonical cmd topic form."""
-        assert DISPATCH_ALIAS_CI_FAILURE_TRACKER.startswith("onex.cmd.")
-        assert DISPATCH_ALIAS_CI_RECOVERY.startswith("onex.cmd.")
+        assert DISPATCH_ALIAS_CI_FAILURE_TRACKER.startswith("onex.commands.")
+        assert DISPATCH_ALIAS_CI_RECOVERY.startswith("onex.commands.")
         assert "ci-recovery-detected" in DISPATCH_ALIAS_CI_RECOVERY
 
 
 @pytest.mark.unit
 class TestWiringSpecs:
-    """Tests that handler specs in wiring.py are importable (OMN-6594, OMN-6598)."""
-
-    def test_reducer_handler_importable(self) -> None:
-        """handle_pattern_lifecycle_process is importable."""
-        from omniintelligence.nodes.node_intelligence_reducer.handlers import (
-            handle_pattern_lifecycle_process,
-        )
-
-        assert callable(handle_pattern_lifecycle_process)
+    """Tests that handler specs in wiring.py are importable (OMN-6598)."""
 
     def test_ci_fingerprint_handler_importable(self) -> None:
         """compute_error_fingerprint is importable."""

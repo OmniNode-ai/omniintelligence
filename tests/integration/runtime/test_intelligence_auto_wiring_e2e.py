@@ -113,8 +113,10 @@ class TestMalformedContractDegradation:
         """Contract without subscribe_topics is not discovered."""
         packages = _discover_effect_node_packages()
         # Verify that compute nodes (no subscribe_topics) are excluded
-        assert "omniintelligence.nodes.node_ast_extraction_compute" not in packages
         assert "omniintelligence.nodes.node_intent_classifier_compute" not in packages
+        assert "omniintelligence.nodes.node_quality_scoring_compute" not in packages
+        assert "omniintelligence.nodes.node_intelligence_orchestrator" not in packages
+        assert "omniintelligence.nodes.node_intelligence_reducer" not in packages
 
     def test_discovery_skips_non_node_directories(self) -> None:
         """Discovery skips __pycache__, audit, and other non-node directories."""

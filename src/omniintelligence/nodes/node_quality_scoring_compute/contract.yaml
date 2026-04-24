@@ -98,40 +98,6 @@ error_handling:
       retry_strategy: "immediate_retry"
 # Note: health_check omitted - pure compute nodes are stateless with no external
 # dependencies, so health checks are not applicable.
-# =============================================================================
-# EVENT BUS SUBCONTRACT - Runtime Routing Layer
-# =============================================================================
-event_bus:
-  version:
-    major: 1
-    minor: 0
-    patch: 0
-
-  # Topics this node subscribes to (receives commands from)
-  subscribe_topics:
-    - "onex.cmd.omniintelligence.quality-assessment.v1"
-
-  # Topics this node publishes to (emits results to)
-  publish_topics:
-    - "onex.evt.omniintelligence.quality-assessment-completed.v1"
-
-  # Metadata for subscribed topics
-  subscribe_topic_metadata:
-    "onex.cmd.omniintelligence.quality-assessment.v1":
-      schema_ref: "omniintelligence.nodes.node_quality_scoring_compute.models.ModelQualityScoringInput"
-      description: "Quality assessment command events. Contains source_path, content, language, and optional
-        scoring configuration (preset, dimension weights, thresholds)."
-      content_type: "application/json"
-
-  # Metadata for published topics
-  publish_topic_metadata:
-    "onex.evt.omniintelligence.quality-assessment-completed.v1":
-      schema_ref: "omniintelligence.nodes.node_quality_scoring_compute.models.ModelQualityScoringOutput"
-      description: "Quality assessment completion events. Contains quality_score, onex_compliant, dimensions
-        (per-dimension scores), recommendations, and metadata. Consumed by omnidash to project computed
-        scores into pattern_quality_metrics."
-      content_type: "application/json"
-
 metadata:
   author: "OmniNode Team"
   created: "2025-11-14"

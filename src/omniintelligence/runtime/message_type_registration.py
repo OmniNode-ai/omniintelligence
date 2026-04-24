@@ -4,8 +4,8 @@
 # Copyright (c) 2025 OmniNode Team
 """Intelligence domain message type registration.
 
-Registers all intelligence wire models (Kafka event payloads, reducer FSM
-payloads, and command inputs) with ``RegistryMessageType``.  This enables
+Registers all intelligence wire models (Kafka event payloads and command
+inputs) with ``RegistryMessageType``.  This enables
 type-based envelope routing and startup validation for the intelligence domain.
 
 The registration list is intentionally explicit rather than derived from
@@ -17,7 +17,6 @@ Design:
     - All registrations use ``domain="intelligence"``
     - ``handler_id`` matches the node directory name
     - ``category`` follows topic naming: ``.cmd.`` -> COMMAND, ``.evt.`` -> EVENT
-    - Reducer FSM payloads use COMMAND category (internal dispatch)
 
 Related:
     - OMN-2039: Register intelligence message types in RegistryMessageType
@@ -38,7 +37,7 @@ INTELLIGENCE_DOMAIN = "intelligence"
 
 # Total number of unique message types registered.
 # Used in tests and validate_startup logging.
-EXPECTED_MESSAGE_TYPE_COUNT = 13
+EXPECTED_MESSAGE_TYPE_COUNT = 10
 
 
 def register_intelligence_message_types(
@@ -46,7 +45,7 @@ def register_intelligence_message_types(
 ) -> list[str]:
     """Register all intelligence wire models with the message type registry.
 
-    This function registers 13 message types spanning:
+    This function registers 10 message types spanning:
     - 5 Kafka event models (published by effect nodes)
     - 4 Kafka command/event models (consumed by effect nodes)
     - 1 external input model (session outcome)
@@ -184,40 +183,6 @@ def register_intelligence_message_types(
         description="Claude session outcome for pattern feedback recording",
     )
     registered.append("ClaudeSessionOutcome")
-
-    # =========================================================================
-    # Reducer FSM Payloads (internal dispatch) -- COMMAND category
-    # =========================================================================
-
-    # 11. Ingestion FSM payload
-    registry.register_simple(
-        message_type="ModelIngestionPayload",
-        handler_id="node_intelligence_reducer",
-        category=EnumMessageCategory.COMMAND,
-        domain=INTELLIGENCE_DOMAIN,
-        description="Ingestion FSM payload for reducer state transitions",
-    )
-    registered.append("ModelIngestionPayload")
-
-    # 12. Pattern learning FSM payload
-    registry.register_simple(
-        message_type="ModelPatternLearningPayload",
-        handler_id="node_intelligence_reducer",
-        category=EnumMessageCategory.COMMAND,
-        domain=INTELLIGENCE_DOMAIN,
-        description="Pattern learning FSM payload for reducer state transitions",
-    )
-    registered.append("ModelPatternLearningPayload")
-
-    # 13. Quality assessment FSM payload
-    registry.register_simple(
-        message_type="ModelQualityAssessmentPayload",
-        handler_id="node_intelligence_reducer",
-        category=EnumMessageCategory.COMMAND,
-        domain=INTELLIGENCE_DOMAIN,
-        description="Quality assessment FSM payload for reducer state transitions",
-    )
-    registered.append("ModelQualityAssessmentPayload")
 
     logger.info(
         "Registered %d intelligence message types with RegistryMessageType",
