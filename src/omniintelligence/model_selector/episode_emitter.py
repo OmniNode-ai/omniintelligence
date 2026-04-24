@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 # Topic constant — imported from constants.py (single source of truth)
 # ---------------------------------------------------------------------------
 
-EPISODE_BOUNDARY_TOPIC = TOPIC_EPISODE_BOUNDARY_V1
+EPISODE_BOUNDARY_TOPIC = TOPIC_EPISODE_BOUNDARY_V1  # onex-topic-sot
 
 
 # ---------------------------------------------------------------------------

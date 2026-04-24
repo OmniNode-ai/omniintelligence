@@ -39,7 +39,7 @@ class ModelTopicConfig(BaseModel):
     dlq: str | None = Field(
         default=None,
         description="Dead letter queue topic for failed messages",
-        examples=["onex.dlq.omniintelligence.v1"],
+        examples=["onex.dlq.omniintelligence.v1"],  # onex-topic-doc-example
     )
 
     model_config = ConfigDict(

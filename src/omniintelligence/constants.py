@@ -556,7 +556,7 @@ Reference: OMN-8632
 """
 
 TOPIC_GMAIL_INTENT_SURFACED_V1: str = (
-    "onex.evt.omniintelligence.gmail-intent-surfaced.v1"
+    "onex.evt.omniintelligence.gmail-intent-surfaced.v1"  # onex-topic-sot
 )
 """Canonical topic for Gmail intent surfaced events (OUTPUT).
 
@@ -567,7 +567,7 @@ NodeGmailIntentEvaluatorEffect emits this event when verdict is SURFACE.
 Reference: OMN-8632
 """
 
-TOPIC_CRAWL_TICK_V1: str = "onex.cmd.omnimemory.crawl-tick.v1"
+TOPIC_CRAWL_TICK_V1: str = "onex.cmd.omnimemory.crawl-tick.v1"  # onex-topic-sot
 """Canonical topic for crawl-tick commands (OUTPUT, cross-domain to omnimemory).
 
 Canonical topic: onex.cmd.omnimemory.crawl-tick.v1
@@ -578,7 +578,9 @@ Consumed by omnimemory crawl nodes.
 Reference: OMN-2384
 """
 
-TOPIC_CRAWL_REQUESTED_V1: str = "onex.cmd.omnimemory.crawl-requested.v1"
+TOPIC_CRAWL_REQUESTED_V1: str = (
+    "onex.cmd.omnimemory.crawl-requested.v1"  # onex-topic-sot
+)
 """Canonical topic for crawl-requested commands (OUTPUT, cross-domain to omnimemory).
 
 Canonical topic: onex.cmd.omnimemory.crawl-requested.v1

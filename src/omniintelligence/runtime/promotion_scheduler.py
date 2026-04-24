@@ -19,7 +19,9 @@ from omniintelligence.protocols import ProtocolKafkaPublisher
 
 logger = logging.getLogger(__name__)
 
-PROMOTION_CHECK_TOPIC = TOPIC_PROMOTION_CHECK_CMD_V1
+PROMOTION_CHECK_TOPIC = (
+    TOPIC_PROMOTION_CHECK_CMD_V1  # onex-topic-allow: re-exported alias
+)
 DEFAULT_INTERVAL_SECONDS: float = 300.0  # 5 minutes
 
 

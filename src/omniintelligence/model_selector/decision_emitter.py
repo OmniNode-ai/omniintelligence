@@ -38,8 +38,8 @@ logger = logging.getLogger(__name__)
 # Topic constants — imported from constants.py (single source of truth)
 # ---------------------------------------------------------------------------
 
-DECISION_RECORDED_EVT_TOPIC = TOPIC_DECISION_RECORDED_EVT_V1
-DECISION_RECORDED_CMD_TOPIC = TOPIC_DECISION_RECORDED_CMD_V1
+DECISION_RECORDED_EVT_TOPIC = TOPIC_DECISION_RECORDED_EVT_V1  # onex-topic-sot
+DECISION_RECORDED_CMD_TOPIC = TOPIC_DECISION_RECORDED_CMD_V1  # onex-topic-sot
 
 
 # ---------------------------------------------------------------------------
