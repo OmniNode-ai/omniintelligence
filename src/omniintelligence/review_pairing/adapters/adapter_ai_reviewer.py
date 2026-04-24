@@ -32,6 +32,7 @@ from omniintelligence.review_pairing.adapters.base import (
     normalize_message,
     utcnow,
 )
+from omniintelligence.review_pairing.model_registry_loader import load_registry
 from omniintelligence.review_pairing.models import (
     EnumFindingSeverity,
     ModelReviewFindingObserved,
@@ -61,54 +62,15 @@ _SEVERITY_MAP: dict[str, EnumFindingSeverity] = {
 }
 
 # ---------------------------------------------------------------------------
-# Model registry
+# Model registry (loaded from model_registry.yaml — OMN-7213)
 # ---------------------------------------------------------------------------
 
-MODEL_REGISTRY: dict[str, ModelEndpointConfig] = {
-    "deepseek-r1": ModelEndpointConfig(
-        env_var="LLM_DEEPSEEK_R1_URL",
-        default_url="http://192.168.86.201:8001",
-        kind="reasoning",
-        timeout_seconds=300.0,
-        api_model_id="Corianas/DeepSeek-R1-Distill-Qwen-14B-AWQ",
-    ),
-    "qwen3-coder": ModelEndpointConfig(
-        env_var="LLM_CODER_URL",
-        default_url="",
-        kind="long_context",
-        timeout_seconds=120.0,
-        api_model_id="cyankiwi/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit",
-    ),
-    "qwen3-14b": ModelEndpointConfig(
-        env_var="LLM_CODER_FAST_URL",
-        default_url="",
-        kind="fast_review",
-        timeout_seconds=60.0,
-        api_model_id="Qwen/Qwen3-14B-AWQ",
-    ),
-    "qwen3-next": ModelEndpointConfig(
-        env_var="LLM_QWEN3_NEXT_URL",
-        default_url="",
-        kind="code_review",
-        timeout_seconds=120.0,
-        api_model_id="Qwen3-Next-80B-A3B",
-    ),
-    # --- API fallback models (reachable from cloud CI) ---
-    "claude-api": ModelEndpointConfig(
-        env_var="ANTHROPIC_API_BASE_URL",
-        default_url="https://api.anthropic.com",
-        kind="api_fallback",
-        timeout_seconds=120.0,
-        api_model_id="claude-sonnet-4-6",
-    ),
-}
+_REGISTRY_CONTRACT = load_registry()
 
-_LOCAL_MODEL_KEYS: frozenset[str] = frozenset(
-    {"deepseek-r1", "qwen3-coder", "qwen3-14b", "qwen3-next"}
-)
-_API_FALLBACK_KEYS: tuple[str, ...] = ("claude-api",)
-
-_DEFAULT_MODEL_KEY: str = "deepseek-r1"
+MODEL_REGISTRY: dict[str, ModelEndpointConfig] = dict(_REGISTRY_CONTRACT.models)
+_LOCAL_MODEL_KEYS: frozenset[str] = frozenset(_REGISTRY_CONTRACT.local_model_keys)
+_API_FALLBACK_KEYS: tuple[str, ...] = tuple(_REGISTRY_CONTRACT.api_fallback_keys)
+_DEFAULT_MODEL_KEY: str = _REGISTRY_CONTRACT.default_model_key
 
 # Default max tokens for review response.
 _DEFAULT_MAX_TOKENS: int = 4096
