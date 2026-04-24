@@ -5,7 +5,7 @@
 """Unit tests for contract-driven topic discovery.
 
 Validates:
-    - collect_subscribe_topics_from_contracts returns exactly 12 topics
+    - collect_subscribe_topics_from_contracts returns the expected topic set
     - Discovered topics match the contract.yaml declarations
     - canonical_topic_to_dispatch_alias converts correctly
     - INTELLIGENCE_SUBSCRIBE_TOPICS in plugin.py is contract-driven
@@ -77,18 +77,12 @@ EXPECTED_CODE_ANALYSIS = "onex.cmd.omniintelligence.code-analysis.v1"
 
 # OMN-6979: newly contract-declared topics
 EXPECTED_DECISION_RECORDED = "onex.cmd.omniintelligence.decision-recorded.v1"
-EXPECTED_INTENT_RECEIVED = "onex.cmd.omniintelligence.intent-received.v1"
-EXPECTED_PATTERN_LIFECYCLE_PROCESS = (
-    "onex.cmd.omniintelligence.pattern-lifecycle-process.v1"
-)
 EXPECTED_UTILIZATION_SCORING = "onex.cmd.omniintelligence.utilization-scoring.v1"
 EXPECTED_CODE_ENTITIES_EXTRACTED_EMBED = (
     "onex.evt.omniintelligence.code-entities-extracted-embed.v1"
 )
 
 # Topics discovered from nodes added after the original 20-topic baseline
-EXPECTED_DOCUMENT_INGESTION = "onex.cmd.omniintelligence.document-ingestion.v1"
-EXPECTED_QUALITY_ASSESSMENT = "onex.cmd.omniintelligence.quality-assessment.v1"
 EXPECTED_PROMOTION_CHECK = "onex.cmd.omniintelligence.promotion-check-requested.v1"
 EXPECTED_PROTOCOL_EXECUTE = "onex.cmd.omniintelligence.protocol-execute.v1"
 EXPECTED_CRAWL_TICK = "onex.cmd.omnimemory.crawl-tick.v1"
@@ -98,8 +92,6 @@ EXPECTED_ROUTING_FEEDBACK = "onex.evt.omniclaude.routing-feedback.v1"
 EXPECTED_ENTITY_EXTRACTION_COMPLETED = (
     "onex.evt.omniintelligence.entity-extraction-completed.v1"
 )
-EXPECTED_INTENT_DRIFT_DETECTED = "onex.evt.omniintelligence.intent-drift-detected.v1"
-EXPECTED_INTENT_OUTCOME_LABELED = "onex.evt.omniintelligence.intent-outcome-labeled.v1"
 EXPECTED_PATTERN_MATCHED = "onex.evt.omniintelligence.pattern-matched.v1"
 EXPECTED_VECTORIZATION_COMPLETED = (
     "onex.evt.omniintelligence.vectorization-completed.v1"
@@ -140,20 +132,16 @@ EXPECTED_TOPICS = {
     EXPECTED_FINDING_OBSERVED,
     EXPECTED_FIX_APPLIED,
     EXPECTED_CI_FAILURE_DETECTED,
-    EXPECTED_CODE_ANALYSIS,
     # OMN-6597: additional ci_failure_tracker topics
     EXPECTED_CI_FAILURE_DETECTED_TRACK,
     EXPECTED_CI_FAILURE_TRACK,
     EXPECTED_CI_RECOVERY_DETECTED,
+    EXPECTED_CODE_ANALYSIS,
     # OMN-6979: orphan dispatch routes now contract-declared
     EXPECTED_DECISION_RECORDED,
-    EXPECTED_INTENT_RECEIVED,
-    EXPECTED_PATTERN_LIFECYCLE_PROCESS,
     EXPECTED_UTILIZATION_SCORING,
     EXPECTED_CODE_ENTITIES_EXTRACTED_EMBED,
     # Topics from nodes added after original baseline
-    EXPECTED_DOCUMENT_INGESTION,
-    EXPECTED_QUALITY_ASSESSMENT,
     EXPECTED_PROMOTION_CHECK,
     EXPECTED_PROTOCOL_EXECUTE,
     EXPECTED_CRAWL_TICK,
@@ -161,8 +149,6 @@ EXPECTED_TOPICS = {
     EXPECTED_PATTERN_ENFORCEMENT,
     EXPECTED_ROUTING_FEEDBACK,
     EXPECTED_ENTITY_EXTRACTION_COMPLETED,
-    EXPECTED_INTENT_DRIFT_DETECTED,
-    EXPECTED_INTENT_OUTCOME_LABELED,
     EXPECTED_PATTERN_MATCHED,
     EXPECTED_VECTORIZATION_COMPLETED,
     EXPECTED_DOCUMENT_CHANGED,
@@ -245,7 +231,6 @@ class TestCollectSubscribeTopics:
             "onex.cmd.omniintelligence.code-analysis.v1",
             "onex.cmd.omniintelligence.pattern-learning.v1",
             "onex.cmd.omnimemory.crawl-tick.v1",
-            "onex.cmd.omniintelligence.quality-assessment.v1",
         }
         seen: set[str] = set()
         unexpected: list[str] = []

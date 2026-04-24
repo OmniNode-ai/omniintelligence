@@ -5,7 +5,7 @@
 """Unit tests for intelligence message type registration.
 
 Validates:
-    - All 13 intelligence message types are registered
+    - All 10 intelligence message types are registered
     - Registration happens correctly with proper categories and domains
     - Registry is queryable after freeze via has_message_type() and get_entry()
     - Registration after freeze() raises ModelOnexError
@@ -57,20 +57,20 @@ def frozen_registry(registry: RegistryMessageType) -> RegistryMessageType:
 class TestRegistrationCount:
     """Verify correct number of message types registered."""
 
-    def test_returns_13_registered_types(self, registry: RegistryMessageType) -> None:
-        """register_intelligence_message_types returns 13 type names."""
+    def test_returns_10_registered_types(self, registry: RegistryMessageType) -> None:
+        """register_intelligence_message_types returns 10 type names."""
         registered = register_intelligence_message_types(registry)
         assert len(registered) == EXPECTED_MESSAGE_TYPE_COUNT
 
-    def test_registry_has_13_entries(
+    def test_registry_has_10_entries(
         self, frozen_registry: RegistryMessageType
     ) -> None:
-        """Frozen registry contains exactly 13 unique message type entries."""
+        """Frozen registry contains exactly 10 unique message type entries."""
         assert frozen_registry.entry_count == EXPECTED_MESSAGE_TYPE_COUNT
 
     def test_expected_count_constant_matches(self) -> None:
-        """EXPECTED_MESSAGE_TYPE_COUNT constant is 13."""
-        assert EXPECTED_MESSAGE_TYPE_COUNT == 13
+        """EXPECTED_MESSAGE_TYPE_COUNT constant is 10."""
+        assert EXPECTED_MESSAGE_TYPE_COUNT == 10
 
 
 # =============================================================================
@@ -95,10 +95,6 @@ class TestHasMessageType:
         "ModelPayloadUpdatePatternStatus",
         # External Input
         "ClaudeSessionOutcome",
-        # Reducer FSM Payloads
-        "ModelIngestionPayload",
-        "ModelPatternLearningPayload",
-        "ModelQualityAssessmentPayload",
     ]
 
     @pytest.mark.parametrize("message_type", ALL_MESSAGE_TYPES)
@@ -175,9 +171,6 @@ class TestCategoryAssignment:
         "ModelPatternLifecycleEvent",
         "ModelPayloadUpdatePatternStatus",
         "ClaudeSessionOutcome",
-        "ModelIngestionPayload",
-        "ModelPatternLearningPayload",
-        "ModelQualityAssessmentPayload",
     ]
 
     @pytest.mark.parametrize("message_type", EVENT_TYPES)
@@ -218,9 +211,6 @@ class TestHandlerIds:
         "ModelPatternLifecycleEvent": ("node_pattern_lifecycle_effect",),
         "ModelPayloadUpdatePatternStatus": ("node_pattern_lifecycle_effect",),
         "ClaudeSessionOutcome": ("node_pattern_feedback_effect",),
-        "ModelIngestionPayload": ("node_intelligence_reducer",),
-        "ModelPatternLearningPayload": ("node_intelligence_reducer",),
-        "ModelQualityAssessmentPayload": ("node_intelligence_reducer",),
     }
 
     @pytest.mark.parametrize(
@@ -320,7 +310,6 @@ class TestStartupValidation:
             "node_pattern_demotion_effect",
             "node_pattern_lifecycle_effect",
             "node_pattern_feedback_effect",
-            "node_intelligence_reducer",
         }
         errors = frozen_registry.validate_startup(
             available_handler_ids=all_handler_ids,
@@ -353,7 +342,7 @@ class TestRegistryProperties:
     def test_handler_count(self, frozen_registry: RegistryMessageType) -> None:
         """Registry tracks the correct number of unique handlers."""
         # 6 unique handler IDs across all 13 registrations
-        assert frozen_registry.handler_count == 6
+        assert frozen_registry.handler_count == 5
 
     def test_domain_count(self, frozen_registry: RegistryMessageType) -> None:
         """Registry tracks exactly 1 domain (intelligence)."""

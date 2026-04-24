@@ -141,10 +141,6 @@ DISPATCH_ALIAS_INTELLIGENCE_ORCHESTRATOR = canonical_topic_to_dispatch_alias(
     IntelligenceCommandTopic.INTENT_RECEIVED
 )
 """Dispatch-compatible alias for intelligence orchestrator intent reception (OMN-6590)."""
-DISPATCH_ALIAS_INTELLIGENCE_REDUCER = canonical_topic_to_dispatch_alias(
-    IntelligenceCommandTopic.PATTERN_LIFECYCLE_PROCESS
-)
-"""Dispatch-compatible alias for intelligence reducer process handler (OMN-6594)."""
 DISPATCH_ALIAS_CI_FINGERPRINT = canonical_topic_to_dispatch_alias(
     IntelligenceCommandTopic.CI_FAILURE_DETECTED
 )
@@ -1872,77 +1868,6 @@ def create_intelligence_orchestrator_dispatch_handler(
 
 
 # =============================================================================
-# Bridge Handler: Intelligence Reducer Process (OMN-6594)
-# =============================================================================
-
-
-def create_intelligence_reducer_dispatch_handler(
-    *,
-    correlation_id: UUID | None = None,
-) -> Callable[
-    [ModelEventEnvelope[object], ProtocolHandlerContext],
-    Awaitable[str],
-]:
-    """Create a dispatch handler that bridges to handle_pattern_lifecycle_process.
-
-    ``handle_pattern_lifecycle_process`` is a **sync function** (takes
-    ``ModelReducerInputPatternLifecycle``, returns ``ModelReducerOutput``).
-    This bridge wraps it for the async dispatch engine.
-
-    Args:
-        correlation_id: Optional fixed correlation ID for tracing.
-
-    Returns:
-        Async handler function with signature (envelope, context) -> str.
-    """
-
-    async def _handle(
-        envelope: ModelEventEnvelope[object],
-        context: ProtocolHandlerContext,
-    ) -> str:
-        """Bridge handler: envelope -> handle_pattern_lifecycle_process (sync)."""
-        from omniintelligence.nodes.node_intelligence_reducer.handlers import (
-            handle_pattern_lifecycle_process,
-        )
-        from omniintelligence.nodes.node_intelligence_reducer.models.model_reducer_input import (
-            ModelReducerInputPatternLifecycle,
-        )
-
-        ctx_correlation_id = (
-            correlation_id or getattr(context, "correlation_id", None) or uuid4()
-        )
-
-        payload = envelope.payload
-        if not isinstance(payload, dict):
-            msg = (
-                f"Unexpected payload type {type(payload).__name__} "
-                f"for pattern-lifecycle-process command "
-                f"(correlation_id={ctx_correlation_id})"
-            )
-            logger.warning(msg)
-            raise ValueError(msg)
-
-        logger.info(
-            "Dispatching pattern-lifecycle-process command to intelligence "
-            "reducer (correlation_id=%s)",
-            ctx_correlation_id,
-        )
-
-        reducer_input = ModelReducerInputPatternLifecycle.model_validate(payload)
-        result = handle_pattern_lifecycle_process(reducer_input)
-
-        logger.info(
-            "Pattern lifecycle process completed (success=%s, correlation_id=%s)",
-            result.result.success if hasattr(result, "result") else "unknown",
-            ctx_correlation_id,
-        )
-
-        return result.model_dump_json()
-
-    return _handle
-
-
-# =============================================================================
 # Bridge Handler: CI Fingerprint Compute (OMN-6598)
 # =============================================================================
 
@@ -2166,8 +2091,8 @@ def create_intelligence_dispatch_engine(
 ) -> MessageDispatchEngine:
     """Create and configure a MessageDispatchEngine for Intelligence domain.
 
-    Creates the engine, registers 8 unconditional intelligence domain handlers
-    (10 routes) plus 1 conditional pattern-projection handler (3 routes) when
+    Creates the engine, registers 7 unconditional intelligence domain handlers
+    (9 routes) plus 1 conditional pattern-projection handler (3 routes) when
     pattern_query_store satisfies ProtocolPatternQueryStore, then freezes the
     engine. The engine is ready for dispatch after this call.
 
@@ -2181,8 +2106,7 @@ def create_intelligence_dispatch_engine(
         kafka_producer: Optional Kafka publisher (graceful degradation).
         publish_topics: Optional mapping of handler name to publish topic.
             Keys: "claude_hook", "lifecycle", "pattern_storage",
-            "pattern_learning", "compliance_evaluate", "pattern_projection",
-            "quality_assessment".
+            "pattern_learning", "compliance_evaluate", "pattern_projection".
             Values: full topic strings from contract event_bus.publish_topics.
             Note: crawl scheduler handlers (crawl-requested, document-indexed)
             do not use publish_topics — the crawl-tick topic is embedded in
@@ -2784,28 +2708,6 @@ def create_intelligence_dispatch_engine(
         )
     )
 
-    # --- Handler: intelligence reducer process (OMN-6594) ---
-    reducer_handler = create_intelligence_reducer_dispatch_handler()
-    engine.register_handler(
-        handler_id="intelligence-reducer-process-handler",
-        handler=reducer_handler,
-        category=EnumMessageCategory.COMMAND,
-        node_kind=EnumNodeKind.REDUCER,
-        message_types=None,
-    )
-    engine.register_route(
-        ModelDispatchRoute(
-            route_id="intelligence-reducer-process-route",
-            topic_pattern=DISPATCH_ALIAS_INTELLIGENCE_REDUCER,
-            message_category=EnumMessageCategory.COMMAND,
-            handler_id="intelligence-reducer-process-handler",
-            description=(
-                "Routes pattern lifecycle process commands to the intelligence "
-                "reducer (OMN-6594)."
-            ),
-        )
-    )
-
     # --- Handler: CI fingerprint compute (OMN-6598) ---
     ci_fingerprint_handler = create_ci_fingerprint_dispatch_handler()
     engine.register_handler(
@@ -3132,173 +3034,6 @@ def create_intelligence_dispatch_engine(
             description=(
                 "Routes document-ingestion commands to the intelligence "
                 "orchestrator (OMN-6979)."
-            ),
-        )
-    )
-
-    # --- Handler: quality-assessment (SOW Phase 2 Quality Score Lineage) ---
-    # Calls NodeQualityScoringCompute with real scoring logic and emits
-    # quality-assessment-completed.v1 with computed scores.
-    _DISPATCH_ALIAS_QUALITY_ASSESSMENT = canonical_topic_to_dispatch_alias(
-        IntelligenceCommandTopic.QUALITY_ASSESSMENT
-    )
-    _QUALITY_ASSESSMENT_COMPLETED_TOPIC = topics.get(
-        "quality_assessment",
-        "onex.evt.omniintelligence.quality-assessment-completed.v1",
-    )
-
-    async def _quality_assessment_handler(
-        envelope: ModelEventEnvelope[object],
-        context: ProtocolHandlerContext,
-    ) -> str:
-        import json as _json
-
-        from omniintelligence.constants import TOPIC_QUALITY_ASSESSMENT_COMPLETED_V1
-        from omniintelligence.nodes.node_quality_scoring_compute.handlers.handler_compute import (
-            handle_quality_scoring_compute,
-        )
-        from omniintelligence.nodes.node_quality_scoring_compute.models.model_quality_scoring_input import (
-            ModelQualityScoringInput,
-        )
-
-        correlation_id = str(envelope.correlation_id or uuid4())
-        payload: dict[str, Any] = {}
-        raw_payload = envelope.payload
-        if raw_payload is not None:
-            if isinstance(raw_payload, dict):
-                payload = raw_payload
-            elif hasattr(raw_payload, "model_dump"):
-                payload = raw_payload.model_dump()
-            elif hasattr(raw_payload, "__dict__"):
-                payload = dict(raw_payload.__dict__)
-
-        # Commands from NodePatternFeedbackEffect carry entity_id (pattern_id)
-        # and an optional nested payload dict. Content may be at top level or nested.
-        inner: dict[str, Any] = {}
-        raw_inner = payload.get("payload")
-        if isinstance(raw_inner, dict):
-            inner = raw_inner
-        elif isinstance(raw_inner, str):
-            with contextlib.suppress(Exception):
-                inner = _json.loads(raw_inner)
-
-        content: str = inner.get("content") or payload.get("content") or ""
-        source_path: str = (
-            inner.get("source_path")
-            or inner.get("file_path")
-            or payload.get("source_path")
-            or payload.get("file_path")
-            or payload.get("entity_id")
-            or "unknown"
-        )
-        language: str = inner.get("language") or payload.get("language") or "python"
-
-        logger.info(
-            "quality-assessment command received: correlation_id=%s source_path=%s",
-            correlation_id,
-            source_path,
-        )
-
-        _publish_topic = (
-            _QUALITY_ASSESSMENT_COMPLETED_TOPIC or TOPIC_QUALITY_ASSESSMENT_COMPLETED_V1
-        )
-
-        if not content:
-            logger.warning(
-                "quality-assessment command missing content — emitting zero-score event: "
-                "correlation_id=%s source_path=%s",
-                correlation_id,
-                source_path,
-            )
-            if kafka_producer is not None:
-                with contextlib.suppress(Exception):
-                    await kafka_producer.publish(
-                        topic=_publish_topic,
-                        key=source_path,
-                        value={
-                            "source_path": source_path,
-                            "quality_score": 0.0,
-                            "onex_compliant": False,
-                            "dimensions": {},
-                            "recommendations": [
-                                "[missing_content] No source content provided in command payload"
-                            ],
-                            "correlation_id": correlation_id,
-                        },
-                    )
-            return "ok"
-
-        scoring_input = ModelQualityScoringInput(
-            source_path=source_path,
-            content=content,
-            language=language,
-        )
-        result = handle_quality_scoring_compute(scoring_input)
-
-        logger.info(
-            "quality-assessment scored: correlation_id=%s source_path=%s "
-            "quality_score=%.4f onex_compliant=%s",
-            correlation_id,
-            source_path,
-            result.quality_score,
-            result.onex_compliant,
-        )
-
-        if kafka_producer is not None:
-            with contextlib.suppress(Exception):
-                await kafka_producer.publish(
-                    topic=_publish_topic,
-                    key=source_path,
-                    value={
-                        "source_path": source_path,
-                        "quality_score": result.quality_score,
-                        "onex_compliant": result.onex_compliant,
-                        "dimensions": dict(result.dimensions)
-                        if result.dimensions
-                        else {},
-                        "recommendations": list(result.recommendations),
-                        "metadata": {
-                            "status": result.metadata.status
-                            if result.metadata
-                            else None,
-                            "source_language": (
-                                result.metadata.source_language
-                                if result.metadata
-                                else None
-                            ),
-                            "analysis_version": (
-                                result.metadata.analysis_version
-                                if result.metadata
-                                else None
-                            ),
-                            "processing_time_ms": (
-                                result.metadata.processing_time_ms
-                                if result.metadata
-                                else None
-                            ),
-                        },
-                        "correlation_id": correlation_id,
-                    },
-                )
-        return "ok"
-
-    engine.register_handler(
-        handler_id="intelligence-quality-assessment-handler",
-        handler=_quality_assessment_handler,
-        category=EnumMessageCategory.COMMAND,
-        node_kind=EnumNodeKind.COMPUTE,
-        message_types=None,
-    )
-    engine.register_route(
-        ModelDispatchRoute(
-            route_id="intelligence-quality-assessment-route",
-            topic_pattern=_DISPATCH_ALIAS_QUALITY_ASSESSMENT,
-            message_category=EnumMessageCategory.COMMAND,
-            handler_id="intelligence-quality-assessment-handler",
-            description=(
-                "Routes quality-assessment commands to NodeQualityScoringCompute "
-                "and emits quality-assessment-completed.v1 with real scores "
-                "(SOW Phase 2 Quality Score Lineage)."
             ),
         )
     )
@@ -3760,7 +3495,6 @@ __all__ = [
     "DISPATCH_ALIAS_CLAUDE_HOOK",
     "DISPATCH_ALIAS_COMPLIANCE_EVALUATE",
     "DISPATCH_ALIAS_INTELLIGENCE_ORCHESTRATOR",
-    "DISPATCH_ALIAS_INTELLIGENCE_REDUCER",
     "DISPATCH_ALIAS_PATTERN_DISCOVERED",
     "DISPATCH_ALIAS_PATTERN_LEARNED",
     "DISPATCH_ALIAS_PATTERN_LEARNING_CMD",
@@ -3777,7 +3511,6 @@ __all__ = [
     "create_dispatch_callback",
     "create_intelligence_dispatch_engine",
     "create_intelligence_orchestrator_dispatch_handler",
-    "create_intelligence_reducer_dispatch_handler",
     "create_pattern_lifecycle_dispatch_handler",
     "create_pattern_projection_dispatch_handler",
     "create_pattern_storage_dispatch_handler",
