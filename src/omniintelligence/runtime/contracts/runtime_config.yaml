@@ -78,8 +78,8 @@ defaults:
     bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS}"
     consumer_group: "omniintelligence"
     topics:
-      commands: "onex.cmd.omniintelligence.claude-hook-event.v1"
-      events: "onex.evt.omniintelligence.intent-classified.v1"
+      commands: "onex.cmd.omniintelligence.claude-hook-event.v1"  # onex-topic-sot
+      events: "onex.evt.omniintelligence.intent-classified.v1"  # onex-topic-sot
       dlq: null
     auto_offset_reset: "earliest"
     enable_auto_commit: false
@@ -178,9 +178,9 @@ environments:
       bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS}"
       consumer_group: "omniintelligence-dev"
       topics:
-        commands: "onex.cmd.omniintelligence.claude-hook-event.v1"
-        events: "onex.evt.omniintelligence.intent-classified.v1"
-        dlq: "onex.dlq.omniintelligence.v1"
+        commands: "onex.cmd.omniintelligence.claude-hook-event.v1"  # onex-topic-sot
+        events: "onex.evt.omniintelligence.intent-classified.v1"  # onex-topic-sot
+        dlq: "onex.dlq.omniintelligence.v1"  # onex-topic-sot
 
   staging:
     log_level: "INFO"
@@ -188,9 +188,9 @@ environments:
       bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS}"
       consumer_group: "omniintelligence-staging"
       topics:
-        commands: "onex.cmd.omniintelligence.claude-hook-event.v1"
-        events: "onex.evt.omniintelligence.intent-classified.v1"
-        dlq: "onex.dlq.omniintelligence.v1"
+        commands: "onex.cmd.omniintelligence.claude-hook-event.v1"  # onex-topic-sot
+        events: "onex.evt.omniintelligence.intent-classified.v1"  # onex-topic-sot
+        dlq: "onex.dlq.omniintelligence.v1"  # onex-topic-sot
 
   production:
     log_level: "INFO"
@@ -198,9 +198,9 @@ environments:
       bootstrap_servers: "${KAFKA_BOOTSTRAP_SERVERS}"
       consumer_group: "omniintelligence-prod"
       topics:
-        commands: "onex.cmd.omniintelligence.claude-hook-event.v1"
-        events: "onex.evt.omniintelligence.intent-classified.v1"
-        dlq: "onex.dlq.omniintelligence.v1"
+        commands: "onex.cmd.omniintelligence.claude-hook-event.v1"  # onex-topic-sot
+        events: "onex.evt.omniintelligence.intent-classified.v1"  # onex-topic-sot
+        dlq: "onex.dlq.omniintelligence.v1"  # onex-topic-sot
 
 # Metadata
 author: omniintelligence

@@ -16,7 +16,7 @@ class EnumKafkaEmissionStatus(StrEnum):
     SUCCESS = "success"
     FAILED = "failed"
     NO_PRODUCER = "no_producer_available"
-    NO_TOPIC = "no_topic_configured"
+    NO_TOPIC = "no_topic_configured"  # onex-topic-allow: enum value, not a topic
 
 
 __all__ = ["EnumKafkaEmissionStatus"]

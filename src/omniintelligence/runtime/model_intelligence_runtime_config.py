@@ -395,7 +395,7 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
                 topics=ModelTopicConfig(
                     commands=TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1,
                     events=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
-                    dlq="onex.dlq.omniintelligence.v1",
+                    dlq="onex.dlq.omniintelligence.v1",  # onex-topic-allow: pending contract auto-wiring
                 ),
             ),
             handlers=[
@@ -438,7 +438,7 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
                 topics=ModelTopicConfig(
                     commands=TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1,
                     events=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
-                    dlq="onex.dlq.omniintelligence.v1",
+                    dlq="onex.dlq.omniintelligence.v1",  # onex-topic-allow: pending contract auto-wiring
                 ),
             ),
             handlers=[

@@ -94,8 +94,8 @@ def _has_subscribe_topics(contract_path: Path) -> bool:
 # Source: node_intelligence_orchestrator/contract.yaml (cross-repo command,
 # published by omniclaude IntelligenceEventClient).
 _ADDITIONAL_SUBSCRIBE_TOPICS: list[str] = [
-    "onex.cmd.omniintelligence.code-analysis.v1",  # OMN-6969
-    "onex.cmd.omniintelligence.utilization-scoring.v1",  # OMN-5507
+    "onex.cmd.omniintelligence.code-analysis.v1",  # onex-topic-sot OMN-6969
+    "onex.cmd.omniintelligence.utilization-scoring.v1",  # onex-topic-sot OMN-5507
 ]
 
 
