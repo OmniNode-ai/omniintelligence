@@ -2498,7 +2498,9 @@ def create_intelligence_dispatch_engine(
     engine.register_route(
         ModelDispatchRoute(
             route_id="intelligence-utilization-scoring-route",
-            topic_pattern=TOPIC_UTILIZATION_SCORING_CMD_V1,
+            topic_pattern=canonical_topic_to_dispatch_alias(
+                TOPIC_UTILIZATION_SCORING_CMD_V1
+            ),
             message_category=EnumMessageCategory.COMMAND,
             handler_id="intelligence-utilization-scoring-handler",
             description=(

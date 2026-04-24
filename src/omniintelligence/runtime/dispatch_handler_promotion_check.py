@@ -17,6 +17,7 @@ from uuid import UUID, uuid4
 
 from omniintelligence.constants import TOPIC_PROMOTION_CHECK_CMD_V1
 from omniintelligence.protocols import ProtocolPatternRepository
+from omniintelligence.runtime.contract_topics import canonical_topic_to_dispatch_alias
 
 if TYPE_CHECKING:
     from omniintelligence.protocols import (
@@ -26,8 +27,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-DISPATCH_ALIAS_PROMOTION_CHECK = TOPIC_PROMOTION_CHECK_CMD_V1
-"""Dispatch alias for promotion-check commands (references canonical constant)."""
+DISPATCH_ALIAS_PROMOTION_CHECK = canonical_topic_to_dispatch_alias(
+    TOPIC_PROMOTION_CHECK_CMD_V1
+)
+"""Dispatch-compatible alias for promotion-check commands."""
 
 
 def create_promotion_check_dispatch_handler(
