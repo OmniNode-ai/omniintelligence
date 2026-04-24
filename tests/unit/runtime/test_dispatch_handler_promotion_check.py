@@ -96,3 +96,36 @@ def test_dispatch_alias_follows_naming_convention() -> None:
     """Dispatch alias should follow the onex.commands.* naming convention."""
     assert DISPATCH_ALIAS_PROMOTION_CHECK.startswith("onex.commands.")
     assert "promotion-check-requested" in DISPATCH_ALIAS_PROMOTION_CHECK
+
+
+@pytest.mark.unit
+def test_dispatch_alias_is_not_canonical_publisher_topic() -> None:
+    """Dispatch routes use legacy engine aliases; publishers keep canonical cmd topics."""
+    from omniintelligence.constants import TOPIC_PROMOTION_CHECK_CMD_V1
+
+    assert TOPIC_PROMOTION_CHECK_CMD_V1.startswith("onex.cmd.")
+    assert DISPATCH_ALIAS_PROMOTION_CHECK != TOPIC_PROMOTION_CHECK_CMD_V1
+
+
+@pytest.mark.unit
+def test_utilization_route_uses_dispatch_alias() -> None:
+    """Utilization route should bridge canonical cmd topic to dispatch alias."""
+    import re
+    from pathlib import Path
+
+    dispatch_handlers_path = (
+        Path(__file__).resolve().parents[3]
+        / "src"
+        / "omniintelligence"
+        / "runtime"
+        / "dispatch_handlers.py"
+    )
+    dispatch_handlers_source = dispatch_handlers_path.read_text()
+
+    assert re.search(
+        r"route_id=\"intelligence-utilization-scoring-route\".*?"
+        r"topic_pattern=canonical_topic_to_dispatch_alias\(\s*"
+        r"TOPIC_UTILIZATION_SCORING_CMD_V1\s*\)",
+        dispatch_handlers_source,
+        flags=re.DOTALL,
+    )
