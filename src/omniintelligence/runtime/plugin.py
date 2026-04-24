@@ -96,6 +96,7 @@ Related:
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import logging
 import os
@@ -1172,8 +1173,7 @@ class PluginIntelligence:
             # Build per-topic handler map (dispatch engine guaranteed non-None)
             topic_handlers = self._build_topic_handlers(correlation_id)
 
-            unsubscribe_callbacks: list[Callable[[], Awaitable[None]]] = []
-
+            active_topics: list[str] = []
             for topic in INTELLIGENCE_SUBSCRIBE_TOPICS:
                 if topic not in topic_handlers:
                     logger.warning(
@@ -1183,6 +1183,11 @@ class PluginIntelligence:
                         correlation_id,
                     )
                     continue
+                active_topics.append(topic)
+
+            async def _subscribe_topic(
+                topic: str,
+            ) -> tuple[str, Callable[[], Awaitable[None]]]:
                 handler = topic_handlers[topic]
                 logger.info(
                     "Subscribing to intelligence topic: %s "
@@ -1190,24 +1195,43 @@ class PluginIntelligence:
                     topic,
                     correlation_id,
                 )
-                # Use the shared consumer group ID so all runtime containers
-                # join the same Kafka consumer group.  This ensures Kafka
-                # load-balances partitions across the group rather than
-                # delivering each message to every container (OMN-2439).
                 unsub = await config.event_bus.subscribe(
                     topic=topic,
                     group_id=intelligence_group,
                     on_message=handler,
                 )
-                unsubscribe_callbacks.append(unsub)
+                return topic, unsub
+
+            unsubscribe_callbacks: list[Callable[[], Awaitable[None]]] = []
+            subscribe_tasks = [
+                asyncio.create_task(_subscribe_topic(topic)) for topic in active_topics
+            ]
+            completed_topics = 0
+            try:
+                for subscribe_result in asyncio.as_completed(subscribe_tasks):
+                    topic, unsub = await subscribe_result
+                    completed_topics += 1
+                    unsubscribe_callbacks.append(unsub)
+                    logger.info(
+                        "Intelligence consumer progress: %d/%d topics subscribed "
+                        "(latest=%s, correlation_id=%s)",
+                        completed_topics,
+                        len(active_topics),
+                        topic,
+                        correlation_id,
+                    )
+            except Exception:
+                for task in subscribe_tasks:
+                    if not task.done():
+                        task.cancel()
+                await asyncio.gather(*subscribe_tasks, return_exceptions=True)
+                raise
 
             self._unsubscribe_callbacks = unsubscribe_callbacks
 
             # Start promotion scheduler as background task (OMN-5499)
             self._promotion_scheduler_task = None
             if self._kafka_publisher_ref is not None:
-                import asyncio
-
                 from omniintelligence.runtime.promotion_scheduler import (
                     run_promotion_scheduler,
                 )

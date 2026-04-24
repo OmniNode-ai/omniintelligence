@@ -1,0 +1,68 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# Hostile-reviewer model registry
+#
+# Declarative endpoint configuration for the adversarial review adapter
+# (`adapter_ai_reviewer.py`). Replaces the previously hardcoded
+# `MODEL_REGISTRY: dict[str, ModelEndpointConfig]` literal.
+#
+# Schema (one entry per model key):
+#   env_var:          Environment variable that overrides default_url at runtime.
+#   default_url:      Fallback URL when env_var is unset. Empty string allowed;
+#                     an empty resolved URL raises at call time.
+#   kind:             Capability tag (reasoning, long_context, fast_review,
+#                     code_review, api_fallback). Consumed as a plain string
+#                     by adapter_ai_reviewer.
+#   timeout_seconds:  HTTP request timeout (float).
+#   api_model_id:     Wire-level model identifier sent in the chat-completion
+#                     payload. Empty for CLI-only models.
+#
+# Reference: OMN-7213
+
+default_model_key: "deepseek-r1"
+
+local_model_keys:
+  - "deepseek-r1"
+  - "qwen3-coder"
+  - "qwen3-14b"
+  - "qwen3-next"
+
+api_fallback_keys:
+  - "claude-api"
+
+models:
+  deepseek-r1:
+    env_var: "LLM_DEEPSEEK_R1_URL"
+    default_url: "http://192.168.86.201:8001"  # onex-allow-internal-ip
+    kind: "reasoning"
+    timeout_seconds: 300.0
+    api_model_id: "Corianas/DeepSeek-R1-Distill-Qwen-14B-AWQ"
+
+  qwen3-coder:
+    env_var: "LLM_CODER_URL"
+    default_url: ""
+    kind: "long_context"
+    timeout_seconds: 120.0
+    api_model_id: "cyankiwi/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit"
+
+  qwen3-14b:
+    env_var: "LLM_CODER_FAST_URL"
+    default_url: ""
+    kind: "fast_review"
+    timeout_seconds: 60.0
+    api_model_id: "Qwen/Qwen3-14B-AWQ"
+
+  qwen3-next:
+    env_var: "LLM_QWEN3_NEXT_URL"
+    default_url: ""
+    kind: "code_review"
+    timeout_seconds: 120.0
+    api_model_id: "Qwen3-Next-80B-A3B"
+
+  claude-api:
+    env_var: "ANTHROPIC_API_BASE_URL"
+    default_url: "https://api.anthropic.com"
+    kind: "api_fallback"
+    timeout_seconds: 120.0
+    api_model_id: "claude-sonnet-4-6"
