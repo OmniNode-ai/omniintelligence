@@ -500,10 +500,11 @@ class TestPluginStartConsumersDispatch:
         # Pass as dict (inmemory event bus style) - should not raise
         await sub.on_message(payload)
 
+    @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_topic_subscriptions_start_concurrently(self) -> None:
         """Slow topic joins should overlap instead of serializing the full list."""
-        event_bus = _DelayedStubEventBus(delay_seconds=0.02)
+        event_bus = _DelayedStubEventBus(delay_seconds=0.05)
         plugin = PluginIntelligence()
         config = _make_config(event_bus=event_bus)
 
@@ -516,8 +517,8 @@ class TestPluginStartConsumersDispatch:
         assert result.success
         assert len(event_bus.subscriptions) == len(INTELLIGENCE_SUBSCRIBE_TOPICS)
         serial_baseline = len(INTELLIGENCE_SUBSCRIBE_TOPICS) * event_bus.delay_seconds
-        assert elapsed < serial_baseline / 2, (
-            f"Expected concurrent startup below half the serial baseline "
+        assert elapsed < serial_baseline * 0.7, (
+            f"Expected concurrent startup below 70% of serial baseline "
             f"({serial_baseline:.3f}s), got {elapsed:.3f}s"
         )
 

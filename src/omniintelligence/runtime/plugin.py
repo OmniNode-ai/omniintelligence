@@ -1225,6 +1225,10 @@ class PluginIntelligence:
                     if not task.done():
                         task.cancel()
                 await asyncio.gather(*subscribe_tasks, return_exceptions=True)
+                # Roll back any subscriptions that succeeded before the failure.
+                for rollback_unsub in unsubscribe_callbacks:
+                    with contextlib.suppress(Exception):
+                        await rollback_unsub()
                 raise
 
             self._unsubscribe_callbacks = unsubscribe_callbacks
