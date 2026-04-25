@@ -198,7 +198,9 @@ class TestEvidenceCollectionIntegration:
         )
 
         if bundle1 is None or bundle2 is None:
-            pytest.skip("ScoringReducer models not available (PR #209 not merged)")
+            pytest.skip(
+                "ScoringReducer models not available — _build_evidence_bundle returned None"
+            )
 
         assert bundle1.bundle_fingerprint == bundle2.bundle_fingerprint
 
@@ -240,6 +242,8 @@ class TestEvidenceCollectionIntegration:
         )
 
         if bundle_pass is None or bundle_fail is None:
-            pytest.skip("ScoringReducer models not available (PR #209 not merged)")
+            pytest.skip(
+                "ScoringReducer models not available — _build_evidence_bundle returned None"
+            )
 
         assert bundle_pass.bundle_fingerprint != bundle_fail.bundle_fingerprint
