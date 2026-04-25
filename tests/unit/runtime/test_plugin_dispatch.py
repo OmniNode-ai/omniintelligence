@@ -298,25 +298,25 @@ class TestPluginWireDispatchers:
 
     @pytest.mark.asyncio
     async def test_wire_dispatchers_engine_has_expected_routes(self) -> None:
-        """Engine should have expected route count (OMN-5611: +1 pattern-stored projection route; OMN-5498/5507: +2 promotion-check/utilization routes)."""
+        """Engine should have expected route count (OMN-5611: +1 pattern-stored projection route; OMN-5498/5507: +2 promotion-check/utilization routes; OMN-9650: +1 alias route)."""
         plugin = PluginIntelligence()
         config = _make_config()
 
         await _wire_plugin(plugin, config)
 
         assert plugin._dispatch_engine is not None
-        assert plugin._dispatch_engine.route_count == 37
+        assert plugin._dispatch_engine.route_count == 38
 
     @pytest.mark.asyncio
     async def test_wire_dispatchers_engine_has_expected_handlers(self) -> None:
-        """Engine should have expected handler count (OMN-6979: +5 cmd topic handlers)."""
+        """Engine should have expected handler count (OMN-6979: +5 cmd topic handlers; OMN-9650: +1 alias handler)."""
         plugin = PluginIntelligence()
         config = _make_config()
 
         await _wire_plugin(plugin, config)
 
         assert plugin._dispatch_engine is not None
-        assert plugin._dispatch_engine.handler_count == 28
+        assert plugin._dispatch_engine.handler_count == 29
 
     @pytest.mark.asyncio
     async def test_wire_dispatchers_returns_resources_created(self) -> None:

@@ -316,6 +316,7 @@ db_repository:
           created_at
         FROM learned_patterns
         WHERE status IN ('validated', 'provisional')
+          AND is_current = TRUE
           AND confidence >= $3
           AND ($1::text IS NULL OR domain_id = $1::text)
           AND ($2::text IS NULL OR $2::text = ANY(keywords))
