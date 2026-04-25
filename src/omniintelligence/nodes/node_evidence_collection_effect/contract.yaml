@@ -75,8 +75,10 @@ handler_routing:
 # =============================================================================
 event_bus:
   publish_topics:
-    - name: "run_evaluated"
-      topic: "onex.evt.omniintelligence.run-evaluated.v1"
+    - "onex.evt.omniintelligence.run-evaluated.v1"
+  publish_topic_metadata:
+    "onex.evt.omniintelligence.run-evaluated.v1":
+      name: "run_evaluated"
       description: "Emitted after each successful objective evaluation"
       partition_key_field: "run_id"
   subscribe_topics: []
