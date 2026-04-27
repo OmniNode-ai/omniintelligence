@@ -159,6 +159,11 @@ event_bus:
     # OMN-2622: Switched back from routing-outcome-raw.v1 (deprecated) to routing-feedback.v1.
     # routing-feedback.v1 now carries both produced and skipped outcomes via feedback_status field.
     - "onex.evt.omniclaude.routing-feedback.v1"
+    # DEPRECATED (OMN-8157): Legacy bare topic. No active producers detected as of 2026-04-27.
+    # Replaced by onex.evt.omniclaude.routing-feedback.v1 (OMN-2622). Subscribed for drain
+    # purposes only — messages are logged and discarded by handle_legacy_routing_feedback_drain.
+    # Remove after topic is confirmed empty and purged from Redpanda.
+    - "routing.feedback"
 
   publish_topics:
     - "onex.evt.omniintelligence.routing-feedback-processed.v1"
@@ -176,6 +181,13 @@ event_bus:
         repo: "omniclaude"
         module: "omniclaude.hooks.event_registry"
         topic_constant: "TopicBase.ROUTING_FEEDBACK"
+    "routing.feedback":
+      deprecated: true
+      deprecation_note: "Legacy bare topic. Replaced by onex.evt.omniclaude.routing-feedback.v1 (OMN-2622).
+        No producers detected as of 2026-04-27."
+      drain_handler: "handle_legacy_routing_feedback_drain"
+      description: "DEPRECATED (OMN-8157): Drained by node_routing_feedback_effect. Do not produce to
+        this topic."
 
   publish_topic_metadata:
     "onex.evt.omniintelligence.routing-feedback-processed.v1":
