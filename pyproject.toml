@@ -36,6 +36,7 @@ dependencies = [
     "watchdog>=6.0.0",
     "adaptive-classifier>=0.1.2",
     "omnibase-infra==0.34.1",
+    "omnimarket>=0.1.0",
 ]
 
 [project.optional-dependencies]
@@ -156,6 +157,7 @@ core = [
     "omnibase-core==0.40.0",
     "omnibase-spi==0.20.5",
     "omnibase-infra==0.34.1",
+    "omnimarket>=0.1.0",
     "pydantic>=2.12.5,<3.0.0",
     "pydantic-settings>=2.7.0,<3.0.0",
     # Web framework for API endpoints
@@ -203,6 +205,7 @@ all = [
 
 [tool.uv.sources]
 onex-change-control = { git = "https://github.com/OmniNode-ai/onex_change_control.git", branch = "main" }
+omnimarket = { git = "https://github.com/OmniNode-ai/omnimarket.git", branch = "main" }
 
 [tool.ruff]
 target-version = "py312"
@@ -423,4 +426,5 @@ markers = [
 override-dependencies = [
     "omnibase-core==0.40.0",
     "omnibase-spi==0.20.5",
+    "omnibase-infra==0.34.1",
 ]

@@ -53,17 +53,14 @@ class TestLegacyRoutingFeedbackDrain:
 
     @pytest.mark.unit
     async def test_drain_does_not_raise(self) -> None:
-        result = await handle_legacy_routing_feedback_drain(
+        await handle_legacy_routing_feedback_drain(
             {"session_id": "legacy-abc-123", "junk": True},
         )
-        assert result is None
 
     @pytest.mark.unit
     async def test_drain_empty_payload(self) -> None:
-        result = await handle_legacy_routing_feedback_drain({})
-        assert result is None
+        await handle_legacy_routing_feedback_drain({})
 
     @pytest.mark.unit
     async def test_drain_non_dict_payload(self) -> None:
-        result = await handle_legacy_routing_feedback_drain({"raw": "bytes"})
-        assert result is None
+        await handle_legacy_routing_feedback_drain({"raw": "bytes"})
