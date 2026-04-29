@@ -71,6 +71,16 @@ class ModelLLMCallCompletedEvent(BaseModel):
         min_length=1, description="Distributed tracing correlation ID"
     )
     session_id: str = Field(min_length=1, description="Session ID from request context")
+    repo_name: str | None = Field(
+        default=None,
+        max_length=255,
+        description="Optional repository name for cost attribution",
+    )
+    machine_id: str | None = Field(
+        default=None,
+        max_length=255,
+        description="Optional machine identifier for cost attribution",
+    )
     emitted_at: datetime = Field(description="UTC timestamp of event emission")
 
     @field_validator("emitted_at")

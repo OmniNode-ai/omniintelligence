@@ -6,7 +6,7 @@
 Tests:
     1. Construction with valid data succeeds and fields are accessible
     2. Model is frozen (immutable) and rejects extra fields
-    3. JSON serialization produces exactly the 12 expected keys
+    3. JSON serialization produces exactly the expected keys
     4. usage_source defaults to ESTIMATED and accepts valid values
 
 Reference: OMN-5184 Task 1, OMN-8019 (cost visibility)
@@ -57,6 +57,24 @@ class TestModelLLMCallCompletedEventConstruction:
         assert event.request_type == "completion"
         assert event.correlation_id == "abc-123-def"
         assert event.session_id == "sess-456"
+        assert event.repo_name is None
+        assert event.machine_id is None
+
+    def test_attribution_fields_are_optional_and_serialized(
+        self, valid_event_kwargs: dict[str, object]
+    ) -> None:
+        event = ModelLLMCallCompletedEvent(
+            **{
+                **valid_event_kwargs,
+                "repo_name": "omniintelligence",
+                "machine_id": "devbox-201",
+            }
+        )  # type: ignore[arg-type]
+
+        assert event.repo_name == "omniintelligence"
+        assert event.machine_id == "devbox-201"
+        assert event.model_dump(mode="json")["repo_name"] == "omniintelligence"
+        assert event.model_dump(mode="json")["machine_id"] == "devbox-201"
 
     def test_usage_source_defaults_to_estimated(
         self, valid_event_kwargs: dict[str, object]
@@ -130,6 +148,8 @@ class TestModelLLMCallCompletedEventSerialization:
             "request_type",
             "correlation_id",
             "session_id",
+            "repo_name",
+            "machine_id",
             "emitted_at",
         }
     )
