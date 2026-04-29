@@ -60,6 +60,9 @@ from omniintelligence.models.events.model_rl_routing_decision_event import (
     ModelRlRoutingAlternative,
     ModelRlRoutingDecisionEvent,
 )
+from omniintelligence.models.events.model_savings_estimated_event import (
+    ModelSavingsEstimatedEvent,
+)
 
 __all__ = [
     "ModelCiDebugEscalationEvent",
@@ -75,6 +78,7 @@ __all__ = [
     "ModelOperationStartedEvent",
     "ModelRlRoutingAlternative",
     "ModelRlRoutingDecisionEvent",
+    "ModelSavingsEstimatedEvent",
     "ModelPatternDiscoveredEvent",
     "ModelPatternLifecycleEvent",
     "ModelPatternProjectionEvent",
