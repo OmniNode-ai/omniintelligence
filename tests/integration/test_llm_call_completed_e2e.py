@@ -103,5 +103,9 @@ class TestLLMCallCompletedEventFlow:
         assert payload["session_id"] == "test-sess-id"
         assert payload["cost_usd"] == 0.0
         assert payload["usage_source"] == "ESTIMATED"
+        assert payload.get("gpu_seconds") is None
+        assert payload.get("gpu_type") is None
+        assert payload.get("gpu_count") is None
+        assert payload.get("compute_usage_source") is None
         assert "emitted_at" in payload
         assert payload["latency_ms"] >= 0

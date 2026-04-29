@@ -81,6 +81,25 @@ class ModelLLMCallCompletedEvent(BaseModel):
         max_length=255,
         description="Optional machine identifier for cost attribution",
     )
+    gpu_seconds: float | None = Field(
+        default=None,
+        ge=0.0,
+        description="Optional GPU wall-clock seconds for local-model inference",
+    )
+    gpu_type: str | None = Field(
+        default=None,
+        max_length=64,
+        description="Optional configured GPU type for compute-cost projection",
+    )
+    gpu_count: int | None = Field(
+        default=None,
+        ge=0,
+        description="Optional configured GPU count for compute-cost projection",
+    )
+    compute_usage_source: UsageSource | None = Field(
+        default=None,
+        description="Optional provenance for GPU usage evidence",
+    )
     emitted_at: datetime = Field(description="UTC timestamp of event emission")
 
     @field_validator("emitted_at")
