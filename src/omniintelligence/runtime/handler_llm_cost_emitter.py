@@ -46,6 +46,8 @@ async def emit_llm_cost_event(
     endpoint_url: str = "",
     request_type: str = "completion",
     latency_ms: int = 0,
+    repo_name: str | None = None,
+    machine_id: str | None = None,
 ) -> bool:
     """Emit an LLM cost telemetry event to Kafka (fail-open).
 
@@ -62,6 +64,8 @@ async def emit_llm_cost_event(
         endpoint_url: LLM endpoint URL.
         request_type: Request type (completion, chat, embedding).
         latency_ms: Request latency in milliseconds.
+        repo_name: Optional repository name for cost attribution.
+        machine_id: Optional machine identifier for cost attribution.
 
     Returns:
         True if successfully published, False otherwise.
@@ -92,6 +96,10 @@ async def emit_llm_cost_event(
         "cost_usd": estimated_cost_usd,
         "emitted_at": datetime.now(UTC).isoformat(),
     }
+    if repo_name is not None:
+        payload["repo_name"] = repo_name
+    if machine_id is not None:
+        payload["machine_id"] = machine_id
 
     try:
         await producer.publish(

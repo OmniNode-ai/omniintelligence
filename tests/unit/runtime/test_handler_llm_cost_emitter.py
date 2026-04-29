@@ -56,6 +56,8 @@ class TestEmitLlmCostEvent:
             endpoint_url="http://test:8001",
             request_type="completion",
             latency_ms=150,
+            repo_name="omniintelligence",
+            machine_id="devbox-201",
         )
 
         assert result is True
@@ -77,6 +79,8 @@ class TestEmitLlmCostEvent:
         assert payload["endpoint_url"] == "http://test:8001"
         assert payload["request_type"] == "completion"
         assert payload["latency_ms"] == 150
+        assert payload["repo_name"] == "omniintelligence"
+        assert payload["machine_id"] == "devbox-201"
         # Omnidash also checks these aliased fields
         assert payload["input_tokens"] == 500
         assert payload["output_tokens"] == 200
