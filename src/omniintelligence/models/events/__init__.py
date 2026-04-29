@@ -34,6 +34,17 @@ from omniintelligence.models.events.model_code_analysis_failed import (
 from omniintelligence.models.events.model_code_analysis_request import (
     ModelCodeAnalysisRequestPayload,
 )
+from omniintelligence.models.events.model_cost_by_repo_snapshot import (
+    ModelCostByRepoSnapshot,
+    ModelCostByRepoSnapshotRow,
+)
+from omniintelligence.models.events.model_cost_summary_snapshot import (
+    ModelCostSummarySnapshot,
+)
+from omniintelligence.models.events.model_cost_token_usage_snapshot import (
+    ModelCostTokenUsageSnapshot,
+    ModelCostTokenUsageSnapshotRow,
+)
 from omniintelligence.models.events.model_intent_event_envelopes import (
     ModelIntentClassifiedEnvelope,
     ModelIntentDriftDetectedEnvelope,
@@ -69,6 +80,11 @@ __all__ = [
     "ModelCodeAnalysisCompletedPayload",
     "ModelCodeAnalysisFailedPayload",
     "ModelCodeAnalysisRequestPayload",
+    "ModelCostByRepoSnapshot",
+    "ModelCostByRepoSnapshotRow",
+    "ModelCostSummarySnapshot",
+    "ModelCostTokenUsageSnapshot",
+    "ModelCostTokenUsageSnapshotRow",
     "ModelIntentClassifiedEnvelope",
     "ModelIntentDriftDetectedEnvelope",
     "ModelIntentOutcomeLabeledEnvelope",
