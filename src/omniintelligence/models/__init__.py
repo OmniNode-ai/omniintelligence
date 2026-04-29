@@ -33,6 +33,7 @@ from omniintelligence.models.events import (
     ModelCodeAnalysisFailedPayload,
     ModelCodeAnalysisRequestPayload,
     ModelLLMCallCompletedEvent,
+    ModelWasteDetectedEvent,
 )
 from omniintelligence.models.model_entity import ModelEntity
 from omniintelligence.models.model_intelligence_input import (
@@ -77,6 +78,7 @@ __all__ = [
     "ModelExistsResult",
     "ModelIdResult",
     "ModelLLMCallCompletedEvent",
+    "ModelWasteDetectedEvent",
     "ModelIntelligenceInput",
     "ModelIntelligenceOutput",
     "ModelLearnedPatternRow",
