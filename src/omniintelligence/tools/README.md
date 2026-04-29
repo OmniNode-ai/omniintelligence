@@ -550,7 +550,7 @@ class ModelContractValidationError:
 - [CLAUDE.md](../../../CLAUDE.md) - Project development guide
 - [omnibase_core validation](https://github.com/your-org/omnibase_core) - Core validation infrastructure
 - [ONEX Architecture Specification](https://docs.example.com/onex) - ONEX architecture patterns
-- [Node Development Guide](../../../docs/NODE_DEVELOPMENT.md) - How to develop ONEX nodes
+- [Contributing Guide](../../../CONTRIBUTING.md) - How to develop ONEX nodes
 
 ## License
 
