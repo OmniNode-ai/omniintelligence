@@ -5,13 +5,23 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, tzinfo
 
 import pytest
 
 from omniintelligence.models.events.model_waste_detected_event import (
     ModelWasteDetectedEvent,
 )
+
+
+class NoneOffsetTimezone(tzinfo):
+    """tzinfo implementation that is present but not offset-aware."""
+
+    def utcoffset(self, dt: datetime | None) -> None:
+        return None
+
+    def dst(self, dt: datetime | None) -> None:
+        return None
 
 
 @pytest.fixture()
@@ -71,6 +81,61 @@ def test_detected_at_must_be_tz_aware(
                 **valid_event_kwargs,
                 "detected_at": datetime(2026, 4, 29, 12, 0, 0),
             }
+        )  # type: ignore[arg-type]
+
+
+@pytest.mark.unit
+def test_detected_at_rejects_tzinfo_without_offset(
+    valid_event_kwargs: dict[str, object],
+) -> None:
+    with pytest.raises(ValueError, match="timezone-aware"):
+        ModelWasteDetectedEvent(
+            **{
+                **valid_event_kwargs,
+                "detected_at": datetime(
+                    2026,
+                    4,
+                    29,
+                    12,
+                    0,
+                    0,
+                    tzinfo=NoneOffsetTimezone(),
+                ),
+            }
+        )  # type: ignore[arg-type]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("waste_tokens", [-1, -100])
+def test_rejects_negative_waste_tokens(
+    valid_event_kwargs: dict[str, object],
+    waste_tokens: int,
+) -> None:
+    with pytest.raises(ValueError):
+        ModelWasteDetectedEvent(**{**valid_event_kwargs, "waste_tokens": waste_tokens})  # type: ignore[arg-type]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("waste_cost_usd", [-0.01, -1.0])
+def test_rejects_negative_waste_cost_usd(
+    valid_event_kwargs: dict[str, object],
+    waste_cost_usd: float,
+) -> None:
+    with pytest.raises(ValueError):
+        ModelWasteDetectedEvent(
+            **{**valid_event_kwargs, "waste_cost_usd": waste_cost_usd}
+        )  # type: ignore[arg-type]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("evidence_hash", ["a" * 63, "a" * 65, "g" * 64, " " * 64])
+def test_rejects_invalid_evidence_hash(
+    valid_event_kwargs: dict[str, object],
+    evidence_hash: str,
+) -> None:
+    with pytest.raises(ValueError):
+        ModelWasteDetectedEvent(
+            **{**valid_event_kwargs, "evidence_hash": evidence_hash}
         )  # type: ignore[arg-type]
 
 

@@ -29,6 +29,7 @@ class ModelWasteDetectedEvent(BaseModel):
     evidence_hash: str = Field(
         min_length=64,
         max_length=64,
+        pattern=r"^[0-9a-fA-F]{64}$",
         description="SHA-256 hash of canonical evidence JSON",
     )
     dedup_key: str = Field(
@@ -44,7 +45,7 @@ class ModelWasteDetectedEvent(BaseModel):
     @classmethod
     def validate_detected_at_tz_aware(cls, value: datetime) -> datetime:
         """Validate that detected_at is timezone-aware."""
-        if value.tzinfo is None:
+        if value.tzinfo is None or value.tzinfo.utcoffset(value) is None:
             raise ValueError("detected_at must be timezone-aware")
         return value
 
