@@ -832,4 +832,4 @@ A: The audit will raise a `SyntaxError` with the file path and error details. Fi
 
 - [CLAUDE.md](../../../CLAUDE.md) - Project-level I/O audit section
 - [NAMING_CONVENTIONS.md](../../../docs/conventions/NAMING_CONVENTIONS.md) - ONEX naming standards
-- [io_audit_whitelist.yaml](../../../../tests/audit/io_audit_whitelist.yaml) - Whitelist configuration
+- [io_audit_whitelist.yaml](../../../tests/audit/io_audit_whitelist.yaml) - Whitelist configuration

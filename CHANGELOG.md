@@ -98,7 +98,7 @@
 ### Added
 - feat: wire model_selector DecisionEmitter into dispatch engine [OMN-6595] (#467)
 - feat: register review_pairing node package for topic discovery [OMN-6593] (#466)
-- feat(runtime): wire orchestrator, reducer, and CI nodes into dispatch engine [OMN-6590][OMN-6594][OMN-6598] (#470)
+- feat(runtime): wire orchestrator, reducer, and CI nodes into dispatch engine OMN-6590 OMN-6594 OMN-6598 (#470)
 - feat: add review_pairing PairingEngine to intelligence handler specs [OMN-6591] (#464)
 
 ### Fixed
