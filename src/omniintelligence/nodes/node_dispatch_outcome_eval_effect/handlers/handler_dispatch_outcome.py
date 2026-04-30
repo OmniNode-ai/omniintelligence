@@ -34,7 +34,7 @@ PUBLISH_TOPIC: Final[str] = TOPIC_DISPATCH_OUTCOME_EVALUATED_V1
 def _verdict_for_status(status: str) -> Literal["PASS", "FAIL", "ERROR"]:
     """Map producer terminal status to the skeleton evaluation verdict."""
     normalized_status = status.strip().lower()
-    if normalized_status == "completed":
+    if normalized_status in {"completed", "success"}:
         return "PASS"
     if normalized_status == "failed":
         return "FAIL"
@@ -102,9 +102,9 @@ async def handle_dispatch_outcome(event: ModelInput) -> ModelOutput:
         quality_score=quality_score,
         token_cost=event.token_cost,
         dollars_cost=event.dollars_cost,
-        model_calls=event.model_calls,
-        usage_source=None,
-        estimation_method=None,
+        model_calls=len(event.model_calls),
+        usage_source=event.cost_provenance.usage_source.value,
+        estimation_method=event.cost_provenance.estimation_method,
         source_payload_hash=_source_payload_hash(event),
         published_event_id=None,
         evaluated_at=evaluated_at,

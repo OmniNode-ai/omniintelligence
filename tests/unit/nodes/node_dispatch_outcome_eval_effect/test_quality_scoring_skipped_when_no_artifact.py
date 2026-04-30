@@ -12,7 +12,12 @@ import pytest
 from omniintelligence.nodes.node_dispatch_outcome_eval_effect.handlers import (
     handler_dispatch_outcome,
 )
-from omniintelligence.nodes.node_dispatch_outcome_eval_effect.models import ModelInput
+from omniintelligence.nodes.node_dispatch_outcome_eval_effect.models import (
+    EnumUsageSource,
+    ModelCallRecord,
+    ModelCostProvenance,
+    ModelInput,
+)
 from omniintelligence.nodes.node_quality_scoring_compute.models import (
     ModelQualityScoringInput,
     ModelQualityScoringOutput,
@@ -28,9 +33,26 @@ def _make_event(artifact_path: str | None = None) -> ModelInput:
         ticket_id="OMN-10385",
         status="completed",
         artifact_path=artifact_path,
-        model_calls=2,
+        model_calls=[
+            ModelCallRecord(
+                provider="claude_code",
+                model="claude_subprocess",
+                input_tokens=700,
+                output_tokens=300,
+                latency_ms=25,
+                cost_dollars=0.25,
+                cost_provenance=ModelCostProvenance(
+                    usage_source=EnumUsageSource.ESTIMATED,
+                    estimation_method="test_estimate",
+                ),
+            )
+        ],
         token_cost=1000,
         dollars_cost=0.25,
+        cost_provenance=ModelCostProvenance(
+            usage_source=EnumUsageSource.ESTIMATED,
+            estimation_method="model_call_rollup",
+        ),
     )
 
 

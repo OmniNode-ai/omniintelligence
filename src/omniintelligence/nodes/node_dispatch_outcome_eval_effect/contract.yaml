@@ -77,6 +77,7 @@ io_operations:
       - model_calls
       - token_cost
       - dollars_cost
+      - cost_provenance
     output_fields:
       - verdict
       - quality_score
@@ -132,7 +133,7 @@ capabilities:
     description: "Invoke node_quality_scoring_compute for dispatch artifacts and propagate the numeric
       quality_score."
   - name: "usage_passthrough"
-    description: "Carry model call and cost usage fields into the evaluation event."
+    description: "Carry model call records, cost usage fields, and provenance into the evaluation event."
 
 idempotency:
   enabled: true
