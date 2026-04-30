@@ -108,6 +108,20 @@ EXPECTED_CODE_ENTITIES_EXTRACTED = (
     "onex.evt.omniintelligence.code-entities-extracted.v1"
 )
 
+# OMN-10380/OMN-10387: dispatch outcome evaluation contract topics.
+EXPECTED_DISPATCH_WORKER_COMPLETED = ".".join(
+    ("onex", "evt", "omniclaude", "dispatch_worker-completed", "v1")
+)
+EXPECTED_DISPATCH_OUTCOME_EVALUATED = ".".join(
+    (
+        "onex",
+        "evt",
+        "omniintelligence",
+        "dispatch-outcome-evaluated",
+        "v1",
+    )
+)
+
 # Legacy bare routing feedback topic (drain subscription only — see
 # node_routing_feedback_effect/contract.yaml, OMN-2366).
 EXPECTED_ROUTING_FEEDBACK_LEGACY = "routing.feedback"
@@ -155,6 +169,8 @@ EXPECTED_TOPICS = {
     EXPECTED_DOCUMENT_DISCOVERED,
     EXPECTED_CODE_FILE_DISCOVERED,
     EXPECTED_CODE_ENTITIES_EXTRACTED,
+    EXPECTED_DISPATCH_WORKER_COMPLETED,
+    EXPECTED_DISPATCH_OUTCOME_EVALUATED,
     EXPECTED_ROUTING_FEEDBACK_LEGACY,
 }
 
