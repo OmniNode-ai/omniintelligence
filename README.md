@@ -1,6 +1,6 @@
 # omniintelligence
 
-Intelligence, pattern learning, code analysis, and evaluation as first-class ONEX nodes.
+Intelligence, pattern learning, code analysis, and evaluation as first-class ONEX (OmniNode eXecution) nodes.
 
 [![CI](https://github.com/OmniNode-ai/omniintelligence/actions/workflows/test.yml/badge.svg)](https://github.com/OmniNode-ai/omniintelligence/actions/workflows/test.yml)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
