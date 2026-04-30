@@ -1,0 +1,133 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 OmniNode Team
+#
+# ONEX Node Contract
+# Node: NodeDispatchOutcomeEvalEffect
+#
+# This contract defines the skeleton interface for evaluating dispatch worker outcomes.
+# The node consumes dispatch worker completion events from omniclaude and emits a
+# normalized dispatch-outcome-evaluated event for downstream intelligence consumers.
+#
+# Reference: OMN-10380
+
+name: "node_dispatch_outcome_eval_effect"
+contract_name: "node_dispatch_outcome_eval_effect"
+node_name: "node_dispatch_outcome_eval_effect"
+contract_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+node_type: "EFFECT_GENERIC"
+
+description: >
+  Effect node skeleton for evaluating omniclaude dispatch worker outcomes. Consumes onex.evt.omniclaude.dispatch_worker-completed.v1
+  events, maps terminal dispatch status to PASS/FAIL/ERROR verdicts, carries cost and model-call usage
+  fields forward, and publishes onex.evt.omniintelligence.dispatch-outcome-evaluated.v1. OMN-10380 only
+  scaffolds the contract and handler path; scoring and database writes are intentionally deferred. #magic___^_^___line
+input_model:
+  name: "ModelInput"
+  module: "omniintelligence.nodes.node_dispatch_outcome_eval_effect.models"
+  description: "Dispatch worker completion event consumed from omniclaude."
+
+output_model:
+  name: "ModelOutput"
+  module: "omniintelligence.nodes.node_dispatch_outcome_eval_effect.models"
+  description: "Normalized dispatch outcome evaluation event."
+
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    - operation: "evaluate_dispatch_outcome"
+      handler:
+        function: "handle_dispatch_outcome"
+        module: "omniintelligence.nodes.node_dispatch_outcome_eval_effect.handlers.handler_dispatch_outcome"
+        type: "async"
+      description: "Map dispatch worker completion status to an evaluation verdict."
+      output_fields:
+        - verdict
+        - quality_score
+        - token_cost
+        - dollars_cost
+        - model_calls
+        - usage_source
+        - estimation_method
+        - source_payload_hash
+        - published_event_id
+        - evaluated_at
+        - eval_latency_ms
+
+io_operations:
+  - operation: "evaluate_dispatch_outcome"
+    description: "Evaluate a dispatch worker completion event and emit a normalized outcome event."
+    input_fields:
+      - task_id
+      - dispatch_id
+      - ticket_id
+      - status
+      - artifact_path
+      - model_calls
+      - token_cost
+      - dollars_cost
+    output_fields:
+      - verdict
+      - quality_score
+      - token_cost
+      - dollars_cost
+      - model_calls
+      - usage_source
+      - estimation_method
+      - source_payload_hash
+      - published_event_id
+      - evaluated_at
+      - eval_latency_ms
+
+event_bus:
+  version:
+    major: 1
+    minor: 0
+    patch: 0
+
+  subscribe_topics:
+    - "onex.evt.omniclaude.dispatch_worker-completed.v1"
+
+  publish_topics:
+    - "onex.evt.omniintelligence.dispatch-outcome-evaluated.v1"
+
+  subscribe_topic_metadata:
+    "onex.evt.omniclaude.dispatch_worker-completed.v1":
+      schema_ref: "omniintelligence.nodes.node_dispatch_outcome_eval_effect.models.ModelInput"
+      description: "Dispatch worker completion events from omniclaude."
+      external_publisher:
+        repo: "omniclaude"
+        topic: "onex.evt.omniclaude.dispatch_worker-completed.v1"
+
+  publish_topic_metadata:
+    "onex.evt.omniintelligence.dispatch-outcome-evaluated.v1":
+      schema_ref: "omniintelligence.nodes.node_dispatch_outcome_eval_effect.models.ModelOutput"
+      description: "Normalized dispatch outcome evaluation events."
+      content_type: "application/json"
+
+capabilities:
+  - name: "dispatch_outcome_evaluation"
+    description: "Map dispatch worker terminal statuses to normalized verdicts."
+  - name: "usage_passthrough"
+    description: "Carry model call and cost usage fields into the evaluation event."
+
+idempotency:
+  enabled: true
+  strategy: "payload_hash"
+  hash_fields: ["task_id", "dispatch_id", "status", "artifact_path"]
+  description: "The skeleton computes a deterministic source_payload_hash from the consumed payload."
+
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  ticket: "OMN-10380"
