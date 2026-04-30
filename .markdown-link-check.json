@@ -10,7 +10,8 @@
         ".venv/**",
         "venv/**",
         "node_modules/**",
-        "archived/**"
+        "archived/**",
+        "omni_worktrees/**"
     ],
     "checkExternal": false,
     "externalTimeout": 5000
