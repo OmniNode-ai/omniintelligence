@@ -96,6 +96,8 @@ class UtilizationLLMClient:
         try:
             from datetime import UTC, datetime
 
+            from omnibase_core.enums.cost import EnumUsageSource
+
             from omniintelligence.models.events.model_llm_call_completed_event import (
                 ModelLLMCallCompletedEvent,
             )
@@ -112,7 +114,7 @@ class UtilizationLLMClient:
                 output_tokens=output_tokens,
                 total_tokens=input_tokens + output_tokens,
                 cost_usd=_compute_cost_usd(model_id, input_tokens, output_tokens),
-                usage_source="ESTIMATED",
+                usage_source=EnumUsageSource.ESTIMATED,
                 latency_ms=latency_ms,
                 request_type="classification",
                 correlation_id=self._correlation_id,

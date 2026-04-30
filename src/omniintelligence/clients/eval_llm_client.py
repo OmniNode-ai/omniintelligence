@@ -39,7 +39,7 @@ _HTTP_CLIENT_ERR_MIN = 400
 _HTTP_CLIENT_ERR_MAX = 500
 
 # Per-token cost rates in USD. Local self-hosted models have $0.00 infra-cost
-# rates so they appear in Cost Trends token charts with usage_source=ESTIMATED.
+# rates so they appear in Cost Trends token charts as estimated usage.
 # Cloud API models should be added here as needed.
 # Format: model_id_prefix -> (input_rate_per_token, output_rate_per_token)
 _MODEL_COST_RATES: dict[str, tuple[float, float]] = {
@@ -243,6 +243,8 @@ class EvalLLMClient:
         try:
             from datetime import UTC, datetime
 
+            from omnibase_core.enums.cost import EnumUsageSource
+
             from omniintelligence.models.events.model_llm_call_completed_event import (
                 ModelLLMCallCompletedEvent,
             )
@@ -259,7 +261,7 @@ class EvalLLMClient:
                 output_tokens=output_tokens,
                 total_tokens=input_tokens + output_tokens,
                 cost_usd=_compute_cost_usd(model_id, input_tokens, output_tokens),
-                usage_source="ESTIMATED",
+                usage_source=EnumUsageSource.ESTIMATED,
                 latency_ms=latency_ms,
                 request_type=request_type,
                 correlation_id=self._correlation_id,

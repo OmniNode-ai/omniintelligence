@@ -13,11 +13,11 @@ Reference: OMN-5184 (Dashboard Data Pipeline Gaps), OMN-8019 (cost visibility)
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
 
+from omnibase_core.enums.cost import EnumUsageSource
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-UsageSource = Literal["API", "ESTIMATED", "MISSING"]
+UsageSource = EnumUsageSource
 
 
 class ModelLLMCallCompletedEvent(BaseModel):
@@ -53,12 +53,9 @@ class ModelLLMCallCompletedEvent(BaseModel):
             "See usage_source for provenance."
         ),
     )
-    usage_source: UsageSource = Field(
-        default="ESTIMATED",
-        description=(
-            "Cost data provenance: API=cloud provider billing, "
-            "ESTIMATED=computed from token rates, MISSING=no cost data available."
-        ),
+    usage_source: EnumUsageSource = Field(
+        default=EnumUsageSource.ESTIMATED,
+        description=("Cost data provenance using the shared usage-source vocabulary."),
     )
     latency_ms: int = Field(
         ge=0, description="Wall-clock time of the HTTP call in milliseconds"
@@ -96,7 +93,7 @@ class ModelLLMCallCompletedEvent(BaseModel):
         ge=0,
         description="Optional configured GPU count for compute-cost projection",
     )
-    compute_usage_source: UsageSource | None = Field(
+    compute_usage_source: EnumUsageSource | None = Field(
         default=None,
         description="Optional provenance for GPU usage evidence",
     )

@@ -88,10 +88,10 @@ class TestEvalLLMClientEventEmission:
         assert value["endpoint_url"] == "http://test:8101"
         assert value["correlation_id"] == "corr-123"
         assert value["session_id"] == "sess-456"
-        # Local models have $0.00 infra-cost rates; cost_usd is 0.0 but
-        # usage_source=ESTIMATED ensures the row still appears in Cost Trends.
+        # Local models have $0.00 infra-cost rates; estimated provenance keeps
+        # the row visible in Cost Trends.
         assert value["cost_usd"] == 0.0
-        assert value["usage_source"] == "ESTIMATED"
+        assert value["usage_source"] == "estimated"
 
     @pytest.mark.asyncio
     async def test_no_op_when_publisher_is_none(self) -> None:
