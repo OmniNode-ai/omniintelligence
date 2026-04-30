@@ -102,7 +102,7 @@ class TestLLMCallCompletedEventFlow:
         assert payload["correlation_id"] == "test-corr-id"
         assert payload["session_id"] == "test-sess-id"
         assert payload["cost_usd"] == 0.0
-        assert payload["usage_source"] == "ESTIMATED"
+        assert payload["usage_source"] == "estimated"
         assert payload.get("gpu_seconds") is None
         assert payload.get("gpu_type") is None
         assert payload.get("gpu_count") is None

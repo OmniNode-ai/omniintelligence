@@ -7,6 +7,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import pytest
+from omnibase_core.enums.cost import EnumUsageSource
 from pydantic import ValidationError
 
 from omniintelligence.models.events.model_llm_call_completed_event import (
@@ -22,7 +23,7 @@ def _event_kwargs() -> dict[str, object]:
         "output_tokens": 5,
         "total_tokens": 15,
         "cost_usd": 0.0,
-        "usage_source": "ESTIMATED",
+        "usage_source": EnumUsageSource.ESTIMATED,
         "latency_ms": 123,
         "request_type": "completion",
         "correlation_id": "corr-1",
@@ -53,7 +54,7 @@ class TestModelLLMCallCompletedEventGpuFields:
         assert event.gpu_seconds == 7200.0
         assert event.gpu_type == "rtx_5090"
         assert event.gpu_count == 1
-        assert event.compute_usage_source == "API"
+        assert event.compute_usage_source == EnumUsageSource.MEASURED
 
     def test_rejects_negative_gpu_seconds(self) -> None:
         with pytest.raises(ValidationError, match="gpu_seconds"):
@@ -63,5 +64,5 @@ class TestModelLLMCallCompletedEventGpuFields:
         with pytest.raises(ValidationError, match="compute_usage_source"):
             ModelLLMCallCompletedEvent(
                 **_event_kwargs(),
-                compute_usage_source="MEASURED",
+                compute_usage_source="LOCAL",
             )

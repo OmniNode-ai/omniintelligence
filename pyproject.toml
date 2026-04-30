@@ -27,6 +27,7 @@ keywords = ["omninode", "intelligence", "intent", "routing", "onex", "llm"]
 # Versions aligned with [dependency-groups].core for consistency
 dependencies = [
     "httpx>=0.28.1",
+    "omnibase_core>=0.40.0",
     "pyyaml>=6.0",
     "pydantic>=2.12.5,<3.0.0",
     "pydantic-settings>=2.7.0,<3.0.0",

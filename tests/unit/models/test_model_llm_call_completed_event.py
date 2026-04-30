@@ -17,6 +17,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import pytest
+from omnibase_core.enums.cost import EnumUsageSource
 
 from omniintelligence.models.events.model_llm_call_completed_event import (
     ModelLLMCallCompletedEvent,
@@ -80,16 +81,20 @@ class TestModelLLMCallCompletedEventConstruction:
         self, valid_event_kwargs: dict[str, object]
     ) -> None:
         event = ModelLLMCallCompletedEvent(**valid_event_kwargs)  # type: ignore[arg-type]
-        assert event.usage_source == "ESTIMATED"
+        assert event.usage_source == EnumUsageSource.ESTIMATED
 
     def test_usage_source_accepts_valid_values(
         self, valid_event_kwargs: dict[str, object]
     ) -> None:
-        for source in ("API", "ESTIMATED", "MISSING"):
+        for source, expected in (
+            ("API", EnumUsageSource.MEASURED),
+            ("estimated", EnumUsageSource.ESTIMATED),
+            ("MISSING", EnumUsageSource.UNKNOWN),
+        ):
             event = ModelLLMCallCompletedEvent(
                 **{**valid_event_kwargs, "usage_source": source}
             )  # type: ignore[arg-type]
-            assert event.usage_source == source
+            assert event.usage_source == expected
 
     def test_usage_source_rejects_invalid_value(
         self, valid_event_kwargs: dict[str, object]
@@ -150,6 +155,10 @@ class TestModelLLMCallCompletedEventSerialization:
             "session_id",
             "repo_name",
             "machine_id",
+            "gpu_seconds",
+            "gpu_type",
+            "gpu_count",
+            "compute_usage_source",
             "emitted_at",
         }
     )
