@@ -543,6 +543,28 @@ OMN-2622: Carries both produced and skipped outcomes via feedback_status field.
 Reference: OMN-2622, OMN-2366
 """
 
+TOPIC_OMNICLAUDE_DISPATCH_WORKER_COMPLETED_V1: str = (
+    "onex.evt.omniclaude.dispatch_worker-completed.v1"
+)
+"""Canonical subscribe topic for dispatch worker completion events from omniclaude.
+
+Consumed by NodeDispatchOutcomeEvalEffect to normalize worker outcomes into
+dispatch-outcome-evaluated events.
+
+Reference: OMN-10380
+"""
+
+TOPIC_DISPATCH_OUTCOME_EVALUATED_V1: str = (
+    "onex.evt.omniintelligence.dispatch-outcome-evaluated.v1"
+)
+"""Canonical topic for dispatch outcome evaluated events (OUTPUT).
+
+NodeDispatchOutcomeEvalEffect publishes normalized PASS/FAIL/ERROR verdicts
+derived from omniclaude dispatch worker completions.
+
+Reference: OMN-10380
+"""
+
 TOPIC_GMAIL_INTENT_EVALUATED_V1: str = (
     "onex.evt.omniintelligence.gmail-intent-evaluated.v1"
 )
@@ -622,6 +644,7 @@ __all__ = [
     "TOPIC_CONTEXT_UTILIZATION_EVT_V1",
     "TOPIC_DECISION_RECORDED_CMD_V1",
     "TOPIC_DECISION_RECORDED_EVT_V1",
+    "TOPIC_DISPATCH_OUTCOME_EVALUATED_V1",
     "TOPIC_EPISODE_BOUNDARY_V1",
     "TOPIC_LLM_ROUTING_DECISION_PROCESSED",
     "TOPIC_OPERATION_COMPLETED_V1",
@@ -634,6 +657,7 @@ __all__ = [
     "TOPIC_GMAIL_INTENT_EVALUATED_V1",
     "TOPIC_GMAIL_INTENT_SURFACED_V1",
     "TOPIC_LEGACY_ROUTING_FEEDBACK_BARE",
+    "TOPIC_OMNICLAUDE_DISPATCH_WORKER_COMPLETED_V1",
     "TOPIC_OMNICLAUDE_ROUTING_FEEDBACK_V1",
     "TOPIC_QUALITY_ASSESSMENT_CMD_V1",
     "TOPIC_QUALITY_ASSESSMENT_COMPLETED_V1",
