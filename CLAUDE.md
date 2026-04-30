@@ -6,13 +6,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-OmniIntelligence is the intelligence platform for the ONEX ecosystem, providing code quality analysis, pattern learning, semantic analysis, and Claude Code hook processing as first-class ONEX nodes. The system follows declarative node architecture where nodes are thin shells delegating all logic to handlers.
+OmniIntelligence is the intelligence platform for the ONEX ecosystem. It provides 59 first-class ONEX nodes covering pattern learning, code quality analysis, evaluation, intent classification, document analysis, CI failure tracking, bloom evaluation, and Claude Code hook processing. All nodes follow the ONEX Four-Node Architecture (Effect / Compute / Reducer / Orchestrator) and delegate all business logic to handler modules.
 
 **Key Capabilities**:
-- **Claude Code Hook Processing**: Receives and processes hook events from omniclaude
-- **Pattern Learning**: ML-based pattern extraction, clustering, and lifecycle management
+- **Claude Code Hook Processing**: Receives and processes `UserPromptSubmit` and `Stop` hook events from omniclaude
+- **Pattern Learning**: ML-based pattern extraction, clustering, promotion, and lifecycle management
 - **Quality Scoring**: Code quality assessment with ONEX compliance checking
 - **Intent Classification**: User prompt intent analysis (pure computation, pattern matching)
+- **Document Analysis**: Ingestion, parsing, retrieval, staleness detection
+- **Bloom Evaluation**: Plan multi-model review orchestration
+- **CI Tracking**: CI failure classification, fingerprinting, and error tracking
 
 > **Note**: Vector storage and graph operations (Qdrant, Memgraph) are handled by the `omnimemory` repository.
 
@@ -61,27 +64,23 @@ uv sync --group dev        # Development dependencies
 uv sync --group core       # Core node system + infrastructure
 uv sync --group all        # Everything
 
-# Run tests
-pytest                     # All tests
-pytest tests/unit          # Unit tests only
-pytest tests/integration   # Integration tests (requires infrastructure)
-pytest -k "test_name"      # Single test by name
-pytest -m unit             # Only @pytest.mark.unit tests
-pytest -m "not slow"       # Exclude slow tests
-pytest -m audit            # I/O audit tests only
-pytest --cov=src/omniintelligence --cov-report=html  # With coverage
+# Run tests (always prefix with uv run)
+uv run pytest tests/ -v                     # Full suite — required before any PR
+uv run pytest tests/ -v -m unit             # Unit tests only
+uv run pytest tests/ -v -m integration      # Integration tests (requires Postgres + Kafka on .201)
+uv run pytest tests/ -v -m audit            # I/O purity enforcement (AST checks)
+uv run pytest tests/ -v -m "not slow"       # Exclude slow tests
+uv run pytest tests/ --cov=src/omniintelligence --cov-report=html  # With coverage
 
 # Code quality
-ruff check src tests       # Lint (includes import sorting)
-ruff check --fix src tests # Auto-fix lint issues
-ruff format src tests      # Format code
-mypy src                   # Type check
+uv run ruff format src/ tests/     # Format code
+uv run ruff check --fix src/ tests/ # Lint and auto-fix
+uv run mypy src/                   # Type check (--strict target)
+
+# Pre-commit (run before staging)
+pre-commit run --all-files
 
 # Review calibration CLI
-uv run python -m omniintelligence.review_pairing.cli_calibration \
-  --file plan.md --ground-truth codex --challenger deepseek-r1
-
-# Short form (via __main__.py)
 uv run python -m omniintelligence.review_pairing \
   --file plan.md --ground-truth codex --challenger deepseek-r1
 ```
@@ -113,32 +112,23 @@ The system decomposes intelligence operations into specialized ONEX nodes:
 
 **Directory naming is MANDATORY**: All node directories MUST start with `node_` prefix for consistency.
 
-### Complete Node Inventory
+### Node Inventory
 
-**Orchestrators**:
-- `NodeIntelligenceOrchestrator` - Main workflow coordination (contract-driven)
-- `NodePatternAssemblerOrchestrator` - Pattern assembly from traces
+59 nodes registered in `pyproject.toml [project.entry-points."onex.nodes"]`. For the full list see [docs/reference/NODE_INVENTORY.md](docs/reference/NODE_INVENTORY.md).
 
-**Reducer**:
-- `NodeIntelligenceReducer` - Unified FSM handler (ingestion, pattern_learning, quality_assessment)
+Key nodes referenced in this file:
 
-**Compute Nodes**:
-- `NodeQualityScoringCompute` - Code quality scoring with ONEX compliance
-- `NodeSemanticAnalysisCompute` - Semantic code analysis
-- `NodePatternExtractionCompute` - Extract patterns from code
-- `NodePatternLearningCompute` - ML pattern learning pipeline
-- `NodePatternMatchingCompute` - Match patterns against code
-- `NodeIntentClassifierCompute` - User prompt intent classification
-- `NodeExecutionTraceParserCompute` - Parse execution traces
-- `NodeSuccessCriteriaMatcherCompute` - Match success criteria
-
-**Effect Nodes**:
-- `NodeClaudeHookEventEffect` - Process Claude Code hook events
-- `NodePatternStorageEffect` - Persist patterns to PostgreSQL
-- `NodePatternPromotionEffect` - Promote patterns (provisional → validated)
-- `NodePatternDemotionEffect` - Demote patterns (validated → deprecated)
-- `NodePatternFeedbackEffect` - Record session outcomes and metrics
-- `NodePatternLifecycleEffect` - Atomic pattern lifecycle transitions with audit trail
+| Node | Type | Purpose |
+|------|------|---------|
+| `NodeQualityScoringCompute` | Compute | Code quality scoring with ONEX compliance |
+| `NodeIntentClassifierCompute` | Compute | User prompt intent classification |
+| `NodeClaudeHookEventEffect` | Effect | Process Claude Code hook events |
+| `NodePatternStorageEffect` | Effect | Persist patterns to PostgreSQL |
+| `NodePatternPromotionEffect` | Effect | Promote patterns (provisional → validated) |
+| `NodePatternLifecycleEffect` | Effect | Atomic lifecycle transitions with audit trail |
+| `NodePatternLearningEffect` | Effect | Pattern extraction pipeline (contract-only) |
+| `NodeIntelligenceOrchestrator` | Orchestrator | Main workflow coordination |
+| `NodeIntelligenceReducer` | Reducer | Unified FSM handler |
 
 ---
 
@@ -151,7 +141,7 @@ The system decomposes intelligence operations into specialized ONEX nodes:
 
 ### Ideal Pattern: Thin Shell Compute Node
 
-**File**: `nodes/node_quality_scoring_compute/node.py` (~22 lines)
+**File**: `src/omniintelligence/nodes/node_quality_scoring_compute/node.py` (~22 lines)
 
 ```python
 """Quality Scoring Compute Node - Thin shell delegating to handler."""
@@ -178,7 +168,7 @@ class NodeQualityScoringCompute(
 
 ### Effect Node with Handler Injection
 
-**File**: `nodes/node_claude_hook_event_effect/node.py` (~35 lines)
+**File**: `src/omniintelligence/nodes/node_claude_hook_event_effect/node.py` (~35 lines)
 
 ```python
 class NodeClaudeHookEventEffect(NodeEffect):
@@ -201,7 +191,7 @@ class NodeClaudeHookEventEffect(NodeEffect):
 
 ### Effect Node with Registry Pattern
 
-**File**: `nodes/node_pattern_promotion_effect/node.py` (~40 lines)
+**File**: `src/omniintelligence/nodes/node_pattern_promotion_effect/node.py` (~40 lines)
 
 ```python
 class NodePatternPromotionEffect(NodeEffect):
@@ -254,7 +244,7 @@ These rules are **mechanically enforced**, not just documented:
 | No `try/except` in node.py | `tests/audit/test_io_violations.py` | AST analysis |
 | Protocol conformance | `node_tests/conftest.py` | `isinstance()` checks |
 
-Run enforcement: `pytest -m audit`
+Run enforcement: `uv run pytest tests/ -v -m audit`
 
 ### Where Logic Belongs
 
@@ -275,7 +265,7 @@ Handlers contain ALL business logic, error handling, and logging. Three patterns
 ### Pattern 1: Pure Module-Level Functions (Compute Nodes)
 
 ```python
-# handlers/handler_quality_scoring.py
+# src/omniintelligence/nodes/node_quality_scoring_compute/handlers/handler_quality_scoring.py
 def score_code_quality(
     content: str,
     language: str,
@@ -290,7 +280,7 @@ def score_code_quality(
 ### Pattern 2: Async Functions with Protocol Deps (Effect Nodes)
 
 ```python
-# handlers/handler_store_pattern.py
+# src/omniintelligence/nodes/node_pattern_storage_effect/handlers/handler_store_pattern.py
 async def handle_store_pattern(
     input_data: ModelPatternStorageInput,
     *,
@@ -360,7 +350,7 @@ def handle_quality_scoring_compute(
 ### Handler Directory Structure
 
 ```
-nodes/node_quality_scoring_compute/
+src/omniintelligence/nodes/node_quality_scoring_compute/
 ├── node.py                     # Thin shell (~20-40 lines)
 ├── models/
 │   ├── model_input.py
@@ -385,11 +375,11 @@ OmniIntelligence processes Claude Code hooks via `NodeClaudeHookEventEffect`.
 | Hook Type | Handler | Status | Purpose |
 |-----------|---------|--------|---------|
 | `UserPromptSubmit` | `handle_user_prompt_submit()` | **ACTIVE** | Classify user intent, emit to Kafka |
+| `Stop` | `handle_stop()` | **ACTIVE** | Trigger pattern extraction, emit to `pattern-learning.v1` |
 | `SessionStart` | `handle_no_op()` | DEFERRED | Session tracking |
 | `SessionEnd` | `handle_no_op()` | DEFERRED | Session summary |
 | `PreToolUse` | `handle_no_op()` | DEFERRED | Tool validation |
 | `PostToolUse` | `handle_no_op()` | DEFERRED | Result capture |
-| `Stop` | `handle_no_op()` | DEFERRED | Completion tracking |
 | `Notification` | `handle_no_op()` | IGNORED | No current use case |
 
 **Status Legend**:
@@ -412,6 +402,8 @@ NodeClaudeHookEventEffect
   │     ├── UserPromptSubmit → handle_user_prompt_submit()
   │     │     ├── Call NodeIntentClassifierCompute
   │     │     └── Emit to Kafka (intent-classified.v1)
+  │     ├── Stop → handle_stop()
+  │     │     └── Emit to Kafka (pattern-learning.v1)
   │     └── Other events → handle_no_op()
        │
        ▼
@@ -430,21 +422,19 @@ omnimemory (Graph Storage)
 - `kind=cmd` for commands/inputs
 - `kind=evt` for events/outputs
 
-**Subscribed Topics** (consumed by this system):
+**Source of truth**: [docs/reference/EVENT_SURFACE.md](docs/reference/EVENT_SURFACE.md) — generated from contract YAML files; do not maintain topic lists here.
 
-| Topic | Subscriber Node | Purpose |
-|-------|----------------|---------|
-| `onex.cmd.omniintelligence.claude-hook-event.v1` | `NodeClaudeHookEventEffect` | Claude Code hooks |
-| `onex.cmd.omniintelligence.pattern-lifecycle-transition.v1` | `NodePatternLifecycleEffect` | Pattern lifecycle transition intents from reducer |
+Key topics for quick reference (see EVENT_SURFACE.md for the full list):
 
-**Published Topics** (produced by this system):
-
-| Topic | Publisher Node | Purpose |
-|-------|---------------|---------|
-| `onex.evt.omniintelligence.intent-classified.v1` | `NodeClaudeHookEventEffect` | Classified intents |
-| `onex.evt.omniintelligence.pattern-stored.v1` | `NodePatternStorageEffect` | Pattern storage confirmations |
-| `onex.evt.omniintelligence.pattern-promoted.v1` | `NodePatternPromotionEffect` | Pattern promotions |
-| `onex.evt.omniintelligence.pattern-deprecated.v1` | `NodePatternDemotionEffect` | Pattern demotions |
+| Topic | Direction | Key Node |
+|-------|-----------|----------|
+| `onex.cmd.omniintelligence.claude-hook-event.v1` | Consumed | `NodeClaudeHookEventEffect` |
+| `onex.cmd.omniintelligence.pattern-learning.v1` | Consumed | `NodePatternLearningEffect`, `NodeIntelligenceOrchestrator` |
+| `onex.cmd.omniintelligence.pattern-lifecycle-transition.v1` | Consumed | `NodePatternLifecycleEffect` |
+| `onex.evt.omniintelligence.intent-classified.v1` | Published | `NodeClaudeHookEventEffect` |
+| `onex.evt.omniintelligence.pattern-learned.v1` | Published | `NodePatternLearningEffect` |
+| `onex.evt.omniintelligence.pattern-stored.v1` | Published | `NodePatternStorageEffect` |
+| `onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1` | Published | `NodePatternLifecycleEffect` |
 
 ### DLQ (Dead Letter Queue) Pattern
 
@@ -790,6 +780,11 @@ tests/
 │       └── {node}/handlers/ # Handler tests
 └── integration/             # Integration tests
     └── nodes/               # Node integration tests
+```
+
+### Subscribed Topics (test reference)
+
+See [docs/reference/EVENT_SURFACE.md](docs/reference/EVENT_SURFACE.md) for the authoritative list. Key topics for test setup:
 
 | Topic | Consumed By |
 |-------|-------------|
@@ -802,7 +797,7 @@ tests/
 | `onex.cmd.omniintelligence.session-outcome.v1` | `NodePatternFeedbackEffect` |
 | `onex.cmd.omniintelligence.pattern-lifecycle-transition.v1` | `NodePatternLifecycleEffect` |
 | `onex.evt.omniintelligence.pattern-learned.v1` | `NodePatternStorageEffect` |
-| `onex.evt.pattern.discovered.v1` | `NodePatternStorageEffect` (producer segment intentionally omitted — multi-producer domain event from external systems, e.g. omniclaude) |
+| `onex.evt.pattern.discovered.v1` | `NodePatternStorageEffect` (multi-producer domain event; producer segment intentionally omitted) |
 
 ### Published Topics (outputs)
 
@@ -972,11 +967,11 @@ tests/
 ### pytest Markers
 
 ```bash
-pytest -m unit          # Unit tests only
-pytest -m integration   # Integration tests
-pytest -m slow          # Slow tests
-pytest -m audit         # I/O audit enforcement
-pytest -m performance   # Performance benchmarks
+uv run pytest tests/ -v -m unit          # Unit tests only
+uv run pytest tests/ -v -m integration   # Integration tests
+uv run pytest tests/ -v -m slow          # Slow tests
+uv run pytest tests/ -v -m audit         # I/O audit enforcement
+uv run pytest tests/ -v -m performance   # Performance benchmarks
 ```
 
 ### Protocol Mock Pattern
