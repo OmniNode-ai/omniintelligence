@@ -50,28 +50,33 @@ def _source_payload_hash(event: ModelInput) -> str:
     return hashlib.sha256(serialized_payload.encode("utf-8")).hexdigest()
 
 
-def _language_for_artifact(artifact_path: str) -> str:
+def _language_for_artifact(artifact_path: str) -> str | None:
     """Infer the quality-scoring language from a dispatch artifact path."""
     suffix = Path(artifact_path).suffix.lower()
     if suffix == ".py":
         return "python"
-    if suffix in {".ts", ".tsx"}:
-        return "typescript"
-    if suffix in {".js", ".jsx"}:
-        return "javascript"
-    return "python"
+    return None
 
 
-def _compute_quality_score(artifact_path: str) -> float:
+def _compute_quality_score(artifact_path: str) -> float | None:
     """Invoke node_quality_scoring_compute for a dispatch artifact."""
     artifact = Path(artifact_path)
-    scoring_result = handle_quality_scoring_compute(
-        ModelQualityScoringInput(
-            source_path=artifact_path,
-            content=artifact.read_text(encoding="utf-8"),
-            language=_language_for_artifact(artifact_path),
+    language = _language_for_artifact(artifact_path)
+    if language is None:
+        return None
+
+    try:
+        content = artifact.read_text(encoding="utf-8")
+        scoring_result = handle_quality_scoring_compute(
+            ModelQualityScoringInput(
+                source_path=artifact_path,
+                content=content,
+                language=language,
+            )
         )
-    )
+    except (OSError, RuntimeError):
+        return None
+
     return float(scoring_result.quality_score)
 
 
