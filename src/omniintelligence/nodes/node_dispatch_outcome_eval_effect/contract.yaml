@@ -28,10 +28,11 @@ node_version:
 node_type: "EFFECT_GENERIC"
 
 description: >
-  Effect node skeleton for evaluating omniclaude dispatch worker outcomes. Consumes onex.evt.omniclaude.dispatch_worker-completed.v1
-  events, maps terminal dispatch status to PASS/FAIL/ERROR verdicts, carries cost and model-call usage
-  fields forward, and publishes onex.evt.omniintelligence.dispatch-outcome-evaluated.v1. OMN-10380 only
-  scaffolds the contract and handler path; scoring and database writes are intentionally deferred. #magic___^_^___line
+  Effect node for evaluating omniclaude dispatch worker outcomes. Consumes onex.evt.omniclaude.dispatch_worker-completed.v1
+  events, maps terminal dispatch status to PASS/FAIL/ERROR verdicts, invokes node_quality_scoring_compute
+  when an artifact path is available, carries cost and model-call usage fields forward, and publishes
+  onex.evt.omniintelligence.dispatch-outcome-evaluated.v1. Database writes and downstream projections
+  are intentionally out of scope here. #magic___^_^___line
 input_model:
   name: "ModelInput"
   module: "omniintelligence.nodes.node_dispatch_outcome_eval_effect.models"
@@ -115,9 +116,21 @@ event_bus:
       description: "Normalized dispatch outcome evaluation events."
       content_type: "application/json"
 
+dependencies:
+  - name: "node_quality_scoring_compute"
+    type: "node"
+    class_name: "NodeQualityScoringCompute"
+    module: "omniintelligence.nodes.node_quality_scoring_compute"
+    description: "In-process compute dependency used to score dispatch artifacts when artifact_path is
+      present."
+    required: true
+
 capabilities:
   - name: "dispatch_outcome_evaluation"
     description: "Map dispatch worker terminal statuses to normalized verdicts."
+  - name: "artifact_quality_scoring"
+    description: "Invoke node_quality_scoring_compute for dispatch artifacts and propagate the numeric
+      quality_score."
   - name: "usage_passthrough"
     description: "Carry model call and cost usage fields into the evaluation event."
 
@@ -130,4 +143,4 @@ idempotency:
 metadata:
   author: "OmniNode Team"
   license: "MIT"
-  ticket: "OMN-10380"
+  ticket: "OMN-10385"

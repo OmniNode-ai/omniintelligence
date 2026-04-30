@@ -21,13 +21,13 @@ from omniintelligence.nodes.node_dispatch_outcome_eval_effect.models import Mode
 pytestmark = pytest.mark.unit
 
 
-def _make_event(status: str) -> ModelInput:
+def _make_event(status: str, artifact_path: str | None = None) -> ModelInput:
     return ModelInput(
         task_id="task-123",
         dispatch_id="dispatch-456",
         ticket_id="OMN-10380",
         status=status,
-        artifact_path="/tmp/dispatch-artifact.json",
+        artifact_path=artifact_path,
         model_calls=2,
         token_cost=1000,
         dollars_cost=0.25,
@@ -53,7 +53,7 @@ async def test_handler_routes_terminal_status_to_verdict(
     status: str,
     expected_verdict: str,
 ) -> None:
-    """Skeleton handler maps terminal dispatch statuses to verdicts."""
+    """Handler maps terminal dispatch statuses to verdicts."""
     event = _make_event(status)
 
     result = await handle_dispatch_outcome(event)

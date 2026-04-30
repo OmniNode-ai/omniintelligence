@@ -9,6 +9,7 @@ import hashlib
 import json
 import time
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Final, Literal
 
 from omniintelligence.constants import (
@@ -18,6 +19,12 @@ from omniintelligence.constants import (
 from omniintelligence.nodes.node_dispatch_outcome_eval_effect.models import (
     ModelInput,
     ModelOutput,
+)
+from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
+    handle_quality_scoring_compute,
+)
+from omniintelligence.nodes.node_quality_scoring_compute.models import (
+    ModelQualityScoringInput,
 )
 
 SUBSCRIBE_TOPIC: Final[str] = TOPIC_OMNICLAUDE_DISPATCH_WORKER_COMPLETED_V1
@@ -43,20 +50,56 @@ def _source_payload_hash(event: ModelInput) -> str:
     return hashlib.sha256(serialized_payload.encode("utf-8")).hexdigest()
 
 
+def _language_for_artifact(artifact_path: str) -> str | None:
+    """Infer the quality-scoring language from a dispatch artifact path."""
+    suffix = Path(artifact_path).suffix.lower()
+    if suffix == ".py":
+        return "python"
+    return None
+
+
+def _compute_quality_score(artifact_path: str) -> float | None:
+    """Invoke node_quality_scoring_compute for a dispatch artifact."""
+    artifact = Path(artifact_path)
+    language = _language_for_artifact(artifact_path)
+    if language is None:
+        return None
+
+    try:
+        content = artifact.read_text(encoding="utf-8")
+        scoring_result = handle_quality_scoring_compute(
+            ModelQualityScoringInput(
+                source_path=artifact_path,
+                content=content,
+                language=language,
+            )
+        )
+    except (OSError, RuntimeError):
+        return None
+
+    return float(scoring_result.quality_score)
+
+
 async def handle_dispatch_outcome(event: ModelInput) -> ModelOutput:
     """Evaluate a dispatch worker completion event.
 
-    OMN-10380 is intentionally a skeleton: no scoring, database write, or Kafka
-    publish occurs here yet. The handler only normalizes status to a verdict and
-    carries source usage fields forward.
+    The handler normalizes dispatch status to a verdict, carries source usage
+    fields forward, and invokes quality scoring when a dispatch artifact exists.
+    Database writes and downstream projection publishing are intentionally out
+    of scope here.
     """
     started_at = time.perf_counter()
     evaluated_at = datetime.now(UTC)
+    quality_score = (
+        _compute_quality_score(event.artifact_path)
+        if event.artifact_path is not None
+        else None
+    )
     eval_latency_ms = int((time.perf_counter() - started_at) * 1000)
 
     return ModelOutput(
         verdict=_verdict_for_status(event.status),
-        quality_score=None,
+        quality_score=quality_score,
         token_cost=event.token_cost,
         dollars_cost=event.dollars_cost,
         model_calls=event.model_calls,

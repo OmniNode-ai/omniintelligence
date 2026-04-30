@@ -37,7 +37,7 @@ def test_contract_loads() -> None:
 
 
 def test_contract_declares_dispatch_topics_and_handler() -> None:
-    """Contract subscribes to dispatch completions and routes to the skeleton handler."""
+    """Contract subscribes to dispatch completions and routes to the handler."""
     contract = yaml.safe_load(CONTRACT_PATH.read_text(encoding="utf-8"))
 
     assert contract["event_bus"]["subscribe_topics"] == [
@@ -52,3 +52,22 @@ def test_contract_declares_dispatch_topics_and_handler() -> None:
         "module": "omniintelligence.nodes.node_dispatch_outcome_eval_effect.handlers.handler_dispatch_outcome",
         "type": "async",
     }
+
+
+def test_contract_declares_quality_scoring_dependency() -> None:
+    """Contract declares in-process quality scoring compute dependency."""
+    contract = yaml.safe_load(CONTRACT_PATH.read_text(encoding="utf-8"))
+
+    assert contract["dependencies"] == [
+        {
+            "name": "node_quality_scoring_compute",
+            "type": "node",
+            "class_name": "NodeQualityScoringCompute",
+            "module": "omniintelligence.nodes.node_quality_scoring_compute",
+            "description": (
+                "In-process compute dependency used to score dispatch artifacts when "
+                "artifact_path is present."
+            ),
+            "required": True,
+        }
+    ]
