@@ -10,6 +10,9 @@ effect node, which records session outcomes and updates pattern metrics.
 from omniintelligence.nodes.node_pattern_feedback_effect.models.enum_outcome_recording_status import (
     EnumOutcomeRecordingStatus,
 )
+from omniintelligence.nodes.node_pattern_feedback_effect.models.model_dispatch_outcome_result import (
+    ModelDispatchOutcomeResult,
+)
 from omniintelligence.nodes.node_pattern_feedback_effect.models.model_input import (
     ClaudeCodeSessionOutcome,
     ClaudeSessionOutcome,
@@ -25,6 +28,7 @@ __all__ = [
     "ClaudeSessionOutcome",
     # Output models
     "EnumOutcomeRecordingStatus",
+    "ModelDispatchOutcomeResult",
     "ModelSessionOutcomeResult",
     "SessionOutcomeInput",
 ]
