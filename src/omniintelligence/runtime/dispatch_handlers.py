@@ -2388,12 +2388,24 @@ def create_intelligence_dispatch_engine(
         )
 
     # --- Handler 8: crawl-requested (OMN-2384) ---
+    from omniintelligence.nodes.node_crawl_scheduler_effect.registry.registry_crawl_scheduler_effect import (
+        RegistryCrawlSchedulerEffect,
+    )
     from omniintelligence.runtime.dispatch_handler_crawl_scheduler import (
         DISPATCH_ALIAS_CRAWL_REQUESTED,
         DISPATCH_ALIAS_DOCUMENT_INDEXED,
         create_crawl_requested_dispatch_handler,
         create_document_indexed_dispatch_handler,
     )
+
+    if kafka_producer is not None:
+        RegistryCrawlSchedulerEffect.register_publisher(kafka_producer)
+    else:
+        logger.warning(
+            "Intelligence dispatch engine: no kafka_producer available, "
+            "crawl scheduler will emit ERROR status for crawl-tick events "
+            "(OMN-7609)."
+        )
 
     crawl_requested_handler = create_crawl_requested_dispatch_handler()
     engine.register_handler(
