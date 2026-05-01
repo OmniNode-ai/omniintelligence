@@ -19,11 +19,11 @@ contract_name: "node_pattern_feedback_effect"
 node_name: "node_pattern_feedback_effect"
 contract_version:
   major: 1
-  minor: 1
+  minor: 2
   patch: 0
 node_version:
   major: 1
-  minor: 1
+  minor: 2
   patch: 0
 
 # Node type
@@ -171,6 +171,7 @@ event_bus:
 
   subscribe_topics:
     - "onex.cmd.omniintelligence.session-outcome.v1"
+    - "onex.evt.omniintelligence.dispatch-outcome-evaluated.v1"
 
   publish_topics:
     - "onex.cmd.omniintelligence.quality-assessment.v1"
@@ -187,6 +188,12 @@ event_bus:
         repo: "omniclaude"
         module: "omniclaude.hooks.handler_event_emitter"
         topic_constant: "TopicBase.SESSION_OUTCOME_CMD"
+    "onex.evt.omniintelligence.dispatch-outcome-evaluated.v1":
+      schema_ref: "omniintelligence.nodes.node_dispatch_outcome_eval_effect.models.ModelOutput"
+      description: "Dispatch worker outcome evaluations from NodeDispatchOutcomeEvalEffect."
+      internal_publisher:
+        node: "node_dispatch_outcome_eval_effect"
+        topic_constant: "TopicBase.DISPATCH_OUTCOME_EVALUATED"
 
 # =============================================================================
 # CAPABILITIES
