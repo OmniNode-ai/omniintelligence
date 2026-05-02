@@ -19,11 +19,11 @@ contract_name: "node_pattern_feedback_effect"
 node_name: "node_pattern_feedback_effect"
 contract_version:
   major: 1
-  minor: 2
+  minor: 3
   patch: 0
 node_version:
   major: 1
-  minor: 2
+  minor: 3
   patch: 0
 
 # Node type
@@ -86,6 +86,20 @@ handler_routing:
         - effectiveness_scores
         - recorded_at
         - error_message
+    - operation: "record_dispatch_outcome"
+      handler:
+        function: "record_dispatch_outcome"
+        module: "omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_dispatch_outcome"
+        type: "async"
+      description: "Record per-task dispatch evaluation outcomes without mutating session outcome state"
+      output_fields:
+        - status
+        - task_id
+        - dispatch_id
+        - ticket_id
+        - rows_updated
+        - recorded_at
+        - error_message
 
 # =============================================================================
 # IO OPERATIONS
@@ -106,6 +120,29 @@ io_operations:
       - patterns_updated
       - pattern_ids
       - effectiveness_scores
+      - recorded_at
+      - error_message
+  - operation: "record_dispatch_outcome"
+    description: "UPSERT a dispatch evaluation result into dispatch_eval_results keyed by task_id and
+      dispatch_id"
+    input_fields:
+      - task_id
+      - dispatch_id
+      - ticket_id
+      - verdict
+      - quality_score
+      - token_cost
+      - dollars_cost
+      - cost_provenance
+      - model_calls
+      - evaluated_at
+      - eval_latency_ms
+    output_fields:
+      - status
+      - task_id
+      - dispatch_id
+      - ticket_id
+      - rows_updated
       - recorded_at
       - error_message
 
@@ -207,6 +244,8 @@ capabilities:
     description: "Recompute pattern effectiveness scores (quality_score) from rolling metrics"
   - name: "session_outcome"
     description: "Record and track session success/failure outcomes"
+  - name: "dispatch_outcome"
+    description: "Record per-task dispatch evaluation outcomes keyed by task_id and dispatch_id"
 
 # =============================================================================
 # IDEMPOTENCY
@@ -218,6 +257,19 @@ idempotency:
   description: "Each session outcome event is uniquely identified by session_id and outcome. Re-processing
     the same session outcome is idempotent - injections already marked as outcome_recorded are skipped,
     preventing duplicate metric updates."
+
+effect_invariants:
+  - name: "dispatch_eval_result_dedupe"
+    operation: "record_dispatch_outcome"
+    dedupe_key:
+      - "task_id"
+      - "dispatch_id"
+    description: "Dispatch outcome replay is idempotent through ON CONFLICT (task_id, dispatch_id) DO
+      UPDATE."
+  - name: "session_outcome_path_unchanged"
+    operation: "record_dispatch_outcome"
+    description: "Dispatch-level recording writes only dispatch_eval_results and does not overwrite session-level
+      pattern_injections outcome columns."
 
 # =============================================================================
 # METADATA
