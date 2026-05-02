@@ -198,14 +198,20 @@ async def _call_claude_api(
     user_prompt: str,
     config: ModelEndpointConfig,
 ) -> str:
-    """Call the Anthropic Claude API for api_fallback models. Requires ANTHROPIC_API_KEY."""
+    """Call the Anthropic Claude API for api_fallback models.
+
+    Per OMN-7835, ANTHROPIC_API_KEY is optional — Claude Code uses OAuth.
+    If no key is available, this fallback is skipped (returns empty string).
+    """
     import urllib.request as _urlreq
 
     api_key = os.environ.get("ANTHROPIC_API_KEY", "")
     if not api_key:
-        raise RuntimeError(
-            "claude-api fallback requires ANTHROPIC_API_KEY environment variable"
+        logger.warning(
+            "claude-api fallback skipped: ANTHROPIC_API_KEY not set "
+            "(OAuth/SSO is the primary auth path per OMN-7835)"
         )
+        return ""
     payload = json.dumps(
         {
             "model": config.api_model_id or "claude-sonnet-4-6",
