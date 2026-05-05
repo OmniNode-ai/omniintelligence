@@ -441,8 +441,8 @@ class TestCreateIntelligenceDispatchEngine:
             intent_classifier=mock_intent_classifier,
         )
         assert (
-            engine.handler_count == 30
-        )  # 22 baseline + 5 cmd topic handlers (OMN-6979) + 3 added in subsequent tickets
+            engine.handler_count == 28
+        )  # 22 baseline + 5 cmd topic handlers (OMN-6979) + 1 added in subsequent tickets
 
     def test_engine_has_expected_routes(
         self,
@@ -457,8 +457,8 @@ class TestCreateIntelligenceDispatchEngine:
             intent_classifier=mock_intent_classifier,
         )
         assert (
-            engine.route_count == 37
-        )  # 29 baseline + 5 cmd topic routes (OMN-6979) + 3 added in subsequent tickets
+            engine.route_count == 35
+        )  # 29 baseline + 5 cmd topic routes (OMN-6979) + 1 added in subsequent tickets
 
 
 # =============================================================================
@@ -2777,3 +2777,131 @@ class TestComplianceEvaluateDispatchHandler:
         mock_handle.assert_called_once()
         call_kwargs = mock_handle.call_args.kwargs
         assert call_kwargs["llm_client"] is mock_llm_client
+
+
+# =============================================================================
+# Tests: Crawl Scheduler Producer Wiring (OMN-7609)
+# =============================================================================
+
+
+class TestCrawlSchedulerProducerWiring:
+    """Verify that create_intelligence_dispatch_engine registers the Kafka
+    producer with RegistryCrawlSchedulerEffect so crawl-tick events can be
+    forwarded (OMN-7609).
+
+    Before the fix, the dispatch engine created crawl-requested and
+    document-indexed handlers but never called
+    RegistryCrawlSchedulerEffect.register_publisher(), so the bridge
+    handlers always saw get_publisher() returning None.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _clear_crawl_registry(self) -> None:
+        from omniintelligence.nodes.node_crawl_scheduler_effect.registry.registry_crawl_scheduler_effect import (
+            RegistryCrawlSchedulerEffect,
+        )
+
+        RegistryCrawlSchedulerEffect.clear()
+        yield
+        RegistryCrawlSchedulerEffect.clear()
+
+    def test_publisher_registered_when_provided(
+        self,
+        mock_repository: MagicMock,
+        mock_idempotency_store: MagicMock,
+        mock_intent_classifier: MagicMock,
+    ) -> None:
+        from omniintelligence.nodes.node_crawl_scheduler_effect.registry.registry_crawl_scheduler_effect import (
+            RegistryCrawlSchedulerEffect,
+        )
+
+        mock_publisher = MagicMock()
+        mock_publisher.publish = AsyncMock()
+
+        create_intelligence_dispatch_engine(
+            repository=mock_repository,
+            idempotency_store=mock_idempotency_store,
+            intent_classifier=mock_intent_classifier,
+            kafka_producer=mock_publisher,
+        )
+
+        assert RegistryCrawlSchedulerEffect.get_publisher() is mock_publisher
+
+    def test_publisher_not_registered_when_none(
+        self,
+        mock_repository: MagicMock,
+        mock_idempotency_store: MagicMock,
+        mock_intent_classifier: MagicMock,
+    ) -> None:
+        from omniintelligence.nodes.node_crawl_scheduler_effect.registry.registry_crawl_scheduler_effect import (
+            RegistryCrawlSchedulerEffect,
+        )
+
+        create_intelligence_dispatch_engine(
+            repository=mock_repository,
+            idempotency_store=mock_idempotency_store,
+            intent_classifier=mock_intent_classifier,
+            kafka_producer=None,
+        )
+
+        assert RegistryCrawlSchedulerEffect.get_publisher() is None
+
+    @pytest.mark.asyncio
+    async def test_crawl_requested_handler_emits_tick_event(
+        self,
+        mock_repository: MagicMock,
+        mock_idempotency_store: MagicMock,
+        mock_intent_classifier: MagicMock,
+    ) -> None:
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        from omniintelligence.runtime.dispatch_handler_crawl_scheduler import (
+            create_crawl_requested_dispatch_handler,
+        )
+
+        mock_publisher = MagicMock()
+        mock_publisher.publish = AsyncMock()
+
+        create_intelligence_dispatch_engine(
+            repository=mock_repository,
+            idempotency_store=mock_idempotency_store,
+            intent_classifier=mock_intent_classifier,
+            kafka_producer=mock_publisher,
+        )
+
+        handler = create_crawl_requested_dispatch_handler()
+
+        payload = {
+            "crawl_type": "filesystem",
+            "crawl_scope": "test-scope",
+            "source_ref": "/tmp/test-source",
+            "correlation_id": str(uuid4()),
+            "requested_at_utc": "2026-02-20T12:00:00+00:00",
+            "trigger_source": "manual",
+        }
+
+        envelope = ModelEventEnvelope(
+            payload=payload,
+            correlation_id=uuid4(),
+            metadata=ModelEnvelopeMetadata(
+                tags={"message_category": "command"},
+            ),
+        )
+        context = ModelEffectContext(
+            correlation_id=uuid4(),
+            envelope_id=uuid4(),
+        )
+
+        result = await handler(envelope, context)
+        assert result == "ok"
+        mock_publisher.publish.assert_called_once()
+        call_kwargs = mock_publisher.publish.call_args.kwargs
+        assert call_kwargs["topic"] == "onex.cmd.omnimemory.crawl-tick.v1"
