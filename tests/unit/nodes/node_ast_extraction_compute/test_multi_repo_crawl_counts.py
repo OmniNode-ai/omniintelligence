@@ -27,26 +27,6 @@ from omniintelligence.nodes.node_code_crawler_effect.models.model_crawl_config i
     ModelRepoCrawlConfig,
 )
 
-
-def _omni_home() -> Path:
-    env_val = os.environ.get("OMNI_HOME")
-    if env_val:
-        p = Path(env_val)
-        if p.is_dir():
-            return p
-    current = Path(__file__).resolve()
-    for ancestor in current.parents:
-        if (ancestor / "omnibase_core").is_dir() and (
-            ancestor / "omniintelligence"
-        ).is_dir():
-            return ancestor
-    msg = (
-        "Cannot locate omni_home. Set the OMNI_HOME environment variable "
-        "or run tests from within the omni_home tree."
-    )
-    raise RuntimeError(msg)
-
-
 _TARGET_REPOS = [
     "omniintelligence",
     "omnibase_core",
@@ -56,6 +36,23 @@ _TARGET_REPOS = [
 
 _MIN_TOTAL_ENTITIES = 500
 _MIN_PER_REPO_ENTITIES = 50
+
+
+def _omni_home() -> Path:
+    env_val = os.environ.get("OMNI_HOME")
+    if env_val:
+        p = Path(env_val)
+        if p.is_dir():
+            return p
+    current = Path(__file__).resolve()
+    for ancestor in current.parents:
+        if all((ancestor / repo).is_dir() for repo in _TARGET_REPOS):
+            return ancestor
+    msg = (
+        "Cannot locate omni_home. Set the OMNI_HOME environment variable "
+        "or run tests from within the omni_home tree."
+    )
+    raise RuntimeError(msg)
 
 
 @pytest.mark.unit
