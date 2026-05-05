@@ -10,11 +10,12 @@ and omniclaude, with at least 50 entities per repo.
 
 from __future__ import annotations
 
-import os
 from collections import defaultdict
 from pathlib import Path
 
 import pytest
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from omniintelligence.nodes.node_ast_extraction_compute.handlers import (
     extract_entities_from_source,
@@ -38,12 +39,18 @@ _MIN_TOTAL_ENTITIES = 500
 _MIN_PER_REPO_ENTITIES = 50
 
 
+class ModelOmniHomeSettings(BaseSettings):
+    """Settings surface for workspace-level acceptance test paths."""
+
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    omni_home: Path | None = Field(default=None, validation_alias="OMNI_HOME")
+
+
 def _omni_home() -> Path:
-    env_val = os.environ.get("OMNI_HOME")
-    if env_val:
-        p = Path(env_val)
-        if p.is_dir():
-            return p
+    settings = ModelOmniHomeSettings()
+    if settings.omni_home is not None and settings.omni_home.is_dir():
+        return settings.omni_home
     current = Path(__file__).resolve()
     for ancestor in current.parents:
         if all((ancestor / repo).is_dir() for repo in _TARGET_REPOS):
