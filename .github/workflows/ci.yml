@@ -327,6 +327,10 @@ jobs:
       - name: Run ruff format check
         run: uv run ruff format --check src/ tests/
 
+      # OMN-10736: Reject hardcoded env fallbacks (localhost/private-IP)
+      - name: Validate no hardcoded env fallbacks
+        run: uv run python scripts/validate_no_env_fallbacks.py
+
   # Type checking job - mypy
   # Scope aligned with pre-commit hooks (tools/, utils/, runtime/ source code)
   # Only runs when production code changes

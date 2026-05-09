@@ -40,8 +40,7 @@ class UtilizationLLMClient:
         correlation_id: str = "unknown",
         session_id: str = "unknown",
     ) -> None:
-        default_url = os.getenv("LLM_CODER_FAST_URL", "http://192.168.86.201:8001")
-        self._base_url: str = base_url if base_url else default_url
+        self._base_url: str = base_url if base_url else os.environ["LLM_CODER_FAST_URL"]
         self._client = httpx.AsyncClient(timeout=30.0)
         self._event_publisher = event_publisher
         self._correlation_id = correlation_id

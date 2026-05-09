@@ -79,7 +79,8 @@ class EmbeddingClient:
 
     Example (context manager):
         ```python
-        config = ModelEmbeddingClientConfig(base_url="http://192.168.86.200:8100")
+        import os
+        config = ModelEmbeddingClientConfig(base_url=os.environ["LLM_EMBEDDING_URL"])
         async with EmbeddingClient(config) as client:
             embedding = await client.get_embedding("Hello world")
             assert len(embedding) == 1024
@@ -87,7 +88,8 @@ class EmbeddingClient:
 
     Example (manual lifecycle):
         ```python
-        config = ModelEmbeddingClientConfig(base_url="http://192.168.86.200:8100")
+        import os
+        config = ModelEmbeddingClientConfig(base_url=os.environ["LLM_EMBEDDING_URL"])
         client = EmbeddingClient(config)
         await client.connect()
         try:

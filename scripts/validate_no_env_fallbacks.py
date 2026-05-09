@@ -2,10 +2,12 @@
 # SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
 
-"""Validate that no localhost/default fallbacks exist in production code.
+"""Validate that no localhost/private-IP default fallbacks exist in production code.
 
 Scans src/ and scripts/ for patterns like:
   - os.environ.get("...", "localhost...")
+  - os.environ.get("...", "http://192.168.x.x:...")
+  - os.getenv("...", "http://192.168.x.x:...")
   - default="http://localhost:..."
   - = "localhost:..."  (as a default value in function signatures or assignments)
 
@@ -20,7 +22,7 @@ Allowlist:
   - embedding_client_local_openai.py (docstring examples only)
   - adapter_bolt.py (docstring examples only)
 
-Ticket: OMN-7227
+Tickets: OMN-7227, OMN-10736
 """
 
 from __future__ import annotations
@@ -36,7 +38,7 @@ SCAN_DIRS = [
     REPO_ROOT / "scripts",
 ]
 
-# Files where localhost references are acceptable (docstrings, comments, conditional checks)
+# Files where localhost/private-IP references are acceptable
 ALLOWLISTED_FILES = {
     "embedding_client_local_openai.py",
     "adapter_bolt.py",
@@ -45,10 +47,16 @@ ALLOWLISTED_FILES = {
     "validate_no_env_fallbacks.py",
 }
 
-# Patterns that indicate a localhost/default fallback in production code
+# Patterns that indicate a hardcoded fallback in production code
 VIOLATION_PATTERNS = [
     # os.environ.get("...", "localhost...")
     re.compile(r'os\.environ\.get\([^)]*["\']localhost'),
+    # os.environ.get("...", "http://192.168.x.x:...")
+    re.compile(r'os\.environ\.get\([^)]*["\']http://192\.168\.'),
+    # os.getenv("...", "http://192.168.x.x:...")
+    re.compile(r'os\.getenv\([^)]*,\s*["\']http://192\.168\.'),
+    # os.getenv("...", "localhost...")
+    re.compile(r'os\.getenv\([^)]*,\s*["\']localhost'),
     # default="...localhost..."
     re.compile(r'default\s*=\s*["\'][^"\']*localhost'),
     # Function param defaults: = "localhost:..."
@@ -103,12 +111,12 @@ def scan() -> list[str]:
 def main() -> None:
     violations = scan()
     if violations:
-        print(f"FAIL: {len(violations)} localhost/default fallback(s) found:\n")  # noqa: T201
+        print(f"FAIL: {len(violations)} hardcoded fallback(s) found:\n")  # noqa: T201
         for v in violations:
             print(f"  {v}")  # noqa: T201
         sys.exit(1)
     else:
-        print("OK: No localhost/default fallbacks found in production code.")  # noqa: T201
+        print("OK: No hardcoded fallbacks found in production code.")  # noqa: T201
         sys.exit(0)
 
 

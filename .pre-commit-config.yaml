@@ -582,6 +582,15 @@ repos:
         types: [python]
         stages: [pre-commit]
 
+      # OMN-10736: Reject hardcoded localhost/private-IP env fallbacks
+      - id: no-env-fallbacks
+        name: Reject hardcoded env fallbacks (localhost/private-IP)
+        entry: uv run python scripts/validate_no_env_fallbacks.py
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
       # OMN-3777: Block cloud bus references in source code
       - id: no-cloud-bus
         name: Block cloud bus references

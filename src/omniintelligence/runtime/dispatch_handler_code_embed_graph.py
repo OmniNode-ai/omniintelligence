@@ -100,9 +100,7 @@ def create_code_embed_graph_dispatch_handler(
     Returns:
         Async handler function with signature (envelope, context) -> str.
     """
-    _embedding_url = embedding_url or os.environ.get(
-        "LLM_EMBEDDING_URL", "http://192.168.86.200:8100"
-    )
+    _embedding_url = embedding_url or os.environ["LLM_EMBEDDING_URL"]
 
     async def _handle(
         envelope: ModelEventEnvelope[object],
