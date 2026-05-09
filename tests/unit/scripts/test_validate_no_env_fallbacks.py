@@ -15,7 +15,6 @@ from scripts.validate_no_env_fallbacks import (
     VIOLATION_PATTERNS,
     _is_comment_or_docstring_line,
     _is_test_file,
-    scan,
 )
 
 
@@ -108,11 +107,6 @@ class TestScanIntegration:
             clean = src / "clean_module.py"
             clean.write_text(
                 '# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.\nimport os\nurl = os.environ["LLM_URL"]\n'
-            )
-            violations = (
-                scan.__wrapped__(src_dirs=[src])
-                if hasattr(scan, "__wrapped__")
-                else None
             )
             # Run via subprocess to avoid REPO_ROOT coupling
             import subprocess
