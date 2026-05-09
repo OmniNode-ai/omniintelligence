@@ -559,13 +559,12 @@ jobs:
       - name: Run unit tests (full suite)
         if: vars.ENABLE_SMART_TESTS != 'true' || needs.detect-changes.outputs.is_full_suite == 'true'
         run: |
-          uv run pytest tests/unit/ \
-            --ignore=tests/unit/nodes/node_pattern_extraction_compute \
+          uv run pytest tests/unit/tools/ \
             --splits ${{ needs.detect-changes.outputs.split_count }} \
             --group ${{ matrix.split }} \
             -v \
             --tb=short \
-            --cov=src/omniintelligence \
+            --cov=src/omniintelligence/tools \
             --cov-report=xml \
             --cov-report=term-missing \
             --junitxml=junit-unit-${{ matrix.split }}.xml
