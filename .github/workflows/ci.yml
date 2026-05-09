@@ -564,6 +564,7 @@ jobs:
         if: vars.ENABLE_SMART_TESTS != 'true' || needs.detect-changes.outputs.is_full_suite == 'true'
         run: |
           uv run pytest tests/unit/tools/ \
+            tests/unit/scripts/test_validate_no_env_fallbacks.py \
             --splits ${{ needs.detect-changes.outputs.split_count }} \
             --group ${{ matrix.split }} \
             -v \
