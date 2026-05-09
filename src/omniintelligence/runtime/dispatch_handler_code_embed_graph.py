@@ -100,7 +100,6 @@ def create_code_embed_graph_dispatch_handler(
     Returns:
         Async handler function with signature (envelope, context) -> str.
     """
-    _embedding_url = embedding_url or os.environ["LLM_EMBEDDING_URL"]
 
     async def _handle(
         envelope: ModelEventEnvelope[object],
@@ -120,6 +119,7 @@ def create_code_embed_graph_dispatch_handler(
 
         # Embed entities in Qdrant
         if qdrant_client is not None:
+            _embedding_url = embedding_url or os.environ["LLM_EMBEDDING_URL"]
             await _embed_entities(qdrant_client, event, _embedding_url)
 
         # Write to Memgraph

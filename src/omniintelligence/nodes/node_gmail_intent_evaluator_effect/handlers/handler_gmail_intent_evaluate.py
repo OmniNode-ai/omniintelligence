@@ -634,9 +634,6 @@ async def handle_gmail_intent_evaluate(
     errors: list[str] = []
     pending_events: list[Any] = []
 
-    # Resolve config from environment
-    resolved_llm_url = llm_url or os.environ["LLM_DEEPSEEK_R1_URL"]
-    resolved_embedding_url = embedding_url or os.environ["LLM_EMBEDDING_URL"]
     rate_check_fn = _slack_rate_check or _check_slack_rate_limit
 
     # Resolve repository — track whether we created it so we can close it after use
@@ -652,8 +649,8 @@ async def handle_gmail_intent_evaluate(
         return await _handle_gmail_intent_evaluate_inner(
             config=config,
             resolved_repository=resolved_repository,
-            resolved_llm_url=resolved_llm_url,
-            resolved_embedding_url=resolved_embedding_url,
+            llm_url=llm_url,
+            embedding_url=embedding_url,
             rate_check_fn=rate_check_fn,
             slack_notifier=slack_notifier,
             errors=errors,
@@ -671,8 +668,8 @@ async def _handle_gmail_intent_evaluate_inner(
     *,
     config: ModelGmailIntentEvaluatorConfig,
     resolved_repository: ProtocolPatternRepository | None,
-    resolved_llm_url: str,
-    resolved_embedding_url: str,
+    llm_url: str | None,
+    embedding_url: str | None,
     rate_check_fn: Callable[[], Awaitable[bool]],
     slack_notifier: ProtocolSlackNotifier | None,
     errors: list[str],
@@ -735,6 +732,7 @@ async def _handle_gmail_intent_evaluate_inner(
     # -------------------------------------------------------------------------
     # Step 5: Query omnimemory (Qdrant)
     # -------------------------------------------------------------------------
+    resolved_embedding_url = embedding_url or os.environ["LLM_EMBEDDING_URL"]
     memory_query = f"{config.subject} {selected_url or ''} {url_content[:500]}"
     memory_hits, memory_error = await _query_omnimemory(
         memory_query, resolved_embedding_url
@@ -745,6 +743,7 @@ async def _handle_gmail_intent_evaluate_inner(
     # -------------------------------------------------------------------------
     # Step 6: PII strip + LLM call
     # -------------------------------------------------------------------------
+    resolved_llm_url = llm_url or os.environ["LLM_DEEPSEEK_R1_URL"]
     clean_body = _strip_pii(config.body_text, config.sender)
     user_prompt = _build_user_prompt(
         config, selected_url, url_content, memory_hits, clean_body
