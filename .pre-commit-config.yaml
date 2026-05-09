@@ -582,6 +582,17 @@ repos:
         types: [python]
         stages: [pre-commit]
 
+      # OMN-10741: Unified localhost/hardcoded-endpoint fallback validator
+      # Covers all 6 pattern types from OMN-10658 enforcement sweep.
+      # Annotation: add  # fallback-ok: <reason>  to exempt a justified line.
+      - id: no-env-fallbacks
+        name: No localhost/hardcoded-endpoint fallbacks (OMN-10741)
+        entry: uv run python scripts/validate_no_env_fallbacks.py
+        language: system
+        pass_filenames: true
+        types_or: [python, shell]
+        stages: [pre-commit]
+
       # OMN-3777: Block cloud bus references in source code
       - id: no-cloud-bus
         name: Block cloud bus references

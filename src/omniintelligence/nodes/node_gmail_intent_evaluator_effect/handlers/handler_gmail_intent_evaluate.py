@@ -635,12 +635,8 @@ async def handle_gmail_intent_evaluate(
     pending_events: list[Any] = []
 
     # Resolve config from environment
-    resolved_llm_url = llm_url or os.environ.get(
-        "LLM_DEEPSEEK_R1_URL", "http://192.168.86.200:8101"
-    )
-    resolved_embedding_url = embedding_url or os.environ.get(
-        "LLM_EMBEDDING_URL", "http://192.168.86.200:8100"
-    )
+    resolved_llm_url = llm_url or os.environ["LLM_DEEPSEEK_R1_URL"]
+    resolved_embedding_url = embedding_url or os.environ["LLM_EMBEDDING_URL"]
     rate_check_fn = _slack_rate_check or _check_slack_rate_limit
 
     # Resolve repository — track whether we created it so we can close it after use
