@@ -136,6 +136,7 @@ dev = [
     "pytest-timeout>=2.3.0",
     "pytest-cov>=6.2.1",
     "pytest-xdist>=3.5.0",
+    "pytest-split>=0.10.0",
     "ruff>=0.12.5",
     "requests>=2.31.0",
     "factory-boy>=3.3.0",

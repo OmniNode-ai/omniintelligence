@@ -400,28 +400,101 @@ jobs:
             src/omniintelligence/utils/ \
             src/omniintelligence/runtime/
 
-  # Unit tests with coverage
-  # Only runs when production code changes
-  #
-  # TEST SCOPE NOTICE:
-  # The pytest scope (tests/unit/tools/) is intentionally narrower than the path
-  # filter scope (tools/, utils/, runtime/). This is because:
-  #
-  # 1. Only tests/unit/tools/ has mature, comprehensive unit tests currently
-  # 2. utils/ has only test_log_sanitizer.py (not a full test suite)
-  # 3. runtime/ does not have unit tests yet (integration tests pending)
-  #
-  # The broader path filter ensures the test job RUNS when any production code
-  # changes (catching regressions), while the narrow pytest scope prevents CI
-  # failures from missing test files.
-  #
-  # TODO(OMN-XXX): Expand test scope as unit tests are added:
-  # - Add tests/unit/utils/ when utils test suite is complete
-  # - Add tests/unit/runtime/ when runtime unit tests exist
-  # - Update coverage target to include all tested modules
-  #
+  # ---------------------------------------------------------------------------
+  # Detect Changes (OMN-10765) — change-aware test selection
+  # ---------------------------------------------------------------------------
+  # Runs detect_test_paths and emits matrix, split_count, is_full_suite, selected_paths.
+  # When ENABLE_SMART_TESTS is off, emits full-suite matrix (FEATURE_FLAG_OFF).
+  detect-changes:
+    name: Detect Changes
+    needs: changes
+    if: needs.changes.outputs.production_code == 'true'
+    # OMNINODE_SELF_HOSTED_RUNS_ON_V1 — do not edit inline; update plan + all occurrences together
+    runs-on: >-
+      ${{
+        (vars.USE_SELF_HOSTED_RUNNERS == 'true' &&
+         (github.event_name == 'push' ||
+          github.event_name == 'workflow_dispatch' ||
+          github.event_name == 'schedule'))
+        && fromJSON('["self-hosted","omnibase-ci"]')
+        || fromJSON('["ubuntu-latest"]')
+      }}
+    outputs:
+      is_full_suite: ${{ steps.detect.outputs.is_full_suite }}
+      full_suite_reason: ${{ steps.detect.outputs.full_suite_reason }}
+      split_count: ${{ steps.detect.outputs.split_count }}
+      matrix: ${{ steps.detect.outputs.matrix }}
+      selected_paths: ${{ steps.detect.outputs.selected_paths }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      - name: Compute changed files
+        id: diff
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base="${{ github.event.pull_request.base.sha }}"
+            git fetch --no-tags --depth=1 origin "$base" || true
+            git diff --name-only "$base"...HEAD > changed.txt
+          else
+            git diff --name-only HEAD~1 HEAD > changed.txt || echo "" > changed.txt
+          fi
+          echo "Changed files:"
+          cat changed.txt
+
+      - name: Resolve test selection
+        id: detect
+        env:
+          FLAG: ${{ vars.ENABLE_SMART_TESTS == 'true' && 'on' || 'off' }}
+        run: |
+          uv run python -m scripts.ci.detect_test_paths \
+            --changed-files-from changed.txt \
+            --ref-name "${{ github.ref_name }}" \
+            --event-name "${{ github.event_name }}" \
+            --feature-flag "$FLAG" \
+            > selection.json
+          cat selection.json
+          is_full=$(jq -r '.is_full_suite' selection.json)
+          reason=$(jq -r '.full_suite_reason // ""' selection.json)
+          split_count=$(jq -r '.split_count' selection.json)
+          matrix=$(jq -c '.matrix' selection.json)
+          paths=$(jq -c '.selected_paths' selection.json)
+          echo "is_full_suite=$is_full" >> "$GITHUB_OUTPUT"
+          echo "full_suite_reason=$reason" >> "$GITHUB_OUTPUT"
+          echo "split_count=$split_count" >> "$GITHUB_OUTPUT"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "selected_paths=$paths" >> "$GITHUB_OUTPUT"
+
+      - name: Upload selection artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-selection
+          path: selection.json
+          retention-days: 7
+
+  # Unit tests with coverage — matrix shape driven by detect-changes (OMN-10765).
+  # When ENABLE_SMART_TESTS is off, detect-changes emits full-suite with reason
+  # FEATURE_FLAG_OFF so the full-suite pytest step runs.
   test-unit:
-    name: Unit Tests
+    name: Unit Tests (Split ${{ matrix.split }}/${{ needs.detect-changes.outputs.split_count }})
     # OMNINODE_SELF_HOSTED_RUNS_ON_V1 — do not edit inline; update plan + all occurrences together
     runs-on: >-
       ${{
@@ -433,8 +506,12 @@ jobs:
         || fromJSON('["ubuntu-latest"]')
       }}
     timeout-minutes: 15
-    needs: changes
+    needs: [changes, detect-changes]
     if: needs.changes.outputs.production_code == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        split: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
 
     steps:
       - name: Checkout code
@@ -467,25 +544,38 @@ jobs:
       - name: Install dependencies
         run: uv sync --group dev --group core
 
-      # Scope: tests/unit/tools/ only (see TEST SCOPE NOTICE above)
-      # Coverage: tools/ only - expand when more test suites are added
-      - name: Run unit tests with coverage
+      - name: Run unit tests (smart selection)
+        if: vars.ENABLE_SMART_TESTS == 'true' && needs.detect-changes.outputs.is_full_suite == 'false'
+        run: |
+          paths=$(echo '${{ needs.detect-changes.outputs.selected_paths }}' | jq -r '.[]')
+          uv run pytest $paths \
+            --ignore=tests/integration \
+            --splits ${{ needs.detect-changes.outputs.split_count }} \
+            --group ${{ matrix.split }} \
+            -v \
+            --tb=short \
+            --junitxml=junit-unit-${{ matrix.split }}.xml
+
+      - name: Run unit tests (full suite)
+        if: vars.ENABLE_SMART_TESTS != 'true' || needs.detect-changes.outputs.is_full_suite == 'true'
         run: |
           uv run pytest tests/unit/tools/ \
+            --splits ${{ needs.detect-changes.outputs.split_count }} \
+            --group ${{ matrix.split }} \
             -v \
             --tb=short \
             --cov=src/omniintelligence/tools \
             --cov-report=xml \
             --cov-report=term-missing \
-            --junitxml=junit-unit.xml
+            --junitxml=junit-unit-${{ matrix.split }}.xml
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: test-results-unit
+          name: test-results-unit-${{ matrix.split }}
           path: |
-            junit-unit.xml
+            junit-unit-${{ matrix.split }}.xml
             coverage.xml
           retention-days: 7
 
