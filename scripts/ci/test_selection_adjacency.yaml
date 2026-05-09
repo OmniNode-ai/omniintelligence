@@ -1,0 +1,79 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# scripts/ci/test_selection_adjacency.yaml
+# Static adjacency map from src/omniintelligence/<module> to dependent modules.
+# When a key module changes, every module in `reverse_deps` ALSO has its tests run.
+# Treated as CI contract data — manually curated, reviewed in PRs that change it.
+
+schema_version: 1
+
+# `shared_modules` is a FULL-SUITE ESCALATION POLICY, not an architectural ontology.
+# Listing a module here means "if this module changes, run the full suite".
+# Curate based on operational risk + import fan-out.
+shared_modules:
+  - models
+  - enums
+  - protocols
+  - runtime
+
+# Per-repo full-suite escalation thresholds.
+thresholds:
+  modules_changed_for_full_suite: 6
+
+# Test infrastructure — any change forces the full suite.
+test_infrastructure_paths:
+  - tests/conftest.py
+  - tests/fixtures/
+  - pytest.ini
+  - pyproject.toml
+
+# Reverse dependency edges. Key = changed module; value = modules that import it.
+adjacency:
+  models:
+    reverse_deps: [nodes, handlers, repositories, adapters, runtime, review_bot, decision_store, mismatch_detector,
+      model_selector]
+  enums:
+    reverse_deps: [models, nodes, handlers, runtime, review_bot, rl]
+  protocols:
+    reverse_deps: [nodes, handlers, adapters, runtime, repositories]
+  runtime:
+    reverse_deps: [nodes]
+  handlers:
+    reverse_deps: [nodes]
+  nodes:
+    reverse_deps: []
+  adapters:
+    reverse_deps: [runtime]
+  repositories:
+    reverse_deps: [runtime, adapters]
+  clients:
+    reverse_deps: [handlers, runtime]
+  hooks:
+    reverse_deps: [runtime]
+  tools:
+    reverse_deps: []
+  utils:
+    reverse_deps: [handlers, runtime, tools]
+  api:
+    reverse_deps: []
+  audit:
+    reverse_deps: []
+  bloom_eval_cli:
+    reverse_deps: []
+  debug_intel:
+    reverse_deps: []
+  decision_store:
+    reverse_deps: [runtime]
+  mismatch_detector:
+    reverse_deps: []
+  model_selector:
+    reverse_deps: [handlers, runtime]
+  review_bot:
+    reverse_deps: []
+  review_pairing:
+    reverse_deps: []
+  rl:
+    reverse_deps: []
+  testing:
+    reverse_deps: []
