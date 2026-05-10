@@ -121,30 +121,27 @@ def scan_python_file(path: Path) -> list[tuple[int, str]]:
 
     for lineno, line in enumerate(content.splitlines(), start=1):
         stripped = line.strip()
-        is_docstring_line = False
+        skip_line = False
 
         # Track triple-quoted docstrings
         for delim in ('"""', "'''"):
             count = stripped.count(delim)
             if in_docstring and docstring_delim == delim:
-                is_docstring_line = True
                 if count >= 1:
                     in_docstring = False
                     docstring_delim = None
-                break
-            if not in_docstring and count >= 2:
-                # Opens and closes on the same line — skip as a docstring line.
-                is_docstring_line = True
+                    skip_line = True
                 break
             if not in_docstring and count == 1:
                 in_docstring = True
                 docstring_delim = delim
-                is_docstring_line = True
+                break
+            if count >= 2:
+                # Opens and closes on the same line — skip as a docstring line
+                skip_line = True
                 break
 
-        if is_docstring_line:
-            continue
-        if in_docstring:
+        if in_docstring or skip_line:
             continue
         if _is_pure_comment(line):
             continue
