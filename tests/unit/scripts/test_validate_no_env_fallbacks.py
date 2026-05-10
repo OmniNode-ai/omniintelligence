@@ -85,6 +85,29 @@ class TestCommentDocstringSkip:
         path.write_text('url = os.getenv("X", "localhost")\n', encoding="utf-8")
         assert scan_python_file(path) == [(1, 'url = os.getenv("X", "localhost")')]
 
+    def test_embedded_triple_quotes_do_not_start_docstring(
+        self, tmp_path: Path
+    ) -> None:
+        path = tmp_path / "module.py"
+        path.write_text(
+            'marker = """not a docstring opener"""\n'
+            'url = os.getenv("X", "localhost")\n',
+            encoding="utf-8",
+        )
+        assert scan_python_file(path) == [(2, 'url = os.getenv("X", "localhost")')]
+
+    def test_embedded_triple_quotes_on_fallback_line_still_scans(
+        self, tmp_path: Path
+    ) -> None:
+        path = tmp_path / "module.py"
+        path.write_text(
+            'url = os.getenv("X", "localhost") + """suffix"""\n',
+            encoding="utf-8",
+        )
+        assert scan_python_file(path) == [
+            (1, 'url = os.getenv("X", "localhost") + """suffix"""')
+        ]
+
 
 @pytest.mark.unit
 class TestTestFileSkip:
