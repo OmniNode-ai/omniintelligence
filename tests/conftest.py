@@ -13,9 +13,27 @@ import os
 
 os.environ.setdefault("OMNIINTELLIGENCE_ALLOW_DEFAULT_KAFKA", "true")
 
+from pathlib import Path
+
+
+def _set_repo_checkout_omni_home() -> None:
+    """Expose a repo-local checkout as ``OMNI_HOME/omniintelligence`` for tests."""
+    if os.environ.get("OMNI_HOME"):
+        return
+
+    current = Path(__file__).resolve()
+    for ancestor in current.parents:
+        if (ancestor / "pyproject.toml").is_file() and (
+            ancestor / "src" / "omniintelligence"
+        ).is_dir():
+            os.environ["OMNI_HOME"] = str(ancestor.parent)
+            return
+
+
+_set_repo_checkout_omni_home()
+
 import asyncio
 import json
-from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
