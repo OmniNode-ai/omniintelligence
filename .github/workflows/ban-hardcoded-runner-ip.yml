@@ -1,0 +1,21 @@
+---
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+# Calls the reusable ban-hardcoded-runner-ip check from omniclaude.
+# Implements OMN-10603.
+
+name: Ban Hardcoded Runner IP
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/**
+
+jobs:
+  ban-hardcoded-runner-ip:
+    uses: OmniNode-ai/omniclaude/.github/workflows/ban-hardcoded-runner-ip.yml@main
+    permissions:
+      contents: read
+
