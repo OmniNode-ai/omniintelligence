@@ -279,11 +279,13 @@ async def call_model(
         ModelLlmInferenceRequest,
     )
 
-    # Ensure HMAC secret is set. Local LLM endpoints do not verify
-    # signatures, so a placeholder is sufficient for CLI use.
-    if not os.environ.get("LOCAL_LLM_SHARED_SECRET"):
-        os.environ["LOCAL_LLM_SHARED_SECRET"] = "cli-review-unsigned"  # noqa: S105  # pragma: allowlist secret
-
+    # OMN-11008: LOCAL_LLM_SHARED_SECRET ownership lives in the LLM HTTP
+    # transport (omnibase_infra.mixins.mixin_llm_http_transport). The
+    # transport reads the secret from os.environ on every call and fails
+    # closed (raises ProtocolConfigurationError) if absent. Callers (CLI
+    # entry points and test fixtures) are responsible for setting the
+    # secret in their own environment before invoking this path; the
+    # adapter must not synthesize a placeholder.
     base_url = os.environ.get(config.env_var, config.default_url)
     if not base_url:
         raise ValueError(

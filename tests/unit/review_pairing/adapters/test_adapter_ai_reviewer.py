@@ -478,3 +478,93 @@ class TestModelRegistry:
 
         with pytest.raises(ValueError, match=r"Unknown model 'foo'\. Valid:"):
             _resolve_model_url("foo")
+
+
+# ---------------------------------------------------------------------------
+# OMN-11008: LOCAL_LLM_SHARED_SECRET ownership
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestLocalLlmSharedSecretOwnership:
+    """The adapter must not synthesize or mutate LOCAL_LLM_SHARED_SECRET.
+
+    Ownership lives in the LLM HTTP transport
+    (omnibase_infra.mixins.mixin_llm_http_transport), which reads the secret
+    from os.environ on every call and fails closed if absent. The adapter
+    previously wrote a 'cli-review-unsigned' placeholder into os.environ as
+    a side-channel, which defeated the fail-closed design and put the
+    runtime/security source path outside typed contract/config ownership.
+
+    See OMN-11008 and the OMN-11004 env/local-path classification.
+    """
+
+    def test_module_does_not_set_local_llm_shared_secret_in_source(self) -> None:
+        """call_model must not contain a write to os.environ['LOCAL_LLM_SHARED_SECRET'].
+
+        Static source-text check — the regression would be re-introducing the
+        synthesis line.
+        """
+        import inspect
+
+        from omniintelligence.review_pairing.adapters import adapter_ai_reviewer
+
+        source = inspect.getsource(adapter_ai_reviewer)
+        # The synthesis pattern that OMN-11008 removes: writing into os.environ
+        # with the LOCAL_LLM_SHARED_SECRET key. Reads (os.environ.get/[]) are
+        # fine; the transport itself reads on every call.
+        assert (
+            'os.environ["LOCAL_LLM_SHARED_SECRET"]' not in source
+            and "os.environ['LOCAL_LLM_SHARED_SECRET']" not in source
+        ), (
+            "adapter_ai_reviewer must not write LOCAL_LLM_SHARED_SECRET into "
+            "os.environ; ownership lives in the LLM HTTP transport (OMN-11008)."
+        )
+
+    @pytest.mark.asyncio
+    async def test_call_model_does_not_mutate_environ_when_secret_set(self) -> None:
+        """When the secret is set, call_model must not rewrite or clobber it."""
+        from omniintelligence.review_pairing.adapters import adapter_ai_reviewer
+
+        sentinel = "preset-by-caller-do-not-overwrite"  # pragma: allowlist secret
+        with patch.dict(
+            "os.environ",
+            {"LOCAL_LLM_SHARED_SECRET": sentinel, "LLM_CODER_URL": "http://x:1"},
+            clear=False,
+        ):
+            with patch(
+                "omnibase_infra.nodes.node_llm_inference_effect.handlers.handler_llm_openai_compatible.HandlerLlmOpenaiCompatible"
+            ) as handler_cls:
+                handler_inst = AsyncMock()
+                handler_inst.handle.return_value = AsyncMock(generated_text="[]")
+                handler_cls.return_value = handler_inst
+                await adapter_ai_reviewer.call_model(
+                    "sys", "usr", model_key="qwen3-coder"
+                )
+            import os as _os
+
+            assert _os.environ["LOCAL_LLM_SHARED_SECRET"] == sentinel
+
+    @pytest.mark.asyncio
+    async def test_call_model_does_not_set_environ_when_secret_absent(self) -> None:
+        """When the secret is absent, call_model must not write a placeholder.
+
+        The transport will fail closed when invoked without the secret; that
+        is the contract. The adapter must not paper over it with a side-channel
+        write.
+        """
+        from omniintelligence.review_pairing.adapters import adapter_ai_reviewer
+
+        with patch.dict("os.environ", {"LLM_CODER_URL": "http://x:1"}, clear=True):
+            with patch(
+                "omnibase_infra.nodes.node_llm_inference_effect.handlers.handler_llm_openai_compatible.HandlerLlmOpenaiCompatible"
+            ) as handler_cls:
+                handler_inst = AsyncMock()
+                handler_inst.handle.return_value = AsyncMock(generated_text="[]")
+                handler_cls.return_value = handler_inst
+                await adapter_ai_reviewer.call_model(
+                    "sys", "usr", model_key="qwen3-coder"
+                )
+            import os as _os
+
+            assert "LOCAL_LLM_SHARED_SECRET" not in _os.environ
