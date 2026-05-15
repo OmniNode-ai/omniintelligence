@@ -81,10 +81,11 @@ jobs:
   # Detect which files changed to conditionally run production code jobs
   changes:
     name: Detect Changes
-    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
+    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
     runs-on: >-
       ${{
         github.event_name != 'pull_request'
+        && github.event_name != 'merge_group'
         && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
         || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
@@ -121,10 +122,11 @@ jobs:
   # Assert no Poetry artifacts - enforces uv-only build toolchain
   assert-no-poetry:
     name: Assert No Poetry Artifacts
-    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
+    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
     runs-on: >-
       ${{
         github.event_name != 'pull_request'
+        && github.event_name != 'merge_group'
         && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
         || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
@@ -149,10 +151,11 @@ jobs:
   # Pre-commit hooks - comprehensive code quality validation
   pre-commit:
     name: Pre-commit Hooks
-    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
+    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
     runs-on: >-
       ${{
         github.event_name != 'pull_request'
+        && github.event_name != 'merge_group'
         && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
         || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
@@ -212,10 +215,11 @@ jobs:
   # Fast check (~1s) that catches configuration drift before it causes issues
   scope-alignment:
     name: Scope Alignment
-    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
+    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
     runs-on: >-
       ${{
         github.event_name != 'pull_request'
+        && github.event_name != 'merge_group'
         && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
         || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
@@ -262,10 +266,11 @@ jobs:
   # Only runs when production code changes
   lint:
     name: Lint
-    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
+    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
     runs-on: >-
       ${{
         github.event_name != 'pull_request'
+        && github.event_name != 'merge_group'
         && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
         || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
@@ -321,10 +326,11 @@ jobs:
   # Only runs when production code changes
   type-check:
     name: Type Check
-    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
+    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
     runs-on: >-
       ${{
         github.event_name != 'pull_request'
+        && github.event_name != 'merge_group'
         && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
         || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
@@ -395,10 +401,11 @@ jobs:
     name: Detect Changes
     needs: changes
     if: needs.changes.outputs.production_code == 'true'
-    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
+    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
     runs-on: >-
       ${{
         github.event_name != 'pull_request'
+        && github.event_name != 'merge_group'
         && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
         || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
@@ -478,10 +485,11 @@ jobs:
   # FEATURE_FLAG_OFF so the full-suite pytest step runs.
   test-unit:
     name: Unit Tests (Split ${{ matrix.split }}/${{ needs.detect-changes.outputs.split_count }})
-    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
+    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
     runs-on: >-
       ${{
         github.event_name != 'pull_request'
+        && github.event_name != 'merge_group'
         && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
         || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
@@ -563,10 +571,11 @@ jobs:
   # Contract validation - validates ONEX contract YAML files
   contract-validation:
     name: Contract Validation
-    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
+    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
     runs-on: >-
       ${{
         github.event_name != 'pull_request'
+        && github.event_name != 'merge_group'
         && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
         || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
@@ -667,10 +676,11 @@ jobs:
   # Runs on all changes to catch purity violations early
   io-audit:
     name: I/O Audit
-    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
+    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
     runs-on: >-
       ${{
         github.event_name != 'pull_request'
+        && github.event_name != 'merge_group'
         && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
         || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
@@ -718,10 +728,11 @@ jobs:
   # Reference: ARCH-002 "Runtime owns all Kafka plumbing"
   cross-repo-validation:
     name: Cross-Repo Validation
-    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
+    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
     runs-on: >-
       ${{
         github.event_name != 'pull_request'
+        && github.event_name != 'merge_group'
         && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
         || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
@@ -769,10 +780,11 @@ jobs:
   # The freeze must be enforced on every PR regardless of which files changed.
   migration-freeze:
     name: Migration Freeze Check
-    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
+    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
     runs-on: >-
       ${{
         github.event_name != 'pull_request'
+        && github.event_name != 'merge_group'
         && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
         || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
@@ -790,10 +802,11 @@ jobs:
   # ============================================================================
   check-handshake:
     name: Verify Architecture Handshake
-    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
+    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
     runs-on: >-
       ${{
         github.event_name != 'pull_request'
+        && github.event_name != 'merge_group'
         && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
         || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
@@ -828,10 +841,11 @@ jobs:
   # Uses detect-secrets-hook for proper baseline comparison (handles type+hash equality)
   detect-secrets:
     name: Detect Secrets
-    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
+    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
     runs-on: >-
       ${{
         github.event_name != 'pull_request'
+        && github.event_name != 'merge_group'
         && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
         || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
@@ -896,10 +910,11 @@ jobs:
   # ============================================================================
   compliance:
     name: Contract Compliance
-    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
+    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
     runs-on: >-
       ${{
         github.event_name != 'pull_request'
+        && github.event_name != 'merge_group'
         && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
         || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
@@ -961,10 +976,11 @@ jobs:
   # change without updating branch protection rules.
   quality-gate:
     name: Quality Gate
-    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
+    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
     runs-on: >-
       ${{
         github.event_name != 'pull_request'
+        && github.event_name != 'merge_group'
         && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
         || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
@@ -1087,10 +1103,11 @@ jobs:
 
   ci-summary:
     name: CI Summary
-    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
+    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
     runs-on: >-
       ${{
         github.event_name != 'pull_request'
+        && github.event_name != 'merge_group'
         && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
         || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
@@ -1193,10 +1210,11 @@ jobs:
 
   ai-slop-check:
     name: AI-Slop Pattern Check (strict, PR diff)
-    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
+    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
     runs-on: >-
       ${{
         github.event_name != 'pull_request'
+        && github.event_name != 'merge_group'
         && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
         || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
