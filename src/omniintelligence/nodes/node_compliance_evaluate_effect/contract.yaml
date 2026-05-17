@@ -67,7 +67,7 @@ event_bus:
 
   publish_topics:
     - "onex.evt.omniintelligence.compliance-evaluated.v1"
-    - "onex.evt.omniintelligence.compliance-evaluated.v1.dlq"
+    - "onex.evt.omniintelligence.compliance-evaluated-dlq.v1"
 
   subscribe_topic_metadata:
     "onex.cmd.omniintelligence.compliance-evaluate.v1":
@@ -88,7 +88,7 @@ event_bus:
     "onex.evt.omniintelligence.compliance-evaluated.v1":
       schema_ref: "omniintelligence.nodes.node_compliance_evaluate_effect.models.ModelComplianceEvaluatedEvent"
       description: "Compliance evaluation results with violations, compliance status, and confidence."
-    "onex.evt.omniintelligence.compliance-evaluated.v1.dlq":
+    "onex.evt.omniintelligence.compliance-evaluated-dlq.v1":
       description: "Dead letter queue for failed compliance evaluations."
 
 # =============================================================================
