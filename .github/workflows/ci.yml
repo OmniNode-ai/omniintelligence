@@ -1058,6 +1058,7 @@ jobs:
         with:
           checks: "boundary-parity,migration-conflicts"
           warn-only: "false"
+          repos: "omniclaude,omnidash,omniintelligence,omnibase_infra,omnibase_core,omnimemory,onex_change_control"
 
   # ============================================================================
   # API-STABLE check_name: "CI Summary"
