@@ -136,6 +136,7 @@ def test_base_node_class_extraction(spec: dict[str, str]) -> None:
         omni_home = _omni_home()
     except RuntimeError:
         pytest.skip("omni_home not available in this environment")
+        return  # unreachable; satisfies static analysis
 
     class_name = spec["class_name"]
     file_name = spec["file"]
