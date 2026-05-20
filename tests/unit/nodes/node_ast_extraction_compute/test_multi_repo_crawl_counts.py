@@ -73,7 +73,10 @@ class TestMultiRepoCrawlCounts:
     @pytest.fixture(scope="class")
     def entity_counts_by_repo(self) -> dict[str, int]:
         """Run crawl + extraction on all 4 repos; return entity counts per repo."""
-        omni_home = _omni_home()
+        try:
+            omni_home = _omni_home()
+        except RuntimeError:
+            pytest.skip("omni_home with all 4 repos not available in this environment")
         repos = [
             ModelRepoCrawlConfig(
                 name=repo,
