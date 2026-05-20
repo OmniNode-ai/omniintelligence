@@ -32,6 +32,8 @@ Ticket: OMN-3290
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 from omnibase_core.models.container.model_onex_container import ModelONEXContainer
 from omnibase_core.nodes.node_compute import NodeCompute
 
@@ -83,6 +85,8 @@ class NodePlanReviewerMultiCompute(
         node.set_db_conn(pool_conn)
         output = await node.compute(command)
     """
+
+    is_stub: ClassVar[bool] = True
 
     def __init__(self, container: ModelONEXContainer) -> None:
         """Initialise the node shell with injected callers placeholder."""
