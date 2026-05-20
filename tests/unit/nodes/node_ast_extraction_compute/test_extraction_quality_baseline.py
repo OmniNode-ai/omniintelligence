@@ -96,6 +96,19 @@ class TestExtractionQualityBaseline:
 
     @pytest.fixture(autouse=True)
     def _setup(self) -> None:
+        try:
+            source_path = (
+                _omni_home()
+                / "omnibase_core"
+                / "src"
+                / "omnibase_core"
+                / "nodes"
+                / "node_compute.py"
+            )
+        except RuntimeError:
+            pytest.skip("omni_home not available in this environment")
+        if not source_path.exists():
+            pytest.skip(f"omnibase_core not available at {source_path}")
         self.entity = _get_node_compute_entity()
 
     def test_bases_are_unparsed_ast_strings(self) -> None:
