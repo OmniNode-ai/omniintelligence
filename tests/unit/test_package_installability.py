@@ -34,13 +34,26 @@ NODES_DIR = Path("src/omniintelligence/nodes")
 # All node directories that MUST be importable for HandlerPluginLoader.
 # This list is authoritative: if a new node is added, it MUST be listed here.
 EXPECTED_NODE_DIRS = [
+    "node_agent_behavior_eval_compute",
     "node_anti_gaming_alerter_effect",
     "node_anti_gaming_guardrails_compute",
+    "node_ast_extraction_compute",
+    "node_behavior_scenario_generator_compute",
+    "node_bloom_eval_orchestrator",
     "node_chunk_classifier_compute",
+    "node_ci_error_classifier_compute",
+    "node_ci_failure_tracker_effect",
+    "node_ci_fingerprint_compute",
     "node_claude_hook_event_effect",
+    "node_code_crawler_effect",
+    "node_code_entity_bridge_compute",
     "node_compliance_evaluate_effect",
+    "node_contract_eval_compute",
     "node_context_item_writer_effect",
     "node_crawl_scheduler_effect",
+    "node_debug_fix_record_effect",
+    "node_debug_retrieval_compute",
+    "node_dispatch_outcome_eval_effect",
     "node_doc_promotion_reducer",
     "node_doc_retrieval_compute",
     "node_doc_staleness_detector_effect",
@@ -59,6 +72,8 @@ EXPECTED_NODE_DIRS = [
     "node_intent_drift_detect_compute",
     "node_intent_graph_reducer",
     "node_linear_crawler_effect",
+    "node_llm_routing_decision_effect",
+    "node_memory_eval_compute",
     "node_navigation_retriever_effect",
     "node_objective_ab_framework_compute",
     "node_pattern_assembler_orchestrator",
@@ -73,14 +88,22 @@ EXPECTED_NODE_DIRS = [
     "node_pattern_projection_effect",
     "node_pattern_promotion_effect",
     "node_pattern_storage_effect",
+    "node_plan_reviewer_multi_compute",
     "node_policy_state_reducer",
+    "node_protocol_handler_effect",
     "node_quality_scoring_compute",
     "node_routing_feedback_effect",
     "node_scoring_reducer_compute",
     "node_semantic_analysis_compute",
+    "node_storage_router_effect",
     "node_success_criteria_matcher_compute",
+    "node_tcb_generation_compute",
     "node_watchdog_effect",
 ]
+
+# Non-node_ directories that are intentionally not node packages.
+# These are allowlisted for test_no_legacy_node_directories.
+_KNOWN_NON_NODE_DIRS = frozenset({"audit"})
 
 # Handler functions/classes that HandlerPluginLoader resolves dynamically.
 # Each entry: (module_path, attribute_name).
@@ -256,6 +279,8 @@ class TestPackageInstallability:
             if not child.is_dir():
                 continue
             if child.name.startswith("node_") or child.name == "__pycache__":
+                continue
+            if child.name in _KNOWN_NON_NODE_DIRS:
                 continue
             legacy_dirs.append(child.name)
 

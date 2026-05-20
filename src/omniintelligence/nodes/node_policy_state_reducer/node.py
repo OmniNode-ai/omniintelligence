@@ -45,6 +45,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import UTC, datetime
+from typing import ClassVar
 
 from omniintelligence.nodes.node_policy_state_reducer.handlers.handler_lifecycle import (
     apply_reward_delta,
@@ -92,6 +93,8 @@ class NodePolicyStateReducer:
         output = await reducer.reduce(input_data)
         ```
     """
+
+    is_stub: ClassVar[bool] = True
 
     def __init__(
         self,

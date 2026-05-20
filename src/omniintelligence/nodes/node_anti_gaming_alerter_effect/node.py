@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import logging
+from typing import ClassVar
 
 from omniintelligence.nodes.node_anti_gaming_alerter_effect.handlers.protocols import (
     ProtocolAlertTopicPublisher,
@@ -42,6 +43,8 @@ class NodeAntiGamingAlerterEffect:
     Dependencies are injected via constructor:
         - publisher: ProtocolAlertTopicPublisher
     """
+
+    is_stub: ClassVar[bool] = True
 
     def __init__(
         self,

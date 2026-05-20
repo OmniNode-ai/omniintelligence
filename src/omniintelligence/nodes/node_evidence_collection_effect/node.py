@@ -24,6 +24,8 @@ Ticket: OMN-2578
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 try:
     from omnibase_core.nodes.node_effect import NodeEffect as _NodeEffect
 
@@ -50,3 +52,5 @@ class NodeEvidenceCollectionEffect(_BASE_CLASS):
         - collect_and_evaluate (async, has I/O): Kafka + DB
         - fire_and_forget_evaluate: asyncio task wrapper for handle_stop integration
     """
+
+    is_stub: ClassVar[bool] = True
