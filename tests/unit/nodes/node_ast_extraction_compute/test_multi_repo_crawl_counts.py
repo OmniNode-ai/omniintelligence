@@ -77,6 +77,9 @@ class TestMultiRepoCrawlCounts:
             omni_home = _omni_home()
         except RuntimeError:
             pytest.skip("omni_home with all 4 repos not available in this environment")
+        missing = [r for r in _TARGET_REPOS if not (omni_home / r).is_dir()]
+        if missing:
+            pytest.skip(f"Repos not available at omni_home: {missing}")
         repos = [
             ModelRepoCrawlConfig(
                 name=repo,
