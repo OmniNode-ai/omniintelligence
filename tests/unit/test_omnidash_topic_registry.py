@@ -67,9 +67,25 @@ class TestOmnidashTopicRegistry:
 
     @pytest.mark.unit
     def test_intent_topic_values_match_onex_convention(self) -> None:
-        """All IntentTopic values must follow onex.evt.omniintelligence.*.v1 format."""
+        """Omniintelligence-owned IntentTopic values follow onex.{evt|cmd}.omniintelligence.*.v1.
+
+        Cross-service domain topics (pattern.discovered, review-pairing.*,
+        omnimemory.*) intentionally use different producer namespaces and are
+        excluded from this check per ONEX contract conventions.
+        """
+        # Topics that intentionally use a non-omniintelligence producer namespace.
+        _CROSS_SERVICE_PREFIXES = (
+            "onex.evt.pattern.",
+            "onex.evt.review-pairing.",
+            "onex.cmd.omnimemory.",
+            "onex.evt.omnimemory.",
+        )
         for member in IntentTopic:
-            assert member.value.startswith("onex.evt.omniintelligence."), (
+            if any(member.value.startswith(pfx) for pfx in _CROSS_SERVICE_PREFIXES):
+                continue
+            assert member.value.startswith(
+                "onex.evt.omniintelligence."
+            ) or member.value.startswith("onex.cmd.omniintelligence."), (
                 f"IntentTopic.{member.name} = {member.value!r} "
                 "does not follow onex.evt.omniintelligence.* convention"
             )

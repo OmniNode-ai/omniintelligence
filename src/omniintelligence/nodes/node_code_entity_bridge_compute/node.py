@@ -13,6 +13,8 @@ Ticket: OMN-7863
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 from omniintelligence.nodes.node_code_entity_bridge_compute.handlers import (
     handle_code_entity_bridge,
 )
@@ -27,6 +29,8 @@ class NodeCodeEntityBridgeCompute:
 
     All business logic is delegated to handle_code_entity_bridge.
     """
+
+    is_stub: ClassVar[bool] = True
 
     def compute(
         self, input_data: ModelCodeEntityBridgeInput

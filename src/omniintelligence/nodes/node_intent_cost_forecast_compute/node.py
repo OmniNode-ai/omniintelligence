@@ -18,7 +18,7 @@ Reference: OMN-2490
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from omnibase_core.enums.intelligence.enum_intent_class import EnumIntentClass
 from omnibase_core.nodes.node_compute import NodeCompute
@@ -49,6 +49,8 @@ class NodeIntentCostForecastCompute(
     This node is a thin shell following the ONEX declarative pattern.
     All computation logic is delegated to handler functions.
     """
+
+    is_stub: ClassVar[bool] = True
 
     def __init__(self, container: ModelONEXContainer) -> None:
         """Initialise with pre-seeded baselines for all 8 intent classes.

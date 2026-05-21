@@ -84,7 +84,7 @@ event_bus:
     patch: 0
   subscribe_topics: []
   publish_topics:
-    - "onex.evt.omniintelligence.pattern-compliance-evaluation.v1.dlq"
+    - "onex.evt.omniintelligence.pattern-compliance-evaluation-dlq.v1"
 
 # =============================================================================
 # DEPENDENCIES

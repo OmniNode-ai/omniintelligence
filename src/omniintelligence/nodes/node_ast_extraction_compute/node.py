@@ -17,6 +17,8 @@ Ticket: OMN-5659
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 from omniintelligence.nodes.node_ast_extraction_compute.handlers import (
     handle_ast_extract,
 )
@@ -39,6 +41,8 @@ class NodeAstExtractionCompute:
         node = NodeAstExtractionCompute()
         result = node.compute(input_data)
     """
+
+    is_stub: ClassVar[bool] = True
 
     def compute(self, input_data: AstExtractInput) -> ModelCodeEntitiesExtractedEvent:
         """Extract entities from a Python source file by delegating to handler."""

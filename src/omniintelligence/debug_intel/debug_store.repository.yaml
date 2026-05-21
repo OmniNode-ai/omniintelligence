@@ -70,6 +70,7 @@ db_repository:
               last_sha = EXCLUDED.last_sha,
               updated_at_utc = now()
         RETURNING *
+      param_order: [repo, branch, sha]
       params:
         repo:
           name: repo
@@ -103,6 +104,7 @@ db_repository:
             updated_at_utc = now()
         WHERE repo = $1
           AND branch = $2
+      param_order: [repo, branch]
       params:
         repo:
           name: repo
@@ -130,6 +132,7 @@ db_repository:
         FROM failure_streaks
         WHERE repo = $1
           AND branch = $2
+      param_order: [repo, branch]
       params:
         repo:
           name: repo
@@ -159,6 +162,7 @@ db_repository:
           (repo, branch, sha, pr_number, error_fingerprint, error_classification, streak_snapshot)
         VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING *
+      param_order: [repo, branch, sha, pr_number, error_fingerprint, error_classification, streak_snapshot]
       params:
         repo:
           name: repo
@@ -215,6 +219,7 @@ db_repository:
           (repo, branch, failure_fingerprint, error_classification, observed_bad_sha, streak_count_at_trigger)
         VALUES ($1, $2, $3, $4, $5, $6)
         RETURNING *
+      param_order: [repo, branch, failure_fingerprint, error_classification, observed_bad_sha, streak_count_at_trigger]
       params:
         repo:
           name: repo
@@ -267,6 +272,7 @@ db_repository:
           AND resolved = FALSE
         ORDER BY created_at_utc DESC
         LIMIT 1
+      param_order: [repo, branch]
       params:
         repo:
           name: repo
@@ -298,6 +304,7 @@ db_repository:
         WHERE id = $1
           AND resolved = FALSE
         RETURNING id
+      param_order: [trigger_record_id, fix_record_id]
       params:
         trigger_record_id:
           name: trigger_record_id
@@ -326,6 +333,7 @@ db_repository:
           (trigger_record_id, repo, sha, pr_number, regression_test_added)
         VALUES ($1, $2, $3, $4, $5)
         RETURNING *
+      param_order: [trigger_record_id, repo, sha, pr_number, regression_test_added]
       params:
         trigger_record_id:
           name: trigger_record_id
@@ -389,6 +397,7 @@ db_repository:
         WHERE tr.failure_fingerprint = $1
         ORDER BY fr.created_at_utc DESC
         LIMIT $2
+      param_order: [failure_fingerprint, limit]
       params:
         failure_fingerprint:
           name: failure_fingerprint

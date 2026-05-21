@@ -132,13 +132,21 @@ _BASE_NODE_SPECS = [
 @pytest.mark.parametrize("spec", _BASE_NODE_SPECS)
 def test_base_node_class_extraction(spec: dict[str, str]) -> None:
     """Verify AST extraction finds the base node class with its distinguishing mixin."""
+    try:
+        omni_home = _omni_home()
+    except RuntimeError:
+        pytest.skip("omni_home not available in this environment")
+        return  # unreachable; satisfies static analysis
+
     class_name = spec["class_name"]
     file_name = spec["file"]
     distinguishing_mixin = spec["distinguishing_mixin"]
 
     source_path = (
-        _omni_home() / "omnibase_core" / "src" / "omnibase_core" / "nodes" / file_name
+        omni_home / "omnibase_core" / "src" / "omnibase_core" / "nodes" / file_name
     )
+    if not source_path.exists():
+        pytest.skip(f"omnibase_core not available at {source_path}")
     source_code = source_path.read_text(encoding="utf-8")
     relative_path = f"src/omnibase_core/nodes/{file_name}"
 

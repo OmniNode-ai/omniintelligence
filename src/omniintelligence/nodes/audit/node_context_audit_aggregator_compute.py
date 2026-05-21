@@ -10,7 +10,7 @@ metrics including violation rates, budget utilization, and scope adherence.
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Final
+from typing import ClassVar, Final
 
 from pydantic import BaseModel, Field
 
@@ -301,6 +301,8 @@ class NodeContextAuditAggregatorCompute:
         - budget_utilization: violations / cumulative budget_limit
         - scope_adherence: fraction of events with zero violations
     """
+
+    is_stub: ClassVar[bool] = True
 
     async def execute_compute(
         self,
