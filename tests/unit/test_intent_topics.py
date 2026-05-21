@@ -89,7 +89,7 @@ class TestIntentTopicEnum:
             }
         )
 
-        for topic in IntentTopic:
+        for topic in IntentTopic.__members__.values():
             value = str(topic)
             if value in _CROSS_SERVICE_TOPICS:
                 continue
@@ -103,7 +103,7 @@ class TestIntentTopicEnum:
         """All intent topics are versioned v1."""
         from omniintelligence.topics import IntentTopic
 
-        for topic in IntentTopic:
+        for topic in IntentTopic.__members__.values():
             assert str(topic).endswith(".v1"), (
                 f"Topic {topic!r} does not end with '.v1'"
             )

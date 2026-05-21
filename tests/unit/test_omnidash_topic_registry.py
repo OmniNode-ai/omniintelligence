@@ -80,7 +80,7 @@ class TestOmnidashTopicRegistry:
             "onex.cmd.omnimemory.",
             "onex.evt.omnimemory.",
         )
-        for member in IntentTopic:
+        for member in IntentTopic.__members__.values():
             if any(member.value.startswith(pfx) for pfx in _CROSS_SERVICE_PREFIXES):
                 continue
             assert member.value.startswith(
