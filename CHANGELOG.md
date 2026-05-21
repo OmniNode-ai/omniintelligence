@@ -1,3 +1,43 @@
+## v0.24.0 (2026-05-21)
+
+### Features
+- feat(OMN-10765): port change-aware test selection to omniintelligence (#645)
+- feat(OMN-10388): record dispatch feedback outcomes (#634)
+- feat(OMN-10386): accept dispatch worker cost payload (#630)
+- feat(OMN-10387): subscribe pattern feedback to dispatch outcomes (#628)
+- feat(OMN-10385): wire dispatch outcome quality scoring (#627)
+- feat(OMN-10382): use shared usage source enum (#629)
+- feat(OMN-10380): scaffold dispatch outcome eval effect (#626)
+- feat(OMN-10316): wire docs-validate as required CI gate (#623)
+- feat(OMN-10603): migrate runner selector to vars.OMNI_TRUSTED_CI_RUNS_ON_JSON (#649)
+- feat(OMN-7835): remove ANTHROPIC_API_KEY hard requirement from Claude API fallback (#632)
+
+### Bug Fixes
+- fix(OMN-11008): remove LOCAL_LLM_SHARED_SECRET source synthesis in adapter (#651)
+- fix(OMN-10970): wire skip-token rejection CI gate (#650)
+- fix(OMN-11045): route merge queue off self-hosted runner (#652)
+- fix(OMN-10757): consolidate env fallback validator (#647)
+- fix(OMN-10736): resolve fallback validator review threads (#646)
+- fix(OMN-10736): replace 4 silent env fallbacks with os.environ[] (#644)
+- fix(OMN-7609): wire Kafka producer into crawl scheduler registry (#639)
+
+### Tests
+- test(OMN-7209): verify seed_patterns_from_families dry-run pipeline (#641)
+- test(OMN-7203): verify AST crawl yields >500 entities across 4 repos (#640)
+- test(OMN-7205): add integration tests for node family grouping (#633)
+
+### Pin Updates (2026-05-21 release wave 2)
+- omnibase-core: `>=0.40.1,<0.41.0` → `>=0.42.0,<0.43.0`
+- omnibase-infra: `==0.34.2` → `==0.36.1`
+- omnibase-spi: `==0.20.6` → `==0.21.0`
+
+### Other Changes
+- chore(deps): bump urllib3 from 2.6.3 to 2.7.0 (#648)
+- chore(deps-dev): bump python-multipart 0.0.26 → 0.0.27 (#643)
+- chore(deps): bump mako 1.3.11 → 1.3.12 (#642)
+- chore(deps-dev): update aiokafka requirement (#638)
+- chore(deps): bump actions/checkout from 4 to 6 (#637)
+
 ## v0.23.0 (2026-04-03)
 
 ### Features

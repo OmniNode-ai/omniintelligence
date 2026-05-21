@@ -27,11 +27,11 @@ from __future__ import annotations
 
 from enum import Enum, unique
 
-from omnibase_core.utils.util_str_enum_base import StrValueHelper
+from omnibase_core.utils.util_str_enum_base import UtilStrValueHelper
 
 
 @unique
-class IntentTopic(StrValueHelper, str, Enum):
+class IntentTopic(UtilStrValueHelper, str, Enum):
     """Canonical Kafka topic names for omniintelligence output events.
 
     All topics use ``onex.evt.omniintelligence.*`` as the producer namespace
@@ -121,7 +121,7 @@ class IntentTopic(StrValueHelper, str, Enum):
 
 
 @unique
-class IntelligenceCommandTopic(StrValueHelper, str, Enum):
+class IntelligenceCommandTopic(UtilStrValueHelper, str, Enum):
     """Canonical Kafka topic names for omniintelligence input commands.
 
     All topics use ``onex.cmd.omniintelligence.*`` or ``onex.cmd.*`` as the
