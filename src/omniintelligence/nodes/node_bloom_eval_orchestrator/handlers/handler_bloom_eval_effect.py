@@ -23,9 +23,10 @@ import asyncio
 import logging
 from collections.abc import Callable, Coroutine
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Protocol
 from uuid import UUID, uuid4
 
+from omnibase_core.models.container.model_onex_container import ModelONEXContainer
 from pydantic import BaseModel, ConfigDict, Field
 
 from omniintelligence.clients.eval_llm_client import EvalLLMClient
@@ -45,6 +46,12 @@ from omniintelligence.nodes.node_bloom_eval_orchestrator.models.model_eval_resul
 from omniintelligence.nodes.node_bloom_eval_orchestrator.models.model_eval_scenario import (
     ModelEvalScenario,
 )
+from omniintelligence.nodes.node_contract_eval_compute.models import (
+    ModelContractEvalInput,
+)
+from omniintelligence.nodes.node_contract_eval_compute.node import (
+    NodeContractEvalCompute,
+)
 from omniintelligence.protocols import ProtocolKafkaPublisher
 
 logger = logging.getLogger(__name__)
@@ -56,6 +63,10 @@ _PASS_SCORE_THRESHOLD = 0.5
 # Module-level set keeps strong references to background publish tasks so the
 # event loop cannot GC them before they complete. Tasks remove themselves on done.
 _background_tasks: set[asyncio.Task[None]] = set()
+
+
+class ProtocolContractEvalCompute(Protocol):
+    async def compute(self, input_data: ModelContractEvalInput) -> ModelEvalResult: ...
 
 
 class ModelBloomEvalRunCommand(BaseModel):
@@ -95,8 +106,89 @@ def _build_suite_result(
 async def _run_contract_path(
     command: ModelBloomEvalRunCommand,
     llm_client: EvalLLMClient,
+    *,
+    contract_eval_node: ProtocolContractEvalCompute | None = None,
 ) -> list[ModelEvalResult]:
     """Run CONTRACT_CREATION domain assessment."""
+    spec = get_spec(command.failure_mode)
+    raw_scenarios = await llm_client.generate_scenarios(
+        spec.scenario_prompt_template,
+        n=command.scenarios_per_spec,
+    )
+    node = contract_eval_node or NodeContractEvalCompute(
+        ModelONEXContainer(enable_service_registry=False)
+    )
+    results: list[ModelEvalResult] = []
+    for raw in raw_scenarios:
+        scenario = ModelEvalScenario(
+            spec_id=spec.spec_id,
+            failure_mode=command.failure_mode,
+            input_text=raw,
+            context={},
+        )
+        result = await node.compute(
+            ModelContractEvalInput(
+                contract_dict=_contract_dict_from_generated_text(
+                    raw,
+                    expected_behavior=spec.expected_behavior,
+                ),
+                scenario=scenario,
+                ticket_requirements=[spec.expected_behavior],
+                judge_caller=llm_client.judge_output,
+            )
+        )
+        results.append(result)
+    return results
+
+
+def _contract_dict_from_generated_text(
+    generated_text: str,
+    *,
+    expected_behavior: str,
+) -> dict[str, Any]:
+    """Materialize generated contract text into the hard-validator input shape."""
+    return {
+        "node_type": "COMPUTE_GENERIC",
+        "contract_id": "bloom-contract-eval",
+        "title": "Bloom Contract Evaluation Candidate",
+        "description": f"{generated_text}\n\nExpected behavior: {expected_behavior}",
+        "io": {"input_fields": [], "output_fields": []},
+        "environment_variables": [],
+        "acceptance_criteria": expected_behavior,
+    }
+
+
+async def _run_agent_path(
+    command: ModelBloomEvalRunCommand,
+    llm_client: EvalLLMClient,
+) -> list[ModelEvalResult]:
+    """Run AGENT_EXECUTION domain assessment.
+
+    Delegates to the same scenario-and-judgment loop as contract path.
+    Domain-specific logic will be layered in when NodeAgentBehaviorEvalCompute
+    (OMN-4025) is integrated.
+    """
+    return await _run_soft_judge_path(command, llm_client)
+
+
+async def _run_memory_path(
+    command: ModelBloomEvalRunCommand,
+    llm_client: EvalLLMClient,
+) -> list[ModelEvalResult]:
+    """Run MEMORY_SYSTEM domain assessment.
+
+    Delegates to the same scenario-and-judgment loop as contract path.
+    Domain-specific logic will be layered in when NodeMemoryEvalCompute
+    (OMN-4026) is integrated.
+    """
+    return await _run_soft_judge_path(command, llm_client)
+
+
+async def _run_soft_judge_path(
+    command: ModelBloomEvalRunCommand,
+    llm_client: EvalLLMClient,
+) -> list[ModelEvalResult]:
+    """Run non-contract domains through the existing soft-judge path."""
     spec = get_spec(command.failure_mode)
     raw_scenarios = await llm_client.generate_scenarios(
         spec.scenario_prompt_template,
@@ -137,32 +229,6 @@ async def _run_contract_path(
     return results
 
 
-async def _run_agent_path(
-    command: ModelBloomEvalRunCommand,
-    llm_client: EvalLLMClient,
-) -> list[ModelEvalResult]:
-    """Run AGENT_EXECUTION domain assessment.
-
-    Delegates to the same scenario-and-judgment loop as contract path.
-    Domain-specific logic will be layered in when NodeAgentBehaviorEvalCompute
-    (OMN-4025) is integrated.
-    """
-    return await _run_contract_path(command, llm_client)
-
-
-async def _run_memory_path(
-    command: ModelBloomEvalRunCommand,
-    llm_client: EvalLLMClient,
-) -> list[ModelEvalResult]:
-    """Run MEMORY_SYSTEM domain assessment.
-
-    Delegates to the same scenario-and-judgment loop as contract path.
-    Domain-specific logic will be layered in when NodeMemoryEvalCompute
-    (OMN-4026) is integrated.
-    """
-    return await _run_contract_path(command, llm_client)
-
-
 _DomainHandler = Callable[
     [ModelBloomEvalRunCommand, EvalLLMClient],
     Coroutine[Any, Any, list[ModelEvalResult]],
@@ -180,6 +246,7 @@ async def run_bloom_eval(
     *,
     producer: ProtocolKafkaPublisher | None = None,
     llm_client: EvalLLMClient,
+    contract_eval_node: ProtocolContractEvalCompute | None = None,
 ) -> None:
     """Orchestrate a bloom assessment suite and publish the result.
 
@@ -206,7 +273,14 @@ async def run_bloom_eval(
         extra={"correlation_id": correlation_id},
     )
 
-    results: list[ModelEvalResult] = await domain_handler(command, llm_client)
+    if domain is EnumEvalDomain.CONTRACT_CREATION:
+        results = await _run_contract_path(
+            command,
+            llm_client,
+            contract_eval_node=contract_eval_node,
+        )
+    else:
+        results = await domain_handler(command, llm_client)
     suite_result = _build_suite_result(
         suite_id=command.suite_id,
         failure_mode=command.failure_mode,

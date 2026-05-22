@@ -30,8 +30,18 @@ from __future__ import annotations
 
 from omnibase_core.nodes.node_compute import NodeCompute
 
+from omniintelligence.nodes.node_bloom_eval_orchestrator.models.model_eval_result import (
+    ModelEvalResult,
+)
+from omniintelligence.nodes.node_contract_eval_compute.handlers.handler_contract_eval import (
+    handle_contract_evaluation,
+)
+from omniintelligence.nodes.node_contract_eval_compute.models import (
+    ModelContractEvalInput,
+)
 
-class NodeContractEvalCompute(NodeCompute):  # type: ignore[type-arg]
+
+class NodeContractEvalCompute(NodeCompute[ModelContractEvalInput, ModelEvalResult]):
     """Declarative compute node for two-layer contract evaluation.
 
     This node is a pure declarative shell. All handler dispatch is defined
@@ -90,7 +100,14 @@ class NodeContractEvalCompute(NodeCompute):  # type: ignore[type-arg]
         ```
     """
 
-    # Pure declarative shell — all behavior defined in contract.yaml
+    async def compute(self, input_data: ModelContractEvalInput) -> ModelEvalResult:
+        """Delegate contract evaluation to the two-layer handler."""
+        return await handle_contract_evaluation(
+            contract_dict=input_data.contract_dict,
+            scenario=input_data.scenario,
+            ticket_requirements=input_data.ticket_requirements,
+            judge_caller=input_data.judge_caller,
+        )
 
 
 __all__ = ["NodeContractEvalCompute"]

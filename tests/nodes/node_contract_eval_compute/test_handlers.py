@@ -21,6 +21,7 @@ from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
+from omnibase_core.models.container.model_onex_container import ModelONEXContainer
 
 from omniintelligence.nodes.node_bloom_eval_orchestrator.models.enum_failure_mode import (
     EnumFailureMode,
@@ -31,6 +32,12 @@ from omniintelligence.nodes.node_bloom_eval_orchestrator.models.model_eval_scena
 from omniintelligence.nodes.node_contract_eval_compute.handlers.handler_contract_eval import (
     JudgeCallerError,
     handle_contract_evaluation,
+)
+from omniintelligence.nodes.node_contract_eval_compute.models import (
+    ModelContractEvalInput,
+)
+from omniintelligence.nodes.node_contract_eval_compute.node import (
+    NodeContractEvalCompute,
 )
 
 # ---------------------------------------------------------------------------
@@ -170,6 +177,28 @@ async def test_valid_contract_eval_passed_true() -> None:
     assert result.reference_integrity_pass is True
     assert result.trace_coverage_pct > 0.0
     assert result.eval_passed is True
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_node_compute_delegates_to_contract_eval_handler() -> None:
+    """NodeContractEvalCompute.compute returns the two-layer eval result."""
+    mock_judge = _make_judge()
+    node = NodeContractEvalCompute(ModelONEXContainer(enable_service_registry=False))
+
+    result = await node.compute(
+        ModelContractEvalInput(
+            contract_dict=_VALID_CONTRACT,
+            scenario=_make_scenario(),
+            ticket_requirements=["requirement"],
+            judge_caller=mock_judge,
+        )
+    )
+
+    assert result.schema_pass is True
+    assert result.reference_integrity_pass is True
+    assert result.eval_passed is True
+    mock_judge.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

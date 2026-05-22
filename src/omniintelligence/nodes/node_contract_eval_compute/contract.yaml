@@ -38,7 +38,7 @@ description: >
 # Strongly typed I/O models
 input_model:
   name: "ModelContractEvalInput"
-  module: "omniintelligence.nodes.node_contract_eval_compute"
+  module: "omniintelligence.nodes.node_contract_eval_compute.models"
   description: "Contract dict, evaluation scenario, ticket requirements, and judge_caller."
 output_model:
   name: "ModelEvalResult"

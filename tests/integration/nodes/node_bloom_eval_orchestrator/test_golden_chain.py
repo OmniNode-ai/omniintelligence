@@ -262,12 +262,44 @@ class TestBloomEvalGoldenChain:
         assert row is not None
         assert row["passed_threshold"] is True
 
+    async def test_contract_creation_path_uses_contract_eval_compute_semantics(
+        self,
+    ) -> None:
+        """CONTRACT_CREATION uses hard-validator compute semantics in the chain."""
+        command = ModelBloomEvalRunCommand(
+            failure_mode=EnumFailureMode.REQUIREMENT_OMISSION,
+            scenarios_per_spec=1,
+        )
+        publisher = MockKafkaPublisher()
+        llm = _make_llm_client(
+            scenarios=["Generated contract candidate"],
+            judgment={
+                "metamorphic_stability_score": 0.1,
+                "compliance_theater_risk": 0.9,
+                "ambiguity_flags": ["soft warning"],
+                "invented_requirements": [],
+                "missing_acceptance_criteria": [],
+            },
+        )
+
+        await run_bloom_eval(command, producer=publisher, llm_client=llm)
+        await asyncio.sleep(0)
+
+        payload = publisher.events_for(BLOOM_EVAL_COMPLETED_TOPIC)[0]
+        consumer = MockProjectionConsumer()
+        row = consumer.project(payload)
+
+        assert row is not None
+        assert row["total_scenarios"] == 1
+        assert row["passed_count"] == 1
+        assert row["passed_threshold"] is True
+
     async def test_projection_row_passed_threshold_false_for_all_failing(
         self,
     ) -> None:
         """passed_threshold must be False when all scenarios fail."""
         command = ModelBloomEvalRunCommand(
-            failure_mode=EnumFailureMode.REQUIREMENT_OMISSION,
+            failure_mode=EnumFailureMode.UNSAFE_TOOL_SEQUENCING,
             scenarios_per_spec=2,
         )
         publisher = MockKafkaPublisher()
