@@ -351,6 +351,7 @@ def _reshape_flat_hook_payload(flat: dict[str, object]) -> ModelClaudeCodeHookEv
 
     envelope["payload"] = nested_payload
 
+    # Why: Runtime validation intentionally accepts this broader fixture/input shape.
     return ModelClaudeCodeHookEvent(**envelope)  # type: ignore[arg-type]
 
 
@@ -452,6 +453,7 @@ def _reshape_tool_content_to_hook_event(
     nested = {k: v for k, v in payload.items() if k not in _TOOL_CONTENT_ENVELOPE_KEYS}
 
     return ModelClaudeCodeHookEvent(
+        # Why: Runtime validation intentionally accepts this broader fixture/input shape.
         event_type="PostToolUse",  # type: ignore[arg-type]
         session_id=session_id,
         correlation_id=corr_id,
@@ -1850,6 +1852,7 @@ def create_intelligence_orchestrator_dispatch_handler(
         if intent_id_raw is not None:
             intent_kwargs["intent_id"] = UUID(str(intent_id_raw))
 
+        # Why: Runtime validation intentionally accepts this broader fixture/input shape.
         intent = ModelIntent(**intent_kwargs)  # type: ignore[arg-type]
 
         # handle_receive_intent is sync — call directly (no await)
@@ -2224,6 +2227,7 @@ def create_intelligence_dispatch_engine(
         pattern_upsert_store if pattern_upsert_store is not None else repository
     )
     pattern_storage_handler = create_pattern_storage_dispatch_handler(
+        # Why: Runtime validation intentionally accepts this broader fixture/input shape.
         pattern_upsert_store=_upsert_store,  # type: ignore[arg-type]
         kafka_producer=kafka_producer,
         publish_topic=topics.get("pattern_storage"),
@@ -2477,6 +2481,7 @@ def create_intelligence_dispatch_engine(
 
     utilization_scoring_handler = create_utilization_scoring_dispatch_handler(
         repository=repository,
+        # Why: Runtime validation intentionally accepts this broader fixture/input shape.
         publisher=kafka_producer,  # type: ignore[arg-type]
         llm_client=_utilization_llm_client,
     )
@@ -2957,6 +2962,7 @@ def create_intelligence_dispatch_engine(
 
     code_analysis_handler = create_code_analysis_dispatch_handler(
         kafka_producer=kafka_producer,
+        # Why: Runtime validation intentionally accepts this broader fixture/input shape.
         llm_adapter=_code_analysis_llm_adapter,  # type: ignore[arg-type]
     )
     engine.register_handler(

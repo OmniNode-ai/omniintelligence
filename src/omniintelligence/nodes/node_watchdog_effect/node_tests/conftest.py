@@ -142,6 +142,7 @@ def make_mock_observer_factory(
         created_observers.append(obs)
         return obs, observer_type
 
+    # Why: Mock or runtime-provided object exposes this attribute dynamically.
     factory.created_observers = created_observers  # type: ignore[attr-defined]
     return factory, MockObserver
 

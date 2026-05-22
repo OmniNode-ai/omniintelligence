@@ -124,6 +124,7 @@ def _safe_float(value: object, *, default: float = 0.0) -> float:
     if value is None:
         return default
     try:
+        # Why: Runtime validation intentionally accepts this broader fixture/input shape.
         return float(value)  # type: ignore[arg-type]
     except (TypeError, ValueError):
         return default

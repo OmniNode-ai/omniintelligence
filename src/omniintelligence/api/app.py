@@ -89,6 +89,7 @@ async def _create_pool(database_url: str | None) -> asyncpg.Pool:
         if omni_db_url:
             return await asyncpg.create_pool(dsn=omni_db_url, min_size=2, max_size=10)
 
+        # Why: Runtime validation intentionally rejects or accepts this dynamic call shape.
         settings = DatabaseSettings()  # type: ignore[call-arg]  # fields populated from env vars at runtime
         return await asyncpg.create_pool(
             host=settings.host,

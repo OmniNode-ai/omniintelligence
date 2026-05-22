@@ -91,6 +91,7 @@ def create_promotion_check_dispatch_handler(
             repository=repository,
             apply_transition_fn=apply_transition,
             idempotency_store=idempotency_store,
+            # Why: Runtime validation intentionally accepts this broader fixture/input shape.
             producer=producer,  # type: ignore[arg-type]
             correlation_id=correlation_id,
             publish_topic=publish_topic,

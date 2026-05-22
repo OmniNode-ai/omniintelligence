@@ -66,6 +66,7 @@ class ModelQualityScoringOutput(BaseModel):
                 )
 
         for dimension_name, score in v.items():
+            # Why: Runtime validation intentionally accepts this broader fixture/input shape.
             score_val = float(score)  # type: ignore[arg-type]
             if not 0.0 <= score_val <= 1.0:
                 raise ValueError(

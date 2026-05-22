@@ -180,6 +180,7 @@ def replay_decision(
     try:
         # NOTE: JSON-deserialized data lacks static types; runtime checks/except
         # guard ensure valid numeric 'score' values — type: ignore is intentional.
+        # Why: Runtime validation intentionally accepts this broader fixture/input shape.
         max_score = max(float(e["score"]) for e in scoring_list)  # type: ignore[arg-type]
     except (KeyError, TypeError, ValueError) as exc:
         reason = f"Cannot replay: malformed scoring entry: {exc}"
@@ -202,6 +203,7 @@ def replay_decision(
     top_candidates = [
         str(e["candidate"])
         for e in scoring_list
+        # Why: Runtime validation intentionally accepts this broader fixture/input shape.
         if abs(float(e["score"]) - max_score) < 1e-9  # type: ignore[arg-type]
     ]
 

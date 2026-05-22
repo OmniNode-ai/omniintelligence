@@ -28,6 +28,7 @@ _REQUIRED_TYPES: dict[str, type] = {
     "title": str,
     "description": str,
     "io": dict,
+    # Why: Validator registry intentionally stores heterogeneous accepted collection types.
     "environment_variables": (dict, list),  # type: ignore[dict-item]
 }
 

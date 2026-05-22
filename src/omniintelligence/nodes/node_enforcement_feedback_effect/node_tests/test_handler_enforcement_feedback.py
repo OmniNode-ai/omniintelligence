@@ -611,6 +611,7 @@ class TestErrorHandling:
                 raise ConnectionError("Transient DB failure")
             return await original_execute(query, *args)
 
+        # Why: Test replaces the method with a stub to exercise error handling.
         mock_repository.execute = _execute_with_selective_failure  # type: ignore[method-assign]
 
         event = ModelEnforcementEvent(

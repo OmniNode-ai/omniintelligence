@@ -577,6 +577,7 @@ async def handle_auto_promote_check(
             # Runtime guard: cast() does not validate keys at runtime.
             # mypy marks this as unreachable because the base TypedDict
             # guarantees these keys, but asyncpg rows may not conform.
+            # Why: Defensive branch covers runtime data even when static narrowing marks it unreachable.
             logger.warning(  # type: ignore[unreachable]
                 "Skipping candidate pattern: missing required fields (id, pattern_signature)",
                 extra={
@@ -677,6 +678,7 @@ async def handle_auto_promote_check(
             # Runtime guard: cast() does not validate keys at runtime.
             # mypy marks this as unreachable because the base TypedDict
             # guarantees these keys, but asyncpg rows may not conform.
+            # Why: Defensive branch covers runtime data even when static narrowing marks it unreachable.
             logger.warning(  # type: ignore[unreachable]
                 "Skipping provisional pattern: missing required fields (id, pattern_signature)",
                 extra={
