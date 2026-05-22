@@ -26,6 +26,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
 
+from omnibase_core.models.container import ModelONEXContainer
 from pydantic import BaseModel, ConfigDict, Field
 
 from omniintelligence.clients.eval_llm_client import EvalLLMClient
@@ -45,6 +46,8 @@ from omniintelligence.nodes.node_bloom_eval_orchestrator.models.model_eval_resul
 from omniintelligence.nodes.node_bloom_eval_orchestrator.models.model_eval_scenario import (
     ModelEvalScenario,
 )
+from omniintelligence.nodes.node_memory_eval_compute.models import ModelMemoryEvalInput
+from omniintelligence.nodes.node_memory_eval_compute.node import NodeMemoryEvalCompute
 from omniintelligence.protocols import ProtocolKafkaPublisher
 
 logger = logging.getLogger(__name__)
@@ -73,6 +76,8 @@ class ModelBloomEvalRunCommand(BaseModel):
     correlation_id: str = Field(default_factory=lambda: str(uuid4()))
     scenarios_per_spec: int = _DEFAULT_SCENARIOS_PER_SPEC
     publish_topic: str = _BLOOM_COMPLETED_TOPIC
+    memory_output: str = ""
+    memory_context: dict[str, Any] = Field(default_factory=dict)
 
 
 def _build_suite_result(
@@ -156,11 +161,46 @@ async def _run_memory_path(
 ) -> list[ModelEvalResult]:
     """Run MEMORY_SYSTEM domain assessment.
 
-    Delegates to the same scenario-and-judgment loop as contract path.
-    Domain-specific logic will be layered in when NodeMemoryEvalCompute
-    (OMN-4026) is integrated.
+    Generates memory-domain scenarios, then delegates judgment and aggregation
+    to NodeMemoryEvalCompute so MEMORY_SYSTEM behavior uses its dedicated
+    compute node instead of the generic contract path.
     """
-    return await _run_contract_path(command, llm_client)
+    spec = get_spec(command.failure_mode)
+    raw_scenarios = await llm_client.generate_scenarios(
+        spec.scenario_prompt_template,
+        n=command.scenarios_per_spec,
+    )
+    scenarios = [
+        ModelEvalScenario(
+            spec_id=spec.spec_id,
+            failure_mode=command.failure_mode,
+            input_text=raw,
+            context=dict(command.memory_context),
+        )
+        for raw in raw_scenarios
+    ]
+
+    async def _judge_caller(
+        system_prompt: str,
+        user_prompt: str,
+        criteria: list[str],
+    ) -> dict[str, Any]:
+        return await llm_client.judge_output(
+            prompt=system_prompt,
+            output=user_prompt,
+            failure_indicators=criteria,
+        )
+
+    memory_node = NodeMemoryEvalCompute(ModelONEXContainer())
+    suite_result = await memory_node.compute(
+        ModelMemoryEvalInput(
+            scenarios=scenarios,
+            memory_output=command.memory_output,
+            memory_context=command.memory_context,
+            judge_caller=_judge_caller,
+        )
+    )
+    return suite_result.results
 
 
 _DomainHandler = Callable[

@@ -17,6 +17,7 @@ import asyncio
 import inspect
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
+from uuid import uuid4
 
 import pytest
 
@@ -27,6 +28,10 @@ from omniintelligence.nodes.node_bloom_eval_orchestrator.handlers.handler_bloom_
 )
 from omniintelligence.nodes.node_bloom_eval_orchestrator.models.enum_failure_mode import (
     EnumFailureMode,
+)
+from omniintelligence.nodes.node_bloom_eval_orchestrator.models.model_eval_result import (
+    ModelEvalResult,
+    ModelEvalSuiteResult,
 )
 
 # ---------------------------------------------------------------------------
@@ -190,6 +195,101 @@ async def test_memory_system_domain_routes_correctly() -> None:
     producer.publish.assert_awaited_once()
     payload = producer.publish.call_args.kwargs["value"]
     assert payload["failure_mode"] == EnumFailureMode.REGRESSION_AMNESIA.value
+
+
+@pytest.mark.unit
+async def test_memory_system_domain_uses_node_memory_eval_compute(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """MEMORY_SYSTEM domain must delegate to NodeMemoryEvalCompute."""
+    captured: dict[str, Any] = {}
+
+    class StubMemoryNode:
+        def __init__(self, *_args: Any, **_kwargs: Any) -> None:
+            pass
+
+        async def compute(self, input_data: Any) -> ModelEvalSuiteResult:
+            captured["input_data"] = input_data
+            scenario = input_data.scenarios[0]
+            result = ModelEvalResult(
+                schema_pass=True,
+                trace_coverage_pct=0.9,
+                missing_acceptance_criteria=[],
+                invented_requirements=[],
+                ambiguity_flags=[],
+                reference_integrity_pass=True,
+                metamorphic_stability_score=0.95,
+                compliance_theater_risk=0.05,
+                failure_mode=scenario.failure_mode,
+                scenario_id=scenario.scenario_id,
+            )
+            return ModelEvalSuiteResult(
+                suite_id=uuid4(),
+                spec_id=scenario.spec_id,
+                failure_mode=scenario.failure_mode,
+                results=[result],
+                total_scenarios=1,
+                passed_count=1,
+            )
+
+    monkeypatch.setattr(
+        handler_mod,
+        "NodeMemoryEvalCompute",
+        StubMemoryNode,
+    )
+    command = ModelBloomEvalRunCommand(
+        failure_mode=EnumFailureMode.REGRESSION_AMNESIA,
+        scenarios_per_spec=1,
+        memory_output="Agent recalled the project-specific migration decision.",
+        memory_context={"session_id": "mem-123", "prior_tasks": ["OMN-4026"]},
+    )
+    producer = _make_producer()
+    llm = _make_llm_client(scenarios=["memory scenario"])
+
+    await run_bloom_eval(command, producer=producer, llm_client=llm)
+    await asyncio.sleep(0)
+
+    input_data = captured["input_data"]
+    assert input_data.memory_output == command.memory_output
+    assert input_data.memory_context == command.memory_context
+    assert len(input_data.scenarios) == 1
+    assert input_data.scenarios[0].input_text == "memory scenario"
+    assert input_data.scenarios[0].context == command.memory_context
+    producer.publish.assert_awaited_once()
+
+
+@pytest.mark.unit
+async def test_memory_system_judge_adapter_uses_memory_prompts() -> None:
+    """Memory path adapts NodeMemoryEvalCompute judge prompts into EvalLLMClient."""
+    command = ModelBloomEvalRunCommand(
+        failure_mode=EnumFailureMode.FAILURE_TO_SURFACE_MEMORY,
+        scenarios_per_spec=1,
+        memory_output="The agent omitted the relevant migration note.",
+        memory_context={"session_id": "mem-456"},
+    )
+    producer = _make_producer()
+    llm = _make_llm_client(
+        scenarios=["Recall the migration decision before answering."],
+        judgment={
+            "schema_pass": True,
+            "trace_coverage_pct": 0.9,
+            "missing_acceptance_criteria": [],
+            "invented_requirements": [],
+            "ambiguity_flags": [],
+            "reference_integrity_pass": True,
+            "metamorphic_stability_score": 0.95,
+            "compliance_theater_risk": 0.05,
+        },
+    )
+
+    await run_bloom_eval(command, producer=producer, llm_client=llm)
+    await asyncio.sleep(0)
+
+    judge_kwargs = llm.judge_output.await_args.kwargs
+    assert "MEMORY_SYSTEM" in judge_kwargs["prompt"]
+    assert "mem-456" in judge_kwargs["prompt"]
+    assert command.memory_output in judge_kwargs["output"]
+    assert "failure_to_surface_memory" in judge_kwargs["failure_indicators"][0]
 
 
 # ---------------------------------------------------------------------------
