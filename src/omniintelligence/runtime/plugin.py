@@ -962,6 +962,12 @@ class PluginIntelligence:
             # Create contract-driven upsert store for pattern storage handler
             pattern_upsert_store = AdapterPatternStore(self._pattern_runtime)
 
+            from omniintelligence.debug_intel.adapter_debug_store import (
+                create_debug_store_adapter,
+            )
+
+            debug_store = await create_debug_store_adapter(self._pool)
+
             # Create idempotency adapter from infra store
             if self._idempotency_store is not None:
                 idempotency_store = AdapterIdempotencyStoreInfra(
@@ -1009,6 +1015,7 @@ class PluginIntelligence:
                 # pattern_query_store: AdapterPatternStore implements ProtocolPatternQueryStore
                 # via query_patterns(). Pass it explicitly so the projection handler is wired.
                 pattern_query_store=pattern_upsert_store,
+                debug_store=debug_store,
             )
 
             # Publish introspection events for all intelligence nodes
@@ -1068,6 +1075,7 @@ class PluginIntelligence:
                 "repository_adapter",
                 "idempotency_store",
                 "intent_classifier",
+                "debug_store",
             ]
             if self._introspection_nodes:
                 resources_created.append("node_introspection")
