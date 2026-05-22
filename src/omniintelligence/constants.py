@@ -511,6 +511,16 @@ Reference: OMN-6123
 Deletion ticket: OMN-1546
 """
 
+TOPIC_PATTERN_SCORED_V1: str = "onex.evt.omniintelligence.pattern-scored.v1"
+"""Canonical topic for pattern-scored events (OUTPUT).
+
+NodePatternFeedbackEffect publishes one event per pattern after effectiveness
+scores are recomputed from rolling window metrics. Each event carries the
+pattern_id and the updated quality_score for omnidash projections.
+
+Reference: OMN-8161
+"""
+
 TOPIC_QUALITY_ASSESSMENT_CMD_V1: str = "onex.cmd.omniintelligence.quality-assessment.v1"
 """Canonical topic for quality-assessment commands (INPUT).
 
@@ -650,6 +660,7 @@ __all__ = [
     "TOPIC_OPERATION_COMPLETED_V1",
     "TOPIC_OPERATION_STARTED_V1",
     "TOPIC_PATTERN_LIFECYCLE_CMD_V1",
+    "TOPIC_PATTERN_SCORED_V1",
     "TOPIC_PLAN_REVIEW_STRATEGY_RUN_COMPLETED_V1",
     "TOPIC_PROMOTION_CHECK_CMD_V1",
     "TOPIC_CRAWL_REQUESTED_V1",
