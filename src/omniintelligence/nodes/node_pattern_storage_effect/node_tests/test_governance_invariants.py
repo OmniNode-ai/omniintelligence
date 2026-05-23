@@ -63,8 +63,10 @@ class TestGovernanceConstants:
         # Attempting to set should fail or be ignored on class
         original = PatternStorageGovernance.MIN_CONFIDENCE
         try:
+            # Why: Test or compatibility path intentionally crosses a static model constraint.
             PatternStorageGovernance.MIN_CONFIDENCE = 0.1  # type: ignore[misc]
             # If we reach here, reset and fail
+            # Why: Test or compatibility path intentionally crosses a static model constraint.
             PatternStorageGovernance.MIN_CONFIDENCE = original  # type: ignore[misc]
             # Note: Python allows this, but the governance design
             # intention is that this constant should never be changed

@@ -183,8 +183,11 @@ class TestCreatedCase:
             graph_store=gph_store,
         )
 
+        # Why: Mock or runtime-provided object exposes this attribute dynamically.
         ctx_store.insert_item.assert_called_once()  # type: ignore[attr-defined]
+        # Why: Mock or runtime-provided object exposes this attribute dynamically.
         vec_store.upsert_vector.assert_called_once()  # type: ignore[attr-defined]
+        # Why: Mock or runtime-provided object exposes this attribute dynamically.
         gph_store.upsert_context_item_edge.assert_called_once()  # type: ignore[attr-defined]
 
     @pytest.mark.asyncio
@@ -253,8 +256,11 @@ class TestSkippedCase:
             graph_store=gph_store,
         )
 
+        # Why: Mock or runtime-provided object exposes this attribute dynamically.
         ctx_store.insert_item.assert_not_called()  # type: ignore[attr-defined]
+        # Why: Mock or runtime-provided object exposes this attribute dynamically.
         ctx_store.update_item_fingerprint.assert_not_called()  # type: ignore[attr-defined]
+        # Why: Mock or runtime-provided object exposes this attribute dynamically.
         vec_store.upsert_vector.assert_not_called()  # type: ignore[attr-defined]
 
 
@@ -301,8 +307,11 @@ class TestUpdatedCase:
             graph_store=gph_store,
         )
 
+        # Why: Mock or runtime-provided object exposes this attribute dynamically.
         ctx_store.update_item_fingerprint.assert_called_once()  # type: ignore[attr-defined]
+        # Why: Mock or runtime-provided object exposes this attribute dynamically.
         ctx_store.insert_item.assert_not_called()  # type: ignore[attr-defined]
+        # Why: Mock or runtime-provided object exposes this attribute dynamically.
         vec_store.upsert_vector.assert_called_once()  # type: ignore[attr-defined]
 
     @pytest.mark.asyncio
@@ -320,6 +329,7 @@ class TestUpdatedCase:
             graph_store=gph_store,
         )
 
+        # Why: Mock or runtime-provided object exposes this attribute dynamically.
         call_kwargs = vec_store.upsert_vector.call_args.kwargs  # type: ignore[attr-defined]
         assert call_kwargs["point_id"] == existing_id
 
@@ -425,7 +435,9 @@ class TestEmptyInput:
             graph_store=gph_store,
         )
 
+        # Why: Mock or runtime-provided object exposes this attribute dynamically.
         ctx_store.lookup_by_position.assert_not_called()  # type: ignore[attr-defined]
+        # Why: Mock or runtime-provided object exposes this attribute dynamically.
         vec_store.upsert_vector.assert_not_called()  # type: ignore[attr-defined]
 
 
@@ -533,6 +545,7 @@ class TestEventEmission:
         )
 
         assert result.event_emitted is True
+        # Why: Mock or runtime-provided object exposes this attribute dynamically.
         emitter.emit_document_indexed.assert_called_once()  # type: ignore[attr-defined]
 
     @pytest.mark.asyncio
@@ -569,6 +582,7 @@ class TestEventEmission:
         )
 
         assert result.event_emitted is False
+        # Why: Mock or runtime-provided object exposes this attribute dynamically.
         emitter.emit_document_indexed.assert_not_called()  # type: ignore[attr-defined]
 
     @pytest.mark.asyncio

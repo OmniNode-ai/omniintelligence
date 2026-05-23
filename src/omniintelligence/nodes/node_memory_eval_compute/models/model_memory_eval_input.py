@@ -6,8 +6,8 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from typing import Any
 
+from omnibase_core.types import JsonType
 from pydantic import BaseModel, ConfigDict, Field
 
 from omniintelligence.nodes.node_bloom_eval_orchestrator.models.model_eval_scenario import (
@@ -29,11 +29,13 @@ class ModelMemoryEvalInput(BaseModel):
         description="Pre-generated MEMORY_SYSTEM evaluation scenarios."
     )
     memory_output: str = Field(description="Agent memory output string to evaluate.")
-    memory_context: dict[str, Any] = Field(
+    memory_context: dict[str, JsonType] = Field(
         default_factory=dict,
         description="Contextual metadata passed to judge_caller.",
     )
-    judge_caller: Callable[[str, str, list[str]], Awaitable[dict[str, Any]]] = Field(
-        description="Async judge callable.",
-        exclude=True,
+    judge_caller: Callable[[str, str, list[str]], Awaitable[dict[str, JsonType]]] = (
+        Field(
+            description="Async judge callable.",
+            exclude=True,
+        )
     )

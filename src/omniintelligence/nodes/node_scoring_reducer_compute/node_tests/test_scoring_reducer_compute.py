@@ -77,6 +77,7 @@ def _shaped_term(
     return ModelShapedTermSpec(
         id=term_id,
         weight=weight,
+        # Why: Runtime validation intentionally accepts this broader fixture/input shape.
         direction=direction,  # type: ignore[arg-type]
         evidence_source=evidence_source,
         score_dimension=score_dimension,

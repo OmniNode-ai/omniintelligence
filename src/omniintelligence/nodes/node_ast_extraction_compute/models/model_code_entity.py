@@ -5,9 +5,26 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field
+
+
+class MethodDescriptor(TypedDict, total=False):
+    """AST-derived method descriptor persisted as JSONB."""
+
+    name: str
+    args: list[str]
+    return_type: str | None
+    decorators: list[str]
+
+
+class FieldDescriptor(TypedDict, total=False):
+    """AST-derived Pydantic field descriptor persisted as JSONB."""
+
+    name: str
+    type: str | None
+    default: str | None
 
 
 class ModelCodeEntity(BaseModel):
@@ -38,11 +55,11 @@ class ModelCodeEntity(BaseModel):
     bases: list[str] = Field(
         default_factory=list, description="Base class names for classes"
     )
-    methods: list[dict[str, Any]] = Field(
+    methods: list[MethodDescriptor] = Field(
         default_factory=list,
         description="Method descriptors: [{name, args, return_type, decorators}]",
     )
-    fields: list[dict[str, Any]] = Field(
+    fields: list[FieldDescriptor] = Field(
         default_factory=list,
         description="Field descriptors for models: [{name, type, default}]",
     )

@@ -21,14 +21,21 @@ KNOWN_EVIDENCE_SOURCES: frozenset[str] = frozenset(
     {
         "lint_result",
         "test_result",
+        "test_output",
         "coverage_report",
         "mypy_report",
         "latency_measurement",
+        "latency_telemetry",
         "cost_measurement",
+        "cost_telemetry",
         "human_rating",
         "safety_check",
         "code_review",
         "benchmark_result",
+        "validator_result",
+        "static_analysis",
+        "build_warnings",
+        "structured_review_tag",
     }
 )
 

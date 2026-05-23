@@ -146,6 +146,7 @@ async def _write_strategy_run(
         all_category_values - set(categories_with_findings)
     )
 
+    # Why: Mock or runtime-provided object exposes this attribute dynamically.
     await db_conn.execute(  # type: ignore[attr-defined]
         _SQL_INSERT_STRATEGY_RUN,
         row_id,

@@ -300,6 +300,7 @@ class TestModelValidation:
     ) -> None:
         """ModelLlmRoutingDecisionEvent is immutable (frozen=True)."""
         with pytest.raises(ValidationError):
+            # Why: Suppression is retained for this documented runtime typing boundary.
             sample_routing_decision_event.session_id = "modified"  # pyright: ignore[reportAttributeAccessIssue]  # frozen model raises ValidationError at runtime
 
     def test_event_model_defaults(self) -> None:
@@ -324,6 +325,7 @@ class TestModelValidation:
             session_id="s1",
             correlation_id="c1",
             selected_agent="agent-api",
+            # Why: Runtime validation intentionally rejects or accepts this dynamic call shape.
             unknown_future_field="ignored",  # type: ignore[call-arg]
         )
         assert event.session_id == "s1"

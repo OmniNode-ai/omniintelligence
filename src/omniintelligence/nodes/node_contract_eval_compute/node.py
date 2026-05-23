@@ -41,7 +41,8 @@ from omniintelligence.nodes.node_contract_eval_compute.models import (
 )
 
 
-class NodeContractEvalCompute(NodeCompute[ModelContractEvalInput, ModelEvalResult]):
+# Why: Runtime node registration does not bind the generic parameter used by stubs.
+class NodeContractEvalCompute(NodeCompute):  # type: ignore[type-arg]
     """Declarative compute node for two-layer contract evaluation.
 
     This node is a pure declarative shell. All handler dispatch is defined

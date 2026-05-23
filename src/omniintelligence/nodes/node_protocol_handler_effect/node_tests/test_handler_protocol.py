@@ -382,6 +382,7 @@ class TestProtocolHandlerRegistry:
         async def failing_disconnect() -> None:
             raise RuntimeError("Disconnect failed")
 
+        # Why: Test replaces the method with a stub to exercise error handling.
         http_handler.disconnect = failing_disconnect  # type: ignore[method-assign]
 
         registry = ProtocolHandlerRegistry(
@@ -501,4 +502,5 @@ class TestInputModelValidation:
         """Input model is frozen (immutable)."""
         input_data = make_input()
         with pytest.raises(ValidationError):
+            # Why: Suppression is retained for this documented runtime typing boundary.
             input_data.operation = "POST"  # pyright: ignore[reportAttributeAccessIssue]  # frozen model raises ValidationError at runtime

@@ -136,6 +136,7 @@ def make_registry(
     """
     if handlers is None:
         handlers = {EnumProtocolType.HTTP_REST: MockProtocolHandler()}
+    # Why: Runtime validation intentionally accepts this broader fixture/input shape.
     return ProtocolHandlerRegistry(handlers=handlers)  # type: ignore[arg-type]
 
 

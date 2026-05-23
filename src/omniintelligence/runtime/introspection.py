@@ -189,7 +189,7 @@ INTELLIGENCE_NODES: tuple[_NodeDescriptor, ...] = discover_intelligence_nodes()
 # =============================================================================
 
 
-class IntelligenceNodeIntrospectionProxy(MixinNodeIntrospection):  # type: ignore[misc]  # omnibase_infra does not export py.typed
+class IntelligenceNodeIntrospectionProxy(MixinNodeIntrospection):
     """Proxy that uses MixinNodeIntrospection to publish on behalf of a node.
 
     Intelligence nodes are thin shells that run inside the plugin lifecycle.
@@ -203,8 +203,7 @@ class IntelligenceNodeIntrospectionProxy(MixinNodeIntrospection):  # type: ignor
     Note on mixin usage: This is an intentional proxy pattern, not a proper
     mixin usage. The proxy deliberately provides only the subset of the node
     interface that the mixin requires (the ``initialize_introspection`` call
-    and the ``name`` property). The ``# type: ignore[misc]`` suppresses the
-    mypy error from inheriting a mixin without a full node base class.
+    and the ``name`` property), which is enough for the runtime publisher path.
     """
 
     def __init__(

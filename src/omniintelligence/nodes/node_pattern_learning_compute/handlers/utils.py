@@ -285,6 +285,7 @@ def validate_similarity_weights(
     # Validate each weight value is in [0.0, 1.0]
     out_of_range: list[tuple[str, float]] = []
     for key in _REQUIRED_WEIGHT_KEYS:
+        # Why: Keys are constrained by the validated required-key tuple before access.
         value = weights[key]  # type: ignore[literal-required]
         if not isinstance(value, int | float):
             raise PatternLearningValidationError(
@@ -300,6 +301,7 @@ def validate_similarity_weights(
         )
 
     # Validate weights sum to approximately 1.0
+    # Why: Keys are constrained by the validated required-key tuple before access.
     total = sum(weights[key] for key in _REQUIRED_WEIGHT_KEYS)  # type: ignore[literal-required]
     if abs(total - 1.0) > tolerance:
         raise PatternLearningValidationError(
