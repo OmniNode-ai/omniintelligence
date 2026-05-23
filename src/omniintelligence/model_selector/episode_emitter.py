@@ -22,7 +22,9 @@ import json
 import logging
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Any
+from typing import Protocol
+
+from omnibase_core.types import JsonType
 
 from omniintelligence.constants import TOPIC_EPISODE_BOUNDARY_V1
 
@@ -33,6 +35,14 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 EPISODE_BOUNDARY_TOPIC = TOPIC_EPISODE_BOUNDARY_V1  # onex-topic-sot
+
+
+class ProtocolKafkaProducer(Protocol):
+    """Minimal synchronous Kafka producer protocol used by EpisodeEmitter."""
+
+    def produce(self, *, topic: str, value: bytes, key: bytes) -> object:
+        """Produce an already-serialized event."""
+        ...
 
 
 # ---------------------------------------------------------------------------
@@ -52,9 +62,9 @@ class EpisodeEmitterBase(ABC):
         self,
         episode_id: str,
         surface: str,
-        decision_snapshot: dict[str, Any],
+        decision_snapshot: dict[str, JsonType],
         observation_timestamp: datetime,
-        action_taken: dict[str, Any],
+        action_taken: dict[str, JsonType],
         emitted_at: datetime,
     ) -> None:
         """Emit an episode_started event.
@@ -77,7 +87,7 @@ class EpisodeEmitterBase(ABC):
         episode_id: str,
         surface: str,
         terminal_status: str,
-        outcome_metrics: dict[str, Any],
+        outcome_metrics: dict[str, JsonType],
         emitted_at: datetime,
     ) -> None:
         """Emit an episode_completed event.
@@ -110,7 +120,7 @@ class EpisodeEmitter(EpisodeEmitterBase):
             logged but not sent to Kafka (degraded mode).
     """
 
-    def __init__(self, kafka_publisher: Any = None) -> None:
+    def __init__(self, kafka_publisher: ProtocolKafkaProducer | None = None) -> None:
         """Initialize with optional Kafka publisher."""
         self._publisher = kafka_publisher
 
@@ -118,9 +128,9 @@ class EpisodeEmitter(EpisodeEmitterBase):
         self,
         episode_id: str,
         surface: str,
-        decision_snapshot: dict[str, Any],
+        decision_snapshot: dict[str, JsonType],
         observation_timestamp: datetime,
-        action_taken: dict[str, Any],
+        action_taken: dict[str, JsonType],
         emitted_at: datetime,
     ) -> None:
         """Emit an episode_started event to Kafka (non-blocking)."""
@@ -150,7 +160,7 @@ class EpisodeEmitter(EpisodeEmitterBase):
         episode_id: str,
         surface: str,
         terminal_status: str,
-        outcome_metrics: dict[str, Any],
+        outcome_metrics: dict[str, JsonType],
         emitted_at: datetime,
     ) -> None:
         """Emit an episode_completed event to Kafka (non-blocking)."""
@@ -182,14 +192,14 @@ class EpisodeEmitter(EpisodeEmitterBase):
         surface: str,
         phase: str,
         terminal_status: str | None,
-        decision_snapshot: dict[str, Any],
+        decision_snapshot: dict[str, JsonType],
         observation_timestamp: datetime,
-        action_taken: dict[str, Any],
-        outcome_metrics: dict[str, Any],
+        action_taken: dict[str, JsonType],
+        outcome_metrics: dict[str, JsonType],
         emitted_at: datetime,
     ) -> None:
         """Internal: build payload and publish."""
-        payload: dict[str, Any] = {
+        payload: dict[str, JsonType] = {
             "episode_id": episode_id,
             "surface": surface,
             "phase": phase,
@@ -235,17 +245,17 @@ class MockEpisodeEmitter(EpisodeEmitterBase):
 
     def __init__(self, *, should_fail: bool = False) -> None:
         """Initialize mock emitter."""
-        self.started_events: list[dict[str, Any]] = []
-        self.completed_events: list[dict[str, Any]] = []
+        self.started_events: list[dict[str, object]] = []
+        self.completed_events: list[dict[str, object]] = []
         self.should_fail = should_fail
 
     def emit_started(
         self,
         episode_id: str,
         surface: str,
-        decision_snapshot: dict[str, Any],
+        decision_snapshot: dict[str, JsonType],
         observation_timestamp: datetime,
-        action_taken: dict[str, Any],
+        action_taken: dict[str, JsonType],
         emitted_at: datetime,
     ) -> None:
         """Capture the started emission."""
@@ -268,7 +278,7 @@ class MockEpisodeEmitter(EpisodeEmitterBase):
         episode_id: str,
         surface: str,
         terminal_status: str,
-        outcome_metrics: dict[str, Any],
+        outcome_metrics: dict[str, JsonType],
         emitted_at: datetime,
     ) -> None:
         """Capture the completed emission."""

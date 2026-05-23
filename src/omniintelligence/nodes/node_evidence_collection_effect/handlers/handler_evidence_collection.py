@@ -37,7 +37,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Protocol, TypedDict, cast
 
 from omniintelligence.constants import TOPIC_RUN_EVALUATED_V1
 from omniintelligence.nodes.node_evidence_collection_effect.errors import (
@@ -57,9 +57,39 @@ from omniintelligence.nodes.node_evidence_collection_effect.models.model_session
 )
 
 if TYPE_CHECKING:
+    from omniintelligence.nodes.node_scoring_reducer_compute.models.model_evaluation_result import (
+        ModelEvaluationResult,
+    )
+    from omniintelligence.nodes.node_scoring_reducer_compute.models.model_evidence_bundle import (
+        EvidenceItemMetadataDict,
+        ModelEvidenceBundle,
+    )
+    from omniintelligence.nodes.node_scoring_reducer_compute.models.model_objective_spec import (
+        ModelObjectiveSpec,
+    )
     from omniintelligence.protocols import ProtocolKafkaPublisher
 
 logger = logging.getLogger(__name__)
+
+EvidenceMetadataValue = str | bool | int | float
+
+
+class EvidenceItemDict(TypedDict):
+    """Dict shape consumed by ModelEvidenceItem construction."""
+
+    item_id: str
+    source: str
+    value: float
+    metadata: dict[str, EvidenceMetadataValue]
+
+
+class ProtocolEvaluationDb(Protocol):
+    """Minimal async DB connection used to persist objective evaluations."""
+
+    async def execute(self, query: str, *args: object) -> object:
+        """Execute a parameterized statement."""
+        ...
+
 
 # ============================================================================
 # Free-text source blocklist — any source in this set must be rejected
@@ -121,7 +151,9 @@ class EvidenceCollector:
             via the public API (programming contract violation).
     """
 
-    def collect(self, check_results: ModelSessionCheckResults) -> list[dict[str, Any]]:
+    def collect(
+        self, check_results: ModelSessionCheckResults
+    ) -> list[EvidenceItemDict]:
         """Extract EvidenceItem-compatible dicts from session check results.
 
         Processes gate results, test results, static analysis results, and
@@ -139,7 +171,7 @@ class EvidenceCollector:
             DisallowedEvidenceSourceError: If free-text source injection is
                 detected (programming contract violation — not a runtime error).
         """
-        items: list[dict[str, Any]] = []
+        items: list[EvidenceItemDict] = []
 
         # Stage 1: Gate execution records → validator_result
         for gate in check_results.gate_results:
@@ -186,7 +218,7 @@ class EvidenceCollector:
                 ),
             )
 
-    def _from_gate(self, gate: ModelGateCheckResult) -> dict[str, Any]:
+    def _from_gate(self, gate: ModelGateCheckResult) -> EvidenceItemDict:
         """Convert a gate check result to an EvidenceItem dict."""
         return {
             "item_id": f"gate_{gate.gate_id}",
@@ -200,7 +232,7 @@ class EvidenceCollector:
             },
         }
 
-    def _from_test_run(self, test_run: ModelTestRunResult) -> dict[str, Any]:
+    def _from_test_run(self, test_run: ModelTestRunResult) -> EvidenceItemDict:
         """Convert a test run result to an EvidenceItem dict."""
         return {
             "item_id": f"test_{test_run.test_suite}",
@@ -218,7 +250,7 @@ class EvidenceCollector:
 
     def _from_static_analysis(
         self, analysis: ModelStaticAnalysisResult
-    ) -> dict[str, Any]:
+    ) -> EvidenceItemDict:
         """Convert a static analysis result to an EvidenceItem dict."""
         return {
             "item_id": f"static_{analysis.tool}",
@@ -232,7 +264,7 @@ class EvidenceCollector:
             },
         }
 
-    def _from_cost(self, run_id: str, cost_usd: float) -> dict[str, Any]:
+    def _from_cost(self, run_id: str, cost_usd: float) -> EvidenceItemDict:
         """Convert cost telemetry to an EvidenceItem dict.
 
         Normalizes cost to [0.0, 1.0] where 1.0 = no cost and 0.0 = max cost.
@@ -248,7 +280,7 @@ class EvidenceCollector:
             },
         }
 
-    def _from_latency(self, run_id: str, latency_seconds: float) -> dict[str, Any]:
+    def _from_latency(self, run_id: str, latency_seconds: float) -> EvidenceItemDict:
         """Convert latency telemetry to an EvidenceItem dict.
 
         Normalizes latency to [0.0, 1.0] where 1.0 = instant, 0.0 = max latency.
@@ -267,34 +299,7 @@ class EvidenceCollector:
         }
 
 
-# ============================================================================
-# Protocol for scoring — decouples node_evidence_collection_effect from
-# node_scoring_reducer_compute at import time (avoids circular deps)
-# ============================================================================
-
-
-class _ProtocolObjectiveEvaluator:
-    """Protocol-like interface for the scoring function.
-
-    The concrete implementation is imported lazily to avoid hard coupling
-    to node_scoring_reducer_compute at module load time.
-    """
-
-    @staticmethod
-    def evaluate(evidence_bundle: Any, objective_spec: Any) -> Any:
-        """Evaluate an EvidenceBundle against an ObjectiveSpec.
-
-        Args:
-            evidence_bundle: ModelEvidenceBundle instance.
-            objective_spec: ModelObjectiveSpec instance.
-
-        Returns:
-            ModelEvaluationResult instance.
-        """
-        raise NotImplementedError  # stub-ok: evidence-evaluate-deferred
-
-
-def _get_default_objective_spec() -> Any:
+def _get_default_objective_spec() -> ModelObjectiveSpec | None:
     """Return the default ObjectiveSpec for sessions without explicit task class.
 
     This spec uses lenient gates (no hard failures for base sessions) and
@@ -339,28 +344,28 @@ def _get_default_objective_spec() -> Any:
                 id="term_test_quality",
                 evidence_source="test_output",
                 score_dimension="correctness",
-                weight=0.4,
+                weight=1.0,
                 direction="maximize",
             ),
             ModelShapedTermSpec(
                 id="term_static_quality",
                 evidence_source="static_analysis",
                 score_dimension="maintainability",
-                weight=0.3,
+                weight=1.0,
                 direction="maximize",
             ),
             ModelShapedTermSpec(
                 id="term_cost",
                 evidence_source="cost_telemetry",
                 score_dimension="cost",
-                weight=0.15,
+                weight=1.0,
                 direction="maximize",
             ),
             ModelShapedTermSpec(
                 id="term_latency",
                 evidence_source="latency_telemetry",
                 score_dimension="latency",
-                weight=0.15,
+                weight=1.0,
                 direction="maximize",
             ),
         ),
@@ -370,9 +375,9 @@ def _get_default_objective_spec() -> Any:
 
 def _build_evidence_bundle(
     run_id: str,
-    items_dicts: list[dict[str, Any]],
+    items_dicts: list[EvidenceItemDict],
     collected_at_utc: str,
-) -> Any | None:
+) -> ModelEvidenceBundle | None:
     """Build a ModelEvidenceBundle from item dicts.
 
     Args:
@@ -400,7 +405,7 @@ def _build_evidence_bundle(
             item_id=d["item_id"],
             source=d["source"],
             value=d["value"],
-            metadata=d.get("metadata", {}),
+            metadata=cast("EvidenceItemMetadataDict", d["metadata"]),
         )
         for d in items_dicts
     )
@@ -413,7 +418,9 @@ def _build_evidence_bundle(
     )
 
 
-def _run_evaluation(evidence_bundle: Any, objective_spec: Any) -> Any | None:
+def _run_evaluation(
+    evidence_bundle: ModelEvidenceBundle, objective_spec: ModelObjectiveSpec
+) -> ModelEvaluationResult | None:
     """Run the scoring evaluation.
 
     Args:
@@ -468,14 +475,14 @@ async def _emit_to_kafka(
 
 
 async def _store_to_db(
-    evaluation_result: Any,
+    evaluation_result: ModelEvaluationResult,
     bundle_fingerprint: str,
     run_id: str,
     session_id: str,
     agent_name: str,
     task_class: str,
     evaluated_at_utc: str,
-    db_conn: Any,
+    db_conn: ProtocolEvaluationDb,
 ) -> bool:
     """Store EvaluationResult in the objective_evaluations table.
 
@@ -548,8 +555,8 @@ async def collect_and_evaluate(
     task_class: str | None = None,
     agent_name: str | None = None,
     kafka_publisher: ProtocolKafkaPublisher | None = None,
-    db_conn: Any | None = None,
-    objective_spec: Any | None = None,
+    db_conn: ProtocolEvaluationDb | None = None,
+    objective_spec: ModelObjectiveSpec | None = None,
 ) -> ModelCollectionOutput:
     """Top-level async pipeline: collect evidence → evaluate → emit → store.
 
@@ -751,8 +758,8 @@ async def fire_and_forget_evaluate(
     task_class: str | None = None,
     agent_name: str | None = None,
     kafka_publisher: ProtocolKafkaPublisher | None = None,
-    db_conn: Any | None = None,
-    objective_spec: Any | None = None,
+    db_conn: ProtocolEvaluationDb | None = None,
+    objective_spec: ModelObjectiveSpec | None = None,
 ) -> None:
     """Fire-and-forget wrapper for collect_and_evaluate.
 

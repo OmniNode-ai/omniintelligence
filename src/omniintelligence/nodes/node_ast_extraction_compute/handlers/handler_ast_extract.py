@@ -17,7 +17,6 @@ import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any
 
 from omniintelligence.nodes.node_ast_extraction_compute.handlers.handler_relationship_detect import (
     detect_relationships,
@@ -26,6 +25,8 @@ from omniintelligence.nodes.node_ast_extraction_compute.models.model_code_entiti
     ModelCodeEntitiesExtractedEvent,
 )
 from omniintelligence.nodes.node_ast_extraction_compute.models.model_code_entity import (
+    FieldDescriptor,
+    MethodDescriptor,
     ModelCodeEntity,
 )
 from omniintelligence.nodes.node_ast_extraction_compute.models.model_code_relationship import (
@@ -276,7 +277,7 @@ def _classify_class(bases: list[str]) -> str:
 
 def _extract_method_info(
     method: ast.FunctionDef | ast.AsyncFunctionDef,
-) -> dict[str, Any]:
+) -> MethodDescriptor:
     """Build a method descriptor dict."""
     return {
         "name": method.name,
@@ -286,12 +287,12 @@ def _extract_method_info(
     }
 
 
-def _extract_pydantic_fields(node: ast.ClassDef) -> list[dict[str, Any]]:
+def _extract_pydantic_fields(node: ast.ClassDef) -> list[FieldDescriptor]:
     """Extract Pydantic-style field annotations from a class body."""
-    fields: list[dict[str, Any]] = []
+    fields: list[FieldDescriptor] = []
     for item in node.body:
         if isinstance(item, ast.AnnAssign) and isinstance(item.target, ast.Name):
-            field_info: dict[str, Any] = {
+            field_info: FieldDescriptor = {
                 "name": item.target.id,
                 "type": _unparse_safe(item.annotation),
             }
@@ -331,13 +332,13 @@ def _extract_class(
 
     qualified = f"{module_path}.{node.name}"
 
-    methods: list[dict[str, Any]] = []
+    methods: list[MethodDescriptor] = []
     if cfg.extract_methods:
         for item in node.body:
             if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 methods.append(_extract_method_info(item))
 
-    fields: list[dict[str, Any]] = []
+    fields: list[FieldDescriptor] = []
     if entity_type == "model" and cfg.extract_fields:
         fields = _extract_pydantic_fields(node)
 
