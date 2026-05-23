@@ -33,6 +33,9 @@ from omniintelligence.nodes.node_bloom_eval_orchestrator.models.model_eval_resul
     ModelEvalResult,
     ModelEvalSuiteResult,
 )
+from omniintelligence.nodes.node_contract_eval_compute.models import (
+    ModelContractEvalInput,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -76,6 +79,26 @@ def _make_command(
         failure_mode=failure_mode,
         scenarios_per_spec=scenarios_per_spec,
     )
+
+
+class _RecordingContractEvalNode:
+    def __init__(self) -> None:
+        self.inputs: list[ModelContractEvalInput] = []
+
+    async def compute(self, input_data: ModelContractEvalInput) -> ModelEvalResult:
+        self.inputs.append(input_data)
+        return ModelEvalResult(
+            schema_pass=True,
+            trace_coverage_pct=1.0,
+            missing_acceptance_criteria=[],
+            invented_requirements=[],
+            ambiguity_flags=[],
+            reference_integrity_pass=True,
+            metamorphic_stability_score=0.9,
+            compliance_theater_risk=0.1,
+            failure_mode=input_data.scenario.failure_mode,
+            scenario_id=input_data.scenario.scenario_id,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -165,6 +188,28 @@ async def test_contract_creation_domain_calls_generate_scenarios() -> None:
     await run_bloom_eval(command, producer=producer, llm_client=llm)
 
     llm.generate_scenarios.assert_awaited()
+
+
+@pytest.mark.unit
+async def test_contract_creation_domain_routes_through_contract_eval_compute() -> None:
+    """CONTRACT_CREATION domain must invoke NodeContractEvalCompute."""
+    command = _make_command(failure_mode=EnumFailureMode.REQUIREMENT_OMISSION)
+    producer = _make_producer()
+    llm = _make_llm_client(scenarios=["generated contract text"])
+    contract_eval_node = _RecordingContractEvalNode()
+
+    await run_bloom_eval(
+        command,
+        producer=producer,
+        llm_client=llm,
+        contract_eval_node=contract_eval_node,
+    )
+    await asyncio.sleep(0)
+
+    assert len(contract_eval_node.inputs) == 1
+    assert contract_eval_node.inputs[0].scenario.input_text == "generated contract text"
+    assert contract_eval_node.inputs[0].ticket_requirements
+    producer.publish.assert_awaited_once()
 
 
 @pytest.mark.unit
@@ -357,22 +402,41 @@ async def test_all_passing_results_sets_passed_threshold_true() -> None:
 
 @pytest.mark.unit
 async def test_all_failing_results_sets_passed_threshold_false() -> None:
-    """When all scenarios fail, passed_threshold must be False."""
-    command = _make_command(scenarios_per_spec=2)
-    producer = _make_producer()
-    llm = _make_llm_client(
-        scenarios=["s1", "s2"],
-        judgment={
-            "metamorphic_stability_score": 0.1,
-            "compliance_theater_risk": 0.9,
-            "ambiguity_flags": ["flag1"],
-            "invented_requirements": ["req1"],
-            "missing_acceptance_criteria": ["crit1"],
-            "schema_pass": False,
-        },
-    )
+    """When all scenarios fail, passed_threshold must be False.
 
-    await run_bloom_eval(command, producer=producer, llm_client=llm)
+    Drives the CONTRACT_CREATION path with an injected contract-eval node that
+    returns a failing ModelEvalResult, so the suite-level passed_threshold
+    aggregation is exercised independently of the hard validators.
+    """
+
+    class _FailingContractEvalNode:
+        async def compute(self, input_data: ModelContractEvalInput) -> ModelEvalResult:
+            return ModelEvalResult(
+                schema_pass=False,
+                trace_coverage_pct=0.1,
+                missing_acceptance_criteria=["crit1"],
+                invented_requirements=["req1"],
+                ambiguity_flags=["flag1"],
+                reference_integrity_pass=False,
+                metamorphic_stability_score=0.1,
+                compliance_theater_risk=0.9,
+                failure_mode=input_data.scenario.failure_mode,
+                scenario_id=input_data.scenario.scenario_id,
+            )
+
+    command = _make_command(
+        failure_mode=EnumFailureMode.REQUIREMENT_OMISSION,
+        scenarios_per_spec=2,
+    )
+    producer = _make_producer()
+    llm = _make_llm_client(scenarios=["s1", "s2"])
+
+    await run_bloom_eval(
+        command,
+        producer=producer,
+        llm_client=llm,
+        contract_eval_node=_FailingContractEvalNode(),
+    )
     await asyncio.sleep(0)
 
     payload = producer.publish.call_args.kwargs["value"]

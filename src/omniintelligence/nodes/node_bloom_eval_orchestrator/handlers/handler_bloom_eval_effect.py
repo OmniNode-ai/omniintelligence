@@ -23,7 +23,7 @@ import asyncio
 import logging
 from collections.abc import Callable, Coroutine
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Protocol
 from uuid import UUID, uuid4
 
 from omnibase_core.models.container import ModelONEXContainer
@@ -46,6 +46,12 @@ from omniintelligence.nodes.node_bloom_eval_orchestrator.models.model_eval_resul
 from omniintelligence.nodes.node_bloom_eval_orchestrator.models.model_eval_scenario import (
     ModelEvalScenario,
 )
+from omniintelligence.nodes.node_contract_eval_compute.models import (
+    ModelContractEvalInput,
+)
+from omniintelligence.nodes.node_contract_eval_compute.node import (
+    NodeContractEvalCompute,
+)
 from omniintelligence.nodes.node_memory_eval_compute.models import ModelMemoryEvalInput
 from omniintelligence.nodes.node_memory_eval_compute.node import NodeMemoryEvalCompute
 from omniintelligence.protocols import ProtocolKafkaPublisher
@@ -59,6 +65,10 @@ _PASS_SCORE_THRESHOLD = 0.5
 # Module-level set keeps strong references to background publish tasks so the
 # event loop cannot GC them before they complete. Tasks remove themselves on done.
 _background_tasks: set[asyncio.Task[None]] = set()
+
+
+class ProtocolContractEvalCompute(Protocol):
+    async def compute(self, input_data: ModelContractEvalInput) -> ModelEvalResult: ...
 
 
 class ModelBloomEvalRunCommand(BaseModel):
@@ -100,12 +110,17 @@ def _build_suite_result(
 async def _run_contract_path(
     command: ModelBloomEvalRunCommand,
     llm_client: EvalLLMClient,
+    *,
+    contract_eval_node: ProtocolContractEvalCompute | None = None,
 ) -> list[ModelEvalResult]:
     """Run CONTRACT_CREATION domain assessment."""
     spec = get_spec(command.failure_mode)
     raw_scenarios = await llm_client.generate_scenarios(
         spec.scenario_prompt_template,
         n=command.scenarios_per_spec,
+    )
+    node = contract_eval_node or NodeContractEvalCompute(
+        ModelONEXContainer(enable_service_registry=False)
     )
     results: list[ModelEvalResult] = []
     for raw in raw_scenarios:
@@ -115,31 +130,36 @@ async def _run_contract_path(
             input_text=raw,
             context={},
         )
-        judgment = await llm_client.judge_output(
-            prompt=spec.scenario_prompt_template,
-            output=raw,
-            failure_indicators=spec.failure_indicators,
-        )
-        stability_score = float(judgment.get("metamorphic_stability_score", 0.8))
-        results.append(
-            ModelEvalResult(
-                schema_pass=bool(judgment.get("schema_pass", True)),
-                trace_coverage_pct=stability_score,
-                missing_acceptance_criteria=list(
-                    judgment.get("missing_acceptance_criteria", [])
+        result = await node.compute(
+            ModelContractEvalInput(
+                contract_dict=_contract_dict_from_generated_text(
+                    raw,
+                    expected_behavior=spec.expected_behavior,
                 ),
-                invented_requirements=list(judgment.get("invented_requirements", [])),
-                ambiguity_flags=list(judgment.get("ambiguity_flags", [])),
-                reference_integrity_pass=(stability_score >= _PASS_SCORE_THRESHOLD),
-                metamorphic_stability_score=stability_score,
-                compliance_theater_risk=float(
-                    judgment.get("compliance_theater_risk", 0.2)
-                ),
-                failure_mode=command.failure_mode,
-                scenario_id=scenario.scenario_id,
+                scenario=scenario,
+                ticket_requirements=[spec.expected_behavior],
+                judge_caller=llm_client.judge_output,
             )
         )
+        results.append(result)
     return results
+
+
+def _contract_dict_from_generated_text(
+    generated_text: str,
+    *,
+    expected_behavior: str,
+) -> dict[str, Any]:
+    """Materialize generated contract text into the hard-validator input shape."""
+    return {
+        "node_type": "COMPUTE_GENERIC",
+        "contract_id": "bloom-contract-eval",
+        "title": "Bloom Contract Evaluation Candidate",
+        "description": f"{generated_text}\n\nExpected behavior: {expected_behavior}",
+        "io": {"input_fields": [], "output_fields": []},
+        "environment_variables": [],
+        "acceptance_criteria": expected_behavior,
+    }
 
 
 async def _run_agent_path(
@@ -220,6 +240,7 @@ async def run_bloom_eval(
     *,
     producer: ProtocolKafkaPublisher | None = None,
     llm_client: EvalLLMClient,
+    contract_eval_node: ProtocolContractEvalCompute | None = None,
 ) -> None:
     """Orchestrate a bloom assessment suite and publish the result.
 
@@ -246,7 +267,14 @@ async def run_bloom_eval(
         extra={"correlation_id": correlation_id},
     )
 
-    results: list[ModelEvalResult] = await domain_handler(command, llm_client)
+    if domain is EnumEvalDomain.CONTRACT_CREATION:
+        results = await _run_contract_path(
+            command,
+            llm_client,
+            contract_eval_node=contract_eval_node,
+        )
+    else:
+        results = await domain_handler(command, llm_client)
     suite_result = _build_suite_result(
         suite_id=command.suite_id,
         failure_mode=command.failure_mode,
