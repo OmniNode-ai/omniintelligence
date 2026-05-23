@@ -1894,14 +1894,21 @@ def create_ci_fingerprint_dispatch_handler(
     Returns:
         Async handler function with signature (envelope, context) -> str.
     """
+    from omnibase_core.models.container import ModelONEXContainer
+
+    from omniintelligence.nodes.node_ci_fingerprint_compute.node import (
+        NodeCiFingerprintCompute,
+    )
+
+    fingerprint_node = NodeCiFingerprintCompute(ModelONEXContainer())
 
     async def _handle(
         envelope: ModelEventEnvelope[object],
         context: ProtocolHandlerContext,
     ) -> str:
-        """Bridge handler: envelope -> compute_error_fingerprint (sync)."""
-        from omniintelligence.nodes.node_ci_fingerprint_compute.handlers.handler_fingerprint import (
-            compute_error_fingerprint,
+        """Bridge handler: envelope -> NodeCiFingerprintCompute."""
+        from omniintelligence.nodes.node_ci_fingerprint_compute.models.model_input import (
+            ModelCiFingerprintInput,
         )
 
         ctx_correlation_id = (
@@ -1936,15 +1943,20 @@ def create_ci_fingerprint_dispatch_handler(
             ctx_correlation_id,
         )
 
-        fingerprint = compute_error_fingerprint(failure_output, failing_tests)
+        output = await fingerprint_node.compute(
+            ModelCiFingerprintInput(
+                failure_output=failure_output,
+                failing_tests=failing_tests,
+            )
+        )
 
         logger.info(
             "CI fingerprint computed: %s (correlation_id=%s)",
-            fingerprint[:16],
+            output.fingerprint[:16],
             ctx_correlation_id,
         )
 
-        return json.dumps({"fingerprint": fingerprint})
+        return output.model_dump_json()
 
     return _handle
 
