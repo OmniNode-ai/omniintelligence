@@ -91,4 +91,5 @@ class ModelContractValidationResult:
 
     # Explicitly mark as unhashable since __eq__ is defined
     # This is required by PLW1641 (object-with-eq-but-no-hash)
+    # Why: Runtime compatibility path intentionally assigns through a constrained type.
     __hash__ = None  # type: ignore[assignment]

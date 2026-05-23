@@ -50,6 +50,7 @@ from omniintelligence.runtime.dispatch_handlers import (
     DISPATCH_ALIAS_PATTERN_LIFECYCLE,
     DISPATCH_ALIAS_SESSION_OUTCOME,
     DISPATCH_ALIAS_TOOL_CONTENT,
+    create_bloom_eval_run_dispatch_handler,
     create_claude_hook_dispatch_handler,
     create_compliance_evaluate_dispatch_handler,
     create_dispatch_callback,
@@ -2777,6 +2778,163 @@ class TestComplianceEvaluateDispatchHandler:
         mock_handle.assert_called_once()
         call_kwargs = mock_handle.call_args.kwargs
         assert call_kwargs["llm_client"] is mock_llm_client
+
+
+class TestBloomEvalRunDispatchHandler:
+    """Validate the bridge handler for bloom-eval-run commands."""
+
+    @pytest.mark.asyncio
+    async def test_dispatch_engine_routes_bloom_eval_run_to_handler(
+        self,
+        correlation_id: UUID,
+        mock_repository: MagicMock,
+        mock_idempotency_store: MagicMock,
+        mock_intent_classifier: MagicMock,
+    ) -> None:
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        from omniintelligence.topics import IntelligenceCommandTopic
+
+        llm_client = MagicMock()
+        producer = MagicMock()
+        producer.publish = AsyncMock()
+        suite_id = uuid4()
+        engine = create_intelligence_dispatch_engine(
+            repository=mock_repository,
+            idempotency_store=mock_idempotency_store,
+            intent_classifier=mock_intent_classifier,
+            kafka_producer=producer,
+            eval_llm_client=llm_client,
+        )
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload={
+                "failure_mode": "requirement_omission",
+                "suite_id": str(suite_id),
+                "correlation_id": str(correlation_id),
+                "scenarios_per_spec": 1,
+            },
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(tags={"message_category": "command"}),
+        )
+
+        with patch(
+            "omniintelligence.nodes.node_bloom_eval_orchestrator.handlers."
+            "handler_bloom_eval_effect.run_bloom_eval",
+            new_callable=AsyncMock,
+        ) as mock_run:
+            result = await engine.dispatch(
+                topic=canonical_topic_to_dispatch_alias(
+                    IntelligenceCommandTopic.BLOOM_EVAL_RUN
+                ),
+                envelope=envelope,
+            )
+
+        assert result.is_successful(), result.error_message
+        mock_run.assert_awaited_once()
+        assert mock_run.call_args.args[0].suite_id == suite_id
+
+    @pytest.mark.asyncio
+    async def test_handler_delegates_to_run_bloom_eval(
+        self,
+        correlation_id: UUID,
+    ) -> None:
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        llm_client = MagicMock()
+        producer = MagicMock()
+        producer.publish = AsyncMock()
+        suite_id = uuid4()
+
+        handler = create_bloom_eval_run_dispatch_handler(
+            kafka_producer=producer,
+            eval_llm_client=llm_client,
+            correlation_id=correlation_id,
+        )
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload={
+                "failure_mode": "requirement_omission",
+                "suite_id": str(suite_id),
+                "correlation_id": str(correlation_id),
+                "scenarios_per_spec": 1,
+            },
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(tags={"message_category": "command"}),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        with patch(
+            "omniintelligence.nodes.node_bloom_eval_orchestrator.handlers."
+            "handler_bloom_eval_effect.run_bloom_eval",
+            new_callable=AsyncMock,
+        ) as mock_run:
+            result = await handler(envelope, context)
+
+        parsed = json.loads(result)
+        assert parsed == {
+            "action": "bloom_eval_dispatched",
+            "suite_id": str(suite_id),
+            "failure_mode": "requirement_omission",
+        }
+        mock_run.assert_awaited_once()
+        call_args = mock_run.call_args
+        assert call_args.args[0].suite_id == suite_id
+        assert call_args.kwargs["producer"] is producer
+        assert call_args.kwargs["llm_client"] is llm_client
+
+    @pytest.mark.asyncio
+    async def test_handler_returns_structured_skip_without_eval_llm_client(
+        self,
+        correlation_id: UUID,
+    ) -> None:
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import (
+            ModelEffectContext,
+        )
+        from omnibase_core.models.events.model_event_envelope import (
+            ModelEventEnvelope,
+        )
+
+        handler = create_bloom_eval_run_dispatch_handler(
+            eval_llm_client=None,
+            correlation_id=correlation_id,
+        )
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload={
+                "failure_mode": "requirement_omission",
+                "correlation_id": str(correlation_id),
+            },
+            correlation_id=correlation_id,
+            metadata=ModelEnvelopeMetadata(tags={"message_category": "command"}),
+        )
+        context = ModelEffectContext(
+            correlation_id=correlation_id,
+            envelope_id=uuid4(),
+        )
+
+        result = await handler(envelope, context)
+
+        assert json.loads(result) == {
+            "skipped": True,
+            "reason": "no_eval_llm_client",
+        }
 
 
 # =============================================================================

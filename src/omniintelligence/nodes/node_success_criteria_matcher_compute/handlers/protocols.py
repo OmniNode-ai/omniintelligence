@@ -23,6 +23,7 @@ try:
 except ImportError:  # pragma: no cover
     # omnibase_core is an optional runtime dependency; define a local fallback
     # so that mypy (run without omnibase_core installed) can resolve the type.
+    # Why: Runtime compatibility path intentionally assigns through a constrained type.
     PrimitiveValue = str | int | float | bool  # type: ignore[assignment,misc]
 
 # =============================================================================

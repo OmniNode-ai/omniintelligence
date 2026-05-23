@@ -1137,6 +1137,7 @@ class TestIntentVerification:
         assert isinstance(result.intent, ModelPayloadUpdatePatternStatus)
         # Frozen models raise ValidationError on mutation
         with pytest.raises(pydantic.ValidationError):
+            # Why: Runtime compatibility path intentionally assigns through a constrained type.
             result.intent.to_status = "deprecated"  # type: ignore[assignment]
 
 
@@ -1328,6 +1329,7 @@ class TestResultModel:
         from dataclasses import FrozenInstanceError
 
         with pytest.raises(FrozenInstanceError):
+            # Why: Test or compatibility path intentionally crosses a static model constraint.
             result.success = False  # type: ignore[misc]
 
     def test_success_result_has_none_error_fields(

@@ -22,8 +22,10 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 from uuid import UUID
+
+from omnibase_core.types import JsonType
 
 from omniintelligence.nodes.node_storage_router_effect.models import (
     EnumStorageBackend,
@@ -71,7 +73,7 @@ class ProtocolStorageClient(Protocol):
         self,
         *,
         event_id: UUID,
-        payload: dict[str, Any],
+        payload: dict[str, JsonType],
         correlation_id: UUID | None = None,
     ) -> None:
         """Store a payload in the backend.
@@ -99,7 +101,7 @@ class ProtocolDlqPublisher(Protocol):
         self,
         *,
         event_id: UUID,
-        original_event: dict[str, Any],
+        original_event: dict[str, JsonType],
         error_message: str,
         retry_count: int,
         correlation_id: UUID | None = None,

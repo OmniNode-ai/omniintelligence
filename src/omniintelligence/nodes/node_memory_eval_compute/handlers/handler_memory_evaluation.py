@@ -31,9 +31,10 @@ Example::
 from __future__ import annotations
 
 import logging
-from collections.abc import Awaitable, Callable
-from typing import Any
+from collections.abc import Awaitable, Callable, Mapping
 from uuid import uuid4
+
+from omnibase_core.types import JsonType
 
 from omniintelligence.nodes.node_bloom_eval_orchestrator.models.model_eval_result import (
     ModelEvalResult,
@@ -60,9 +61,9 @@ MEMORY_FAILURE_MODES: frozenset[str] = frozenset(
 async def handle_memory_evaluation(
     scenarios: list[ModelEvalScenario],
     memory_output: str,
-    memory_context: dict[str, Any],
+    memory_context: dict[str, JsonType],
     *,
-    judge_caller: Callable[[str, str, list[str]], Awaitable[dict[str, Any]]],
+    judge_caller: Callable[[str, str, list[str]], Awaitable[dict[str, JsonType]]],
 ) -> ModelEvalSuiteResult:
     """Evaluate MEMORY_SYSTEM failure modes via LLM judge.
 
@@ -79,7 +80,7 @@ async def handle_memory_evaluation(
             the prompt (session state, prior task history, etc.).
         judge_caller: Async callable with signature
             ``(system_prompt: str, user_prompt: str, criteria: list[str])
-            -> dict[str, Any]``.
+            -> dict[str, JsonType]``.
             The dict must include the keys consumed by _build_eval_result:
             ``schema_pass``, ``trace_coverage_pct``, ``missing_acceptance_criteria``,
             ``invented_requirements``, ``ambiguity_flags``,
@@ -104,7 +105,7 @@ async def handle_memory_evaluation(
         user_prompt = _build_user_prompt(scenario, memory_output, memory_context)
         criteria = _build_criteria(scenario)
 
-        raw: dict[str, Any] = await judge_caller(system_prompt, user_prompt, criteria)
+        raw = await judge_caller(system_prompt, user_prompt, criteria)
         result = _build_eval_result(scenario, raw)
         results.append(result)
 
@@ -124,7 +125,7 @@ async def handle_memory_evaluation(
 
 def _build_system_prompt(
     scenario: ModelEvalScenario,
-    memory_context: dict[str, Any],
+    memory_context: dict[str, JsonType],
 ) -> str:
     """Construct the system prompt for the judge."""
     return (
@@ -137,7 +138,7 @@ def _build_system_prompt(
 def _build_user_prompt(
     scenario: ModelEvalScenario,
     memory_output: str,
-    memory_context: dict[str, Any],
+    memory_context: dict[str, JsonType],
 ) -> str:
     """Construct the user prompt, incorporating memory_context."""
     return (
@@ -162,7 +163,7 @@ def _build_criteria(scenario: ModelEvalScenario) -> list[str]:
 
 def _build_eval_result(
     scenario: ModelEvalScenario,
-    raw: dict[str, Any],
+    raw: Mapping[str, JsonType],
 ) -> ModelEvalResult:
     """Build a ModelEvalResult from the judge's raw response dict.
 
@@ -182,17 +183,45 @@ def _build_eval_result(
         Fully populated ModelEvalResult.
     """
     return ModelEvalResult(
-        schema_pass=bool(raw.get("schema_pass", False)),
-        trace_coverage_pct=float(raw.get("trace_coverage_pct", 0.0)),
-        missing_acceptance_criteria=list(raw.get("missing_acceptance_criteria", [])),
-        invented_requirements=list(raw.get("invented_requirements", [])),
-        ambiguity_flags=list(raw.get("ambiguity_flags", [])),
-        reference_integrity_pass=bool(raw.get("reference_integrity_pass", False)),
-        metamorphic_stability_score=float(raw.get("metamorphic_stability_score", 0.0)),
-        compliance_theater_risk=float(raw.get("compliance_theater_risk", 0.0)),
+        schema_pass=_response_bool(raw, "schema_pass"),
+        trace_coverage_pct=_response_float(raw, "trace_coverage_pct"),
+        missing_acceptance_criteria=_response_str_list(
+            raw, "missing_acceptance_criteria"
+        ),
+        invented_requirements=_response_str_list(raw, "invented_requirements"),
+        ambiguity_flags=_response_str_list(raw, "ambiguity_flags"),
+        reference_integrity_pass=_response_bool(raw, "reference_integrity_pass"),
+        metamorphic_stability_score=_response_float(raw, "metamorphic_stability_score"),
+        compliance_theater_risk=_response_float(raw, "compliance_theater_risk"),
         failure_mode=scenario.failure_mode,
         scenario_id=scenario.scenario_id,
     )
+
+
+def _response_bool(raw: Mapping[str, JsonType], key: str) -> bool:
+    """Read a judge response boolean, defaulting missing or malformed values false."""
+    return bool(raw.get(key, False))
+
+
+def _response_float(raw: Mapping[str, JsonType], key: str) -> float:
+    """Read a judge response score, defaulting missing or malformed values to 0."""
+    value = raw.get(key, 0.0)
+    if isinstance(value, bool):
+        return float(value)
+    if isinstance(value, int | float | str):
+        try:
+            return float(value)
+        except ValueError:
+            return 0.0
+    return 0.0
+
+
+def _response_str_list(raw: Mapping[str, JsonType], key: str) -> list[str]:
+    """Read a judge response string list, coercing scalar entries conservatively."""
+    value = raw.get(key, [])
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value]
 
 
 __all__ = ["handle_memory_evaluation"]

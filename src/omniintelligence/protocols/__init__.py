@@ -14,10 +14,15 @@ Reference:
 from __future__ import annotations
 
 from collections.abc import Mapping
+from datetime import datetime
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 from uuid import UUID
 
 if TYPE_CHECKING:
+    from omniintelligence.decision_store.models import (
+        DecisionRecordCursor,
+        DecisionRecordRow,
+    )
     from omniintelligence.nodes.node_intent_classifier_compute.models.model_intent_classification_input import (
         ModelIntentClassificationInput,
     )
@@ -231,7 +236,9 @@ class ProtocolDecisionRecordRepository(Protocol):
     Reference: OMN-2467
     """
 
-    def store(self, record: Any, *, correlation_id: str | None = None) -> bool:
+    def store(
+        self, record: DecisionRecordRow, *, correlation_id: str | None = None
+    ) -> bool:
         """Persist a DecisionRecord row.
 
         Returns:
@@ -245,7 +252,7 @@ class ProtocolDecisionRecordRepository(Protocol):
         *,
         include_rationale: bool = False,
         correlation_id: str | None = None,
-    ) -> Any | None:
+    ) -> dict[str, object] | None:
         """Retrieve a DecisionRecord by decision_id."""
         ...
 
@@ -253,12 +260,12 @@ class ProtocolDecisionRecordRepository(Protocol):
         self,
         decision_type: str,
         *,
-        since: Any = None,
-        until: Any = None,
+        since: datetime | None = None,
+        until: datetime | None = None,
         limit: int = 50,
-        cursor: Any = None,
+        cursor: DecisionRecordCursor | None = None,
         correlation_id: str | None = None,
-    ) -> Any:
+    ) -> tuple[list[dict[str, object]], DecisionRecordCursor | None]:
         """Query records by decision_type."""
         ...
 
@@ -266,12 +273,12 @@ class ProtocolDecisionRecordRepository(Protocol):
         self,
         selected_candidate: str,
         *,
-        since: Any = None,
-        until: Any = None,
+        since: datetime | None = None,
+        until: datetime | None = None,
         limit: int = 50,
-        cursor: Any = None,
+        cursor: DecisionRecordCursor | None = None,
         correlation_id: str | None = None,
-    ) -> Any:
+    ) -> tuple[list[dict[str, object]], DecisionRecordCursor | None]:
         """Query records by selected_candidate."""
         ...
 

@@ -264,6 +264,7 @@ class TestEmptyInput:
 
         await handle_embedding_generate(_make_input([]), client=mock_client)
 
+        # Why: Mock or runtime-provided object exposes this attribute dynamically.
         mock_client.get_embeddings_batch.assert_not_called()  # type: ignore[attr-defined]
 
 
@@ -342,6 +343,7 @@ class TestBatchFallback:
 
         assert result.total_chunks == 2
         assert result.failed_chunks == 0
+        # Why: Mock or runtime-provided object exposes this attribute dynamically.
         assert mock_client.get_embedding.call_count == 2  # type: ignore[attr-defined]
 
     @pytest.mark.asyncio
@@ -441,7 +443,9 @@ class TestClientLifecycle:
 
         await handle_embedding_generate(_make_input([chunk]), client=mock_client)
 
+        # Why: Mock or runtime-provided object exposes this attribute dynamically.
         mock_client.connect.assert_not_called()  # type: ignore[attr-defined]
+        # Why: Mock or runtime-provided object exposes this attribute dynamically.
         mock_client.close.assert_not_called()  # type: ignore[attr-defined]
 
     @pytest.mark.asyncio
@@ -458,7 +462,9 @@ class TestClientLifecycle:
 
             await handle_embedding_generate(_make_input([chunk]))
 
+            # Why: Mock or runtime-provided object exposes this attribute dynamically.
             mock_instance.connect.assert_called_once()  # type: ignore[attr-defined]
+            # Why: Mock or runtime-provided object exposes this attribute dynamically.
             mock_instance.close.assert_called_once()  # type: ignore[attr-defined]
 
 
@@ -564,6 +570,7 @@ class TestProviderSelection:
         input_data = ModelEmbeddingGenerateInput(
             classified_chunks=(),
             embedding_url="http://localhost:8100",
+            # Why: Runtime validation intentionally accepts this broader fixture/input shape.
             embedding_provider="local_openai",  # type: ignore[arg-type]
             source_ref="test.md",
         )

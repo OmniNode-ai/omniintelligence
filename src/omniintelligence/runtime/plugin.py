@@ -102,7 +102,7 @@ import logging
 import os
 import time
 from collections.abc import Awaitable, Callable
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from omnibase_core.protocols.event_bus.protocol_event_bus import ProtocolEventBus
@@ -174,6 +174,8 @@ _TRUTHY_VALUES = frozenset({"true", "1", "yes"})
 # a custom group name (e.g., per-environment isolation in staging).
 _INTELLIGENCE_CONSUMER_GROUP_ENV_VAR = "OMNIINTELLIGENCE_CONSUMER_GROUP"
 _INTELLIGENCE_CONSUMER_GROUP_DEFAULT = "omniintelligence-hooks"
+_BLOOM_EVAL_GENERATOR_URL_ENV_VAR = "LLM_CODER_FAST_URL"
+_BLOOM_EVAL_JUDGE_URL_ENV_VAR = "LLM_DEEPSEEK_R1_URL"
 
 
 def _intelligence_consumer_group() -> str:
@@ -200,6 +202,34 @@ def _intelligence_consumer_group() -> str:
             f"OMNIINTELLIGENCE_CONSUMER_GROUP must not contain whitespace; got: {group!r}"
         )
     return group
+
+
+def _build_bloom_eval_llm_client(
+    *,
+    event_publisher: Any,
+    correlation_id: str,
+) -> Any:
+    """Build EvalLLMClient when Bloom eval endpoint configuration is present."""
+    generator_url = os.getenv(_BLOOM_EVAL_GENERATOR_URL_ENV_VAR, "").strip()
+    judge_url = os.getenv(_BLOOM_EVAL_JUDGE_URL_ENV_VAR, "").strip()
+    if not generator_url or not judge_url:
+        logger.warning(
+            "Bloom eval runtime handler wired without EvalLLMClient: %s and %s "
+            "must both be set (correlation_id=%s)",
+            _BLOOM_EVAL_GENERATOR_URL_ENV_VAR,
+            _BLOOM_EVAL_JUDGE_URL_ENV_VAR,
+            correlation_id,
+        )
+        return None
+
+    from omniintelligence.clients.eval_llm_client import EvalLLMClient
+
+    return EvalLLMClient(
+        generator_url=generator_url,
+        judge_url=judge_url,
+        event_publisher=event_publisher,
+        correlation_id=correlation_id,
+    )
 
 
 # SQL to stamp (or re-stamp) the schema fingerprint on first boot.
@@ -287,6 +317,7 @@ except Exception:
         "Failed to collect subscribe topics from contracts — plugin will not receive events",
         exc_info=True,
     )
+    # Why: Compatibility fallback intentionally redefines the symbol when needed.
     INTELLIGENCE_SUBSCRIBE_TOPICS: list[str] = []  # type: ignore[no-redef]
 """All input topics the intelligence plugin subscribes to (contract-driven)."""
 
@@ -706,6 +737,7 @@ class PluginIntelligence:
                 # benign: both instances compute the same fingerprint from the same live
                 # schema, so the final stored value is identical regardless of ordering.
                 # The UPDATE is effectively idempotent (same value, same WHERE clause).
+                # Why: Mock or runtime-provided object exposes this attribute dynamically.
                 async with pool.acquire() as _conn:  # type: ignore[attr-defined]
                     status = await _conn.execute(
                         _STAMP_SCHEMA_FINGERPRINT_QUERY, fingerprint_result.fingerprint
@@ -792,6 +824,7 @@ class PluginIntelligence:
             RuntimeHostError: When ``idempotency_records`` is not present in the
                 ``public`` schema of the connected database.
         """
+        # Why: Mock or runtime-provided object exposes this attribute dynamically.
         row = await pool.fetchrow(  # type: ignore[attr-defined]
             "SELECT 1 FROM information_schema.tables "
             "WHERE table_schema = 'public' AND table_name = 'idempotency_records'"
@@ -1004,6 +1037,10 @@ class PluginIntelligence:
 
             # Read publish topics from contract.yaml declarations
             publish_topics = collect_publish_topics_for_dispatch()
+            bloom_eval_llm_client = _build_bloom_eval_llm_client(
+                event_publisher=kafka_publisher,
+                correlation_id=str(correlation_id),
+            )
 
             self._dispatch_engine = create_intelligence_dispatch_engine(
                 repository=repository,
@@ -1016,6 +1053,7 @@ class PluginIntelligence:
                 # via query_patterns(). Pass it explicitly so the projection handler is wired.
                 pattern_query_store=pattern_upsert_store,
                 debug_store=debug_store,
+                eval_llm_client=bloom_eval_llm_client,
             )
 
             # Publish introspection events for all intelligence nodes
@@ -1079,6 +1117,8 @@ class PluginIntelligence:
             ]
             if self._introspection_nodes:
                 resources_created.append("node_introspection")
+            if bloom_eval_llm_client is not None:
+                resources_created.append("bloom_eval_llm_client")
 
             return ModelDomainPluginResult(
                 plugin_id=self.plugin_id,

@@ -193,6 +193,7 @@ class TestFileDeleted:
         assert result.items_blacklisted == 1
         assert result.items_moved == 0
         assert result.items_reingested == 0
+        # Why: Mock or runtime-provided object exposes this attribute dynamically.
         store.blacklist_item.assert_called_once()  # type: ignore[attr-defined]
 
     @pytest.mark.asyncio
@@ -239,7 +240,9 @@ class TestFileMoved:
 
         assert result.items_moved == 1
         assert result.items_blacklisted == 0
+        # Why: Mock or runtime-provided object exposes this attribute dynamically.
         store.update_source_ref.assert_called_once()  # type: ignore[attr-defined]
+        # Why: Mock or runtime-provided object exposes this attribute dynamically.
         call_kwargs = store.update_source_ref.call_args.kwargs  # type: ignore[attr-defined]
         assert call_kwargs["item_id"] == item_id
         assert call_kwargs["new_source_ref"] == "docs/MOVED_README.md"
@@ -256,6 +259,7 @@ class TestFileMoved:
             reingestion_trigger=trigger,
         )
 
+        # Why: Mock or runtime-provided object exposes this attribute dynamically.
         trigger.trigger_reingestion.assert_not_called()  # type: ignore[attr-defined]
 
 
@@ -304,8 +308,11 @@ class TestContentChangedStatic:
             reingestion_trigger=trigger,
         )
 
+        # Why: Mock or runtime-provided object exposes this attribute dynamically.
         store.blacklist_item.assert_called_once()  # type: ignore[attr-defined]
+        # Why: Mock or runtime-provided object exposes this attribute dynamically.
         store.verify_item_in_pg.assert_called_once()  # type: ignore[attr-defined]
+        # Why: Mock or runtime-provided object exposes this attribute dynamically.
         store.verify_item_in_qdrant.assert_called_once()  # type: ignore[attr-defined]
 
     @pytest.mark.asyncio
@@ -321,6 +328,7 @@ class TestContentChangedStatic:
             reingestion_trigger=trigger,
         )
 
+        # Why: Mock or runtime-provided object exposes this attribute dynamically.
         store.blacklist_item.assert_not_called()  # type: ignore[attr-defined]
         assert result.items_blacklisted == 0
         assert (
@@ -344,6 +352,7 @@ class TestContentChangedStatic:
             reingestion_trigger=trigger,
         )
 
+        # Why: Mock or runtime-provided object exposes this attribute dynamically.
         store.apply_stat_carry.assert_not_called()  # type: ignore[attr-defined]
         assert result.stat_carries_applied == 0
 
@@ -373,6 +382,7 @@ class TestContentChangedRepo:
             reingestion_trigger=trigger,
         )
 
+        # Why: Mock or runtime-provided object exposes this attribute dynamically.
         store.apply_stat_carry.assert_called_once()  # type: ignore[attr-defined]
         assert result.stat_carries_applied == 1
 
@@ -394,6 +404,7 @@ class TestContentChangedRepo:
             reingestion_trigger=trigger,
         )
 
+        # Why: Mock or runtime-provided object exposes this attribute dynamically.
         store.apply_stat_carry.assert_not_called()  # type: ignore[attr-defined]
         assert result.stat_carries_applied == 0
 
@@ -409,6 +420,7 @@ class TestContentChangedRepo:
             reingestion_trigger=trigger,
         )
 
+        # Why: Mock or runtime-provided object exposes this attribute dynamically.
         store.apply_stat_carry.assert_not_called()  # type: ignore[attr-defined]
         assert result.stat_carries_applied == 0
 
@@ -487,8 +499,10 @@ class TestCrashRecovery:
             result.transitions[0].current_step == EnumStalenessTransitionStep.COMPLETE
         )
         # trigger_reingestion NOT called (already passed INDEX_NEW)
+        # Why: Mock or runtime-provided object exposes this attribute dynamically.
         trigger.trigger_reingestion.assert_not_called()  # type: ignore[attr-defined]
         # Only blacklist is called
+        # Why: Mock or runtime-provided object exposes this attribute dynamically.
         store.blacklist_item.assert_called_once()  # type: ignore[attr-defined]
 
     @pytest.mark.asyncio
@@ -514,6 +528,7 @@ class TestCrashRecovery:
             reingestion_trigger=trigger,
         )
 
+        # Why: Mock or runtime-provided object exposes this attribute dynamically.
         store.blacklist_item.assert_not_called()  # type: ignore[attr-defined]
         assert (
             result.transitions[0].current_step == EnumStalenessTransitionStep.COMPLETE
@@ -558,6 +573,7 @@ class TestEdgeCases:
                 raise RuntimeError("DB error")
 
         store = _make_staleness_store()
+        # Why: Mock or runtime-provided object exposes this attribute dynamically.
         store.blacklist_item.side_effect = flaky_blacklist  # type: ignore[attr-defined]
         trigger = _make_reingestion_trigger()
 
@@ -582,7 +598,9 @@ class TestEdgeCases:
             reingestion_trigger=trigger,
         )
 
+        # Why: Mock or runtime-provided object exposes this attribute dynamically.
         store.blacklist_item.assert_not_called()  # type: ignore[attr-defined]
+        # Why: Mock or runtime-provided object exposes this attribute dynamically.
         store.save_transition.assert_not_called()  # type: ignore[attr-defined]
         assert result.dry_run is True
 
@@ -631,6 +649,7 @@ class TestCustomThreshold:
             reingestion_trigger=trigger,
         )
 
+        # Why: Mock or runtime-provided object exposes this attribute dynamically.
         store.apply_stat_carry.assert_called_once()  # type: ignore[attr-defined]
         assert result.stat_carries_applied == 1
 

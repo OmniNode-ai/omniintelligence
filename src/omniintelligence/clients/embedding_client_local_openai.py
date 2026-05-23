@@ -296,6 +296,7 @@ class EmbeddingClientLocalOpenAI:
 
     def _parse_openai_response(
         self,
+        # Why: Runtime node registration does not bind the generic parameter used by stubs.
         data: dict,  # type: ignore[type-arg]
         *,
         expected_count: int,

@@ -14,9 +14,9 @@ Reference:
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
 from uuid import UUID
 
+from omnibase_core.types import JsonType
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -60,7 +60,7 @@ class ModelStorageRouteInput(BaseModel):
         default=None,
         description="Correlation ID for end-to-end distributed tracing",
     )
-    payload: dict[str, Any] = Field(
+    payload: dict[str, JsonType] = Field(
         ...,
         description="The event payload to be stored in the target backend",
     )

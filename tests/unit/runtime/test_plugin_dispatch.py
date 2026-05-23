@@ -369,6 +369,47 @@ class TestPluginWireDispatchers:
         assert "debug_store" in result.resources_created
 
     @pytest.mark.asyncio
+    async def test_wire_dispatchers_passes_bloom_eval_llm_client_to_engine(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """wire_dispatchers should inject EvalLLMClient when endpoints are configured."""
+        plugin = PluginIntelligence()
+        config = _make_config()
+        eval_client = MagicMock()
+        engine = MagicMock()
+        engine.is_frozen = True
+        engine.route_count = 0
+        engine.handler_count = 0
+
+        monkeypatch.setenv("LLM_CODER_FAST_URL", "http://generator.test")
+        monkeypatch.setenv("LLM_DEEPSEEK_R1_URL", "http://judge.test")
+
+        with (
+            patch(
+                "omniintelligence.clients.eval_llm_client.EvalLLMClient",
+                return_value=eval_client,
+            ) as mock_eval_client_class,
+            patch(
+                "omniintelligence.runtime.dispatch_handlers."
+                "create_intelligence_dispatch_engine",
+                return_value=engine,
+            ) as mock_create_engine,
+        ):
+            result = await _wire_plugin(plugin, config)
+
+        assert result.success, result.error_message
+        mock_eval_client_class.assert_called_once()
+        assert mock_eval_client_class.call_args.kwargs == {
+            "generator_url": "http://generator.test",
+            "judge_url": "http://judge.test",
+            "event_publisher": plugin._kafka_publisher_ref,
+            "correlation_id": str(config.correlation_id),
+        }
+        assert mock_create_engine.call_args.kwargs["eval_llm_client"] is eval_client
+        assert "bloom_eval_llm_client" in result.resources_created
+
+    @pytest.mark.asyncio
     async def test_wire_dispatchers_returns_failed_without_pool(self) -> None:
         """wire_dispatchers should return failed result when pool is None."""
         plugin = PluginIntelligence()

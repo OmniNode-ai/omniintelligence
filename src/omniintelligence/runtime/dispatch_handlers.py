@@ -351,6 +351,7 @@ def _reshape_flat_hook_payload(flat: dict[str, object]) -> ModelClaudeCodeHookEv
 
     envelope["payload"] = nested_payload
 
+    # Why: Runtime validation intentionally accepts this broader fixture/input shape.
     return ModelClaudeCodeHookEvent(**envelope)  # type: ignore[arg-type]
 
 
@@ -452,6 +453,7 @@ def _reshape_tool_content_to_hook_event(
     nested = {k: v for k, v in payload.items() if k not in _TOOL_CONTENT_ENVELOPE_KEYS}
 
     return ModelClaudeCodeHookEvent(
+        # Why: Runtime validation intentionally accepts this broader fixture/input shape.
         event_type="PostToolUse",  # type: ignore[arg-type]
         session_id=session_id,
         correlation_id=corr_id,
@@ -1850,6 +1852,7 @@ def create_intelligence_orchestrator_dispatch_handler(
         if intent_id_raw is not None:
             intent_kwargs["intent_id"] = UUID(str(intent_id_raw))
 
+        # Why: Runtime validation intentionally accepts this broader fixture/input shape.
         intent = ModelIntent(**intent_kwargs)  # type: ignore[arg-type]
 
         # handle_receive_intent is sync — call directly (no await)
@@ -1891,14 +1894,21 @@ def create_ci_fingerprint_dispatch_handler(
     Returns:
         Async handler function with signature (envelope, context) -> str.
     """
+    from omnibase_core.models.container import ModelONEXContainer
+
+    from omniintelligence.nodes.node_ci_fingerprint_compute.node import (
+        NodeCiFingerprintCompute,
+    )
+
+    fingerprint_node = NodeCiFingerprintCompute(ModelONEXContainer())
 
     async def _handle(
         envelope: ModelEventEnvelope[object],
         context: ProtocolHandlerContext,
     ) -> str:
-        """Bridge handler: envelope -> compute_error_fingerprint (sync)."""
-        from omniintelligence.nodes.node_ci_fingerprint_compute.handlers.handler_fingerprint import (
-            compute_error_fingerprint,
+        """Bridge handler: envelope -> NodeCiFingerprintCompute."""
+        from omniintelligence.nodes.node_ci_fingerprint_compute.models.model_input import (
+            ModelCiFingerprintInput,
         )
 
         ctx_correlation_id = (
@@ -1933,15 +1943,20 @@ def create_ci_fingerprint_dispatch_handler(
             ctx_correlation_id,
         )
 
-        fingerprint = compute_error_fingerprint(failure_output, failing_tests)
+        output = await fingerprint_node.compute(
+            ModelCiFingerprintInput(
+                failure_output=failure_output,
+                failing_tests=failing_tests,
+            )
+        )
 
         logger.info(
             "CI fingerprint computed: %s (correlation_id=%s)",
-            fingerprint[:16],
+            output.fingerprint[:16],
             ctx_correlation_id,
         )
 
-        return json.dumps({"fingerprint": fingerprint})
+        return output.model_dump_json()
 
     return _handle
 
@@ -2070,6 +2085,79 @@ def create_ci_failure_tracker_dispatch_handler(
 
 
 # =============================================================================
+# Bridge Handler: Bloom Eval Orchestrator (OMN-6979)
+# =============================================================================
+
+
+def create_bloom_eval_run_dispatch_handler(
+    *,
+    kafka_producer: ProtocolKafkaPublisher | None = None,
+    eval_llm_client: Any = None,
+    correlation_id: UUID | None = None,
+) -> Callable[
+    [ModelEventEnvelope[object], ProtocolHandlerContext],
+    Awaitable[str],
+]:
+    """Create a dispatch handler that bridges to run_bloom_eval."""
+
+    async def _handle(
+        envelope: ModelEventEnvelope[object],
+        context: ProtocolHandlerContext,
+    ) -> str:
+        from omniintelligence.nodes.node_bloom_eval_orchestrator.handlers.handler_bloom_eval_effect import (
+            ModelBloomEvalRunCommand,
+            run_bloom_eval,
+        )
+
+        ctx_correlation_id = (
+            correlation_id or getattr(context, "correlation_id", None) or uuid4()
+        )
+
+        payload = envelope.payload
+        if not isinstance(payload, dict):
+            msg = (
+                f"Unexpected payload type {type(payload).__name__} "
+                f"for bloom-eval-run command "
+                f"(correlation_id={ctx_correlation_id})"
+            )
+            logger.warning(msg)
+            raise ValueError(msg)
+
+        if eval_llm_client is None:
+            logger.warning(
+                "bloom-eval-run command received without EvalLLMClient "
+                "(correlation_id=%s) — skipping",
+                ctx_correlation_id,
+            )
+            return json.dumps({"skipped": True, "reason": "no_eval_llm_client"})
+
+        command = ModelBloomEvalRunCommand(**payload)
+        logger.info(
+            "Dispatching bloom-eval-run command to Bloom eval orchestrator "
+            "(suite_id=%s, failure_mode=%s, correlation_id=%s)",
+            command.suite_id,
+            command.failure_mode.value,
+            ctx_correlation_id,
+        )
+
+        await run_bloom_eval(
+            command,
+            producer=kafka_producer,
+            llm_client=eval_llm_client,
+        )
+
+        return json.dumps(
+            {
+                "action": "bloom_eval_dispatched",
+                "suite_id": str(command.suite_id),
+                "failure_mode": command.failure_mode.value,
+            }
+        )
+
+    return _handle
+
+
+# =============================================================================
 # Dispatch Engine Factory
 # =============================================================================
 
@@ -2088,6 +2176,7 @@ def create_intelligence_dispatch_engine(
     bolt_handler: Any = None,
     code_entity_store: Any = None,
     debug_store: Any = None,
+    eval_llm_client: Any = None,
 ) -> MessageDispatchEngine:
     """Create and configure a MessageDispatchEngine for Intelligence domain.
 
@@ -2120,6 +2209,9 @@ def create_intelligence_dispatch_engine(
         llm_client: Optional LLM client (ProtocolLlmClient) for compliance
             evaluation (OMN-2339). When None, compliance-evaluate commands
             are still registered but will return LLM-error results.
+        eval_llm_client: Optional EvalLLMClient for bloom-eval-run commands.
+            When None, bloom-eval-run commands are registered but skipped with
+            an explicit structured result.
 
     Returns:
         Frozen MessageDispatchEngine ready for dispatch.
@@ -2224,6 +2316,7 @@ def create_intelligence_dispatch_engine(
         pattern_upsert_store if pattern_upsert_store is not None else repository
     )
     pattern_storage_handler = create_pattern_storage_dispatch_handler(
+        # Why: Runtime validation intentionally accepts this broader fixture/input shape.
         pattern_upsert_store=_upsert_store,  # type: ignore[arg-type]
         kafka_producer=kafka_producer,
         publish_topic=topics.get("pattern_storage"),
@@ -2477,6 +2570,7 @@ def create_intelligence_dispatch_engine(
 
     utilization_scoring_handler = create_utilization_scoring_dispatch_handler(
         repository=repository,
+        # Why: Runtime validation intentionally accepts this broader fixture/input shape.
         publisher=kafka_producer,  # type: ignore[arg-type]
         llm_client=_utilization_llm_client,
     )
@@ -2957,6 +3051,7 @@ def create_intelligence_dispatch_engine(
 
     code_analysis_handler = create_code_analysis_dispatch_handler(
         kafka_producer=kafka_producer,
+        # Why: Runtime validation intentionally accepts this broader fixture/input shape.
         llm_adapter=_code_analysis_llm_adapter,  # type: ignore[arg-type]
     )
     engine.register_handler(
@@ -2979,26 +3074,17 @@ def create_intelligence_dispatch_engine(
         )
     )
 
-    # --- Handler: bloom-eval-run (OMN-6979) ---
-    # Bridge handler for bloom eval orchestrator commands. Delegates to
-    # the node handler when deps are available, otherwise logs and returns ok.
     _DISPATCH_ALIAS_BLOOM_EVAL_RUN = canonical_topic_to_dispatch_alias(
         IntelligenceCommandTopic.BLOOM_EVAL_RUN
     )
-
-    async def _bloom_eval_run_handler(
-        envelope: ModelEventEnvelope[object],
-        context: ProtocolHandlerContext,
-    ) -> str:
-        logger.info(
-            "bloom-eval-run command received: correlation_id=%s",
-            envelope.correlation_id or "unknown",
-        )
-        return "ok"
+    bloom_eval_run_handler = create_bloom_eval_run_dispatch_handler(
+        kafka_producer=kafka_producer,
+        eval_llm_client=eval_llm_client,
+    )
 
     engine.register_handler(
         handler_id="intelligence-bloom-eval-run-handler",
-        handler=_bloom_eval_run_handler,
+        handler=bloom_eval_run_handler,
         category=EnumMessageCategory.COMMAND,
         node_kind=EnumNodeKind.ORCHESTRATOR,
         message_types=None,
@@ -3518,6 +3604,7 @@ __all__ = [
     "DISPATCH_ALIAS_PATTERN_STORED",
     "DISPATCH_ALIAS_SESSION_OUTCOME",
     "DISPATCH_ALIAS_TOOL_CONTENT",
+    "create_bloom_eval_run_dispatch_handler",
     "create_ci_failure_tracker_dispatch_handler",
     "create_ci_fingerprint_dispatch_handler",
     "create_claude_hook_dispatch_handler",
