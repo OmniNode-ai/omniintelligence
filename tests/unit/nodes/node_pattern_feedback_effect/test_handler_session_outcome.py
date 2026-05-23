@@ -35,7 +35,10 @@ pytestmark = pytest.mark.unit
 
 from omnibase_core.nodes.node_effect import NodeEffect
 
-from omniintelligence.constants import TOPIC_QUALITY_ASSESSMENT_CMD_V1
+from omniintelligence.constants import (
+    TOPIC_PATTERN_SCORED_V1,
+    TOPIC_QUALITY_ASSESSMENT_CMD_V1,
+)
 from omniintelligence.enums import EnumHeuristicMethod
 from omniintelligence.nodes.node_pattern_feedback_effect.handlers import (
     compute_and_store_heuristics,
@@ -2656,11 +2659,15 @@ class TestQualityAssessmentTrigger:
             producer=mock_producer,
         )
 
-        assert mock_producer.publish.call_count == 2
+        # 2 quality-assessment + 2 pattern-scored = 4 total calls
+        assert mock_producer.publish.call_count == 4
         topics_published = {
             call.kwargs["topic"] for call in mock_producer.publish.call_args_list
         }
-        assert topics_published == {TOPIC_QUALITY_ASSESSMENT_CMD_V1}
+        assert topics_published == {
+            TOPIC_QUALITY_ASSESSMENT_CMD_V1,
+            TOPIC_PATTERN_SCORED_V1,
+        }
 
     @pytest.mark.asyncio
     async def test_producer_none_does_not_publish(
@@ -2718,5 +2725,235 @@ class TestQualityAssessmentTrigger:
         )
 
         # Primary operation must succeed despite Kafka failure
+        assert result.status == EnumOutcomeRecordingStatus.SUCCESS
+        assert pattern_id in result.pattern_ids
+
+
+# =============================================================================
+# Pattern Scored Emission Tests (OMN-8161)
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestPatternScoredEmission:
+    """Tests for pattern-scored.v1 Kafka event emission (OMN-8161).
+
+    Verifies the non-blocking publish step added after effectiveness scoring.
+    Each updated pattern emits one pattern-scored event carrying the updated
+    quality_score.
+    """
+
+    @pytest.mark.asyncio
+    async def test_pattern_scored_emitted_per_pattern(
+        self, mock_repository: MockPatternRepository
+    ) -> None:
+        """pattern-scored.v1 is published once per pattern after scoring."""
+        from unittest.mock import AsyncMock
+
+        session_id = uuid4()
+        pattern_id_1 = uuid4()
+        pattern_id_2 = uuid4()
+
+        mock_repository.add_pattern(
+            PatternState(
+                id=pattern_id_1,
+                injection_count_rolling_20=4,
+                success_count_rolling_20=3,
+                failure_count_rolling_20=1,
+            )
+        )
+        mock_repository.add_pattern(
+            PatternState(
+                id=pattern_id_2,
+                injection_count_rolling_20=4,
+                success_count_rolling_20=2,
+                failure_count_rolling_20=2,
+            )
+        )
+        mock_repository.add_injection(
+            InjectionState(
+                injection_id=uuid4(),
+                session_id=session_id,
+                pattern_ids=[pattern_id_1, pattern_id_2],
+            )
+        )
+
+        mock_producer = AsyncMock()
+        mock_producer.publish = AsyncMock()
+
+        await record_session_outcome(
+            session_id,
+            True,
+            repository=mock_repository,
+            producer=mock_producer,
+        )
+
+        scored_calls = [
+            c
+            for c in mock_producer.publish.call_args_list
+            if c.kwargs["topic"] == TOPIC_PATTERN_SCORED_V1
+        ]
+        assert len(scored_calls) == 2
+        scored_keys = {c.kwargs["key"] for c in scored_calls}
+        assert scored_keys == {str(pattern_id_1), str(pattern_id_2)}
+
+    @pytest.mark.asyncio
+    async def test_pattern_scored_payload_contains_quality_score(
+        self, mock_repository: MockPatternRepository
+    ) -> None:
+        """pattern-scored.v1 payload includes pattern_id and quality_score."""
+        from unittest.mock import AsyncMock
+
+        session_id = uuid4()
+        pattern_id = uuid4()
+
+        mock_repository.add_pattern(
+            PatternState(
+                id=pattern_id,
+                injection_count_rolling_20=4,
+                success_count_rolling_20=4,
+                failure_count_rolling_20=0,
+            )
+        )
+        mock_repository.add_injection(
+            InjectionState(
+                injection_id=uuid4(),
+                session_id=session_id,
+                pattern_ids=[pattern_id],
+            )
+        )
+
+        mock_producer = AsyncMock()
+        mock_producer.publish = AsyncMock()
+
+        await record_session_outcome(
+            session_id,
+            True,
+            repository=mock_repository,
+            producer=mock_producer,
+        )
+
+        scored_calls = [
+            c
+            for c in mock_producer.publish.call_args_list
+            if c.kwargs["topic"] == TOPIC_PATTERN_SCORED_V1
+        ]
+        assert len(scored_calls) == 1
+        payload = scored_calls[0].kwargs["value"]
+        assert payload["pattern_id"] == str(pattern_id)
+        assert "quality_score" in payload
+        assert isinstance(payload["quality_score"], float)
+        assert "session_id" in payload
+        assert "correlation_id" in payload
+
+    @pytest.mark.asyncio
+    async def test_pattern_scored_not_emitted_when_producer_none(
+        self, mock_repository: MockPatternRepository
+    ) -> None:
+        """No pattern-scored event is emitted when producer=None."""
+        session_id = uuid4()
+        pattern_id = uuid4()
+
+        mock_repository.add_pattern(PatternState(id=pattern_id))
+        mock_repository.add_injection(
+            InjectionState(
+                injection_id=uuid4(),
+                session_id=session_id,
+                pattern_ids=[pattern_id],
+            )
+        )
+
+        result = await record_session_outcome(
+            session_id,
+            True,
+            repository=mock_repository,
+            producer=None,
+        )
+
+        assert result.status == EnumOutcomeRecordingStatus.SUCCESS
+
+    @pytest.mark.asyncio
+    async def test_pattern_scored_not_emitted_when_scoring_failed(
+        self, mock_repository: MockPatternRepository
+    ) -> None:
+        """pattern-scored.v1 is NOT emitted when effectiveness scoring failed (scores=None)."""
+        from unittest.mock import AsyncMock
+
+        session_id = uuid4()
+        pattern_id = uuid4()
+
+        mock_repository.add_pattern(PatternState(id=pattern_id))
+        mock_repository.add_injection(
+            InjectionState(
+                injection_id=uuid4(),
+                session_id=session_id,
+                pattern_ids=[pattern_id],
+            )
+        )
+
+        # Force effectiveness scoring to fail so scores=None
+        original_fetch = mock_repository.fetch
+
+        async def failing_fetch(query: str, *args: Any) -> list:
+            if (
+                "UPDATE learned_patterns" in query
+                and "quality_score" in query
+                and "injection_count_rolling_20" in query
+            ):
+                raise RuntimeError("Simulated scoring failure")
+            return await original_fetch(query, *args)
+
+        mock_repository.fetch = failing_fetch  # type: ignore[assignment]
+
+        mock_producer = AsyncMock()
+        mock_producer.publish = AsyncMock()
+
+        result = await record_session_outcome(
+            session_id,
+            True,
+            repository=mock_repository,
+            producer=mock_producer,
+        )
+
+        assert result.status == EnumOutcomeRecordingStatus.SUCCESS
+        assert result.effectiveness_scores is None
+
+        # pattern-scored must NOT be emitted when scores=None
+        scored_calls = [
+            c
+            for c in mock_producer.publish.call_args_list
+            if c.kwargs["topic"] == TOPIC_PATTERN_SCORED_V1
+        ]
+        assert len(scored_calls) == 0
+
+    @pytest.mark.asyncio
+    async def test_pattern_scored_failure_does_not_fail_operation(
+        self, mock_repository: MockPatternRepository
+    ) -> None:
+        """A pattern-scored publish failure must not fail session outcome recording."""
+        from unittest.mock import AsyncMock
+
+        session_id = uuid4()
+        pattern_id = uuid4()
+
+        mock_repository.add_pattern(PatternState(id=pattern_id))
+        mock_repository.add_injection(
+            InjectionState(
+                injection_id=uuid4(),
+                session_id=session_id,
+                pattern_ids=[pattern_id],
+            )
+        )
+
+        mock_producer = AsyncMock()
+        mock_producer.publish = AsyncMock(side_effect=RuntimeError("Kafka down"))
+
+        result = await record_session_outcome(
+            session_id,
+            True,
+            repository=mock_repository,
+            producer=mock_producer,
+        )
+
         assert result.status == EnumOutcomeRecordingStatus.SUCCESS
         assert pattern_id in result.pattern_ids

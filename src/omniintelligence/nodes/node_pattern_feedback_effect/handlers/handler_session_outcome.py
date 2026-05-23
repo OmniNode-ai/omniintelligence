@@ -61,7 +61,10 @@ from omnibase_core.integrations.claude_code import (
     ClaudeSessionOutcome,
 )
 
-from omniintelligence.constants import TOPIC_QUALITY_ASSESSMENT_CMD_V1
+from omniintelligence.constants import (
+    TOPIC_PATTERN_SCORED_V1,
+    TOPIC_QUALITY_ASSESSMENT_CMD_V1,
+)
 from omniintelligence.enums import EnumHeuristicMethod
 from omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_attribution_binder import (
     handle_attribution_binding,
@@ -549,6 +552,41 @@ async def record_session_outcome(
                     exc_info=True,
                     extra={
                         "event": "quality_assessment_emit_failed",
+                        "correlation_id": str(correlation_id)
+                        if correlation_id
+                        else None,
+                        "session_id": str(session_id),
+                        "pattern_id": str(pattern_id),
+                    },
+                )
+
+    # Step 6c: Emit pattern-scored events for each pattern with updated score (OMN-8161)
+    # Non-blocking — Kafka is optional; primary operation already completed above.
+    # Only emit for patterns where effectiveness_scores is available (not None/failure).
+    if producer is not None and pattern_ids and effectiveness_scores is not None:
+        for pattern_id in pattern_ids:
+            score = effectiveness_scores.get(pattern_id)
+            if score is None:
+                continue
+            try:
+                await producer.publish(
+                    topic=TOPIC_PATTERN_SCORED_V1,
+                    key=str(pattern_id),
+                    value={
+                        "pattern_id": str(pattern_id),
+                        "quality_score": score,
+                        "session_id": str(session_id),
+                        "correlation_id": str(correlation_id)
+                        if correlation_id
+                        else str(session_id),
+                    },
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to emit pattern-scored event — non-critical, skipping",
+                    exc_info=True,
+                    extra={
+                        "event": "pattern_scored_emit_failed",
                         "correlation_id": str(correlation_id)
                         if correlation_id
                         else None,

@@ -19,11 +19,11 @@ contract_name: "node_pattern_feedback_effect"
 node_name: "node_pattern_feedback_effect"
 contract_version:
   major: 1
-  minor: 3
+  minor: 4
   patch: 0
 node_version:
   major: 1
-  minor: 3
+  minor: 4
   patch: 0
 
 # Node type
@@ -212,6 +212,7 @@ event_bus:
 
   publish_topics:
     - "onex.cmd.omniintelligence.quality-assessment.v1"
+    - "onex.evt.omniintelligence.pattern-scored.v1"
 
   subscribe_topic_metadata:
     "onex.cmd.omniintelligence.session-outcome.v1":
@@ -231,6 +232,15 @@ event_bus:
       internal_publisher:
         node: "node_dispatch_outcome_eval_effect"
         topic_constant: "TopicBase.DISPATCH_OUTCOME_EVALUATED"
+
+  publish_topic_metadata:
+    "onex.cmd.omniintelligence.quality-assessment.v1":
+      description: "Quality-assessment commands emitted per updated pattern after effectiveness scoring."
+      content_type: "application/json"
+    "onex.evt.omniintelligence.pattern-scored.v1":
+      description: "Per-pattern scored events emitted after effectiveness scores are recomputed from rolling
+        metrics."
+      content_type: "application/json"
 
 # =============================================================================
 # CAPABILITIES
@@ -278,7 +288,7 @@ metadata:
   author: "OmniNode Team"
   license: "MIT"
   created: "2026-01-30"
-  updated: "2026-02-10"
+  updated: "2026-05-22"
   tags:
     - effect
     - pattern-learning
@@ -292,3 +302,6 @@ metadata:
     - ticket: "OMN-2077"
       url: "https://linear.app/omninode/issue/OMN-2077"
       description: "Pattern feedback consumption + effectiveness scoring"
+    - ticket: "OMN-8161"
+      url: "https://linear.app/omninode/issue/OMN-8161"
+      description: "Wire pattern-scored.v1 producer after effectiveness score recomputation"
