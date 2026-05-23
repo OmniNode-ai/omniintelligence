@@ -14,6 +14,7 @@ Validates:
 from __future__ import annotations
 
 import json
+from typing import Any
 from unittest.mock import MagicMock
 from uuid import uuid4
 
@@ -61,6 +62,48 @@ class TestCiFingerprintDispatchHandler:
         parsed = json.loads(result)
         assert "fingerprint" in parsed
         assert len(parsed["fingerprint"]) == 64  # SHA-256 hex digest
+
+    @pytest.mark.asyncio
+    async def test_handler_delegates_to_node_compute(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Handler instantiates NodeCiFingerprintCompute and calls compute()."""
+        from omniintelligence.nodes.node_ci_fingerprint_compute.models.model_output import (
+            ModelCiFingerprintOutput,
+        )
+
+        captured: dict[str, Any] = {}
+
+        class StubFingerprintNode:
+            def __init__(self, container: object) -> None:
+                captured["container"] = container
+
+            async def compute(self, input_data: Any) -> ModelCiFingerprintOutput:
+                captured["input_data"] = input_data
+                return ModelCiFingerprintOutput(fingerprint="f" * 64)
+
+        monkeypatch.setattr(
+            "omniintelligence.nodes.node_ci_fingerprint_compute.node.NodeCiFingerprintCompute",
+            StubFingerprintNode,
+        )
+        handler = create_ci_fingerprint_dispatch_handler()
+
+        envelope = MagicMock()
+        envelope.payload = {
+            "failure_output": "AssertionError: bad",
+            "failing_tests": ["test_bad"],
+        }
+        context = MagicMock()
+        context.correlation_id = uuid4()
+
+        result = await handler(envelope, context)
+
+        parsed = json.loads(result)
+        assert parsed["fingerprint"] == "f" * 64
+        assert captured["container"] is not None
+        assert captured["input_data"].failure_output == "AssertionError: bad"
+        assert captured["input_data"].failing_tests == ["test_bad"]
 
     def test_dispatch_alias_is_canonical(self) -> None:
         """CI fingerprint dispatch alias uses canonical cmd topic form."""

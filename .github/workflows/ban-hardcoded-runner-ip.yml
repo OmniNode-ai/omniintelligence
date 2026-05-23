@@ -9,7 +9,7 @@ name: Ban Hardcoded Runner IP
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, dev]
     paths:
       - .github/workflows/**
 

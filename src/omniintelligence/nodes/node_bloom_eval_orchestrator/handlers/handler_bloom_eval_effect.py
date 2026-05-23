@@ -26,7 +26,7 @@ from datetime import UTC, datetime
 from typing import Any, Protocol
 from uuid import UUID, uuid4
 
-from omnibase_core.models.container.model_onex_container import ModelONEXContainer
+from omnibase_core.models.container import ModelONEXContainer
 from pydantic import BaseModel, ConfigDict, Field
 
 from omniintelligence.clients.eval_llm_client import EvalLLMClient
@@ -52,6 +52,8 @@ from omniintelligence.nodes.node_contract_eval_compute.models import (
 from omniintelligence.nodes.node_contract_eval_compute.node import (
     NodeContractEvalCompute,
 )
+from omniintelligence.nodes.node_memory_eval_compute.models import ModelMemoryEvalInput
+from omniintelligence.nodes.node_memory_eval_compute.node import NodeMemoryEvalCompute
 from omniintelligence.protocols import ProtocolKafkaPublisher
 
 logger = logging.getLogger(__name__)
@@ -84,6 +86,8 @@ class ModelBloomEvalRunCommand(BaseModel):
     correlation_id: str = Field(default_factory=lambda: str(uuid4()))
     scenarios_per_spec: int = _DEFAULT_SCENARIOS_PER_SPEC
     publish_topic: str = _BLOOM_COMPLETED_TOPIC
+    memory_output: str = ""
+    memory_context: dict[str, Any] = Field(default_factory=dict)
 
 
 def _build_suite_result(
@@ -168,7 +172,7 @@ async def _run_agent_path(
     Domain-specific logic will be layered in when NodeAgentBehaviorEvalCompute
     (OMN-4025) is integrated.
     """
-    return await _run_soft_judge_path(command, llm_client)
+    return await _run_contract_path(command, llm_client)
 
 
 async def _run_memory_path(
@@ -177,56 +181,46 @@ async def _run_memory_path(
 ) -> list[ModelEvalResult]:
     """Run MEMORY_SYSTEM domain assessment.
 
-    Delegates to the same scenario-and-judgment loop as contract path.
-    Domain-specific logic will be layered in when NodeMemoryEvalCompute
-    (OMN-4026) is integrated.
+    Generates memory-domain scenarios, then delegates judgment and aggregation
+    to NodeMemoryEvalCompute so MEMORY_SYSTEM behavior uses its dedicated
+    compute node instead of the generic contract path.
     """
-    return await _run_soft_judge_path(command, llm_client)
-
-
-async def _run_soft_judge_path(
-    command: ModelBloomEvalRunCommand,
-    llm_client: EvalLLMClient,
-) -> list[ModelEvalResult]:
-    """Run non-contract domains through the existing soft-judge path."""
     spec = get_spec(command.failure_mode)
     raw_scenarios = await llm_client.generate_scenarios(
         spec.scenario_prompt_template,
         n=command.scenarios_per_spec,
     )
-    results: list[ModelEvalResult] = []
-    for raw in raw_scenarios:
-        scenario = ModelEvalScenario(
+    scenarios = [
+        ModelEvalScenario(
             spec_id=spec.spec_id,
             failure_mode=command.failure_mode,
             input_text=raw,
-            context={},
+            context=dict(command.memory_context),
         )
-        judgment = await llm_client.judge_output(
-            prompt=spec.scenario_prompt_template,
-            output=raw,
-            failure_indicators=spec.failure_indicators,
+        for raw in raw_scenarios
+    ]
+
+    async def _judge_caller(
+        system_prompt: str,
+        user_prompt: str,
+        criteria: list[str],
+    ) -> dict[str, Any]:
+        return await llm_client.judge_output(
+            prompt=system_prompt,
+            output=user_prompt,
+            failure_indicators=criteria,
         )
-        stability_score = float(judgment.get("metamorphic_stability_score", 0.8))
-        results.append(
-            ModelEvalResult(
-                schema_pass=bool(judgment.get("schema_pass", True)),
-                trace_coverage_pct=stability_score,
-                missing_acceptance_criteria=list(
-                    judgment.get("missing_acceptance_criteria", [])
-                ),
-                invented_requirements=list(judgment.get("invented_requirements", [])),
-                ambiguity_flags=list(judgment.get("ambiguity_flags", [])),
-                reference_integrity_pass=(stability_score >= _PASS_SCORE_THRESHOLD),
-                metamorphic_stability_score=stability_score,
-                compliance_theater_risk=float(
-                    judgment.get("compliance_theater_risk", 0.2)
-                ),
-                failure_mode=command.failure_mode,
-                scenario_id=scenario.scenario_id,
-            )
+
+    memory_node = NodeMemoryEvalCompute(ModelONEXContainer())
+    suite_result = await memory_node.compute(
+        ModelMemoryEvalInput(
+            scenarios=scenarios,
+            memory_output=command.memory_output,
+            memory_context=command.memory_context,
+            judge_caller=_judge_caller,
         )
-    return results
+    )
+    return suite_result.results
 
 
 _DomainHandler = Callable[
