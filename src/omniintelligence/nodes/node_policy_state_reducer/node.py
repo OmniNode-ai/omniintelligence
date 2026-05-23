@@ -162,6 +162,7 @@ class NodePolicyStateReducer:
         )
         old_lifecycle_enum = EnumPolicyLifecycleState(old_lifecycle)
         raw_reliability = old_state.get("reliability_0_1", 1.0)
+        # Why: Runtime validation intentionally accepts this broader fixture/input shape.
         old_reliability = float(raw_reliability)  # type: ignore[arg-type]
         already_blacklisted = bool(old_state.get("blacklisted", False))
 

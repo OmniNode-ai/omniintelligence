@@ -290,6 +290,7 @@ async def test_kafka_publish_failure_routes_to_dlq(
             {"topic": topic, "key": key, "value": value}
         )
 
+    # Why: Test replaces the method with a stub to exercise error handling.
     mock_kafka_producer.publish = fail_first_then_succeed  # type: ignore[method-assign]
 
     result = await handle_compliance_evaluate_command(
@@ -305,6 +306,7 @@ async def test_kafka_publish_failure_routes_to_dlq(
     assert mock_kafka_producer.published[0]["topic"] == DLQ_TOPIC
 
     # Restore original publish (cleanup)
+    # Why: Test replaces the method with a stub to exercise error handling.
     mock_kafka_producer.publish = original_publish  # type: ignore[method-assign]
 
 

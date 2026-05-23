@@ -99,6 +99,7 @@ def insight_identity_key(insight: ModelCodebaseInsight) -> str:
             # This is intentionally defensive - mypy sees it as unreachable
             # because all current enum values are handled, but we want
             # runtime safety if new values are added without updating this match.
+            # Why: Defensive branch covers runtime data even when static narrowing marks it unreachable.
             desc_hash = hashlib.md5(  # type: ignore[unreachable]
                 insight.description.encode(), usedforsecurity=False
             ).hexdigest()[:8]

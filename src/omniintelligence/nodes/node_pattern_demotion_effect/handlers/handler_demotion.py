@@ -632,6 +632,7 @@ async def check_and_demote_patterns(
         if "id" not in pattern or "pattern_signature" not in pattern:
             # Runtime guard: TypedDict guarantees these keys at type-check time,
             # but asyncpg rows may not conform at runtime.
+            # Why: Defensive branch covers runtime data even when static narrowing marks it unreachable.
             logger.warning(  # type: ignore[unreachable]
                 "Skipping validated pattern: missing required fields (id, pattern_signature)",
                 extra={
@@ -1015,6 +1016,7 @@ async def _emit_lifecycle_event(
         trigger="deprecate",
         correlation_id=correlation_id,
         actor=actor,
+        # Why: Runtime validation intentionally accepts this broader fixture/input shape.
         actor_type=actor_type,  # type: ignore[arg-type]  # Literal type validation
         reason=reason,
         gate_snapshot=common_gate_snapshot,

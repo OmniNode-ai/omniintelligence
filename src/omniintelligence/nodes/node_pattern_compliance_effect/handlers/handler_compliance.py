@@ -259,6 +259,7 @@ def _clamp_float(value: object, min_val: float, max_val: float) -> float:
         Clamped float value.
     """
     try:
+        # Why: Runtime validation intentionally accepts this broader fixture/input shape.
         f = float(value)  # type: ignore[arg-type]
     except (TypeError, ValueError):
         return min_val

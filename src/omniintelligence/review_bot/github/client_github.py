@@ -131,7 +131,7 @@ class GitHubClient:
                         file=sys.stderr,
                     )
                     return None
-                return json.loads(resp.read().decode("utf-8"))  # type: ignore[no-any-return]
+                return json.loads(resp.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
             print(f"WARNING: GitHub API HTTP error: {exc}", file=sys.stderr)
             return None

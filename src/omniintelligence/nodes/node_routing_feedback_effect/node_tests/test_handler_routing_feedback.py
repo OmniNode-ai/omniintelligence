@@ -688,6 +688,7 @@ class TestModelValidation:
         import pydantic
 
         with pytest.raises(pydantic.ValidationError):
+            # Why: Suppression is retained for this documented runtime typing boundary.
             sample_routing_feedback_event_produced.feedback_status = "skipped"  # pyright: ignore[reportAttributeAccessIssue]  # frozen model raises ValidationError at runtime
 
     def test_result_is_frozen(self) -> None:
@@ -705,6 +706,7 @@ class TestModelValidation:
         )
 
         with pytest.raises(pydantic.ValidationError):
+            # Why: Suppression is retained for this documented runtime typing boundary.
             result.feedback_status = "skipped"  # pyright: ignore[reportAttributeAccessIssue]  # frozen model raises ValidationError at runtime
 
     def test_event_rejects_empty_session_id(self) -> None:
@@ -729,6 +731,7 @@ class TestModelValidation:
             ModelRoutingFeedbackPayload(
                 session_id="test-session",
                 outcome="success",
+                # Why: Runtime validation intentionally accepts this broader fixture/input shape.
                 feedback_status="invalid_status",  # type: ignore[arg-type]
                 skip_reason=None,
                 correlation_id=UUID("12345678-1234-5678-1234-567812345678"),
@@ -740,6 +743,7 @@ class TestModelValidation:
         import pydantic
 
         with pytest.raises(pydantic.ValidationError, match="correlation_id"):
+            # Why: Runtime validation intentionally rejects or accepts this dynamic call shape.
             ModelRoutingFeedbackPayload(  # type: ignore[call-arg]
                 session_id="test-session",
                 outcome="success",

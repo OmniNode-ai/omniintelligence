@@ -24,6 +24,7 @@ class ModelEvalResult(BaseModel):
     failure_mode: EnumFailureMode
     scenario_id: UUID
 
+    # Why: Pydantic computed_field stacking is valid at runtime but not modeled by mypy.
     @computed_field  # type: ignore[prop-decorator]
     @property
     def eval_passed(self) -> bool:
@@ -44,6 +45,7 @@ class ModelEvalSuiteResult(BaseModel):
     total_scenarios: int
     passed_count: int
 
+    # Why: Pydantic computed_field stacking is valid at runtime but not modeled by mypy.
     @computed_field  # type: ignore[prop-decorator]
     @property
     def failure_rate(self) -> float:
@@ -51,6 +53,7 @@ class ModelEvalSuiteResult(BaseModel):
             return 0.0
         return 1.0 - self.passed_count / self.total_scenarios
 
+    # Why: Pydantic computed_field stacking is valid at runtime but not modeled by mypy.
     @computed_field  # type: ignore[prop-decorator]
     @property
     def passed_threshold(self) -> bool:

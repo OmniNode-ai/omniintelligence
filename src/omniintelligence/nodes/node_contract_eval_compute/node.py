@@ -31,6 +31,7 @@ from __future__ import annotations
 from omnibase_core.nodes.node_compute import NodeCompute
 
 
+# Why: Runtime node registration does not bind the generic parameter used by stubs.
 class NodeContractEvalCompute(NodeCompute):  # type: ignore[type-arg]
     """Declarative compute node for two-layer contract evaluation.
 

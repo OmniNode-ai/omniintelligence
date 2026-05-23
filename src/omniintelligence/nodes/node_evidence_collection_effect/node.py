@@ -33,6 +33,7 @@ try:
 except ImportError:
     # omnibase_core not yet installed (pre-release environment).
     # Use object as base class — this is only a temporary fallback.
+    # Why: Runtime compatibility path intentionally assigns through a constrained type.
     _BASE_CLASS = object  # type: ignore[assignment,misc]
 
 __all__ = ["NodeEvidenceCollectionEffect"]

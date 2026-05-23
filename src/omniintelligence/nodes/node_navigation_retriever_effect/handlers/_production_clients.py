@@ -161,6 +161,7 @@ class ProductionNavigationVectorStore:
                             )
                         )
                 if conditions:
+                    # Why: Runtime validation intentionally accepts this broader fixture/input shape.
                     qdrant_filter = Filter(must=conditions)  # type: ignore[arg-type]  # qdrant stubs: list[FieldCondition] valid but typed as union
 
             client = AsyncQdrantClient(url=self._qdrant_url)

@@ -26,6 +26,7 @@ try:
 except ImportError:
     from enum import Enum
 
+    # Why: Compatibility fallback intentionally redefines the symbol when needed.
     class StrEnum(str, Enum):  # type: ignore[no-redef]
         """Backport of StrEnum for Python 3.10."""
 

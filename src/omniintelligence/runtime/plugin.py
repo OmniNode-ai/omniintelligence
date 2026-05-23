@@ -287,6 +287,7 @@ except Exception:
         "Failed to collect subscribe topics from contracts — plugin will not receive events",
         exc_info=True,
     )
+    # Why: Compatibility fallback intentionally redefines the symbol when needed.
     INTELLIGENCE_SUBSCRIBE_TOPICS: list[str] = []  # type: ignore[no-redef]
 """All input topics the intelligence plugin subscribes to (contract-driven)."""
 
@@ -706,6 +707,7 @@ class PluginIntelligence:
                 # benign: both instances compute the same fingerprint from the same live
                 # schema, so the final stored value is identical regardless of ordering.
                 # The UPDATE is effectively idempotent (same value, same WHERE clause).
+                # Why: Mock or runtime-provided object exposes this attribute dynamically.
                 async with pool.acquire() as _conn:  # type: ignore[attr-defined]
                     status = await _conn.execute(
                         _STAMP_SCHEMA_FINGERPRINT_QUERY, fingerprint_result.fingerprint
@@ -792,6 +794,7 @@ class PluginIntelligence:
             RuntimeHostError: When ``idempotency_records`` is not present in the
                 ``public`` schema of the connected database.
         """
+        # Why: Mock or runtime-provided object exposes this attribute dynamically.
         row = await pool.fetchrow(  # type: ignore[attr-defined]
             "SELECT 1 FROM information_schema.tables "
             "WHERE table_schema = 'public' AND table_name = 'idempotency_records'"

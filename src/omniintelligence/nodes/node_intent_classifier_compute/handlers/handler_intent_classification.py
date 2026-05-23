@@ -424,6 +424,7 @@ def classify_intent(
         # These checks are intentionally guarded against static type analysis since they
         # provide runtime safety for dynamic/untyped callers.
         if not isinstance(content, str):
+            # Why: Defensive branch covers runtime data even when static narrowing marks it unreachable.
             logger.warning(  # type: ignore[unreachable]
                 "Invalid content type %s, expected str. Converting to string.",
                 type(content).__name__,
@@ -433,6 +434,7 @@ def classify_intent(
         if confidence_threshold is not None and not isinstance(
             confidence_threshold, int | float
         ):
+            # Why: Defensive branch covers runtime data even when static narrowing marks it unreachable.
             logger.warning(  # type: ignore[unreachable]
                 "Invalid confidence_threshold type %s, using default.",
                 type(confidence_threshold).__name__,
@@ -440,6 +442,7 @@ def classify_intent(
             confidence_threshold = None
 
         if multi_label is not None and not isinstance(multi_label, bool):
+            # Why: Defensive branch covers runtime data even when static narrowing marks it unreachable.
             logger.warning(  # type: ignore[unreachable]
                 "Invalid multi_label type %s, using default.",
                 type(multi_label).__name__,
@@ -447,6 +450,7 @@ def classify_intent(
             multi_label = None
 
         if max_intents is not None and not isinstance(max_intents, int):
+            # Why: Defensive branch covers runtime data even when static narrowing marks it unreachable.
             logger.warning(  # type: ignore[unreachable]
                 "Invalid max_intents type %s, using default.",
                 type(max_intents).__name__,

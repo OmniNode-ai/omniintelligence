@@ -789,4 +789,5 @@ class TestValidatePromotionTransition:
         assert dataclasses.is_dataclass(result)
         # Try to modify - should raise FrozenInstanceError
         with pytest.raises(dataclasses.FrozenInstanceError):
+            # Why: Test or compatibility path intentionally crosses a static model constraint.
             result.is_valid = False  # type: ignore[misc]

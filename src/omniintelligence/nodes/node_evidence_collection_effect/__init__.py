@@ -29,6 +29,7 @@ try:
 except ImportError:
     # omnibase_core not yet installed — NodeEvidenceCollectionEffect unavailable.
     # The handler functions (EvidenceCollector, collect_and_evaluate) are still importable.
+    # Why: Runtime compatibility path intentionally assigns through a constrained type.
     NodeEvidenceCollectionEffect = None  # type: ignore[assignment,misc]
 
 __all__ = [

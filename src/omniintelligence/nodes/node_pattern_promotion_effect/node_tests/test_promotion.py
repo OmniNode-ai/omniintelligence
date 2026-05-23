@@ -1537,6 +1537,7 @@ class TestRegistryPatternPromotionEffectSmoke:
         )
 
         with pytest.raises((dataclasses.FrozenInstanceError, TypeError)):
+            # Why: Test or compatibility path intentionally crosses a static model constraint.
             registry.check_and_promote = lambda _: None  # type: ignore[misc, assignment, return-value]
 
     def test_create_registry_with_none_producer_raises_at_construction(
@@ -1547,6 +1548,7 @@ class TestRegistryPatternPromotionEffectSmoke:
         with pytest.raises(TypeError, match="must implement"):
             RegistryPatternPromotionEffect.create_registry(
                 repository=mock_repository,
+                # Why: Runtime validation intentionally accepts this broader fixture/input shape.
                 producer=None,  # type: ignore[arg-type]
             )
 
@@ -1557,6 +1559,7 @@ class TestRegistryPatternPromotionEffectSmoke:
         """Passing None for repository raises TypeError immediately at registry construction via isinstance guard — fail-fast behavior."""
         with pytest.raises(TypeError, match="must implement"):
             RegistryPatternPromotionEffect.create_registry(
+                # Why: Runtime validation intentionally accepts this broader fixture/input shape.
                 repository=None,  # type: ignore[arg-type]
                 producer=mock_producer,
             )
@@ -1573,6 +1576,7 @@ class TestRegistryPatternPromotionEffectSmoke:
         with pytest.raises(TypeError, match="must implement"):
             RegistryPatternPromotionEffect.create_registry(
                 repository=mock_repository,
+                # Why: Runtime validation intentionally accepts this broader fixture/input shape.
                 producer="not-a-publisher",  # type: ignore[arg-type]
             )
 
