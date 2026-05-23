@@ -329,6 +329,46 @@ class TestPluginWireDispatchers:
         assert "dispatch_engine" in result.resources_created
 
     @pytest.mark.asyncio
+    async def test_wire_dispatchers_passes_debug_store_to_engine(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """CI failure tracker runtime must receive a concrete debug store."""
+        captured: dict[str, Any] = {}
+        debug_store = object()
+
+        async def fake_create_debug_store_adapter(pool: object) -> object:
+            captured["pool"] = pool
+            return debug_store
+
+        def fake_create_intelligence_dispatch_engine(**kwargs: Any) -> MagicMock:
+            captured["debug_store"] = kwargs["debug_store"]
+            engine = MagicMock()
+            engine.route_count = 38
+            engine.handler_count = 29
+            engine.is_frozen = True
+            return engine
+
+        monkeypatch.setattr(
+            "omniintelligence.debug_intel.adapter_debug_store.create_debug_store_adapter",
+            fake_create_debug_store_adapter,
+        )
+        monkeypatch.setattr(
+            "omniintelligence.runtime.dispatch_handlers.create_intelligence_dispatch_engine",
+            fake_create_intelligence_dispatch_engine,
+        )
+
+        plugin = PluginIntelligence()
+        config = _make_config()
+
+        result = await _wire_plugin(plugin, config)
+
+        assert result.success, result.error_message
+        assert captured["pool"] is plugin._pool
+        assert captured["debug_store"] is debug_store
+        assert "debug_store" in result.resources_created
+
+    @pytest.mark.asyncio
     async def test_wire_dispatchers_passes_bloom_eval_llm_client_to_engine(
         self,
         monkeypatch: pytest.MonkeyPatch,

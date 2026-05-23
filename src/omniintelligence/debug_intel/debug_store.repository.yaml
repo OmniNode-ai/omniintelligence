@@ -46,6 +46,15 @@ db_repository:
     - debug_trigger_records
     - debug_fix_records
 
+  # Row aliases are intentionally dict-backed: PostgresRepositoryRuntime returns
+  # raw row dictionaries, and AdapterDebugStore exposes ProtocolDebugStore
+  # dictionaries to the CI handlers.
+  models:
+    FailureStreakRow: builtins:dict
+    CiFailureEventRow: builtins:dict
+    DebugTriggerRecordRow: builtins:dict
+    DebugFixRecordRow: builtins:dict
+
   # =============================================================================
   # OPERATIONS
   # =============================================================================
@@ -88,6 +97,7 @@ db_repository:
           required: true
           description: Git SHA of the failing run. Positional $3.
       returns:
+        model_ref: FailureStreakRow
         many: false
 
     # -------------------------------------------------------------------------
@@ -117,6 +127,7 @@ db_repository:
           required: true
           description: Branch name. Positional $2.
       returns:
+        model_ref: FailureStreakRow
         many: false
 
     # -------------------------------------------------------------------------
@@ -145,6 +156,7 @@ db_repository:
           required: true
           description: Branch name. Positional $2.
       returns:
+        model_ref: FailureStreakRow
         many: false
 
     # -------------------------------------------------------------------------
@@ -202,6 +214,7 @@ db_repository:
           default: 0
           description: Snapshot of failure_streaks.streak_count at insertion time. Positional $7.
       returns:
+        model_ref: CiFailureEventRow
         many: false
 
     # -------------------------------------------------------------------------
@@ -253,6 +266,7 @@ db_repository:
           required: true
           description: Streak count at the time the trigger was created. Positional $6.
       returns:
+        model_ref: DebugTriggerRecordRow
         many: false
 
     # -------------------------------------------------------------------------
@@ -285,6 +299,7 @@ db_repository:
           required: true
           description: Branch name. Positional $2.
       returns:
+        model_ref: DebugTriggerRecordRow
         many: false
 
     # -------------------------------------------------------------------------
@@ -317,6 +332,7 @@ db_repository:
           required: true
           description: UUID of the associated fix record. Positional $2.
       returns:
+        model_ref: DebugTriggerRecordRow
         many: false
 
     # -------------------------------------------------------------------------
@@ -362,6 +378,7 @@ db_repository:
           default: false
           description: Heuristic — true if tests/ was modified in this PR. Positional $5.
       returns:
+        model_ref: DebugFixRecordRow
         many: false
 
     # -------------------------------------------------------------------------
@@ -413,4 +430,5 @@ db_repository:
           le: 100
           description: Maximum number of fix records to return. Positional $2.
       returns:
+        model_ref: DebugFixRecordRow
         many: true
