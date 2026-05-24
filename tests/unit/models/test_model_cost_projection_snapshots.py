@@ -18,6 +18,7 @@ from omniintelligence.models.events import (
     ModelCostTokenUsageSnapshot,
     ModelCostTokenUsageSnapshotRow,
 )
+from tests.fixtures.model_constants import MODEL_GPT_4_1
 
 SNAPSHOT_TS = datetime(2026, 4, 29, 12, 34, tzinfo=UTC)
 
@@ -67,7 +68,7 @@ def test_model_cost_token_usage_snapshot_contract() -> None:
         rows=[
             ModelCostTokenUsageSnapshotRow(
                 bucket_timestamp=SNAPSHOT_TS,
-                model_id="gpt-4.1",
+                model_id=MODEL_GPT_4_1,
                 prompt_tokens=100,
                 completion_tokens=50,
                 total_tokens=150,
@@ -76,7 +77,7 @@ def test_model_cost_token_usage_snapshot_contract() -> None:
         snapshot_timestamp=SNAPSHOT_TS,
     )
 
-    assert snapshot.rows[0].model_id == "gpt-4.1"
+    assert snapshot.rows[0].model_id == MODEL_GPT_4_1
     assert snapshot.rows[0].total_tokens == 150
 
 
@@ -106,7 +107,7 @@ def test_token_usage_row_rejects_inconsistent_total() -> None:
     with pytest.raises(ValidationError, match="total_tokens must equal"):
         ModelCostTokenUsageSnapshotRow(
             bucket_timestamp=SNAPSHOT_TS,
-            model_id="gpt-4.1",
+            model_id=MODEL_GPT_4_1,
             prompt_tokens=100,
             completion_tokens=50,
             total_tokens=151,

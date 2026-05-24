@@ -12,14 +12,15 @@ import pytest
 from pydantic import ValidationError
 
 from omniintelligence.models.events import ModelSavingsEstimatedEvent
+from tests.fixtures.model_constants import MODEL_CLAUDE_OPUS_4, MODEL_QWEN3_CODER_30B
 
 
 def _event(**overrides: object) -> ModelSavingsEstimatedEvent:
     payload: dict[str, object] = {
         "event_timestamp": datetime(2026, 4, 29, 12, 0, tzinfo=UTC),
         "session_id": "sess-x",
-        "model_local": "qwen3-coder-30b",
-        "model_cloud_baseline": "claude-opus-4",
+        "model_local": MODEL_QWEN3_CODER_30B,
+        "model_cloud_baseline": MODEL_CLAUDE_OPUS_4,
         "local_cost_usd": Decimal("0.000000"),
         "cloud_cost_usd": Decimal("12.340000"),
         "savings_usd": Decimal("12.340000"),

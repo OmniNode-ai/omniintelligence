@@ -13,6 +13,7 @@ from omniintelligence.review_pairing.model_registry_loader import (
     ModelRegistryLoadError,
     load_registry,
 )
+from tests.fixtures.model_constants import MODEL_DEEPSEEK_R1, MODEL_QWEN3_14B
 
 pytestmark = pytest.mark.unit
 
@@ -25,18 +26,18 @@ pytestmark = pytest.mark.unit
 def test_load_registry_returns_contract_with_expected_keys() -> None:
     contract = load_registry()
 
-    assert contract.default_model_key == "deepseek-r1"
+    assert contract.default_model_key == MODEL_DEEPSEEK_R1
     assert set(contract.local_model_keys) == {
-        "deepseek-r1",
+        MODEL_DEEPSEEK_R1,
         "qwen3-coder",
-        "qwen3-14b",
+        MODEL_QWEN3_14B,
         "qwen3-next",
     }
     assert contract.api_fallback_keys == ("claude-api",)
     assert set(contract.models.keys()) == {
-        "deepseek-r1",
+        MODEL_DEEPSEEK_R1,
         "qwen3-coder",
-        "qwen3-14b",
+        MODEL_QWEN3_14B,
         "qwen3-next",
         "claude-api",
     }
@@ -45,7 +46,7 @@ def test_load_registry_returns_contract_with_expected_keys() -> None:
 def test_load_registry_preserves_endpoint_config_fields() -> None:
     contract = load_registry()
 
-    deepseek = contract.models["deepseek-r1"]
+    deepseek = contract.models[MODEL_DEEPSEEK_R1]
     assert deepseek.env_var == "LLM_DEEPSEEK_R1_URL"
     assert deepseek.default_url == "http://192.168.86.201:8001"
     assert deepseek.kind == "reasoning"

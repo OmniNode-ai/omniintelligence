@@ -115,8 +115,8 @@ async def test_no_db_conn_covers_all_models() -> None:
 async def test_db_rows_update_weights() -> None:
     """Rows returned by DB override the default weight of 0.5."""
     rows = [
-        _make_row("qwen3-coder", 0.8),
-        _make_row("deepseek-r1", 0.7),
+        _make_row(EnumReviewModel.QWEN3_CODER.value, 0.8),
+        _make_row(EnumReviewModel.DEEPSEEK_R1.value, 0.7),
     ]
     conn = _make_db_conn(rows)
     weights = await fetch_accuracy_weights(conn)
@@ -130,7 +130,7 @@ async def test_db_rows_update_weights() -> None:
 async def test_db_rows_absent_models_keep_default() -> None:
     """Models not present in DB rows keep the default weight of 0.5."""
     rows = [
-        _make_row("qwen3-coder", 0.9),
+        _make_row(EnumReviewModel.QWEN3_CODER.value, 0.9),
     ]
     conn = _make_db_conn(rows)
     weights = await fetch_accuracy_weights(conn)
@@ -145,10 +145,10 @@ async def test_db_rows_absent_models_keep_default() -> None:
 async def test_all_models_in_db_updates_all_weights() -> None:
     """When all 4 models have rows, all weights are updated."""
     rows = [
-        _make_row("qwen3-coder", 0.9),
-        _make_row("deepseek-r1", 0.8),
-        _make_row("gemini-flash", 0.7),
-        _make_row("glm-4", 0.6),
+        _make_row(EnumReviewModel.QWEN3_CODER.value, 0.9),
+        _make_row(EnumReviewModel.DEEPSEEK_R1.value, 0.8),
+        _make_row(EnumReviewModel.GEMINI_FLASH.value, 0.7),
+        _make_row(EnumReviewModel.GLM_4.value, 0.6),
     ]
     conn = _make_db_conn(rows)
     weights = await fetch_accuracy_weights(conn)
@@ -164,10 +164,10 @@ async def test_all_models_in_db_updates_all_weights() -> None:
 async def test_all_models_in_db_none_missing_from_result() -> None:
     """Result always contains all four EnumReviewModel members."""
     rows = [
-        _make_row("qwen3-coder", 0.9),
-        _make_row("deepseek-r1", 0.8),
-        _make_row("gemini-flash", 0.7),
-        _make_row("glm-4", 0.6),
+        _make_row(EnumReviewModel.QWEN3_CODER.value, 0.9),
+        _make_row(EnumReviewModel.DEEPSEEK_R1.value, 0.8),
+        _make_row(EnumReviewModel.GEMINI_FLASH.value, 0.7),
+        _make_row(EnumReviewModel.GLM_4.value, 0.6),
     ]
     conn = _make_db_conn(rows)
     weights = await fetch_accuracy_weights(conn)

@@ -22,13 +22,14 @@ from omnibase_core.enums.cost import EnumUsageSource
 from omniintelligence.models.events.model_llm_call_completed_event import (
     ModelLLMCallCompletedEvent,
 )
+from tests.fixtures.model_constants import MODEL_QWEN3_CODER_30B
 
 
 @pytest.fixture()
 def valid_event_kwargs() -> dict[str, object]:
     """Minimal valid kwargs for constructing a ModelLLMCallCompletedEvent."""
     return {
-        "model_id": "qwen3-coder-30b",
+        "model_id": MODEL_QWEN3_CODER_30B,
         "endpoint_url": "http://192.168.86.201:8000",
         "input_tokens": 1200,
         "output_tokens": 350,
@@ -48,7 +49,7 @@ class TestModelLLMCallCompletedEventConstruction:
 
     def test_construct_valid(self, valid_event_kwargs: dict[str, object]) -> None:
         event = ModelLLMCallCompletedEvent(**valid_event_kwargs)  # type: ignore[arg-type]
-        assert event.model_id == "qwen3-coder-30b"
+        assert event.model_id == MODEL_QWEN3_CODER_30B
         assert event.endpoint_url == "http://192.168.86.201:8000"
         assert event.input_tokens == 1200
         assert event.output_tokens == 350
