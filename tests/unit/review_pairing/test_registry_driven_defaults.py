@@ -79,11 +79,11 @@ class TestRegistryDrivenDefault:
         The fix: in cli_review.py, replace:
             _DEFAULT_MODEL: str = "deepseek-r1"
         with:
-            import omniintelligence.review_pairing.adapters.adapter_ai_reviewer as adapter
+            from omniintelligence.review_pairing.adapters import adapter_ai_reviewer as adapter
             _DEFAULT_MODEL = adapter._DEFAULT_MODEL_KEY
         """
-        import omniintelligence.review_pairing.adapters.adapter_ai_reviewer as adapter_ai_reviewer
         import omniintelligence.review_pairing.cli_review as cli_review_mod
+        from omniintelligence.review_pairing.adapters import adapter_ai_reviewer
 
         # Force a fresh import so module-level constants are current
         importlib.reload(adapter_ai_reviewer)
@@ -202,7 +202,7 @@ class TestRegistryModelNameResolution:
 
     def test_adapter_model_registry_api_model_ids_all_set(self) -> None:
         """Every model in MODEL_REGISTRY used for LLM calls must have api_model_id."""
-        import omniintelligence.review_pairing.adapters.adapter_ai_reviewer as adapter_ai_reviewer
+        from omniintelligence.review_pairing.adapters import adapter_ai_reviewer
 
         for key, config in adapter_ai_reviewer.MODEL_REGISTRY.items():
             if config.kind == "api_fallback":
