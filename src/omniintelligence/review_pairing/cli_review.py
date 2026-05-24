@@ -52,6 +52,9 @@ import sys
 from pathlib import Path
 
 from omniintelligence.review_pairing.adapters.adapter_ai_reviewer import (
+    _DEFAULT_MODEL_KEY as _DEFAULT_MODEL,
+)
+from omniintelligence.review_pairing.adapters.adapter_ai_reviewer import (
     MODEL_REGISTRY,
     select_models_with_fallback,
 )
@@ -68,7 +71,6 @@ from omniintelligence.review_pairing.models_external_review import (
 )
 from omniintelligence.review_pairing.persona_loader import load_persona
 
-_DEFAULT_MODEL: str = "deepseek-r1"
 _CODEX_MODEL_KEY: str = "codex"
 
 
