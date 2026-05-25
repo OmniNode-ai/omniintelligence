@@ -15,12 +15,9 @@
 
 # Contract identifiers
 name: "node_pattern_storage_effect"
+version: "1.0.0"
 contract_name: "pattern_storage_effect"
 node_name: "pattern_storage_effect"
-contract_version:
-  major: 1
-  minor: 0
-  patch: 0
 node_version:
   major: 1
   minor: 0

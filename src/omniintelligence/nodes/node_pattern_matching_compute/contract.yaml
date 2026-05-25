@@ -2,15 +2,12 @@
 # SPDX-License-Identifier: MIT
 ---
 # ONEX Node Contract - Pattern Matching Compute Node
-contract_version:
-  major: 1
-  minor: 0
-  patch: 0
 node_version:
   major: 1
   minor: 0
   patch: 0
 name: "node_pattern_matching_compute"
+version: "1.0.0"
 node_type: "COMPUTE_GENERIC"
 description: >-
   Compute node for matching code patterns against a pattern library. Identifies design patterns, anti-patterns,

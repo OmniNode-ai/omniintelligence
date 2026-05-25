@@ -15,12 +15,9 @@
 
 # Contract identifiers
 name: "node_contract_eval_compute"
+version: "1.0.0"
 contract_name: "contract_eval_compute"
 node_name: "contract_eval_compute"
-contract_version:
-  major: 1
-  minor: 0
-  patch: 0
 node_version:
   major: 1
   minor: 0

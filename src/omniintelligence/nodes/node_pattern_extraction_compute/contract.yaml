@@ -5,15 +5,12 @@
 #
 # Part of OMN-1402: OmniClaude Learning Compute Node for Pattern Extraction
 # Analyzes Claude Code session data to extract patterns and insights about codebases.
-contract_version:
-  major: 1
-  minor: 0
-  patch: 0
 node_version:
   major: 1
   minor: 0
   patch: 0
 name: "node_pattern_extraction_compute"
+version: "1.0.0"
 node_type: "COMPUTE_GENERIC"
 description: >-
   Compute node that analyzes Claude Code session data to extract patterns and insights about codebases.

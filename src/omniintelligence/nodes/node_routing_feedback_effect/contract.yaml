@@ -20,12 +20,9 @@
 # IDENTIFIERS
 # =============================================================================
 name: "node_routing_feedback_effect"
+version: "1.2.0"
 contract_name: "node_routing_feedback_effect"
 node_name: "node_routing_feedback_effect"
-contract_version:
-  major: 1
-  minor: 2
-  patch: 0
 node_version:
   major: 1
   minor: 2
