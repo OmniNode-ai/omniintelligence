@@ -7,15 +7,12 @@
 # Depends on: OMN-2253 (pattern store query API - provides applicable patterns)
 #
 # =============================================================================
-contract_version:
-  major: 1
-  minor: 0
-  patch: 0
 node_version:
   major: 1
   minor: 1
   patch: 0
 name: "node_pattern_compliance_effect"
+version: "1.0.0"
 node_type: "EFFECT_GENERIC"
 description: >-
   Effect node for evaluating code against applicable patterns using Coder-14B. Receives code content and

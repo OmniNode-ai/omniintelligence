@@ -8,12 +8,9 @@
 # Reference: OMN-6593
 
 name: "review_pairing"
+version: "1.0.0"
 contract_name: "review_pairing"
 node_name: "review_pairing"
-contract_version:
-  major: 1
-  minor: 0
-  patch: 0
 node_version:
   major: 1
   minor: 0

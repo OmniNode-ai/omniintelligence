@@ -5,15 +5,12 @@
 # =============================================================================
 # Tracking: OMN-4026
 # =============================================================================
-contract_version:
-  major: 1
-  minor: 0
-  patch: 0
 node_version:
   major: 1
   minor: 0
   patch: 0
 name: "node_memory_eval_compute"
+version: "1.0.0"
 node_type: "COMPUTE_GENERIC"
 description: >-
   Compute node that evaluates MEMORY_SYSTEM failure modes via LLM judge. Evaluates 5 failure modes: regression_amnesia,

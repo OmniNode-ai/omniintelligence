@@ -2,15 +2,12 @@
 # SPDX-License-Identifier: MIT
 ---
 # ONEX Node Contract - Intent Drift Detect Compute Node
-contract_version:
-  major: 1
-  minor: 0
-  patch: 0
 node_version:
   major: 1
   minor: 0
   patch: 0
 name: "node_intent_drift_detect_compute"
+version: "1.0.0"
 node_type: "COMPUTE_GENERIC"
 description: >-
   Pure compute node that detects when tool calls or file changes diverge from the declared intent class.

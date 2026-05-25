@@ -4,15 +4,12 @@
 # ONEX Node Contract - Execution Trace Parser Compute Node
 #
 # Part of pattern_extraction split (Track 2 Intelligence Hook System)
-contract_version:
-  major: 1
-  minor: 0
-  patch: 0
 node_version:
   major: 1
   minor: 0
   patch: 0
 name: "node_execution_trace_parser_compute"
+version: "1.0.0"
 node_type: "COMPUTE_GENERIC"
 description: >-
   Compute node for parsing execution traces from PostgreSQL intelligence tracking system. Extracts trace

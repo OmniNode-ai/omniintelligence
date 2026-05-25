@@ -15,10 +15,7 @@
 # IDENTIFIERS
 # =============================================================================
 name: "node_code_entity_bridge_compute"
-contract_version:
-  major: 1
-  minor: 0
-  patch: 0
+version: "1.0.0"
 node_version:
   major: 1
   minor: 0
