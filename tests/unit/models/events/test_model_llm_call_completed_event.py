@@ -13,11 +13,12 @@ from pydantic import ValidationError
 from omniintelligence.models.events.model_llm_call_completed_event import (
     ModelLLMCallCompletedEvent,
 )
+from tests.fixtures.model_constants import MODEL_QWEN3_CODER_30B_A3B
 
 
 def _event_kwargs() -> dict[str, object]:
     return {
-        "model_id": "qwen3-coder-30b-a3b",
+        "model_id": MODEL_QWEN3_CODER_30B_A3B,
         "endpoint_url": "http://localhost:8000",
         "input_tokens": 10,
         "output_tokens": 5,

@@ -21,6 +21,7 @@ from omniintelligence.nodes.node_pattern_feedback_effect.handlers import (
 from omniintelligence.nodes.node_pattern_feedback_effect.models import (
     EnumOutcomeRecordingStatus,
 )
+from tests.fixtures.model_constants import MODEL_CLAUDE_SONNET_4
 
 pytestmark = pytest.mark.unit
 
@@ -86,7 +87,7 @@ def _dispatch_result(
         model_calls=[
             ModelCallRecord(
                 provider="anthropic",
-                model="claude-sonnet-4",
+                model=MODEL_CLAUDE_SONNET_4,
                 input_tokens=10_000,
                 output_tokens=2_500,
                 latency_ms=750,
@@ -121,7 +122,7 @@ async def test_record_dispatch_outcome_upserts_cost_provenance() -> None:
     assert row["usage_source"] == "MEASURED"
     assert row["estimation_method"] is None
     assert row["source_payload_hash"] == "a" * 64
-    assert row["model_calls"][0]["model"] == "claude-sonnet-4"
+    assert row["model_calls"][0]["model"] == MODEL_CLAUDE_SONNET_4
 
 
 @pytest.mark.asyncio

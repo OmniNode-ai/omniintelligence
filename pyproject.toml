@@ -354,7 +354,7 @@ ignore = [
 "scripts/**" = ["T201", "S603", "S607", "INP001"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["omniintelligence"]
+known-first-party = ["omniintelligence", "tests"]
 
 [tool.mypy]
 python_version = "3.12"

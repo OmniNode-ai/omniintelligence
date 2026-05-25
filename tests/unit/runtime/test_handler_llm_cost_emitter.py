@@ -23,6 +23,7 @@ from omniintelligence.runtime.handler_llm_cost_emitter import (
     LLM_COST_TOPIC,
     emit_llm_cost_event,
 )
+from tests.fixtures.model_constants import MODEL_QWEN3_14B
 
 
 @pytest.mark.unit
@@ -46,7 +47,7 @@ class TestEmitLlmCostEvent:
         result = await emit_llm_cost_event(
             producer=mock_producer,
             topic=LLM_COST_TOPIC,
-            model_id="qwen3-14b",
+            model_id=MODEL_QWEN3_14B,
             prompt_tokens=500,
             completion_tokens=200,
             total_tokens=700,
@@ -68,7 +69,7 @@ class TestEmitLlmCostEvent:
         assert event["key"] == str(correlation_id)
 
         payload = event["value"]
-        assert payload["model_id"] == "qwen3-14b"
+        assert payload["model_id"] == MODEL_QWEN3_14B
         assert payload["prompt_tokens"] == 500
         assert payload["completion_tokens"] == 200
         assert payload["total_tokens"] == 700

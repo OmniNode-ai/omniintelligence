@@ -23,6 +23,7 @@ from omniintelligence.review_pairing.models_calibration import (
     ModelCalibrationMetrics,
     ModelCalibrationRunResult,
 )
+from tests.fixtures.model_constants import MODEL_DEEPSEEK_R1
 
 
 @pytest.mark.unit
@@ -51,7 +52,7 @@ class TestCalibrationPersistence:
     def _make_run_result(
         self,
         run_id: str = "run-001",
-        challenger: str = "deepseek-r1",
+        challenger: str = MODEL_DEEPSEEK_R1,
         f1: float = 0.75,
     ) -> ModelCalibrationRunResult:
         return ModelCalibrationRunResult(
@@ -101,7 +102,7 @@ class TestCalibrationPersistence:
         )
         conn.execute = AsyncMock()
         persistence = CalibrationPersistence(conn)
-        await persistence.update_model_score("deepseek-r1", "codex", 0.9)
+        await persistence.update_model_score(MODEL_DEEPSEEK_R1, "codex", 0.9)
         conn.execute.assert_called_once()
 
     @pytest.mark.asyncio
@@ -109,7 +110,7 @@ class TestCalibrationPersistence:
         conn = AsyncMock()
         conn.fetch = AsyncMock(return_value=[])
         persistence = CalibrationPersistence(conn)
-        result = await persistence.get_run_history("deepseek-r1", limit=10)
+        result = await persistence.get_run_history(MODEL_DEEPSEEK_R1, limit=10)
         assert result == []
         conn.fetch.assert_called_once()
 
@@ -129,7 +130,7 @@ class TestCalibrationPersistence:
         failed_result = ModelCalibrationRunResult(
             run_id="run-fail",
             ground_truth_model="codex",
-            challenger_model="deepseek-r1",
+            challenger_model=MODEL_DEEPSEEK_R1,
             alignments=[],
             metrics=None,
             prompt_version="1.1.0",
