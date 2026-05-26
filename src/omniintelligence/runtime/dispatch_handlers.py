@@ -2350,7 +2350,9 @@ def create_dispatch_outcome_record_dispatch_handler(
             logger.warning(msg)
             raise ValueError(msg)
 
-        raw_verdict = payload.get("verdict", "ERROR")
+        # EnumDispatchVerdict values are lowercase ("pass", "fail", "error").
+        # The eval handler publishes uppercase ("PASS", "FAIL", "ERROR") from ModelOutput.
+        raw_verdict = str(payload.get("verdict", "error")).lower()
         try:
             verdict = EnumDispatchVerdict(raw_verdict)
         except ValueError:
@@ -2375,11 +2377,19 @@ def create_dispatch_outcome_record_dispatch_handler(
         if evaluated_at.tzinfo is None:
             evaluated_at = evaluated_at.replace(tzinfo=UTC)
 
-        usage_source_raw = str(payload.get("usage_source", "unknown"))
+        # ModelCostProvenance validator: source_payload_hash only valid for
+        # usage_source=measured; estimation_method only valid for estimated.
+        usage_source_raw = str(payload.get("usage_source", "unknown")).lower()
+        is_measured = usage_source_raw == "measured"
+        is_estimated = usage_source_raw == "estimated"
         cost_provenance = ModelCostProvenance(
             usage_source=usage_source_raw,  # type: ignore[arg-type]
-            estimation_method=payload.get("estimation_method"),
-            source_payload_hash=payload.get("source_payload_hash"),
+            estimation_method=payload.get("estimation_method")
+            if is_estimated
+            else None,
+            source_payload_hash=payload.get("source_payload_hash")
+            if is_measured
+            else None,
         )
 
         raw_model_calls = payload.get("model_calls", [])
