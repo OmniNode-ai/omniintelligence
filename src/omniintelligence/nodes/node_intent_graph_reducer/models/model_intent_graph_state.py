@@ -21,10 +21,10 @@ ONEX Compliance:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from uuid import UUID, uuid4
 
 from omnibase_core.enums.intelligence.enum_intent_class import EnumIntentClass
+from pydantic import BaseModel, ConfigDict, Field
 
 __all__ = [
     "IntentGraphEdgeState",
@@ -33,23 +33,16 @@ __all__ = [
 ]
 
 
-@dataclass
-class IntentGraphNodeState:
+class IntentGraphNodeState(BaseModel):
     """Mutable accumulator for a single intent graph node.
 
     Aggregates occurrence and outcome statistics for one intent class.
-
-    Attributes:
-        node_id: Stable UUID for this node (assigned at first creation).
-        intent_class: The intent class this node represents.
-        occurrence_count: Total classified events for this intent class.
-        total_cost_usd: Running sum of session costs (used to compute avg).
-        total_successes: Count of labeled-successful outcomes.
-        total_outcomes: Count of labeled outcomes (successes + failures).
     """
 
-    node_id: UUID = field(default_factory=uuid4)
-    intent_class: EnumIntentClass = field(default=EnumIntentClass.ANALYSIS)
+    model_config = ConfigDict(frozen=False)
+
+    node_id: UUID = Field(default_factory=uuid4)
+    intent_class: EnumIntentClass = Field(default=EnumIntentClass.ANALYSIS)
     occurrence_count: int = 0
     total_cost_usd: float = 0.0
     total_successes: int = 0
@@ -70,24 +63,17 @@ class IntentGraphNodeState:
         return self.total_successes / self.total_outcomes
 
 
-@dataclass
-class IntentGraphEdgeState:
+class IntentGraphEdgeState(BaseModel):
     """Mutable accumulator for a single intent graph transition (edge).
 
     Aggregates statistics for all observed transitions from one intent class
     to another within or across sessions.
-
-    Attributes:
-        from_intent_class: Source intent class (edge origin).
-        to_intent_class: Target intent class (edge destination).
-        transition_count: Total observed transitions along this edge.
-        total_success_rate_sum: Sum of per-session success rates (for avg).
-        total_cost_usd: Running sum of costs for sessions with this transition.
-        total_cost_samples: Count of cost samples (for avg).
     """
 
-    from_intent_class: EnumIntentClass = field(default=EnumIntentClass.ANALYSIS)
-    to_intent_class: EnumIntentClass = field(default=EnumIntentClass.ANALYSIS)
+    model_config = ConfigDict(frozen=False)
+
+    from_intent_class: EnumIntentClass = Field(default=EnumIntentClass.ANALYSIS)
+    to_intent_class: EnumIntentClass = Field(default=EnumIntentClass.ANALYSIS)
     transition_count: int = 0
     total_success_rate_sum: float = 0.0
     total_cost_usd: float = 0.0
@@ -108,8 +94,7 @@ class IntentGraphEdgeState:
         return self.total_cost_usd / self.total_cost_samples
 
 
-@dataclass
-class ModelIntentGraphState:
+class ModelIntentGraphState(BaseModel):
     """In-memory directed intent graph with accumulated statistics.
 
     Holds all node and edge accumulators for the intent graph. Updated by
@@ -118,21 +103,13 @@ class ModelIntentGraphState:
     Graph structure:
         - nodes: Dict keyed by EnumIntentClass — one node per intent class
         - edges: Dict keyed by (from_class, to_class) — one edge per transition pair
-
-    Attributes:
-        nodes: Maps EnumIntentClass → IntentGraphNodeState for each seen class.
-        edges: Maps (from_class, to_class) → IntentGraphEdgeState for each transition.
-        session_last_intent: Maps session_id → last seen EnumIntentClass for that
-            session. Used to detect transitions between sequential intents in the
-            same session.
-        session_previous_intent: Maps session_id → the penultimate EnumIntentClass
-            for that session. Used by outcome events to locate the transition edge
-            that led to the current intent class (from → current).
     """
 
-    nodes: dict[EnumIntentClass, IntentGraphNodeState] = field(default_factory=dict)
-    edges: dict[tuple[EnumIntentClass, EnumIntentClass], IntentGraphEdgeState] = field(
+    model_config = ConfigDict(frozen=False, arbitrary_types_allowed=True)
+
+    nodes: dict[EnumIntentClass, IntentGraphNodeState] = Field(default_factory=dict)
+    edges: dict[tuple[EnumIntentClass, EnumIntentClass], IntentGraphEdgeState] = Field(
         default_factory=dict
     )
-    session_last_intent: dict[str, EnumIntentClass] = field(default_factory=dict)
-    session_previous_intent: dict[str, EnumIntentClass] = field(default_factory=dict)
+    session_last_intent: dict[str, EnumIntentClass] = Field(default_factory=dict)
+    session_previous_intent: dict[str, EnumIntentClass] = Field(default_factory=dict)

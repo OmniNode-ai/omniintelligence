@@ -22,11 +22,10 @@ node_type: "REDUCER_GENERIC"
 status: "active"
 
 description: >
-  Reducer node for the directed intent transition graph. Accumulates classification and outcome
-  label events into an in-memory graph of intent nodes and transition edges. Tracks occurrence
-  counts, success rates, and cost per intent class and per transition pair. Pure reducer — does
-  NOT persist state directly; the Memgraph adapter in omnimemory handles persistence.
-
+  Reducer node for the directed intent transition graph. Accumulates classification and outcome label
+  events into an in-memory graph of intent nodes and transition edges. Tracks occurrence counts, success
+  rates, and cost per intent class and per transition pair. Pure reducer — does NOT persist state directly;
+  the Memgraph adapter in omnimemory handles persistence. #magic___^_^___line
 input_model:
   name: "ModelIntentGraphState"
   module: "omniintelligence.nodes.node_intent_graph_reducer.models.model_intent_graph_state"
@@ -143,9 +142,8 @@ error_handling:
 idempotency:
   enabled: false
   description: >
-    Reducer accumulates running totals; duplicate events will inflate counts.
-    De-duplication must be handled upstream (e.g., via event ID tracking in the
-    consuming runtime).
+    Reducer accumulates running totals; duplicate events will inflate counts. De-duplication must be handled
+    upstream (e.g., via event ID tracking in the consuming runtime).
 
 health_check:
   enabled: true
