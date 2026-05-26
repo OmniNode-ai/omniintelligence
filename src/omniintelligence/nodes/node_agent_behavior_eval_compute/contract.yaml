@@ -5,15 +5,13 @@
 # =============================================================================
 # Tracking: OMN-4025
 # =============================================================================
-contract_version:
-  major: 1
-  minor: 0
-  patch: 0
+contract_version: {major: 1, minor: 0, patch: 0}
 node_version:
   major: 1
   minor: 0
   patch: 0
 name: "node_agent_behavior_eval_compute"
+version: "1.0.0"
 node_type: "COMPUTE_GENERIC"
 description: >-
   Compute node for evaluating AGENT_EXECUTION failure modes via LLM judge. Evaluates 5 failure modes:

@@ -4,15 +4,13 @@
 # ONEX Node Contract - Success Criteria Matcher Compute Node
 #
 # Part of pattern_extraction split (Track 2 Intelligence Hook System)
-contract_version:
-  major: 1
-  minor: 0
-  patch: 0
+contract_version: {major: 1, minor: 0, patch: 0}
 node_version:
   major: 1
   minor: 0
   patch: 0
 name: "node_success_criteria_matcher_compute"
+version: "1.0.0"
 node_type: "COMPUTE_GENERIC"
 description: >-
   Compute node for matching execution outcomes against success criteria. Determines if observed behavior

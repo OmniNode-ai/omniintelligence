@@ -6,15 +6,13 @@
 # Implements: OMN-2563 (anti-gaming guardrails)
 # Epic:       OMN-2361 (Objective Functions and Reward Architecture)
 # =============================================================================
-contract_version:
-  major: 1
-  minor: 0
-  patch: 0
+contract_version: {major: 1, minor: 0, patch: 0}
 node_version:
   major: 1
   minor: 0
   patch: 0
 name: "node_anti_gaming_guardrails_compute"
+version: "1.0.0"
 node_type: "COMPUTE_GENERIC"
 description: >-
   Pure COMPUTE node for anti-gaming guardrail evaluation. Implements four structural defenses: (1) Goodhart's

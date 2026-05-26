@@ -30,7 +30,7 @@ NODES_DIR = Path("src/omniintelligence/nodes")
 
 # Required fields in all contracts
 REQUIRED_CONTRACT_FIELDS = [
-    "contract_version",
+    "version",
     "node_version",
     "name",
     "node_type",
@@ -199,21 +199,29 @@ class TestContractRequiredFields:
     def test_contracts_have_valid_contract_version(
         self, all_contract_data: list[tuple[Path, dict]]
     ) -> None:
-        """Verify contract_version has major, minor, patch fields."""
+        """Verify version field is a semver string (X.Y.Z)."""
+        import re
+
+        semver_re = re.compile(r"^\d+\.\d+\.\d+$")
         errors = []
         for contract_path, data in all_contract_data:
             node_name = contract_path.parent.name
-            version = data.get("contract_version", {})
+            version = data.get("version")
 
-            if not isinstance(version, dict):
-                errors.append(f"{node_name}: contract_version must be a dict")
+            if version is None:
+                errors.append(f"{node_name}: missing 'version' field")
                 continue
 
-            for field in ["major", "minor", "patch"]:
-                if field not in version:
-                    errors.append(f"{node_name}: contract_version missing '{field}'")
-                elif not isinstance(version[field], int):
-                    errors.append(f"{node_name}: contract_version.{field} must be int")
+            if not isinstance(version, str):
+                errors.append(
+                    f"{node_name}: version must be a string, got {type(version).__name__}"
+                )
+                continue
+
+            if not semver_re.match(version):
+                errors.append(
+                    f"{node_name}: version '{version}' is not a valid semver string (X.Y.Z)"
+                )
 
         if errors:
             pytest.fail("\n".join(errors))

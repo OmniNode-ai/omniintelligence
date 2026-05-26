@@ -5,15 +5,13 @@
 #
 # Part of OMN-5657: AST-based code pattern extraction system
 # Extracts structural code entities from Python source files using AST parsing.
-contract_version:
-  major: 1
-  minor: 0
-  patch: 0
+contract_version: {major: 1, minor: 0, patch: 0}
 node_version:
   major: 1
   minor: 0
   patch: 0
 name: "node_ast_extraction_compute"
+version: "1.0.0"
 node_type: "COMPUTE_GENERIC"
 description: >-
   Extracts structural code entities from Python source files using AST parsing. Detects classes, protocols,

@@ -1,15 +1,13 @@
 # SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
 ---
-contract_version:
-  major: 1
-  minor: 0
-  patch: 0
+contract_version: {major: 1, minor: 0, patch: 0}
 node_version:
   major: 1
   minor: 0
   patch: 0
 name: "node_ci_error_classifier_compute"
+version: "1.0.0"
 node_type: "COMPUTE_GENERIC"
 description: |
   Pure compute node that normalizes and validates LLM classification output.
@@ -25,6 +23,15 @@ output_model:
   name: "ModelCiErrorClassifierOutput"
   module: "omniintelligence.nodes.node_ci_error_classifier_compute.models.model_output"
   description: "Normalized classification, confidence, evidence, and unknowns."
+
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    - operation: "classify_ci_error"
+      handler:
+        function: "handle_classify_ci_error"
+        module: "omniintelligence.nodes.node_ci_error_classifier_compute.handlers.handler_classifier"
+        type: "sync"
 
 event_bus:
 

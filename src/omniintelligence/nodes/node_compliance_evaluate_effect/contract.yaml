@@ -14,15 +14,13 @@
 # Idempotency key: (source_path, content_sha256, pattern_id) -- NOT correlation_id
 # so that identical content re-evaluations deduplicate regardless of origin.
 # =============================================================================
-contract_version:
-  major: 1
-  minor: 0
-  patch: 0
+contract_version: {major: 1, minor: 0, patch: 0}
 node_version:
   major: 1
   minor: 0
   patch: 0
 name: "node_compliance_evaluate_effect"
+version: "1.0.0"
 node_type: "EFFECT_GENERIC"
 description: >-
   Event-driven effect node that consumes compliance-evaluate commands from omniclaude and calls handle_evaluate_compliance()

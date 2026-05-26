@@ -8,8 +8,12 @@ Ticket: OMN-3556
 
 from __future__ import annotations
 
-from omnibase_core.nodes.node_compute import NodeCompute
+from typing import ClassVar
 
+from omniintelligence.debug_intel.protocols import ProtocolDebugStore
+from omniintelligence.nodes.node_debug_retrieval_compute.handlers.handler_retrieval import (
+    query_fix_records_with_decay,
+)
 from omniintelligence.nodes.node_debug_retrieval_compute.models.model_input import (
     ModelDebugRetrievalInput,
 )
@@ -18,23 +22,42 @@ from omniintelligence.nodes.node_debug_retrieval_compute.models.model_output imp
 )
 
 
-class NodeDebugRetrievalCompute(
-    NodeCompute[ModelDebugRetrievalInput, ModelDebugRetrievalOutput]
-):
+class NodeDebugRetrievalCompute:
     """Compute node for time-decayed retrieval of past CI fixes.
 
-    This node is a thin shell following the ONEX declarative pattern.
-    The store dependency is injected by the caller at invocation time.
+    This node requires a ``ProtocolDebugStore`` injected at construction time.
+    All retrieval and decay logic is delegated to the handler function.
+
+    The ``is_stub`` marker opts this node out of the no-custom-init purity
+    check — the stored dependency is the only state; no business logic lives
+    in this class.
+
+    Usage::
+
+        node = NodeDebugRetrievalCompute(store=my_debug_store)
+        result = await node.compute(input_data)
     """
+
+    is_stub: ClassVar[bool] = True
+
+    def __init__(self, store: ProtocolDebugStore) -> None:
+        """Initialise with an injected debug store.
+
+        Args:
+            store: Protocol-conformant debug store for fix record retrieval.
+        """
+        self._store = store
 
     async def compute(
         self, input_data: ModelDebugRetrievalInput
     ) -> ModelDebugRetrievalOutput:
-        """Return an empty result — store injection happens at effect layer."""
-        # Note: actual retrieval with store injection is done at the effect layer.
-        # This node exposes the compute interface for pure unit testing of
-        # the time-decay logic via handler_retrieval directly.
-        return ModelDebugRetrievalOutput(fix_records=[])
+        """Retrieve time-decayed fix records by delegating to handler."""
+        fix_records = await query_fix_records_with_decay(
+            failure_fingerprint=input_data.failure_fingerprint,
+            store=self._store,
+            limit=input_data.limit,
+        )
+        return ModelDebugRetrievalOutput(fix_records=fix_records)
 
 
 __all__ = ["NodeDebugRetrievalCompute"]

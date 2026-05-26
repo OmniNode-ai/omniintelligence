@@ -15,12 +15,10 @@
 
 # Contract identifiers
 name: "node_linear_crawler_effect"
+version: "1.0.0"
 contract_name: "linear_crawler_effect"
 node_name: "linear_crawler_effect"
-contract_version:
-  major: 1
-  minor: 0
-  patch: 0
+contract_version: {major: 1, minor: 0, patch: 0}
 node_version:
   major: 1
   minor: 0

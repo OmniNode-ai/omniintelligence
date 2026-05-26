@@ -14,12 +14,10 @@
 
 # Contract identifiers
 name: "node_git_repo_crawler_effect"
+version: "1.0.0"
 contract_name: "git_repo_crawler_effect"
 node_name: "git_repo_crawler_effect"
-contract_version:
-  major: 1
-  minor: 0
-  patch: 0
+contract_version: {major: 1, minor: 0, patch: 0}
 node_version:
   major: 1
   minor: 0

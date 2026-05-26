@@ -10,15 +10,13 @@
 #   - SEMANTIC_ANALYSIS: Generate embeddings, compute similarity
 #   - RELATIONSHIP_DETECTION: Detect and classify relationships, delegate storage to omnimemory
 # =============================================================================
-contract_version:
-  major: 1
-  minor: 1
-  patch: 0
+contract_version: {major: 1, minor: 0, patch: 0}
 node_version:
   major: 1
   minor: 1
   patch: 0
 name: "node_intelligence_orchestrator"
+version: "1.1.0"
 node_type: "ORCHESTRATOR_GENERIC"
 description: >-
   Unified orchestrator for all intelligence operations using Llama Index workflows. Handles document ingestion,
