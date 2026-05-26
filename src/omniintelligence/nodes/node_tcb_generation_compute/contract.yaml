@@ -21,10 +21,9 @@ node_type: "COMPUTE_GENERIC"
 status: "active"
 
 description: >
-  Compute node for generating Ticket Context Bundles (TCBs). Normalizes raw ticket intent text
-  into structured tags (repos, modules, capability tags, risk tags) and scores candidate file
-  paths for inclusion in the TCB. Pure computation — no I/O, no side effects.
-
+  Compute node for generating Ticket Context Bundles (TCBs). Normalizes raw ticket intent text into structured
+  tags (repos, modules, capability tags, risk tags) and scores candidate file paths for inclusion in the
+  TCB. Pure computation — no I/O, no side effects. #magic___^_^___line
 input_model:
   name: "ModelTCBNormalizedIntent"
   module: "omnibase_core.models.ticket.model_ticket_context_bundle"

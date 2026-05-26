@@ -24,9 +24,8 @@ status: "active"
 description: >
   Effect node for publishing anti-gaming alerts to Kafka. Companion to NodeAntiGamingGuardrailsCompute.
   Receives guardrail output containing non-blocking alerts and optional diversity constraint violations
-  (veto events), serializes each to JSON, and publishes them to the configured Kafka topic.
-  Emits one event per alert plus one additional event if a diversity violation is present.
-
+  (veto events), serializes each to JSON, and publishes them to the configured Kafka topic. Emits one
+  event per alert plus one additional event if a diversity violation is present. #magic___^_^___line
 input_model:
   name: "ModelAlerterInput"
   module: "omniintelligence.nodes.node_anti_gaming_alerter_effect.models.model_alerter_input"

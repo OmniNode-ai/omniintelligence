@@ -22,12 +22,11 @@ node_type: "COMPUTE_GENERIC"
 status: "active"
 
 description: >
-  Compute node for multi-variant A/B objective testing. Evaluates an EvidenceBundle against all
-  registered variants (active and shadow) using deterministic hash-based traffic splitting on run_id.
-  Detects divergence between active and shadow results (different passed outcomes or ScoreVector L2
-  distance exceeding threshold). Tracks statistical significance for upgrade-ready signals. Shadow
-  variants never drive policy state changes. Promotion is signalled, not automatic.
-
+  Compute node for multi-variant A/B objective testing. Evaluates an EvidenceBundle against all registered
+  variants (active and shadow) using deterministic hash-based traffic splitting on run_id. Detects divergence
+  between active and shadow results (different passed outcomes or ScoreVector L2 distance exceeding threshold).
+  Tracks statistical significance for upgrade-ready signals. Shadow variants never drive policy state
+  changes. Promotion is signalled, not automatic. #magic___^_^___line
 input_model:
   name: "ModelABEvaluationInput"
   module: "omniintelligence.nodes.node_objective_ab_framework_compute.models.model_ab_evaluation_input"
@@ -118,9 +117,9 @@ idempotency:
   strategy: "deterministic_routing"
   hash_fields: ["run_id"]
   description: >
-    Traffic splitting is deterministic: the same run_id always maps to the same variant.
-    Re-evaluating the same run_id produces the same routing decision and the same per-variant
-    results (given unchanged registry config and evidence bundle).
+    Traffic splitting is deterministic: the same run_id always maps to the same variant. Re-evaluating
+    the same run_id produces the same routing decision and the same per-variant results (given unchanged
+    registry config and evidence bundle).
 
 health_check:
   enabled: true
