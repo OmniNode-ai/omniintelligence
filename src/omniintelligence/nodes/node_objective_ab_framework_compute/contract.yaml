@@ -1,0 +1,147 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# ONEX Node Contract
+# Node: NodeObjectiveAbFrameworkCompute
+#
+# Compute node for multi-variant A/B objective evaluation. Deterministic traffic
+# splitting, parallel variant evaluation, divergence detection, and statistical
+# significance tracking for objective upgrade-ready signals.
+#
+# Reference: OMN-2571, OMN-12167
+
+name: "node_objective_ab_framework_compute"
+version: "1.0.0"
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+node_type: "COMPUTE_GENERIC"
+
+status: "active"
+
+description: >
+  Compute node for multi-variant A/B objective testing. Evaluates an EvidenceBundle against all
+  registered variants (active and shadow) using deterministic hash-based traffic splitting on run_id.
+  Detects divergence between active and shadow results (different passed outcomes or ScoreVector L2
+  distance exceeding threshold). Tracks statistical significance for upgrade-ready signals. Shadow
+  variants never drive policy state changes. Promotion is signalled, not automatic.
+
+input_model:
+  name: "ModelABEvaluationInput"
+  module: "omniintelligence.nodes.node_objective_ab_framework_compute.models.model_ab_evaluation_input"
+  description: "Evidence bundle, variant registry, and per-variant run/win counters."
+
+output_model:
+  name: "ModelABEvaluationOutput"
+  module: "omniintelligence.nodes.node_objective_ab_framework_compute.models.model_ab_evaluation_output"
+  description: "Per-variant evaluation results with divergence and upgrade-ready signals."
+
+operations:
+  - name: "run_ab_evaluation"
+    description: "Evaluate evidence bundle against all active variants and detect divergence"
+    input_fields:
+      - run_id
+      - evidence_bundle
+      - registry
+      - run_count_by_variant
+      - shadow_win_count_by_variant
+    output_fields:
+      - run_id
+      - variant_results
+      - divergence_detected
+      - upgrade_ready
+      - upgrade_ready_variant_id
+  - name: "route_to_variant"
+    description: "Deterministically route a run_id to a variant using hash-based splitting"
+    input_fields:
+      - run_id
+      - registry
+    output_fields:
+      - variant
+  - name: "check_upgrade_ready"
+    description: "Check if a shadow variant has reached statistical significance for upgrade"
+    input_fields:
+      - shadow_variant_id
+      - run_count
+      - shadow_wins
+      - registry
+    output_fields:
+      - upgrade_ready
+
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    - operation: "run_ab_evaluation"
+      handler:
+        function: "run_ab_evaluation"
+        module: "omniintelligence.nodes.node_objective_ab_framework_compute.handlers.handler_ab_framework"
+        type: "sync"
+      description: "Full A/B evaluation: route, evaluate all variants, detect divergence, check significance"
+    - operation: "route_to_variant"
+      handler:
+        function: "route_to_variant"
+        module: "omniintelligence.nodes.node_objective_ab_framework_compute.handlers.handler_ab_framework"
+        type: "sync"
+      description: "Deterministic hash-based variant routing"
+    - operation: "check_upgrade_ready"
+      handler:
+        function: "check_upgrade_ready"
+        module: "omniintelligence.nodes.node_objective_ab_framework_compute.handlers.handler_ab_framework"
+        type: "sync"
+      description: "Statistical significance check for shadow variant promotion"
+
+  default_handler:
+    function: "run_ab_evaluation"
+    module: "omniintelligence.nodes.node_objective_ab_framework_compute.handlers.handler_ab_framework"
+    type: "sync"
+    description: "Default to full A/B evaluation"
+
+dependencies: []
+
+error_handling:
+  error_types:
+    - name: "ABFrameworkRoutingError"
+      error_code: "ABF_001"
+      description: "Failed to route run_id to a variant (empty or inactive registry)"
+      recoverable: false
+      retry_strategy: "none"
+    - name: "ABFrameworkEvaluationError"
+      error_code: "ABF_002"
+      description: "Failed to evaluate variant against evidence bundle"
+      recoverable: false
+      retry_strategy: "none"
+
+idempotency:
+  enabled: true
+  strategy: "deterministic_routing"
+  hash_fields: ["run_id"]
+  description: >
+    Traffic splitting is deterministic: the same run_id always maps to the same variant.
+    Re-evaluating the same run_id produces the same routing decision and the same per-variant
+    results (given unchanged registry config and evidence bundle).
+
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-05-25"
+  updated: "2026-05-25"
+  tags:
+    - compute
+    - ab-testing
+    - objective
+    - variants
+    - scoring
+  references:
+    - ticket: "OMN-2571"
+      url: "https://linear.app/omninode/issue/OMN-2571"
+      description: "Objective A/B framework compute node"
+    - ticket: "OMN-12167"
+      url: "https://linear.app/omninode/issue/OMN-12167"
+      description: "Add contract.yaml for 4 omniintelligence nodes"
