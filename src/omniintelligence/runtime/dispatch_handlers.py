@@ -193,6 +193,14 @@ DISPATCH_ALIAS_DEBUG_TRIGGER_RECORD_CREATED = canonical_topic_to_dispatch_alias(
     IntentTopic.DEBUG_TRIGGER_RECORD_CREATED
 )
 """Dispatch-compatible alias for debug-trigger-record-created event topic (OMN-6597)."""
+DISPATCH_ALIAS_DISPATCH_WORKER_COMPLETED = canonical_topic_to_dispatch_alias(
+    "onex.evt.omniclaude.dispatch_worker-completed.v1"
+)
+"""Dispatch-compatible alias for dispatch_worker-completed event (OMN-12280)."""
+DISPATCH_ALIAS_DISPATCH_OUTCOME_EVALUATED = canonical_topic_to_dispatch_alias(
+    "onex.evt.omniintelligence.dispatch-outcome-evaluated.v1"
+)
+"""Dispatch-compatible alias for dispatch-outcome-evaluated event (OMN-12280)."""
 # =============================================================================
 # Daemon Envelope Constants
 # =============================================================================
@@ -2158,6 +2166,276 @@ def create_bloom_eval_run_dispatch_handler(
 
 
 # =============================================================================
+# Bridge Handler: Dispatch Outcome Eval (OMN-12280)
+# =============================================================================
+
+
+def create_dispatch_outcome_eval_dispatch_handler(
+    *,
+    kafka_producer: ProtocolKafkaPublisher | None = None,
+    publish_topic: str | None = None,
+    correlation_id: UUID | None = None,
+) -> Callable[
+    [ModelEventEnvelope[object], ProtocolHandlerContext],
+    Awaitable[str],
+]:
+    """Create a dispatch handler for dispatch_worker-completed events.
+
+    Deserializes the payload as ModelInput, calls handle_dispatch_outcome(),
+    and publishes the evaluation result to dispatch-outcome-evaluated.v1.
+
+    Args:
+        kafka_producer: Optional Kafka producer (graceful degradation if absent).
+        publish_topic: Full topic for dispatch-outcome-evaluated events.
+        correlation_id: Optional fixed correlation ID for tracing.
+
+    Returns:
+        Async handler function with signature (envelope, context) -> str.
+    """
+
+    async def _handle(
+        envelope: ModelEventEnvelope[object],
+        context: ProtocolHandlerContext,
+    ) -> str:
+        from omniintelligence.nodes.node_dispatch_outcome_eval_effect.handlers.handler_dispatch_outcome import (
+            handle_dispatch_outcome,
+        )
+        from omniintelligence.nodes.node_dispatch_outcome_eval_effect.models import (
+            ModelInput,
+        )
+
+        ctx_correlation_id = (
+            correlation_id or getattr(context, "correlation_id", None) or uuid4()
+        )
+
+        payload = envelope.payload
+        if not isinstance(payload, dict):
+            msg = (
+                f"Unexpected payload type {type(payload).__name__} "
+                f"for dispatch-outcome-eval (correlation_id={ctx_correlation_id})"
+            )
+            logger.warning(msg)
+            raise ValueError(msg)
+
+        try:
+            event = ModelInput(**payload)
+        except Exception as e:
+            sanitized = get_log_sanitizer().sanitize(str(e))
+            msg = (
+                f"Failed to parse payload as ModelInput for dispatch-outcome-eval: "
+                f"{sanitized} (correlation_id={ctx_correlation_id})"
+            )
+            logger.warning(msg)
+            raise ValueError(msg) from e
+
+        logger.info(
+            "Dispatching dispatch-outcome-eval "
+            "(task_id=%s, dispatch_id=%s, correlation_id=%s)",
+            event.task_id,
+            event.dispatch_id,
+            ctx_correlation_id,
+        )
+
+        result = await handle_dispatch_outcome(event)
+
+        if kafka_producer is not None:
+            _publish_topic = (
+                publish_topic
+                or "onex.evt.omniintelligence.dispatch-outcome-evaluated.v1"
+            )
+            try:
+                await kafka_producer.publish(
+                    topic=_publish_topic,
+                    key=event.task_id,
+                    value={
+                        "task_id": event.task_id,
+                        "dispatch_id": event.dispatch_id,
+                        "ticket_id": event.ticket_id,
+                        "verdict": result.verdict,
+                        "quality_score": result.quality_score,
+                        "token_cost": result.token_cost,
+                        "dollars_cost": result.dollars_cost,
+                        "model_calls": result.model_calls,
+                        "usage_source": result.usage_source,
+                        "estimation_method": result.estimation_method,
+                        "source_payload_hash": result.source_payload_hash,
+                        "evaluated_at": result.evaluated_at.isoformat(),
+                        "eval_latency_ms": result.eval_latency_ms,
+                        "correlation_id": str(ctx_correlation_id),
+                    },
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to publish dispatch-outcome-evaluated event to Kafka "
+                    "(task_id=%s, correlation_id=%s)",
+                    event.task_id,
+                    ctx_correlation_id,
+                    exc_info=True,
+                )
+
+        logger.info(
+            "dispatch-outcome-eval complete "
+            "(task_id=%s, verdict=%s, correlation_id=%s)",
+            event.task_id,
+            result.verdict,
+            ctx_correlation_id,
+        )
+
+        return "ok"
+
+    return _handle
+
+
+# =============================================================================
+# Bridge Handler: Dispatch Outcome Record (OMN-12280)
+# =============================================================================
+
+
+def create_dispatch_outcome_record_dispatch_handler(
+    *,
+    repository: ProtocolPatternRepository,
+    correlation_id: UUID | None = None,
+) -> Callable[
+    [ModelEventEnvelope[object], ProtocolHandlerContext],
+    Awaitable[str],
+]:
+    """Create a dispatch handler for dispatch-outcome-evaluated events.
+
+    Deserializes the payload, constructs a ModelDispatchEvalResult, and calls
+    record_dispatch_outcome() to write the row into dispatch_eval_results.
+
+    Args:
+        repository: REQUIRED database repository for dispatch_eval_results writes.
+        correlation_id: Optional fixed correlation ID for tracing.
+
+    Returns:
+        Async handler function with signature (envelope, context) -> str.
+    """
+
+    async def _handle(
+        envelope: ModelEventEnvelope[object],
+        context: ProtocolHandlerContext,
+    ) -> str:
+        from omnibase_core.enums.enum_dispatch_verdict import EnumDispatchVerdict
+        from omnibase_core.models.cost import ModelCostProvenance
+        from omnibase_core.models.dispatch import ModelDispatchEvalResult
+        from omnibase_core.models.dispatch.model_model_call_record import (
+            ModelCallRecord,
+        )
+
+        from omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_dispatch_outcome import (
+            record_dispatch_outcome,
+        )
+
+        ctx_correlation_id = (
+            correlation_id or getattr(context, "correlation_id", None) or uuid4()
+        )
+
+        payload = envelope.payload
+        if not isinstance(payload, dict):
+            msg = (
+                f"Unexpected payload type {type(payload).__name__} "
+                f"for dispatch-outcome-record (correlation_id={ctx_correlation_id})"
+            )
+            logger.warning(msg)
+            raise ValueError(msg)
+
+        task_id = str(payload.get("task_id", ""))
+        dispatch_id = str(payload.get("dispatch_id", ""))
+        if not task_id or not dispatch_id:
+            msg = (
+                f"dispatch-outcome-evaluated payload missing task_id or dispatch_id "
+                f"(correlation_id={ctx_correlation_id})"
+            )
+            logger.warning(msg)
+            raise ValueError(msg)
+
+        raw_verdict = payload.get("verdict", "ERROR")
+        try:
+            verdict = EnumDispatchVerdict(raw_verdict)
+        except ValueError:
+            logger.warning(
+                "Unknown verdict %r, defaulting to ERROR (task_id=%s, correlation_id=%s)",
+                raw_verdict,
+                task_id,
+                ctx_correlation_id,
+            )
+            verdict = EnumDispatchVerdict.ERROR
+
+        raw_evaluated_at = payload.get("evaluated_at")
+        if raw_evaluated_at is not None:
+            if isinstance(raw_evaluated_at, str):
+                evaluated_at = datetime.fromisoformat(raw_evaluated_at)
+            elif isinstance(raw_evaluated_at, datetime):
+                evaluated_at = raw_evaluated_at
+            else:
+                evaluated_at = datetime.now(UTC)
+        else:
+            evaluated_at = datetime.now(UTC)
+        if evaluated_at.tzinfo is None:
+            evaluated_at = evaluated_at.replace(tzinfo=UTC)
+
+        usage_source_raw = str(payload.get("usage_source", "unknown"))
+        cost_provenance = ModelCostProvenance(
+            usage_source=usage_source_raw,  # type: ignore[arg-type]
+            estimation_method=payload.get("estimation_method"),
+            source_payload_hash=payload.get("source_payload_hash"),
+        )
+
+        raw_model_calls = payload.get("model_calls", [])
+        model_calls: list[ModelCallRecord] = []
+        if isinstance(raw_model_calls, list):
+            for call in raw_model_calls:
+                if isinstance(call, dict):
+                    try:
+                        model_calls.append(ModelCallRecord(**call))
+                    except Exception:
+                        logger.debug(
+                            "Skipping malformed model_call entry (task_id=%s, correlation_id=%s)",
+                            task_id,
+                            ctx_correlation_id,
+                        )
+
+        eval_result = ModelDispatchEvalResult(
+            task_id=task_id,
+            dispatch_id=dispatch_id,
+            ticket_id=payload.get("ticket_id"),
+            verdict=verdict,
+            quality_score=payload.get("quality_score"),
+            token_cost=int(payload.get("token_cost", 0)),
+            dollars_cost=float(payload.get("dollars_cost", 0.0)),
+            cost_provenance=cost_provenance,
+            model_calls=model_calls,
+            evaluated_at=evaluated_at,
+            eval_latency_ms=int(payload.get("eval_latency_ms", 0)),
+        )
+
+        logger.info(
+            "Recording dispatch outcome (task_id=%s, verdict=%s, correlation_id=%s)",
+            task_id,
+            verdict.value,
+            ctx_correlation_id,
+        )
+
+        result = await record_dispatch_outcome(
+            eval_result,
+            repository=repository,
+        )
+
+        logger.info(
+            "Dispatch outcome recorded "
+            "(task_id=%s, rows_updated=%d, correlation_id=%s)",
+            task_id,
+            result.rows_updated,
+            ctx_correlation_id,
+        )
+
+        return "ok"
+
+    return _handle
+
+
+# =============================================================================
 # Dispatch Engine Factory
 # =============================================================================
 
@@ -3269,6 +3547,56 @@ def create_intelligence_dispatch_engine(
         )
     )
 
+    # --- Handler: dispatch-outcome-eval (OMN-12280) ---
+    dispatch_outcome_eval_handler = create_dispatch_outcome_eval_dispatch_handler(
+        kafka_producer=kafka_producer,
+        publish_topic=topics.get("dispatch_outcome_eval"),
+    )
+    engine.register_handler(
+        handler_id="intelligence-dispatch-outcome-eval-handler",
+        handler=dispatch_outcome_eval_handler,
+        category=EnumMessageCategory.EVENT,
+        node_kind=EnumNodeKind.EFFECT,
+        message_types=None,
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-dispatch-outcome-eval-route",
+            topic_pattern=DISPATCH_ALIAS_DISPATCH_WORKER_COMPLETED,
+            message_category=EnumMessageCategory.EVENT,
+            handler_id="intelligence-dispatch-outcome-eval-handler",
+            description=(
+                "Routes dispatch_worker-completed events to the dispatch outcome "
+                "eval handler (OMN-12280). Evaluates the dispatch outcome and "
+                "publishes dispatch-outcome-evaluated.v1."
+            ),
+        )
+    )
+
+    # --- Handler: dispatch-outcome-record (OMN-12280) ---
+    dispatch_outcome_record_handler = create_dispatch_outcome_record_dispatch_handler(
+        repository=repository,
+    )
+    engine.register_handler(
+        handler_id="intelligence-dispatch-outcome-record-handler",
+        handler=dispatch_outcome_record_handler,
+        category=EnumMessageCategory.EVENT,
+        node_kind=EnumNodeKind.EFFECT,
+        message_types=None,
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-dispatch-outcome-record-route",
+            topic_pattern=DISPATCH_ALIAS_DISPATCH_OUTCOME_EVALUATED,
+            message_category=EnumMessageCategory.EVENT,
+            handler_id="intelligence-dispatch-outcome-record-handler",
+            description=(
+                "Routes dispatch-outcome-evaluated events to the dispatch outcome "
+                "record handler (OMN-12280). Writes rows into dispatch_eval_results."
+            ),
+        )
+    )
+
     engine.freeze()
 
     if llm_client is None:
@@ -3594,6 +3922,8 @@ __all__ = [
     "DISPATCH_ALIAS_CI_RECOVERY",
     "DISPATCH_ALIAS_CLAUDE_HOOK",
     "DISPATCH_ALIAS_COMPLIANCE_EVALUATE",
+    "DISPATCH_ALIAS_DISPATCH_OUTCOME_EVALUATED",
+    "DISPATCH_ALIAS_DISPATCH_WORKER_COMPLETED",
     "DISPATCH_ALIAS_INTELLIGENCE_ORCHESTRATOR",
     "DISPATCH_ALIAS_PATTERN_DISCOVERED",
     "DISPATCH_ALIAS_PATTERN_LEARNED",
@@ -3610,6 +3940,8 @@ __all__ = [
     "create_claude_hook_dispatch_handler",
     "create_compliance_evaluate_dispatch_handler",
     "create_dispatch_callback",
+    "create_dispatch_outcome_eval_dispatch_handler",
+    "create_dispatch_outcome_record_dispatch_handler",
     "create_intelligence_dispatch_engine",
     "create_intelligence_orchestrator_dispatch_handler",
     "create_pattern_lifecycle_dispatch_handler",
