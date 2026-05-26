@@ -43,7 +43,6 @@ Usage:
 from __future__ import annotations
 
 from typing import Literal, TypedDict
-from uuid import uuid4
 
 # =============================================================================
 # File Access Pattern Result TypedDict
@@ -240,141 +239,6 @@ class ErrorPatternResult(TypedDict):
     occurrences: int
     confidence: float
     evidence_session_ids: tuple[str, ...]
-
-
-# =============================================================================
-# Factory Functions
-# =============================================================================
-
-
-def create_empty_error_pattern(
-    pattern_type: Literal[
-        "error_prone_file", "tool_failure", "error_sequence"
-    ] = "error_prone_file",
-) -> ErrorPatternResult:
-    """Create an empty error pattern for error or placeholder cases.
-
-    Returns a valid ErrorPatternResult with minimal default values,
-    suitable for use when extraction fails or produces no results.
-
-    Args:
-        pattern_type: The type of error pattern to create.
-            Defaults to "error_prone_file".
-
-    Returns:
-        ErrorPatternResult with zero confidence and empty collections.
-
-    Example:
-        >>> pattern = create_empty_error_pattern()
-        >>> pattern["confidence"]
-        0.0
-        >>> pattern["affected_files"]
-        ()
-    """
-    return ErrorPatternResult(
-        pattern_id=str(uuid4()),
-        pattern_type=pattern_type,
-        affected_files=(),
-        error_summary="",
-        occurrences=0,
-        confidence=0.0,
-        evidence_session_ids=(),
-    )
-
-
-def create_empty_tool_pattern(
-    pattern_type: Literal[
-        "tool_sequence", "tool_preference", "success_rate"
-    ] = "tool_sequence",
-) -> ToolPatternResult:
-    """Create an empty tool pattern for error or placeholder cases.
-
-    Returns a valid ToolPatternResult with minimal default values,
-    suitable for use when extraction fails or produces no results.
-
-    Args:
-        pattern_type: The type of tool pattern to create.
-            Defaults to "tool_sequence".
-
-    Returns:
-        ToolPatternResult with zero confidence and empty collections.
-
-    Example:
-        >>> pattern = create_empty_tool_pattern()
-        >>> pattern["confidence"]
-        0.0
-        >>> pattern["tools"]
-        ()
-    """
-    return ToolPatternResult(
-        pattern_id=str(uuid4()),
-        pattern_type=pattern_type,
-        tools=(),
-        context="",
-        occurrences=0,
-        confidence=0.0,
-        success_rate=None,
-    )
-
-
-def create_empty_architecture_pattern(
-    pattern_type: Literal[
-        "module_boundary", "layer_pattern", "dependency_chain"
-    ] = "module_boundary",
-) -> ArchitecturePatternResult:
-    """Create an empty architecture pattern for error or placeholder cases.
-
-    Returns a valid ArchitecturePatternResult with minimal default values,
-    suitable for use when extraction fails or produces no results.
-
-    Args:
-        pattern_type: The type of pattern to create. Defaults to "module_boundary".
-
-    Returns:
-        ArchitecturePatternResult with zero confidence and empty members.
-
-    Example:
-        >>> pattern = create_empty_architecture_pattern()
-        >>> pattern["confidence"]
-        0.0
-        >>> pattern["member_files"]
-        ()
-    """
-    return ArchitecturePatternResult(
-        pattern_id=str(uuid4()),
-        pattern_type=pattern_type,
-        directory_prefix="",
-        member_files=(),
-        occurrences=0,
-        confidence=0.0,
-    )
-
-
-def create_empty_file_pattern(
-    pattern_type: Literal[
-        "co_access", "entry_point", "modification_cluster"
-    ] = "co_access",
-) -> FileAccessPatternResult:
-    """Create an empty file pattern for error or placeholder cases.
-
-    Returns a valid FileAccessPatternResult with minimal default values,
-    suitable for use when extraction fails or produces no results.
-
-    Args:
-        pattern_type: The type of file pattern to create.
-            Defaults to "co_access".
-
-    Returns:
-        FileAccessPatternResult with zero confidence and empty collections.
-    """
-    return FileAccessPatternResult(
-        pattern_id=str(uuid4()),
-        pattern_type=pattern_type,
-        files=(),
-        occurrences=0,
-        confidence=0.0,
-        evidence_session_ids=(),
-    )
 
 
 # =============================================================================
@@ -631,10 +495,6 @@ __all__ = [
     "PatternExtractionMetrics",
     "PatternExtractionResult",
     "ToolPatternResult",
-    "create_empty_architecture_pattern",
-    "create_empty_error_pattern",
-    "create_empty_file_pattern",
     "create_empty_metrics",
-    "create_empty_tool_pattern",
     "create_error_result",
 ]
