@@ -6,6 +6,7 @@
 # Implements: OMN-2545 (ScoringReducer COMPUTE node)
 # Epic:       OMN-2361 (Objective Functions and Reward Architecture)
 # =============================================================================
+contract_version: {major: 1, minor: 0, patch: 0}
 node_version:
   major: 1
   minor: 0

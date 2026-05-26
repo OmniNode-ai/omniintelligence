@@ -17,6 +17,7 @@ name: "node_doc_promotion_reducer"
 version: "1.0.0"
 contract_name: "doc_promotion_reducer"
 node_name: "doc_promotion_reducer"
+contract_version: {major: 1, minor: 0, patch: 0}
 node_version:
   major: 1
   minor: 0

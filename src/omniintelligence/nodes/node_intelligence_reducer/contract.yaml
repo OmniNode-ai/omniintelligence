@@ -15,6 +15,7 @@
 # All state is stored in PostgreSQL fsm_state table.
 # All state transition logic is driven by this contract.
 # =============================================================================
+contract_version: {major: 1, minor: 0, patch: 0}
 node_version:
   major: 1
   minor: 0

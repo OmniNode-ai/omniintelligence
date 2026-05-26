@@ -6,6 +6,7 @@
 # STATUS: ACTIVE - Fully implemented pattern aggregation node
 # This node aggregates and summarizes observed patterns following the 4-phase pipeline.
 # =============================================================================
+contract_version: {major: 1, minor: 0, patch: 0}
 node_version:
   major: 1
   minor: 0

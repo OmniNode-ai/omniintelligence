@@ -18,6 +18,7 @@ name: "node_claude_hook_event_effect"
 version: "1.1.0"
 contract_name: "node_claude_hook_event_effect"
 node_name: "node_claude_hook_event_effect"
+contract_version: {major: 1, minor: 0, patch: 0}
 node_version:
   major: 1
   minor: 1

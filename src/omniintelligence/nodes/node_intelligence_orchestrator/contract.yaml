@@ -10,6 +10,7 @@
 #   - SEMANTIC_ANALYSIS: Generate embeddings, compute similarity
 #   - RELATIONSHIP_DETECTION: Detect and classify relationships, delegate storage to omnimemory
 # =============================================================================
+contract_version: {major: 1, minor: 0, patch: 0}
 node_version:
   major: 1
   minor: 1
