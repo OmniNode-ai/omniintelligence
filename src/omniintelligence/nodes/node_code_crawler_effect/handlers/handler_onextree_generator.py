@@ -113,11 +113,11 @@ class OnexTreeGenerator:
         """
         self.statistics = ProjectStatistics()
         root_node = await self._scan_directory(self.project_root)
-        self.statistics.last_updated = datetime.now()
+        self.statistics.last_updated = datetime.now(timezone.utc)
 
         return ModelOnextreeRoot(
             project_root=str(self.project_root),
-            generated_at=datetime.now(),
+            generated_at=datetime.now(timezone.utc),
             tree=root_node,
             statistics=self.statistics,
         )
