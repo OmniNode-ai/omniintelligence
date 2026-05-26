@@ -11,7 +11,7 @@ from __future__ import annotations
 from omnibase_core.nodes.node_compute import NodeCompute
 
 from omniintelligence.nodes.node_ci_error_classifier_compute.handlers.handler_classifier import (
-    _parse_llm_response,
+    handle_classify_ci_error,
 )
 from omniintelligence.nodes.node_ci_error_classifier_compute.models.model_input import (
     ModelCiErrorClassifierInput,
@@ -36,15 +36,7 @@ class NodeCiErrorClassifierCompute(
         self, input_data: ModelCiErrorClassifierInput
     ) -> ModelCiErrorClassifierOutput:
         """Normalize a raw LLM classification response via handler function."""
-        parsed = _parse_llm_response(
-            {
-                "classification": input_data.failure_output,
-                "confidence": 0.0,
-                "evidence": [],
-                "unknowns": [],
-            }
-        )
-        return ModelCiErrorClassifierOutput(**parsed)
+        return handle_classify_ci_error(input_data)
 
 
 __all__ = ["NodeCiErrorClassifierCompute"]

@@ -11,9 +11,16 @@ Ticket: OMN-3556
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from omniintelligence.enums.enum_error_taxonomy import EnumErrorTaxonomy
+from omniintelligence.nodes.node_ci_error_classifier_compute.models.model_input import (
+    ModelCiErrorClassifierInput,
+)
+from omniintelligence.nodes.node_ci_error_classifier_compute.models.model_output import (
+    ModelCiErrorClassifierOutput,
+)
 
 
 def _coerce_to_list(value: object) -> list[str]:
@@ -58,7 +65,52 @@ def _parse_llm_response(data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _parse_failure_output(failure_output: str) -> dict[str, Any]:
+    """Attempt to parse raw LLM failure output as JSON.
+
+    The LLM may return a JSON object with classification keys, or plain text.
+    Falls back to an unknown classification when the output is not valid JSON
+    or does not contain the expected keys.
+
+    Args:
+        failure_output: Raw string returned by the LLM (may be JSON or plain text).
+
+    Returns:
+        Dict suitable for passing to _parse_llm_response.
+    """
+    try:
+        parsed = json.loads(failure_output)
+        if isinstance(parsed, dict):
+            return parsed
+    except (json.JSONDecodeError, ValueError):
+        pass
+    # Plain-text fallback: treat entire output as the classification hint
+    return {"classification": failure_output.strip()}
+
+
+def handle_classify_ci_error(
+    input_data: ModelCiErrorClassifierInput,
+) -> ModelCiErrorClassifierOutput:
+    """Normalize and validate a CI error classification from raw LLM output.
+
+    Parses ``input_data.failure_output`` (which may be a JSON object from the
+    LLM or a plain-text classification hint) and normalises the result through
+    ``_parse_llm_response``.
+
+    Args:
+        input_data: Input containing the raw LLM response and error fingerprint.
+
+    Returns:
+        Normalised classification output with clamped confidence and coerced lists.
+    """
+    raw_dict = _parse_failure_output(input_data.failure_output)
+    parsed = _parse_llm_response(raw_dict)
+    return ModelCiErrorClassifierOutput(**parsed)
+
+
 __all__ = [
     "_coerce_to_list",
+    "_parse_failure_output",
     "_parse_llm_response",
+    "handle_classify_ci_error",
 ]
