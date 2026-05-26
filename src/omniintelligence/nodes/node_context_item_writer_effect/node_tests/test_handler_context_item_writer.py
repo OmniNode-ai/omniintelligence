@@ -622,7 +622,7 @@ class TestBootstrapTierAssignment:
         assert policy.bootstrap_confidence == 0.85
 
     def test_home_claude_md_gets_validated(self) -> None:
-        policy = assign_bootstrap_tier("/Users/jonah/.claude/CLAUDE.md")
+        policy = assign_bootstrap_tier("/home/user/.claude/CLAUDE.md")
         assert policy.tier == EnumBootstrapTier.VALIDATED
 
     def test_design_doc_gets_validated(self) -> None:

@@ -29,7 +29,7 @@ from omniintelligence.nodes.node_crawl_scheduler_effect.models.enum_crawler_type
 
 pytestmark = pytest.mark.unit
 
-_SOURCE = "/Volumes/PRO-G40/Code/omniintelligence"
+_SOURCE = "/omninode/code/omniintelligence"
 _WINDOW_S = 30
 
 _T0 = datetime(2026, 2, 20, 12, 0, 0, tzinfo=UTC)

@@ -146,7 +146,7 @@ def now_utc() -> datetime:
 @pytest.fixture
 def source_ref() -> str:
     """Provide a canonical source reference string."""
-    return "/Volumes/PRO-G40/Code/omniintelligence"
+    return "/omninode/code/omniintelligence"
 
 
 @pytest.fixture

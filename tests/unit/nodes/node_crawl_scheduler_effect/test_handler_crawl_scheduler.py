@@ -43,7 +43,7 @@ from omniintelligence.protocols import ProtocolKafkaPublisher
 
 pytestmark = pytest.mark.unit
 
-_SOURCE = "/Volumes/PRO-G40/Code/omniintelligence"
+_SOURCE = "/omninode/code/omniintelligence"
 _SCOPE = "omninode/omniintelligence"
 _T0 = datetime(2026, 2, 20, 12, 0, 0, tzinfo=UTC)
 
