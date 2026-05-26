@@ -36,8 +36,8 @@ dependencies = [
     "tenacity>=8.2.0",
     "watchdog>=6.0.0",
     "adaptive-classifier>=0.1.2",
-    "omnibase-infra==0.36.1",
-    "omnimarket>=0.1.0",
+    "omnibase-infra>=0.37.0,<0.38.0",
+    "omnimarket>=0.4.0",
 ]
 
 [project.optional-dependencies]
@@ -158,9 +158,9 @@ core = [
     # Installed via editable installs from sibling repos or private registry.
     # Version bounds match Poetry caret syntax above.
     "omnibase-core>=0.42.0,<0.43.0",
-    "omnibase-spi==0.21.0",
-    "omnibase-infra==0.36.1",
-    "omnimarket>=0.1.0",
+    "omnibase-spi>=0.22.0,<0.23.0",
+    "omnibase-infra>=0.37.0,<0.38.0",
+    "omnimarket>=0.4.0",
     "pydantic>=2.12.5,<3.0.0",
     "pydantic-settings>=2.7.0,<3.0.0",
     # Web framework for API endpoints
@@ -208,12 +208,11 @@ all = [
 
 [tool.uv.sources]
 onex-change-control = { git = "https://github.com/OmniNode-ai/onex_change_control.git", branch = "main" }
-omnimarket = { git = "https://github.com/OmniNode-ai/omnimarket.git", branch = "main" }
-# Pinned to main while 2026-05-21 release wave 2 versions are unpublished on PyPI.
-# Switch to PyPI pins after omnibase-core v0.42.0 / omnibase-infra v0.36.1 / omnibase-spi v0.21.0 publish.
-omnibase-core = { git = "https://github.com/OmniNode-ai/omnibase_core.git", branch = "main" }
-omnibase-infra = { git = "https://github.com/OmniNode-ai/omnibase_infra.git", branch = "main" }
-omnibase-spi = { git = "https://github.com/OmniNode-ai/omnibase_spi.git", branch = "main" }
+# Release v0.24.0: pin to release tags
+omnimarket = { git = "https://github.com/OmniNode-ai/omnimarket.git", tag = "v0.4.0" }
+omnibase-core = { git = "https://github.com/OmniNode-ai/omnibase_core.git", tag = "v0.42.0" }
+omnibase-infra = { git = "https://github.com/OmniNode-ai/omnibase_infra.git", tag = "v0.37.0" }
+omnibase-spi = { git = "https://github.com/OmniNode-ai/omnibase_spi.git", tag = "v0.22.0" }
 
 [tool.ruff]
 target-version = "py312"
@@ -430,9 +429,9 @@ markers = [
 ]
 
 [tool.uv]
-# Override omnibase-infra's transitive pins on core/spi so our direct pins win.
+# Override transitive pins so our direct pins win.
 override-dependencies = [
     "omnibase-core>=0.42.0,<0.43.0",
-    "omnibase-spi==0.21.0",
-    "omnibase-infra==0.36.1",
+    "omnibase-spi>=0.22.0,<0.23.0",
+    "omnibase-infra>=0.37.0,<0.38.0",
 ]
