@@ -207,7 +207,7 @@ all = [
 ]
 
 [tool.uv.sources]
-onex-change-control = { git = "https://github.com/OmniNode-ai/onex_change_control.git", branch = "main" }
+onex-change-control = { git = "https://github.com/OmniNode-ai/onex_change_control.git", rev = "4877d3c223517cb0c7e1eca462ba0f4d38916314" }
 # Release v0.24.0: pin to release tags
 omnimarket = { git = "https://github.com/OmniNode-ai/omnimarket.git", tag = "v0.4.0" }
 omnibase-core = { git = "https://github.com/OmniNode-ai/omnibase_core.git", tag = "v0.42.0" }
