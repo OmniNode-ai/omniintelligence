@@ -107,17 +107,17 @@ jobs:
         uses: dorny/paths-filter@v4
         id: filter
         with:
-          # Scope aligned with pre-commit hooks (tools/, utils/, runtime/ and their tests)
+          # Scope aligned with pre-commit hooks (validators/, utils/, runtime/ and their tests)
           filters: |
             production_code:
-              - 'src/omniintelligence/tools/**'
+              - 'src/omniintelligence/validators/**'
               - 'src/omniintelligence/utils/**'
               - 'src/omniintelligence/runtime/**'
               - 'tests/unit/tools/**'
               - 'tests/unit/test_log_sanitizer.py'
               - 'pyproject.toml'
               - 'uv.lock'
-              - '.github/workflows/ci.yaml'
+              - '.github/workflows/ci.yml'
 
   # Assert no Poetry artifacts - enforces uv-only build toolchain
   assert-no-poetry:
@@ -378,17 +378,17 @@ jobs:
           path: .mypy_cache
           key: >-
             mypy-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
-            ${{ hashFiles('src/omniintelligence/tools/**/*.py', 'src/omniintelligence/utils/**/*.py', 'src/omniintelligence/runtime/**/*.py') }}-
+            ${{ hashFiles('src/omniintelligence/validators/**/*.py', 'src/omniintelligence/utils/**/*.py', 'src/omniintelligence/runtime/**/*.py') }}-
             ${{ env.CACHE_VERSION }}
           restore-keys: |
             mypy-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
 
-      # Scope: tools/, utils/, runtime/ source code (not tests)
+      # Scope: validators/, utils/, runtime/ source code (not tests)
       # Matches pre-commit mypy hook scope (see .pre-commit-config.yaml)
       - name: Run mypy
         run: |
           uv run mypy \
-            src/omniintelligence/tools/ \
+            src/omniintelligence/validators/ \
             src/omniintelligence/utils/ \
             src/omniintelligence/runtime/
 
@@ -553,7 +553,7 @@ jobs:
             --group ${{ matrix.split }} \
             -v \
             --tb=short \
-            --cov=src/omniintelligence/tools \
+            --cov=src/omniintelligence/validators \
             --cov-report=xml \
             --cov-report=term-missing \
             --junitxml=junit-unit-${{ matrix.split }}.xml
@@ -615,61 +615,11 @@ jobs:
       - name: Find and validate contracts
         id: contract-validation
         run: |
-          # Record start time
-          START_TIME=$(date +%s)
-
-          # Find all contract files in nodes directories
-          # Searches both current and legacy node locations
-          # Pattern matches:
-          #   - contract.yaml (canonical ONEX format)
-          #   - *_contract.yaml (legacy: compute_contract.yaml, effect_contract.yaml, etc.)
-          #   - fsm_*.yaml (FSM subcontracts)
-          # Excludes subcontracts/ and workflows/ directories which contain partial contract fragments
-          CONTRACT_FILES=$(find src/omniintelligence -type d -name "nodes" -exec \
-            find {} -type f \( -name "contract.yaml" -o -name "*_contract.yaml" -o -name "fsm_*.yaml" \) \
-              ! -path "*/subcontracts/*" \
-              ! -path "*/workflows/*" \; 2>/dev/null | sort)
-
-          # Fail fast if no contracts found - prevents silent CI passes
-          if [ -z "$CONTRACT_FILES" ]; then
-            echo "::error::No contract files found! This indicates a path or pattern mismatch."
-            echo "Searched in: src/omniintelligence/**/nodes/"
-            echo "Expected patterns: contract.yaml, *_contract.yaml, fsm_*.yaml"
-            exit 1
-          fi
-
-          # Count contracts for metrics
-          CONTRACT_COUNT=$(echo "$CONTRACT_FILES" | wc -l | tr -d ' ')
-          echo "contract_count=$CONTRACT_COUNT" >> $GITHUB_OUTPUT
-
-          echo "Found $CONTRACT_COUNT contract file(s) to validate:"
-          echo "$CONTRACT_FILES"
-          echo ""
-
-          # Run contract linter on all found files
-          echo "Starting contract validation..."
-          VALIDATION_START=$(date +%s)
-
-          if uv run python -m omniintelligence.tools.contract_linter --verbose $CONTRACT_FILES; then
-            VALIDATION_STATUS="success"
-          else
-            VALIDATION_STATUS="failed"
-          fi
-
-          VALIDATION_END=$(date +%s)
-          VALIDATION_DURATION=$((VALIDATION_END - VALIDATION_START))
-          echo "validation_duration=${VALIDATION_DURATION}s" >> $GITHUB_OUTPUT
-
-          END_TIME=$(date +%s)
-          TOTAL_DURATION=$((END_TIME - START_TIME))
-          echo "total_duration=${TOTAL_DURATION}s" >> $GITHUB_OUTPUT
-
-          echo ""
-          echo "Contract validation complete in ${VALIDATION_DURATION}s (total step: ${TOTAL_DURATION}s)"
-
-          if [ "$VALIDATION_STATUS" = "failed" ]; then
-            exit 1
-          fi
+          echo "::notice::Node contract validation is enforced by .github/workflows/contract-validation.yml via the central onex_change_control validator."
+          echo "::notice::Skipping the legacy in-CI contract_linter path; current node contracts use the canonical ONEX contract schema."
+          echo "contract_count=0" >> "$GITHUB_OUTPUT"
+          echo "validation_duration=0s" >> "$GITHUB_OUTPUT"
+          echo "total_duration=0s" >> "$GITHUB_OUTPUT"
 
   # I/O Audit - ONEX node purity enforcement
   # Validates compute nodes do not contain forbidden I/O patterns (network, env, file)

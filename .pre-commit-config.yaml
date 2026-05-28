@@ -453,7 +453,7 @@ repos:
       # --------------------------------------------------------------------------
       - id: contract-linter
         name: contract linter
-        entry: uv run python -m omniintelligence.tools.contract_linter
+        entry: uv run python -m omniintelligence.validators.contract_linter
         language: system
         pass_filenames: true
         # Pattern breakdown:
@@ -516,15 +516,15 @@ repos:
         language: system
         pass_filenames: false
         types: [python]
-        # Trigger only on tools/ changes - narrow scope for fast smoke tests
+        # Trigger only on validators/ changes - narrow scope for fast smoke tests
         # utils/runtime changes are tested by pytest-tools on pre-push
-        files: ^(src/omniintelligence/tools/|tests/unit/tools/).*\.py$
+        files: ^(src/omniintelligence/validators/|tests/unit/tools/).*\.py$
         stages: [pre-commit]
 
       # --------------------------------------------------------------------------
       # Pytest - Full tools/utils/runtime tests on push
       # Validates: Tools, utils, and runtime functionality via comprehensive unit tests
-      # Scope: Matches ruff/mypy scope - tools/, utils/, runtime/ source and their tests
+      # Scope: Matches ruff/mypy scope - validators/, utils/, runtime/ source and their tests
       # Stage: pre-push (slower, more thorough)
       # Note: test_log_sanitizer.py tests utils/log_sanitizer.py but lives in tests/unit/
       # --------------------------------------------------------------------------
@@ -534,14 +534,14 @@ repos:
         language: system
         pass_filenames: false
         types: [python]
-        # Scope matches ruff/mypy: tools/, utils/, runtime/ and their tests
+        # Scope matches ruff/mypy: validators/, utils/, runtime/ and their tests
         # test_log_sanitizer.py is included separately (see comment above)
         # Pattern breakdown:
-        #   - src/omniintelligence/(tools|utils|runtime)/.*\.py : Source directories
+        #   - src/omniintelligence/(validators|utils|runtime)/.*\.py : Source directories
         #   - tests/unit/tools/.*\.py                           : Unit tests for tools
         #   - tests/unit/test_log_sanitizer\.py                 : Specific file (exact match)
         # Note: The specific file pattern must NOT have .*\.py$ suffix as it's already complete
-        files: ^(src/omniintelligence/(tools|utils|runtime)/.*\.py|tests/unit/tools/.*\.py|tests/unit/test_log_sanitizer\.py)$
+        files: ^(src/omniintelligence/(validators|utils|runtime)/.*\.py|tests/unit/tools/.*\.py|tests/unit/test_log_sanitizer\.py)$
         stages: [pre-push]
       - id: check-ai-slop
         name: Check for AI-slop patterns
