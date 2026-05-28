@@ -49,7 +49,7 @@ class TestModelLLMCallCompletedEventGpuFields:
             gpu_seconds=7200.0,
             gpu_type="rtx_5090",
             gpu_count=1,
-            compute_usage_source="API",
+            compute_usage_source=EnumUsageSource.MEASURED,
         )
 
         assert event.gpu_seconds == 7200.0
