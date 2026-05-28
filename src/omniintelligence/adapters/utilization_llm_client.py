@@ -19,7 +19,7 @@ from typing import Any
 
 import httpx
 
-from omniintelligence.clients.eval_llm_client import _compute_cost_usd
+from omniintelligence.adapters.eval_llm_client import _compute_cost_usd
 from omniintelligence.protocols import ProtocolKafkaPublisher
 
 logger = logging.getLogger(__name__)

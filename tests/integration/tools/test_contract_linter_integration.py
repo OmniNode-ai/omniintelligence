@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pytest
 
-from omniintelligence.tools.contract_linter import (
+from omniintelligence.validators.contract_linter import (
     DEFAULT_PARALLEL_THRESHOLD,
     ContractLinter,
     ModelContractValidationResult,

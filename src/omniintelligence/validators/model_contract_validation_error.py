@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from omniintelligence.tools.enum_contract_error_type import EnumContractErrorType
+from omniintelligence.validators.enum_contract_error_type import EnumContractErrorType
 
 
 class ModelContractValidationError:

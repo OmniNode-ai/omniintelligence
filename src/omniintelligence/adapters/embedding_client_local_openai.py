@@ -8,7 +8,7 @@ Provides an async HTTP client for generating text embeddings via any server
 that implements the OpenAI /v1/embeddings API format. Designed for local MLX
 servers but compatible with any OpenAI-API-compatible endpoint.
 
-This client lives in omniintelligence.clients (not inside nodes/) to comply
+This client lives in omniintelligence.adapters (not inside nodes/) to comply
 with ARCH-002, which prohibits nodes from importing transport libraries
 directly. Nodes receive clients via dependency injection.
 
@@ -17,7 +17,7 @@ API: POST /v1/embeddings with ``{"input": [...], "model": "..."}``
 
 Example:
     ```python
-    from omniintelligence.clients.embedding_client_local_openai import (
+    from omniintelligence.adapters.embedding_client_local_openai import (
         EmbeddingClientLocalOpenAI,
     )
     from omniintelligence.nodes.node_embedding_generation_effect.models import (
@@ -40,7 +40,7 @@ from typing import TYPE_CHECKING
 
 import httpx
 
-from omniintelligence.clients.embedding_client import (
+from omniintelligence.adapters.embedding_client import (
     EmbeddingClientError,
     EmbeddingConnectionError,
     EmbeddingTimeoutError,

@@ -29,7 +29,7 @@ from uuid import UUID, uuid4
 from omnibase_core.models.container import ModelONEXContainer
 from pydantic import BaseModel, ConfigDict, Field
 
-from omniintelligence.clients.eval_llm_client import EvalLLMClient
+from omniintelligence.adapters.eval_llm_client import EvalLLMClient
 from omniintelligence.constants import TOPIC_BLOOM_EVAL_COMPLETED_V1
 from omniintelligence.nodes.node_bloom_eval_orchestrator.catalog import get_spec
 from omniintelligence.nodes.node_bloom_eval_orchestrator.models.enum_eval_domain import (
