@@ -387,7 +387,7 @@ class TestPluginWireDispatchers:
 
         with (
             patch(
-                "omniintelligence.clients.eval_llm_client.EvalLLMClient",
+                "omniintelligence.adapters.eval_llm_client.EvalLLMClient",
                 return_value=eval_client,
             ) as mock_eval_client_class,
             patch(

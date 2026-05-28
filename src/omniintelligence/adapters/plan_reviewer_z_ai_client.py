@@ -1,30 +1,35 @@
 # SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
 
-"""Gemini Flash LLM client for NodePlanReviewerMultiCompute.
+"""Z.AI GLM-4 LLM client for NodePlanReviewerMultiCompute.
 
-Calls the Google Generative Language OpenAI-compatible endpoint using
-``GEMINI_API_KEY``.  The wire format is identical to the OpenAI chat
-completions spec, so this client can be swapped with other plan-reviewer
-clients without any handler changes.
+Calls the Z.AI OpenAI-compatible chat completions endpoint using
+``Z_AI_API_KEY`` and ``Z_AI_API_URL``.  The wire format is identical to
+the OpenAI chat completions spec, so this client can be swapped with other
+plan-reviewer clients without any handler changes.
 
-Endpoint: https://generativelanguage.googleapis.com/v1beta/openai/chat/completions
+Default endpoint: https://api.z.ai/api/paas/v4/chat/completions
 
 Environment:
-    GEMINI_API_KEY: Google API key with Generative Language access.
+    Z_AI_API_KEY: Z.AI platform API key.
+    Z_AI_API_URL: Z.AI base URL (used to derive the chat completions path).
 
 Example::
 
     import os
-    from omniintelligence.clients.plan_reviewer_gemini_client import (
-        PlanReviewerGeminiClient,
-        ModelPlanReviewerGeminiConfig,
+    from omniintelligence.adapters.plan_reviewer_z_ai_client import (
+        PlanReviewerZAIClient,
+        ModelPlanReviewerZAIConfig,
     )
 
-    config = ModelPlanReviewerGeminiConfig(
-        api_key=os.environ["GEMINI_API_KEY"]
+    config = ModelPlanReviewerZAIConfig(
+        api_key=os.environ["Z_AI_API_KEY"],
+        chat_url=os.environ.get(
+            "Z_AI_API_URL",
+            "https://api.z.ai/api/paas/v4/chat/completions",
+        ),
     )
-    async with PlanReviewerGeminiClient(config) as client:
+    async with PlanReviewerZAIClient(config) as client:
         reply = await client.chat(
             messages=[{"role": "user", "content": "Review this plan."}]
         )
@@ -49,10 +54,8 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-_GEMINI_CHAT_URL = (
-    "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
-)
-_DEFAULT_MODEL = "gemini-2.0-flash"
+_Z_AI_DEFAULT_CHAT_URL = "https://api.z.ai/api/paas/v4/chat/completions"
+_DEFAULT_MODEL = "glm-4-plus"
 _DEFAULT_TIMEOUT_SECONDS = 60.0
 _DEFAULT_MAX_TOKENS = 2048
 _HTTP_CLIENT_ERROR_MIN = 400
@@ -64,13 +67,14 @@ _HTTP_CLIENT_ERROR_MAX = 500  # exclusive (4xx range)
 # ---------------------------------------------------------------------------
 
 
-class ModelPlanReviewerGeminiConfig(BaseModel):
-    """Configuration for the Gemini Flash plan-reviewer client.
+class ModelPlanReviewerZAIConfig(BaseModel):
+    """Configuration for the Z.AI GLM-4 plan-reviewer client.
 
     Attributes:
-        api_key: Google API key (``GEMINI_API_KEY``).
-        model: Gemini model name.
+        api_key: Z.AI API key (``Z_AI_API_KEY``).
         chat_url: Full URL for the chat completions endpoint.
+            Defaults to ``https://api.z.ai/api/paas/v4/chat/completions``.
+        model: GLM model name.
         timeout_seconds: HTTP request timeout in seconds.
         max_tokens: Maximum tokens in the model reply.
         temperature: Sampling temperature (0 = deterministic).
@@ -78,14 +82,17 @@ class ModelPlanReviewerGeminiConfig(BaseModel):
 
     model_config = {"frozen": True, "extra": "ignore"}
 
-    api_key: str = Field(description="Google API key (GEMINI_API_KEY).")
+    api_key: str = Field(description="Z.AI API key (Z_AI_API_KEY).")
+    chat_url: str = Field(
+        default=_Z_AI_DEFAULT_CHAT_URL,
+        description=(
+            "Full URL for the Z.AI OpenAI-compat chat completions endpoint. "
+            "Override with Z_AI_API_URL when deploying to a custom base URL."
+        ),
+    )
     model: str = Field(
         default=_DEFAULT_MODEL,
-        description="Gemini model name.",
-    )
-    chat_url: str = Field(
-        default=_GEMINI_CHAT_URL,
-        description="Full URL for the Gemini OpenAI-compat chat completions endpoint.",
+        description="GLM model name.",
     )
     timeout_seconds: float = Field(
         default=_DEFAULT_TIMEOUT_SECONDS,
@@ -106,15 +113,15 @@ class ModelPlanReviewerGeminiConfig(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-class PlanReviewerGeminiClientError(Exception):
-    """Base exception for Gemini plan-reviewer client errors."""
+class PlanReviewerZAIClientError(Exception):
+    """Base exception for Z.AI plan-reviewer client errors."""
 
 
-class PlanReviewerGeminiAuthError(PlanReviewerGeminiClientError):
+class PlanReviewerZAIAuthError(PlanReviewerZAIClientError):
     """Raised when authentication fails (401/403)."""
 
 
-class PlanReviewerGeminiTimeoutError(PlanReviewerGeminiClientError):
+class PlanReviewerZAITimeoutError(PlanReviewerZAIClientError):
     """Raised when a request times out."""
 
 
@@ -123,20 +130,20 @@ class PlanReviewerGeminiTimeoutError(PlanReviewerGeminiClientError):
 # ---------------------------------------------------------------------------
 
 
-class PlanReviewerGeminiClient:
-    """Async client for Gemini Flash via the OpenAI-compatible endpoint.
+class PlanReviewerZAIClient:
+    """Async client for Z.AI GLM-4 via the OpenAI-compatible endpoint.
 
     Uses a persistent ``httpx.AsyncClient`` for connection reuse.
     Supports context-manager and manual lifecycle management.
 
     Example (context manager)::
 
-        async with PlanReviewerGeminiClient(config) as client:
+        async with PlanReviewerZAIClient(config) as client:
             reply = await client.chat(messages=[...])
 
     Example (manual lifecycle)::
 
-        client = PlanReviewerGeminiClient(config)
+        client = PlanReviewerZAIClient(config)
         await client.connect()
         try:
             reply = await client.chat(messages=[...])
@@ -144,13 +151,13 @@ class PlanReviewerGeminiClient:
             await client.close()
     """
 
-    def __init__(self, config: ModelPlanReviewerGeminiConfig) -> None:
+    def __init__(self, config: ModelPlanReviewerZAIConfig) -> None:
         self._config = config
         self._client: httpx.AsyncClient | None = None
         self._connected = False
 
     @property
-    def config(self) -> ModelPlanReviewerGeminiConfig:
+    def config(self) -> ModelPlanReviewerZAIConfig:
         """Return the client configuration."""
         return self._config
 
@@ -168,7 +175,7 @@ class PlanReviewerGeminiClient:
             limits=httpx.Limits(max_keepalive_connections=5, max_connections=10),
         )
         self._connected = True
-        logger.debug("PlanReviewerGeminiClient connected to %s", self._config.chat_url)
+        logger.debug("PlanReviewerZAIClient connected to %s", self._config.chat_url)
 
     async def close(self) -> None:
         """Close the connection pool. Idempotent."""
@@ -176,9 +183,9 @@ class PlanReviewerGeminiClient:
             await self._client.aclose()
             self._client = None
         self._connected = False
-        logger.debug("PlanReviewerGeminiClient connection closed")
+        logger.debug("PlanReviewerZAIClient connection closed")
 
-    async def __aenter__(self) -> PlanReviewerGeminiClient:
+    async def __aenter__(self) -> PlanReviewerZAIClient:
         await self.connect()
         return self
 
@@ -197,7 +204,7 @@ class PlanReviewerGeminiClient:
         max_tokens: int | None = None,
         temperature: float | None = None,
     ) -> str:
-        """Send a chat request to Gemini Flash and return the reply content.
+        """Send a chat request to Z.AI GLM-4 and return the reply content.
 
         Args:
             messages: OpenAI-compat message list
@@ -209,9 +216,9 @@ class PlanReviewerGeminiClient:
             The assistant reply content string.
 
         Raises:
-            PlanReviewerGeminiClientError: On response format errors.
-            PlanReviewerGeminiAuthError: On 401/403 responses.
-            PlanReviewerGeminiTimeoutError: On request timeout.
+            PlanReviewerZAIClientError: On response format errors.
+            PlanReviewerZAIAuthError: On 401/403 responses.
+            PlanReviewerZAITimeoutError: On request timeout.
         """
         if not self._connected:
             await self.connect()
@@ -248,12 +255,12 @@ class PlanReviewerGeminiClient:
             Assistant reply content string.
 
         Raises:
-            PlanReviewerGeminiClientError: On parse failure or missing fields.
-            PlanReviewerGeminiAuthError: On 401/403 status codes.
-            PlanReviewerGeminiTimeoutError: On timeout.
+            PlanReviewerZAIClientError: On parse failure or missing fields.
+            PlanReviewerZAIAuthError: On 401/403 status codes.
+            PlanReviewerZAITimeoutError: On timeout.
         """
         if self._client is None:
-            raise PlanReviewerGeminiClientError("Client is not connected")
+            raise PlanReviewerZAIClientError("Client is not connected")
 
         try:
             response = await self._client.post(
@@ -262,34 +269,34 @@ class PlanReviewerGeminiClient:
                 headers=headers,
             )
         except httpx.TimeoutException as exc:
-            raise PlanReviewerGeminiTimeoutError(
-                f"Gemini request timed out after {self._config.timeout_seconds}s: {exc}"
+            raise PlanReviewerZAITimeoutError(
+                f"Z.AI request timed out after {self._config.timeout_seconds}s: {exc}"
             ) from exc
 
         # Auth errors get a specific exception type
         if response.status_code in (401, 403):
-            raise PlanReviewerGeminiAuthError(
-                f"Gemini authentication failed: {response.status_code} - {response.text}"
+            raise PlanReviewerZAIAuthError(
+                f"Z.AI authentication failed: {response.status_code} - {response.text}"
             )
 
         if (
             _HTTP_CLIENT_ERROR_MIN <= response.status_code < _HTTP_CLIENT_ERROR_MAX
             or response.status_code >= 500
         ):
-            raise PlanReviewerGeminiClientError(
-                f"Gemini API error: {response.status_code} - {response.text}"
+            raise PlanReviewerZAIClientError(
+                f"Z.AI API error: {response.status_code} - {response.text}"
             )
 
         try:
             data = response.json()
             content: str = data["choices"][0]["message"]["content"]
         except (KeyError, IndexError, ValueError) as exc:
-            raise PlanReviewerGeminiClientError(
-                f"Unexpected Gemini response format: {exc} | body={response.text[:200]}"
+            raise PlanReviewerZAIClientError(
+                f"Unexpected Z.AI response format: {exc} | body={response.text[:200]}"
             ) from exc
 
         logger.debug(
-            "PlanReviewerGeminiClient received %d chars from %s",
+            "PlanReviewerZAIClient received %d chars from %s",
             len(content),
             self._config.model,
         )
@@ -297,9 +304,9 @@ class PlanReviewerGeminiClient:
 
 
 __all__ = [
-    "ModelPlanReviewerGeminiConfig",
-    "PlanReviewerGeminiAuthError",
-    "PlanReviewerGeminiClient",
-    "PlanReviewerGeminiClientError",
-    "PlanReviewerGeminiTimeoutError",
+    "ModelPlanReviewerZAIConfig",
+    "PlanReviewerZAIAuthError",
+    "PlanReviewerZAIClient",
+    "PlanReviewerZAIClientError",
+    "PlanReviewerZAITimeoutError",
 ]

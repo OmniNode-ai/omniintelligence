@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """HTTP and DB client helpers for Gmail intent evaluation.
 
-Lives in omniintelligence.clients (not inside nodes/) to comply with ARCH-002:
+Lives in omniintelligence.adapters (not inside nodes/) to comply with ARCH-002:
 nodes must not import transport libraries (httpx, asyncpg, etc.) directly.
 
 Provides:

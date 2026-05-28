@@ -47,7 +47,7 @@ class ProductionNavigationEmbedder:
         Raises:
             EmbeddingClientError: On failure.
         """
-        from omniintelligence.clients.embedding_client import EmbeddingClient
+        from omniintelligence.adapters.embedding_client import EmbeddingClient
         from omniintelligence.nodes.node_embedding_generation_effect.models.model_embedding_client_config import (
             ModelEmbeddingClientConfig,
         )

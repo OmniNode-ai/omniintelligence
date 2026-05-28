@@ -18,7 +18,7 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from omniintelligence.clients.plan_reviewer_gemini_client import (
+from omniintelligence.adapters.plan_reviewer_gemini_client import (
     ModelPlanReviewerGeminiConfig,
     PlanReviewerGeminiAuthError,
     PlanReviewerGeminiClient,
@@ -61,7 +61,7 @@ def _make_error_response(status_code: int, body: str = "error") -> MagicMock:
 def _patch_client(mock_post: Any, aclose: Any = None) -> Any:
     """Return a patcher context for httpx.AsyncClient in the gemini module."""
     return patch(
-        "omniintelligence.clients.plan_reviewer_gemini_client.httpx.AsyncClient",
+        "omniintelligence.adapters.plan_reviewer_gemini_client.httpx.AsyncClient",
         return_value=MagicMock(
             post=mock_post,
             aclose=aclose or AsyncMock(),
@@ -386,8 +386,8 @@ class TestPlanReviewerGeminiClientImports:
     """Verify public API exports."""
 
     def test_importable_from_clients_package(self) -> None:
-        """All public symbols are importable from omniintelligence.clients."""
-        from omniintelligence.clients import (
+        """All public symbols are importable from omniintelligence.adapters."""
+        from omniintelligence.adapters import (
             ModelPlanReviewerGeminiConfig,
             PlanReviewerGeminiAuthError,
             PlanReviewerGeminiClient,

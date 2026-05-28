@@ -2842,7 +2842,7 @@ def create_intelligence_dispatch_engine(
     # Create thin LLM client for utilization scoring (graceful if unavailable)
     _utilization_llm_client = None
     try:
-        from omniintelligence.clients.utilization_llm_client import (
+        from omniintelligence.adapters.utilization_llm_client import (
             UtilizationLLMClient,
         )
 

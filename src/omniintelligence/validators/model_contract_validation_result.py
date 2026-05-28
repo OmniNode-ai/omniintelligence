@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from omniintelligence.tools.model_contract_validation_error import (
+from omniintelligence.validators.model_contract_validation_error import (
     ModelContractValidationError,
 )
 

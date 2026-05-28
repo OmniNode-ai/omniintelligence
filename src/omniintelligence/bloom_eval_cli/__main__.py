@@ -13,7 +13,7 @@ import sys
 import uuid
 from uuid import UUID
 
-from omniintelligence.clients.eval_llm_client import EvalLLMClient
+from omniintelligence.adapters.eval_llm_client import EvalLLMClient
 from omniintelligence.nodes.node_bloom_eval_orchestrator.catalog import (
     get_spec,
     list_specs,

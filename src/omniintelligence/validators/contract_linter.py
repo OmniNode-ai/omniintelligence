@@ -9,10 +9,10 @@ Pydantic models. Provides structured error output with field paths
 for easy debugging and integration with CI/CD pipelines.
 
 Usage:
-    python -m omniintelligence.tools.contract_linter path/to/contract.yaml
-    python -m omniintelligence.tools.contract_linter file1.yaml file2.yaml
-    python -m omniintelligence.tools.contract_linter path/to/contract.yaml --json
-    python -m omniintelligence.tools.contract_linter path/to/contract.yaml --verbose
+    python -m omniintelligence.validators.contract_linter path/to/contract.yaml
+    python -m omniintelligence.validators.contract_linter file1.yaml file2.yaml
+    python -m omniintelligence.validators.contract_linter path/to/contract.yaml --json
+    python -m omniintelligence.validators.contract_linter path/to/contract.yaml --verbose
 """
 
 from __future__ import annotations
@@ -41,14 +41,16 @@ from omnibase_core.models.errors.model_onex_error import ModelOnexError
 from pydantic import BaseModel, ValidationError
 
 from omniintelligence.constants import PERCENTAGE_MULTIPLIER
-from omniintelligence.tools.enum_contract_error_type import EnumContractErrorType
-from omniintelligence.tools.model_contract_validation_error import (
+from omniintelligence.validators.enum_contract_error_type import EnumContractErrorType
+from omniintelligence.validators.model_contract_validation_error import (
     ModelContractValidationError,
 )
-from omniintelligence.tools.model_contract_validation_result import (
+from omniintelligence.validators.model_contract_validation_result import (
     ModelContractValidationResult,
 )
-from omniintelligence.tools.stubs.contract_validator import ProtocolContractValidator
+from omniintelligence.validators.stubs.contract_validator import (
+    ProtocolContractValidator,
+)
 
 # Module-level logger for contract linter operations
 # Outputs to stderr to avoid polluting stdout which is used for CLI results

@@ -2,29 +2,31 @@
 # SPDX-License-Identifier: MIT
 
 """
-OmniIntelligence tools package.
+OmniIntelligence validators package.
 
-Provides CLI tools for ONEX node development and validation.
+Provides contract validators and linting tools for ONEX node development.
 
-Note: Some tools require omnibase_core to be installed. If not available,
-those tools will not be exported from this module.
+Note: Some validators require omnibase_core to be installed. If not available,
+those validators will not be exported from this module.
 """
 
 __all__: list[str] = []
 
 # Contract linter requires omnibase_core - make import optional
 try:
-    from omniintelligence.tools.contract_linter import (
+    from omniintelligence.validators.contract_linter import (  # noqa: F401
         ContractLinter,
         main,
         validate_contract,
         validate_contracts_batch,
     )
-    from omniintelligence.tools.enum_contract_error_type import EnumContractErrorType
-    from omniintelligence.tools.model_contract_validation_error import (
+    from omniintelligence.validators.enum_contract_error_type import (  # noqa: F401
+        EnumContractErrorType,
+    )
+    from omniintelligence.validators.model_contract_validation_error import (  # noqa: F401
         ModelContractValidationError,
     )
-    from omniintelligence.tools.model_contract_validation_result import (
+    from omniintelligence.validators.model_contract_validation_result import (  # noqa: F401
         ModelContractValidationResult,
     )
 

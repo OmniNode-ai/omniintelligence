@@ -9,7 +9,7 @@ via the MLX Qwen3-Embedding server. The client supports connection pooling,
 automatic retries with exponential backoff, and semaphore-based concurrency
 control for batch operations.
 
-This client lives in omniintelligence.clients (not inside nodes/) to comply
+This client lives in omniintelligence.adapters (not inside nodes/) to comply
 with ARCH-002, which prohibits nodes from importing transport libraries
 directly. Nodes receive clients via dependency injection.
 
@@ -19,7 +19,7 @@ Model: Qwen3-Embedding-8B-4bit | Dimension: 1024 | Distance: Cosine
 Example:
     ```python
     import os
-    from omniintelligence.clients import EmbeddingClient
+    from omniintelligence.adapters import EmbeddingClient
     from omniintelligence.nodes.node_embedding_generation_effect.models import (
         ModelEmbeddingClientConfig,
     )

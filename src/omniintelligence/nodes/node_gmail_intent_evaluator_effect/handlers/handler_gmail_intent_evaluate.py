@@ -8,7 +8,7 @@ Implements all 10 steps of the Gmail intent evaluation flow:
   1. Compute evaluation_id via sha256
   2. Idempotency check against gmail_intent_evaluations table
   3. URL selection (tier-based domain preference)
-  4. Fetch URL content (via clients.gmail_intent_http_client — ARCH-002 compliant)
+  4. Fetch URL content (via adapters.gmail_intent_http_client — ARCH-002 compliant)
   5. Query omnimemory for duplicate detection (Qdrant semantic search)
   6. Call DeepSeek R1 for verdict (SURFACE / WATCHLIST / SKIP)
   7. Validate + schema-check LLM response
@@ -24,9 +24,9 @@ Fallback behavior:
   - Idempotency store unavailable → log warning, proceed in degraded mode
 
 ARCH-002 compliance:
-  - Transport imports (httpx, asyncpg) are in omniintelligence.clients (excluded layer)
+  - Transport imports (httpx, asyncpg) are in omniintelligence.adapters (excluded layer)
   - DB access goes through ProtocolPatternRepository (injected)
-  - HTTP calls delegated to clients.gmail_intent_http_client
+  - HTTP calls delegated to adapters.gmail_intent_http_client
 
 Reference:
     - OMN-2790: HandlerGmailIntentEvaluate implementation
@@ -51,16 +51,16 @@ from omnibase_infra.handlers.models.model_slack_alert import (
     ModelSlackAlert,
 )
 
-from omniintelligence.clients.gmail_intent_http_client import (
+from omniintelligence.adapters.gmail_intent_http_client import (
     call_deepseek_r1 as _http_call_deepseek_r1,
 )
-from omniintelligence.clients.gmail_intent_http_client import (
+from omniintelligence.adapters.gmail_intent_http_client import (
     fetch_embedding as _http_fetch_embedding,
 )
-from omniintelligence.clients.gmail_intent_http_client import (
+from omniintelligence.adapters.gmail_intent_http_client import (
     fetch_url_content as _http_fetch_url_content,
 )
-from omniintelligence.clients.gmail_intent_http_client import (
+from omniintelligence.adapters.gmail_intent_http_client import (
     make_asyncpg_repository as _make_asyncpg_repository,
 )
 from omniintelligence.constants import (
@@ -225,7 +225,7 @@ def _strip_pii(text: str, sender: str) -> str:
 async def _fetch_url_content(url: str) -> tuple[str, Literal["OK", "FAILED"]]:
     """Fetch URL content with 512KB cap and HTML stripping.
 
-    Delegates to omniintelligence.clients.gmail_intent_http_client.
+    Delegates to omniintelligence.adapters.gmail_intent_http_client.
     Returns (content, status).
     """
     content, status_str = await _http_fetch_url_content(url)
@@ -439,7 +439,7 @@ async def _call_deepseek_r1(
 ) -> tuple[dict[str, Any], Literal["OK", "RECOVERED", "FAILED"], list[str]]:
     """Call DeepSeek R1 and return (parsed_dict, parse_status, errors).
 
-    Delegates to omniintelligence.clients.gmail_intent_http_client (ARCH-002).
+    Delegates to omniintelligence.adapters.gmail_intent_http_client (ARCH-002).
     """
     errors: list[str] = []
     try:

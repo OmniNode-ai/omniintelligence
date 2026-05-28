@@ -23,15 +23,15 @@ class TestToolsModuleImport:
         omnibase_core is not available.
         """
         # This import should always succeed, even without omnibase_core
-        import omniintelligence.tools
+        import omniintelligence.validators
 
         # Verify the module exists
-        assert omniintelligence.tools is not None
+        assert omniintelligence.validators is not None
 
     def test_tools_all_attribute_exists(self) -> None:
         """Test that __all__ is defined on the tools module."""
-        import omniintelligence.tools
+        import omniintelligence.validators
 
-        assert hasattr(omniintelligence.tools, "__all__")
+        assert hasattr(omniintelligence.validators, "__all__")
         # __all__ should be a list (possibly empty if dependencies missing)
-        assert isinstance(omniintelligence.tools.__all__, list)
+        assert isinstance(omniintelligence.validators.__all__, list)

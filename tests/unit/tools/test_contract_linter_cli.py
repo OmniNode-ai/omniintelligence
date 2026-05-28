@@ -27,7 +27,7 @@ pytest.importorskip(
 # Module-level marker: all tests in this file are unit tests
 pytestmark = pytest.mark.unit
 
-from omniintelligence.tools.contract_linter import (
+from omniintelligence.validators.contract_linter import (
     ContractLinter,
     _watch_and_validate,
     main,
@@ -551,7 +551,7 @@ class TestCLIExitCodesSubprocess:
             [
                 sys.executable,  # Use sys.executable for portability across environments
                 "-m",
-                "omniintelligence.tools.contract_linter",
+                "omniintelligence.validators.contract_linter",
                 str(valid_contract_file),
             ],
             capture_output=True,
@@ -573,7 +573,7 @@ class TestCLIExitCodesSubprocess:
             [
                 sys.executable,
                 "-m",
-                "omniintelligence.tools.contract_linter",
+                "omniintelligence.validators.contract_linter",
                 str(invalid_contract_file),
             ],
             capture_output=True,
@@ -595,7 +595,7 @@ class TestCLIExitCodesSubprocess:
             [
                 sys.executable,
                 "-m",
-                "omniintelligence.tools.contract_linter",
+                "omniintelligence.validators.contract_linter",
                 str(nonexistent_path),
             ],
             capture_output=True,
@@ -614,7 +614,7 @@ class TestCLIExitCodesSubprocess:
             [
                 sys.executable,
                 "-m",
-                "omniintelligence.tools.contract_linter",
+                "omniintelligence.validators.contract_linter",
             ],
             capture_output=True,
             text=True,
@@ -632,7 +632,7 @@ class TestCLIExitCodesSubprocess:
             [
                 sys.executable,
                 "-m",
-                "omniintelligence.tools.contract_linter",
+                "omniintelligence.validators.contract_linter",
                 str(malformed_yaml_file),
             ],
             capture_output=True,
@@ -663,7 +663,7 @@ class TestCLIExitCodesSubprocess:
             [
                 sys.executable,
                 "-m",
-                "omniintelligence.tools.contract_linter",
+                "omniintelligence.validators.contract_linter",
                 str(valid1),
                 str(valid2),
             ],
@@ -686,7 +686,7 @@ class TestCLIExitCodesSubprocess:
             [
                 sys.executable,
                 "-m",
-                "omniintelligence.tools.contract_linter",
+                "omniintelligence.validators.contract_linter",
                 str(valid_contract_file),
                 str(invalid_contract_file),
             ],
@@ -711,7 +711,7 @@ class TestCLIExitCodesSubprocess:
             [
                 sys.executable,
                 "-m",
-                "omniintelligence.tools.contract_linter",
+                "omniintelligence.validators.contract_linter",
                 str(valid_contract_file),
                 "--json",
             ],
@@ -741,7 +741,7 @@ class TestCLIExitCodesSubprocess:
             [
                 sys.executable,
                 "-m",
-                "omniintelligence.tools.contract_linter",
+                "omniintelligence.validators.contract_linter",
                 str(invalid_contract_file),
                 "--json",
             ],
@@ -777,7 +777,7 @@ class TestCLIExitCodesSubprocess:
             [
                 sys.executable,
                 "-m",
-                "omniintelligence.tools.contract_linter",
+                "omniintelligence.validators.contract_linter",
                 str(invalid_contract_file),
                 "--verbose",
             ],
@@ -830,7 +830,7 @@ class TestCLIWatchMode:
         # The watch mode runs indefinitely, so we test argument parsing only
         # by mocking the watch function
         with patch(
-            "omniintelligence.tools.contract_linter._watch_and_validate"
+            "omniintelligence.validators.contract_linter._watch_and_validate"
         ) as mock_watch:
             mock_watch.return_value = None
             exit_code = main([str(contract), "--watch"])
@@ -844,7 +844,7 @@ class TestCLIWatchMode:
         contract.write_text("name: test\nnode_type: COMPUTE\n")
 
         with patch(
-            "omniintelligence.tools.contract_linter._watch_and_validate"
+            "omniintelligence.validators.contract_linter._watch_and_validate"
         ) as mock_watch:
             mock_watch.return_value = None
             exit_code = main([str(contract), "-w"])
@@ -860,7 +860,7 @@ class TestCLIWatchMode:
         contract.write_text(valid_compute_contract_yaml)
 
         with patch(
-            "omniintelligence.tools.contract_linter._watch_and_validate"
+            "omniintelligence.validators.contract_linter._watch_and_validate"
         ) as mock_watch:
             mock_watch.return_value = None
             main([str(contract), "--watch", "--verbose", "--json"])
@@ -886,7 +886,7 @@ class TestCLIWatchMode:
         contract2.write_text(valid_effect_contract_yaml)
 
         with patch(
-            "omniintelligence.tools.contract_linter._watch_and_validate"
+            "omniintelligence.validators.contract_linter._watch_and_validate"
         ) as mock_watch:
             mock_watch.return_value = None
             main([str(contract1), str(contract2), "--watch"])
