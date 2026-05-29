@@ -115,7 +115,7 @@ Contains:
 
 ## Adding New Test Fixtures
 
-### Step 1: Create the Fixture File
+### Create the Fixture File
 
 Create a new Python file in `tests/audit/fixtures/io/` with intentional violations:
 
@@ -135,7 +135,7 @@ NOTE: This file intentionally contains violations for testing.
 [code with violation]
 ```
 
-### Step 2: Update the Test File
+### Update the Test File
 
 Add the expected violation count to `EXPECTED_VIOLATIONS` in `tests/audit/test_io_violations.py`:
 
@@ -150,7 +150,7 @@ EXPECTED_VIOLATIONS = {
 }
 ```
 
-### Step 3: Add Verification Test
+### Add Verification Test
 
 Add a test in `TestFixtureViolationCounts`:
 
@@ -166,7 +166,7 @@ def test_new_fixture_violation_count(self) -> None:
     )
 ```
 
-### Step 4: Update This README
+### Update This README
 
 Add the new fixture to the summary table and detailed documentation section.
 
@@ -217,4 +217,4 @@ When fixture files are modified:
 
 - [I/O Audit Tool](../../../src/omniintelligence/audit/io_audit.py) - Main audit implementation
 - [Whitelist Configuration](../io_audit_whitelist.yaml) - YAML whitelist for test fixtures
-- [Tools README](../../../src/omniintelligence/tools/README.md) - CLI tool documentation
+- [Contract Linter Tool README](../../../src/omniintelligence/validators/README.md) - CLI tool documentation
