@@ -1,8 +1,0 @@
-surfaces:
-  routing:
-    surface: routing
-    episode_count: 30
-    policy_version: 2
-    maturity_class: production_candidate
-    last_trained_at: '2026-05-28T18:22:10.109283+00:00'
-    checkpoint_path: /private/var/folders/fs/2g88nd297b7787lch6_stdl40000gn/T/pytest-of-jonah/pytest-2726/test_main_default_args0/routing_policy.pt

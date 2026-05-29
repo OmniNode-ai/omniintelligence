@@ -330,5 +330,5 @@ Files in `subcontracts/` and `workflows/` directories are excluded by default.
 
 ## Related Documentation
 
-- [Contract Linter Tool README](../src/omniintelligence/tools/README.md) - Full tool documentation
+- [Contract Linter Tool README](../src/omniintelligence/validators/README.md) - Full tool documentation
 - [CLAUDE.md](../CLAUDE.md) - Project development commands

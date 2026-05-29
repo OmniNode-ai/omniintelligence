@@ -217,4 +217,4 @@ When fixture files are modified:
 
 - [I/O Audit Tool](../../../src/omniintelligence/audit/io_audit.py) - Main audit implementation
 - [Whitelist Configuration](../io_audit_whitelist.yaml) - YAML whitelist for test fixtures
-- [Tools README](../../../src/omniintelligence/tools/README.md) - CLI tool documentation
+- [Contract Linter Tool README](../../../src/omniintelligence/validators/README.md) - CLI tool documentation
