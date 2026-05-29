@@ -442,8 +442,8 @@ class TestCreateIntelligenceDispatchEngine:
             intent_classifier=mock_intent_classifier,
         )
         assert (
-            engine.handler_count == 28
-        )  # 22 baseline + 5 cmd topic handlers (OMN-6979) + 1 added in subsequent tickets
+            engine.handler_count == 30
+        )  # 22 baseline + 5 cmd topic handlers (OMN-6979) + 3 added in subsequent tickets (OMN-12280 adds 2)
 
     def test_engine_has_expected_routes(
         self,
@@ -458,8 +458,8 @@ class TestCreateIntelligenceDispatchEngine:
             intent_classifier=mock_intent_classifier,
         )
         assert (
-            engine.route_count == 35
-        )  # 29 baseline + 5 cmd topic routes (OMN-6979) + 1 added in subsequent tickets
+            engine.route_count == 37
+        )  # 29 baseline + 5 cmd topic routes (OMN-6979) + 3 added in subsequent tickets (OMN-12280 adds 2)
 
 
 # =============================================================================

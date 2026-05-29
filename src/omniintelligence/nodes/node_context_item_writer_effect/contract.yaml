@@ -19,7 +19,6 @@ name: "node_context_item_writer_effect"
 version: "1.0.0"
 contract_name: "context_item_writer_effect"
 node_name: "context_item_writer_effect"
-contract_version: {major: 1, minor: 0, patch: 0}
 node_version:
   major: 1
   minor: 0

@@ -222,7 +222,7 @@ def _build_bloom_eval_llm_client(
         )
         return None
 
-    from omniintelligence.clients.eval_llm_client import EvalLLMClient
+    from omniintelligence.adapters.eval_llm_client import EvalLLMClient
 
     return EvalLLMClient(
         generator_url=generator_url,

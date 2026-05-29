@@ -10,7 +10,7 @@ allow the code to function while the actual implementations are being
 developed or migrated.
 """
 
-from omniintelligence.tools.stubs.contract_validator import (
+from omniintelligence.validators.stubs.contract_validator import (
     ProtocolContractValidator,
     ProtocolContractValidatorResult,
 )

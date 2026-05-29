@@ -20,7 +20,7 @@ pytest.importorskip(
     "omnibase_core", reason="omnibase_core required for contract linter tests"
 )
 
-from omniintelligence.tools.contract_linter import (
+from omniintelligence.validators.contract_linter import (
     REDACTED_VALUE,
     SENSITIVE_ENV_VAR_PATTERNS,
     _get_sensitive_env_values,

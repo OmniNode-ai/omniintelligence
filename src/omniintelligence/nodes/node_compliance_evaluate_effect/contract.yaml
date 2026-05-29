@@ -14,7 +14,6 @@
 # Idempotency key: (source_path, content_sha256, pattern_id) -- NOT correlation_id
 # so that identical content re-evaluations deduplicate regardless of origin.
 # =============================================================================
-contract_version: {major: 1, minor: 0, patch: 0}
 node_version:
   major: 1
   minor: 0

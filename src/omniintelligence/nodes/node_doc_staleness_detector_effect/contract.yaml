@@ -17,7 +17,6 @@ name: "node_doc_staleness_detector_effect"
 version: "1.0.0"
 contract_name: "doc_staleness_detector_effect"
 node_name: "doc_staleness_detector_effect"
-contract_version: {major: 1, minor: 0, patch: 0}
 node_version:
   major: 1
   minor: 0

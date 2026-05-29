@@ -32,11 +32,11 @@ from __future__ import annotations
 import logging
 from typing import Protocol, runtime_checkable
 
-from omniintelligence.clients.embedding_client import (
+from omniintelligence.adapters.embedding_client import (
     EmbeddingClient,
     EmbeddingClientError,
 )
-from omniintelligence.clients.embedding_client_local_openai import (
+from omniintelligence.adapters.embedding_client_local_openai import (
     EmbeddingClientLocalOpenAI,
 )
 from omniintelligence.nodes.node_chunk_classifier_compute.models.model_classified_chunk import (

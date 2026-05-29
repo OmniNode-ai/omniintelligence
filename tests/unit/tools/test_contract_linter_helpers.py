@@ -20,7 +20,7 @@ pytest.importorskip(
     "omnibase_core", reason="omnibase_core required for contract linter tests"
 )
 
-from omniintelligence.tools.contract_linter import (
+from omniintelligence.validators.contract_linter import (
     FIELD_IDENTIFIER_PATTERN,
     ContractLinter,
     ModelContractValidationResult,
@@ -397,7 +397,7 @@ class TestPythonKeywordValidation:
 
     def test_common_python_keywords(self):
         """Test that common Python keywords are detected."""
-        from omniintelligence.tools.contract_linter import is_python_keyword
+        from omniintelligence.validators.contract_linter import is_python_keyword
 
         # Common keywords that might accidentally be used as field names
         keywords = [
@@ -440,7 +440,7 @@ class TestPythonKeywordValidation:
 
     def test_non_keywords(self):
         """Test that valid field names are not flagged as keywords."""
-        from omniintelligence.tools.contract_linter import is_python_keyword
+        from omniintelligence.validators.contract_linter import is_python_keyword
 
         non_keywords = [
             "name",
@@ -475,7 +475,7 @@ class TestDunderNameValidation:
 
     def test_common_dunder_names(self):
         """Test that common dunder names are detected."""
-        from omniintelligence.tools.contract_linter import is_dunder_name
+        from omniintelligence.validators.contract_linter import is_dunder_name
 
         dunders = [
             "__init__",
@@ -511,7 +511,7 @@ class TestDunderNameValidation:
 
     def test_non_dunder_names(self):
         """Test that valid field names are not flagged as dunders."""
-        from omniintelligence.tools.contract_linter import is_dunder_name
+        from omniintelligence.validators.contract_linter import is_dunder_name
 
         non_dunders = [
             "_private",  # Single leading underscore
@@ -545,7 +545,7 @@ class TestTrailingUnderscoreValidation:
 
     def test_invalid_trailing_underscore_names(self):
         """Test that trailing underscore names are detected."""
-        from omniintelligence.tools.contract_linter import (
+        from omniintelligence.validators.contract_linter import (
             has_invalid_trailing_underscore,
         )
 
@@ -581,7 +581,7 @@ class TestTrailingUnderscoreValidation:
 
     def test_valid_names_without_trailing_underscore(self):
         """Test that valid field names are not flagged for trailing underscore."""
-        from omniintelligence.tools.contract_linter import (
+        from omniintelligence.validators.contract_linter import (
             has_invalid_trailing_underscore,
         )
 
@@ -622,7 +622,9 @@ class TestValidateFieldIdentifier:
 
     def test_valid_field_names(self):
         """Test that valid field names pass validation."""
-        from omniintelligence.tools.contract_linter import validate_field_identifier
+        from omniintelligence.validators.contract_linter import (
+            validate_field_identifier,
+        )
 
         valid_names = [
             "name",
@@ -647,7 +649,9 @@ class TestValidateFieldIdentifier:
 
     def test_python_keywords_rejected(self):
         """Test that Python keywords are rejected with clear message."""
-        from omniintelligence.tools.contract_linter import validate_field_identifier
+        from omniintelligence.validators.contract_linter import (
+            validate_field_identifier,
+        )
 
         keywords = ["class", "def", "return", "if", "for", "while", "import", "from"]
 
@@ -660,7 +664,9 @@ class TestValidateFieldIdentifier:
 
     def test_dunder_names_rejected(self):
         """Test that dunder names are rejected with clear message."""
-        from omniintelligence.tools.contract_linter import validate_field_identifier
+        from omniintelligence.validators.contract_linter import (
+            validate_field_identifier,
+        )
 
         dunders = ["__init__", "__str__", "__dict__", "__class__", "__name__"]
 
@@ -673,7 +679,9 @@ class TestValidateFieldIdentifier:
 
     def test_trailing_underscore_rejected(self):
         """Test that trailing underscores are rejected with clear message."""
-        from omniintelligence.tools.contract_linter import validate_field_identifier
+        from omniintelligence.validators.contract_linter import (
+            validate_field_identifier,
+        )
 
         trailing_underscore_names = ["class_", "type_", "id_", "return_"]
 
@@ -691,7 +699,9 @@ class TestValidateFieldIdentifier:
         regex pattern but are not meaningful identifiers. These should be
         rejected with a clear error message.
         """
-        from omniintelligence.tools.contract_linter import validate_field_identifier
+        from omniintelligence.validators.contract_linter import (
+            validate_field_identifier,
+        )
 
         underscore_only_names = ["_", "__", "___", "____", "_____"]
 
@@ -709,7 +719,9 @@ class TestValidateFieldIdentifier:
 
     def test_invalid_pattern_rejected(self):
         """Test that names not matching snake_case pattern are rejected."""
-        from omniintelligence.tools.contract_linter import validate_field_identifier
+        from omniintelligence.validators.contract_linter import (
+            validate_field_identifier,
+        )
 
         invalid_patterns = [
             "ClassName",  # Uppercase
@@ -727,7 +739,9 @@ class TestValidateFieldIdentifier:
 
     def test_error_messages_are_descriptive(self):
         """Test that error messages provide helpful guidance."""
-        from omniintelligence.tools.contract_linter import validate_field_identifier
+        from omniintelligence.validators.contract_linter import (
+            validate_field_identifier,
+        )
 
         # Keyword error should mention it's reserved
         _, error = validate_field_identifier("class")

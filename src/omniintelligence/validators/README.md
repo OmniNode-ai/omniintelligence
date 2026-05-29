@@ -28,7 +28,7 @@ uv sync --group dev --group core
 Validate a single contract file:
 
 ```bash
-uv run python -m omniintelligence.tools.contract_linter path/to/contract.yaml
+uv run python -m omniintelligence.validators.contract_linter path/to/contract.yaml
 ```
 
 ### Multiple Files
@@ -36,7 +36,7 @@ uv run python -m omniintelligence.tools.contract_linter path/to/contract.yaml
 Validate multiple contract files in one command:
 
 ```bash
-uv run python -m omniintelligence.tools.contract_linter file1.yaml file2.yaml file3.yaml
+uv run python -m omniintelligence.validators.contract_linter file1.yaml file2.yaml file3.yaml
 ```
 
 ### Verbose Output
@@ -44,7 +44,7 @@ uv run python -m omniintelligence.tools.contract_linter file1.yaml file2.yaml fi
 Show detailed error messages with field paths:
 
 ```bash
-uv run python -m omniintelligence.tools.contract_linter contract.yaml --verbose
+uv run python -m omniintelligence.validators.contract_linter contract.yaml --verbose
 ```
 
 Example output:
@@ -62,7 +62,7 @@ Summary: 0/1 contracts passed
 Get structured JSON output for integration with CI/CD:
 
 ```bash
-uv run python -m omniintelligence.tools.contract_linter contract.yaml --json
+uv run python -m omniintelligence.validators.contract_linter contract.yaml --json
 ```
 
 Example output:
@@ -92,7 +92,7 @@ Example output:
 Enable stricter validation rules (reserved for future implementation):
 
 ```bash
-uv run python -m omniintelligence.tools.contract_linter contract.yaml --strict
+uv run python -m omniintelligence.validators.contract_linter contract.yaml --strict
 ```
 
 > **Note**: Strict mode is not yet implemented. Using `--strict` will return an error with exit code 2. When implemented, strict mode will enable additional validation such as: path traversal protection, deprecation warnings as errors, stricter type coercion, and enforcement of optional best-practice fields.
@@ -102,7 +102,7 @@ uv run python -m omniintelligence.tools.contract_linter contract.yaml --strict
 Automatically re-validate contracts when files change:
 
 ```bash
-uv run python -m omniintelligence.tools.contract_linter contract.yaml --watch
+uv run python -m omniintelligence.validators.contract_linter contract.yaml --watch
 ```
 
 Watch mode polls files every 1 second and re-validates when changes are detected. Use `Ctrl+C` to stop watching.
@@ -137,7 +137,7 @@ When validating more than 10 contract files, the linter automatically uses paral
 For programmatic usage, parallel validation can be explicitly enabled:
 
 ```python
-from omniintelligence.tools.contract_linter import ContractLinter
+from omniintelligence.validators.contract_linter import ContractLinter
 
 linter = ContractLinter()
 # Force parallel validation (will use parallel if > 10 files)
@@ -213,7 +213,7 @@ $ echo $?
 
 ```bash
 #!/bin/bash
-uv run python -m omniintelligence.tools.contract_linter "$@"
+uv run python -m omniintelligence.validators.contract_linter "$@"
 exit_code=$?
 
 case $exit_code in
@@ -246,7 +246,7 @@ The linter automatically validates contracts on commit:
   hooks:
     - id: contract-linter
       name: contract linter
-      entry: uv run python -m omniintelligence.tools.contract_linter
+      entry: uv run python -m omniintelligence.validators.contract_linter
       language: system
       files: ^src/omniintelligence/nodes/[^/]+/v[^/]+/contracts/(.*_contract\.yaml|fsm_.*\.yaml)$
       pass_filenames: true
@@ -286,7 +286,7 @@ contract-validation:
           ! -path "*/workflows/*" \
           | sort)
 
-        uv run python -m omniintelligence.tools.contract_linter --verbose $CONTRACT_FILES
+        uv run python -m omniintelligence.validators.contract_linter --verbose $CONTRACT_FILES
 ```
 
 This ensures all contract files are validated on every pull request and push to main.
@@ -457,7 +457,7 @@ ModuleNotFoundError: No module named 'omniintelligence'
 
 **Solution:** Use `uv run` to execute in the correct environment:
 ```bash
-uv run python -m omniintelligence.tools.contract_linter contract.yaml
+uv run python -m omniintelligence.validators.contract_linter contract.yaml
 ```
 
 ### Issue: Contract validation fails in CI but passes locally
@@ -485,7 +485,7 @@ This pattern should only match main contracts and FSM files, excluding subcontra
 ### ContractLinter Class
 
 ```python
-from omniintelligence.tools.contract_linter import ContractLinter
+from omniintelligence.validators.contract_linter import ContractLinter
 
 linter = ContractLinter(
     strict=False,           # Reserved for future strict mode
@@ -506,7 +506,7 @@ summary = linter.get_summary(results)
 ### Standalone Functions
 
 ```python
-from omniintelligence.tools.contract_linter import (
+from omniintelligence.validators.contract_linter import (
     validate_contract,
     validate_contracts_batch,
 )

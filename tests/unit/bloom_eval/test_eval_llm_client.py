@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from omniintelligence.clients.eval_llm_client import (
+from omniintelligence.adapters.eval_llm_client import (
     EvalLLMClient,
     EvalLLMConnectionError,
     EvalLLMTimeoutError,
@@ -142,7 +142,7 @@ async def test_no_os_getenv_in_module() -> None:
     """Verify ARCH-002: no os.getenv in eval_llm_client module."""
     import inspect
 
-    import omniintelligence.clients.eval_llm_client as mod
+    import omniintelligence.adapters.eval_llm_client as mod
 
     source = inspect.getsource(mod)
     assert "os.getenv" not in source
