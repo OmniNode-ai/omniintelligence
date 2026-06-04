@@ -107,5 +107,18 @@ class ModelLLMCallCompletedEvent(BaseModel):
             raise ValueError("emitted_at must be timezone-aware")
         return v
 
+    @field_validator("usage_source", "compute_usage_source", mode="before")
+    @classmethod
+    def normalize_usage_source(cls, value: object) -> object:
+        """Normalize legacy usage-source aliases to the shared enum vocabulary."""
+        if not isinstance(value, str):
+            return value
+        normalized = value.strip().lower()
+        aliases = {
+            "api": EnumUsageSource.MEASURED,
+            "missing": EnumUsageSource.UNKNOWN,
+        }
+        return aliases.get(normalized, normalized)
+
 
 __all__ = ["ModelLLMCallCompletedEvent", "UsageSource"]
