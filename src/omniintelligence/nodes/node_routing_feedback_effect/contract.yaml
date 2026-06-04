@@ -156,8 +156,9 @@ event_bus:
     # OMN-2622: Switched back from routing-outcome-raw.v1 (deprecated) to routing-feedback.v1.
     # routing-feedback.v1 now carries both produced and skipped outcomes via feedback_status field.
     - "onex.evt.omniclaude.routing-feedback.v1"
-    # REMOVED (OMN-9211): Legacy bare topic "routing.feedback" removed — no active producers
-    # as of 2026-04-27. Drain handler remains in code for safety during topic purge.
+    # Legacy bare topic drain. Runtime still registers a no-op drain handler for
+    # this topic while old producers are being purged.
+    - "routing.feedback"
 
   publish_topics:
     - "onex.evt.omniintelligence.routing-feedback-processed.v1"
