@@ -614,10 +614,13 @@ class TestTrainCLI:
         )
         assert exit_code == 0
 
-    def test_main_default_args(self, tmp_path: pytest.TempPathFactory) -> None:
+    def test_main_default_args(
+        self, tmp_path: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """CLI main() works with minimal args."""
         from omniintelligence.rl.train import main
 
+        monkeypatch.chdir(tmp_path)
         exit_code = main(
             [
                 "--updates",

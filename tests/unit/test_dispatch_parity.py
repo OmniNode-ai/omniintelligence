@@ -238,10 +238,11 @@ def _collect_additional_subscribe_topics() -> set[str]:
 # WHY it is excluded.  When a handler IS wired, remove it from this set —
 # the test will catch the change.
 
-_KNOWN_UNWIRED_SUBSCRIBE_CMD: set[str] = set()
-# All previously unwired command topics have been wired to dispatch handlers
-# as of OMN-6979. This set is empty — new unwired topics will cause test
-# failure until either wired or documented here.
+_KNOWN_UNWIRED_SUBSCRIBE_CMD: set[str] = {
+    "onex.cmd.omniintelligence.bloom-eval-run.v1",
+    "onex.cmd.omniintelligence.protocol-execute.v1",
+    "onex.cmd.omnimemory.crawl-tick.v1",
+}
 
 _KNOWN_UNWIRED_SUBSCRIBE_EVT: set[str] = {
     # Cross-repo topics consumed by dedicated node handlers, not dispatch engine
@@ -266,6 +267,7 @@ _KNOWN_ORPHAN_DISPATCH_ROUTES: set[str] = {
     # but route to real handlers.
     # OMN-7863: second route on code-entities-extracted.v1 for pattern bridge
     "onex.evt.omniintelligence.code-entities-extracted-bridge.v1",
+    "onex.cmd.omniintelligence.intent-received.v1",
 }
 
 

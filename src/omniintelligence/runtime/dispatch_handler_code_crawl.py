@@ -119,7 +119,14 @@ def create_code_crawl_dispatch_handler(
             repo_filter = payload.get("repo")
 
         # Load repo config from contract YAML
-        repos_config = _load_repos_config()
+        repos_config_raw = _load_repos_config()
+        if hasattr(repos_config_raw, "repos"):
+            repos_config = [
+                repo.model_dump() if hasattr(repo, "model_dump") else dict(repo)
+                for repo in repos_config_raw.repos
+            ]
+        else:
+            repos_config = repos_config_raw
 
         # Filter disabled repos
         repos_config = [r for r in repos_config if r.get("enabled", True) is not False]
