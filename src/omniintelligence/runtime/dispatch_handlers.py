@@ -1102,7 +1102,7 @@ def create_pattern_lifecycle_dispatch_handler(
             raise ValueError(msg)
 
         try:
-            from_status = EnumPatternLifecycleStatus(raw_from_status)
+            from_status = EnumPatternLifecycleStatus(str(raw_from_status).lower())
         except ValueError as e:
             msg = (
                 f"Invalid lifecycle status for 'from_status': {raw_from_status!r} "
@@ -1112,7 +1112,7 @@ def create_pattern_lifecycle_dispatch_handler(
             raise ValueError(msg) from e
 
         try:
-            to_status = EnumPatternLifecycleStatus(raw_to_status)
+            to_status = EnumPatternLifecycleStatus(str(raw_to_status).lower())
         except ValueError as e:
             msg = (
                 f"Invalid lifecycle status for 'to_status': {raw_to_status!r} "
