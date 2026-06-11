@@ -30,6 +30,7 @@ Intelligence platform for the ONEX ecosystem: pattern learning, code analysis, e
 | Understand Kafka topics produced/consumed | [docs/reference/EVENT_SURFACE.md](reference/EVENT_SURFACE.md) |
 | Understand which events reach omnidash | [docs/reference/DASH_INTEGRATION_TRUTH_BOUNDARY.md](reference/DASH_INTEGRATION_TRUTH_BOUNDARY.md) |
 | Understand naming conventions | [docs/conventions/NAMING_CONVENTIONS.md](conventions/NAMING_CONVENTIONS.md) |
+| Understand June 11 SEA demo proof and judge reproduction | [docs/guides/JUNE_11_HACKATHON_SEA_PROOF.md](guides/JUNE_11_HACKATHON_SEA_PROOF.md) |
 | Validate a node contract | [docs/CONTRACT_VALIDATION_GUIDE.md](CONTRACT_VALIDATION_GUIDE.md) |
 | Understand node state lifecycle | [docs/NODE_STATE_POLICY.md](NODE_STATE_POLICY.md) |
 | See documentation standards | [docs/standards/STANDARD_DOC_LAYOUT.md](standards/STANDARD_DOC_LAYOUT.md) |
@@ -61,7 +62,11 @@ Intelligence platform for the ONEX ecosystem: pattern learning, code analysis, e
 
 ## Runbooks
 
-No current operational runbooks. For runtime startup, see the `PluginIntelligence` bootstrap section in [CLAUDE.md](../CLAUDE.md#runtime-module) and the [ONEX Four-Node Architecture](architecture/ONEX_FOUR_NODE_ARCHITECTURE.md#pluginintelligence-node-discovery-and-wiring) doc.
+| Document | Description | Status |
+|----------|-------------|--------|
+| [June 11 Hackathon SEA Proof](guides/JUNE_11_HACKATHON_SEA_PROOF.md) | SEA proof boundary, judge reproduction lane, dashboard evidence boundary, and fallback classifications | Active |
+
+For runtime startup, see the `PluginIntelligence` bootstrap section in [CLAUDE.md](../CLAUDE.md#runtime-module) and the [ONEX Four-Node Architecture](architecture/ONEX_FOUR_NODE_ARCHITECTURE.md#pluginintelligence-node-discovery-and-wiring) doc.
 
 ---
 
@@ -123,3 +128,4 @@ Dated plans and migration context are in `omni_home/docs/plans/`. They are not p
 | [Node Inventory](reference/NODE_INVENTORY.md) | Active | Sourced from `pyproject.toml` — updated 2026-04-29 |
 | [Event Surface](reference/EVENT_SURFACE.md) | Active | Sourced from CLAUDE.md and contract YAML files — updated 2026-04-29 |
 | [Dash Integration Truth Boundary](reference/DASH_INTEGRATION_TRUTH_BOUNDARY.md) | Active | Sourced from wiring-gaps plan — updated 2026-04-29 |
+| [June 11 Hackathon SEA Proof](guides/JUNE_11_HACKATHON_SEA_PROOF.md) | Active | SEA proof and judge reproduction guide — added 2026-06-11 |
