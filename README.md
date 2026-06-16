@@ -109,8 +109,8 @@ OmniIntelligence is built on the ONEX Four-Node Architecture. Nodes are thin she
 
 | Type | Example nodes | I/O |
 |------|---------------|-----|
-| Compute (35+) | `NodeQualityScoringCompute`, `NodeIntentClassifierCompute` | None — pure transforms |
-| Effect (14+) | `NodeClaudeHookEventEffect`, `NodePatternStorageEffect` | Kafka, PostgreSQL, external APIs |
+| Compute (24) | `NodeQualityScoringCompute`, `NodeIntentClassifierCompute` | None — pure transforms |
+| Effect (30) | `NodeClaudeHookEventEffect`, `NodePatternStorageEffect` | Kafka, PostgreSQL, external APIs |
 | Reducer (2) | `NodeDocPromotionReducer`, `NodePolicyStateReducer` | FSM state transitions |
 | Orchestrator (2) | `NodeBloomEvalOrchestrator`, `NodePatternAssemblerOrchestrator` | Workflow coordination |
 

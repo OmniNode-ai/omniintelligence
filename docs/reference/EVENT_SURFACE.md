@@ -3,7 +3,7 @@
 # Event Surface
 
 **Owner:** omniintelligence
-**Last verified:** 2026-04-29
+**Last verified:** 2026-06-16
 **Verification source:** CLAUDE.md topic tables and contract YAML files under `src/omniintelligence/nodes/*/contract.yaml`
 
 This page lists all Kafka topics produced, consumed, or otherwise associated with omniintelligence. It follows the shared event-surface reference pattern from [omni_home docs/standards/REPO_DOCUMENTATION_STANDARD.md](https://github.com/OmniNode-ai/omni_home/blob/main/docs/standards/REPO_DOCUMENTATION_STANDARD.md).
@@ -37,6 +37,8 @@ Topics published by omniintelligence nodes.
 | `onex.evt.omniintelligence.bloom-eval-completed.v1` | `NodeBloomEvalOrchestrator` | Bloom evaluation suite completed | omnidash (gap — see DASH_INTEGRATION_TRUTH_BOUNDARY.md) |
 | `onex.evt.omniintelligence.routing-feedback-processed.v1` | `NodeRoutingFeedbackEffect` | Routing feedback event processed | omnidash (verify READ_MODEL_TOPICS entry) |
 | `onex.cmd.omniintelligence.pattern-lifecycle-transition.v1` | `NodePatternPromotionEffect`, `NodePatternDemotionEffect` | Command forwarded to trigger `NodePatternLifecycleEffect` | `NodePatternLifecycleEffect` |
+| `onex.evt.omniintelligence.pattern-scored.v1` | `NodePatternFeedbackEffect` | Per-pattern scored events emitted after effectiveness scores are recomputed from rolling metrics (wired live in OMN-8161) | downstream subscribers |
+| `onex.evt.omniintelligence.dispatch-outcome-evaluated.v1` | `NodeDispatchOutcomeEvalEffect` | Normalized dispatch outcome evaluation event for downstream intelligence consumers (added in OMN-12280) | downstream subscribers |
 
 ---
 
@@ -56,6 +58,7 @@ Topics subscribed to by omniintelligence nodes. Collected by `collect_subscribe_
 | `onex.cmd.omniintelligence.code-analysis.v1` | `NodeIntelligenceOrchestrator` | External callers | Trigger code analysis workflow |
 | `onex.cmd.omniintelligence.document-ingestion.v1` | `NodeIntelligenceOrchestrator` | External callers | Trigger document ingestion workflow |
 | `onex.cmd.omniintelligence.quality-assessment.v1` | `NodeIntelligenceOrchestrator` | `NodePatternFeedbackEffect` (planned — Gap 4 in wiring-gaps plan) | Trigger quality scoring pass |
+| `onex.evt.omniclaude.dispatch_worker-completed.v1` | `NodeDispatchOutcomeEvalEffect` | omniclaude dispatch worker | Dispatch worker completion events consumed for outcome evaluation (added in OMN-12280) |
 
 ---
 
@@ -98,7 +101,6 @@ Events that had constants defined in omnidash but have no live producer in this 
 
 | Topic | Status | Notes |
 |-------|--------|-------|
-| `onex.evt.omniintelligence.pattern-scored.v1` | Dead — no producer | Omnidash `SUFFIX_INTELLIGENCE_PATTERN_SCORED` constant is dead. No omniintelligence node publishes this topic. |
 | `onex.evt.omniintelligence.pattern-discovered.v1` | Dead — no producer | Omnidash `SUFFIX_INTELLIGENCE_PATTERN_DISCOVERED` constant is dead. No omniintelligence node publishes this topic. |
 | `onex.evt.omniintelligence.session-outcome.v1` | Dead — no producer | Omnidash `SUFFIX_INTELLIGENCE_SESSION_OUTCOME_EVT` constant is dead. No producer exists here. |
 | `onex.evt.omniintelligence.eval-completed.v1` | Misnamed — actual topic is `bloom-eval-completed.v1` | Omnidash `SUFFIX_INTELLIGENCE_EVAL_COMPLETED` points to wrong topic string. Naming reconciliation pending. |

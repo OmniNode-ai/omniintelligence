@@ -845,8 +845,8 @@ See [docs/reference/EVENT_SURFACE.md](docs/reference/EVENT_SURFACE.md) for the a
 |------|---------|
 | `plugin.py` | `PluginIntelligence` — implements `ProtocolDomainPlugin` for kernel bootstrap |
 | `wiring.py` | `wire_intelligence_handlers()` — registers handlers with container |
-| `dispatch_handlers.py` | `create_intelligence_dispatch_engine()` — builds `MessageDispatchEngine` with 5 handlers / 7 routes |
-| `dispatch_handler_pattern_learning.py` | Dispatch handler for `node_pattern_learning_effect` (contract-only node) |
+| `dispatch_handlers.py` | `create_intelligence_dispatch_engine()` — builds `MessageDispatchEngine` with 31 handlers / 40 routes (as of OMN-12280) |
+| `dispatch_handler_*.py` | 14 dispatch handler modules in `runtime/`; each encapsulates logic for one domain (pattern learning, compliance, crawl scheduling, code analysis, routing feedback, and others) |
 | `adapters.py` | Protocol adapters: `AdapterPatternRepositoryRuntime`, `AdapterKafkaPublisher`, `AdapterIntentClassifier`, `AdapterIdempotencyStoreInfra` |
 | `contract_topics.py` | `collect_subscribe_topics_from_contracts()`, `collect_publish_topics_for_dispatch()` |
 | `introspection.py` | Node introspection proxy publishing for observability |

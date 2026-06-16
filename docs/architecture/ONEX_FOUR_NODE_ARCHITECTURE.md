@@ -11,50 +11,12 @@
 
 | Type | Base Class | Allowed Handler Outputs | Count | Example Node |
 |------|-----------|------------------------|-------|--------------|
-| **Compute** | `NodeCompute` | `result` only | 8 | `NodeQualityScoringCompute` |
-| **Effect** | `NodeEffect` | `events[]` only | 7 | `NodeClaudeHookEventEffect` |
-| **Reducer** | `NodeReducer` | `projections[]` only | 1 | `NodeIntelligenceReducer` |
+| **Compute** | `NodeCompute` | `result` only | 24 | `NodeQualityScoringCompute` |
+| **Effect** | `NodeEffect` | `events[]` only | 30 | `NodeClaudeHookEventEffect` |
+| **Reducer** | `NodeReducer` | `projections[]` only | 2 | `NodeDocPromotionReducer` |
 | **Orchestrator** | `NodeOrchestrator` | `events[]`, `intents[]` | 2 | `NodeIntelligenceOrchestrator` |
 
-### Full Node Inventory
-
-**Compute** (pure transforms, no I/O):
-
-| Node | Purpose |
-|------|---------|
-| `NodeQualityScoringCompute` | Code quality scoring with ONEX compliance |
-| `NodeSemanticAnalysisCompute` | Semantic code analysis |
-| `NodePatternExtractionCompute` | Extract patterns from code |
-| `NodePatternLearningCompute` | ML pattern learning pipeline |
-| `NodePatternMatchingCompute` | Match patterns against code |
-| `NodeIntentClassifierCompute` | User prompt intent classification |
-| `NodeExecutionTraceParserCompute` | Parse session execution traces |
-| `NodeSuccessCriteriaMatcherCompute` | Match patterns against success criteria |
-
-**Effect** (Kafka, PostgreSQL, external I/O):
-
-| Node | Has node.py | Purpose |
-|------|------------|---------|
-| `NodeClaudeHookEventEffect` | Yes | Process Claude Code hook events |
-| `NodePatternStorageEffect` | Yes | Persist patterns to PostgreSQL |
-| `NodePatternPromotionEffect` | Yes | Promote patterns (provisional → validated) |
-| `NodePatternDemotionEffect` | Yes | Demote patterns (validated → deprecated) |
-| `NodePatternFeedbackEffect` | Yes | Record session outcomes and metrics |
-| `NodePatternLifecycleEffect` | Yes | Atomic pattern lifecycle transitions |
-| `NodePatternLearningEffect` | **No** | Contract-only; handler wired via dispatch engine |
-
-**Reducer** (FSM state management):
-
-| Node | FSM Types |
-|------|-----------|
-| `NodeIntelligenceReducer` | `INGESTION`, `PATTERN_LEARNING`, `QUALITY_ASSESSMENT` |
-
-**Orchestrator** (workflow coordination):
-
-| Node | Purpose |
-|------|---------|
-| `NodeIntelligenceOrchestrator` | Main intelligence workflow coordination |
-| `NodePatternAssemblerOrchestrator` | Pattern assembly from execution traces |
+> Counts reflect `[project.entry-points."onex.nodes"]` in `pyproject.toml` (59 total registered, plus 1 Audit node). For the full inventory see [docs/reference/NODE_INVENTORY.md](../reference/NODE_INVENTORY.md).
 
 ---
 
@@ -182,8 +144,9 @@ implements `ProtocolDomainPlugin` and runs five sequential bootstrap phases:
 ```
 1. should_activate()   — activation gate; returns True if OMNIINTELLIGENCE_DB_URL is set
 2. initialize()        — creates PostgreSQL pool + RegistryMessageType
+2.5 validate_handshake() — B1: verifies DB ownership; B2: verifies schema fingerprint
 3. wire_handlers()     — registers handlers with the container
-4. wire_dispatchers()  — builds MessageDispatchEngine with 5 handlers / 7 routes
+4. wire_dispatchers()  — builds MessageDispatchEngine with 31 handlers / 40 routes
 5. start_consumers()   — subscribes to all intelligence Kafka topics
 ```
 
@@ -202,6 +165,10 @@ Source contracts scanned:
 
 **Dispatch engine routes**:
 
+The engine registers 31 handlers and 40 routes across 14 dispatch handler modules under
+`runtime/dispatch_handler_*.py`. The table below shows the original core routes; for the full
+event surface see [docs/reference/EVENT_SURFACE.md](../reference/EVENT_SURFACE.md).
+
 | Route | Handler | Source Topic |
 |-------|---------|--------------|
 | `intelligence-claude-hook-route` | `route_hook_event()` | `claude-hook-event.v1` |
@@ -211,6 +178,7 @@ Source contracts scanned:
 | `intelligence-pattern-learned-route` | pattern storage handler | `pattern-learned.v1` |
 | `intelligence-pattern-discovered-route` | pattern storage handler | `evt.pattern.discovered.v1` |
 | `intelligence-pattern-learning-route` | `create_pattern_learning_dispatch_handler()` | `pattern-learning.v1` |
+| … (24 additional routes) | code analysis, compliance, crawl scheduling, routing feedback, and more | see `runtime/dispatch_handlers.py` |
 
 **Activation gate**: `PluginIntelligence.should_activate()` returns `True` only if
 `OMNIINTELLIGENCE_DB_URL` is set. Without a database URL, no consumers start and all
@@ -265,5 +233,5 @@ All intelligence topics follow: `{env}.onex.{kind}.omniintelligence.{event-name}
 
 ---
 
-**Last Updated**: 2026-02-19
+**Last Updated**: 2026-06-16
 **See Also**: `omnibase_core/docs/architecture/ONEX_FOUR_NODE_ARCHITECTURE.md` — base class definitions, handler output constraints, and FSM/workflow subcontract reference.
