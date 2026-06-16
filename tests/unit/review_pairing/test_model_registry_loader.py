@@ -33,13 +33,13 @@ def test_load_registry_returns_contract_with_expected_keys() -> None:
         MODEL_QWEN3_14B,
         "qwen3-next",
     }
-    assert contract.api_fallback_keys == ("claude-api",)
+    assert contract.api_fallback_keys == ("codex",)
     assert set(contract.models.keys()) == {
         MODEL_DEEPSEEK_R1,
         "qwen3-coder",
         MODEL_QWEN3_14B,
         "qwen3-next",
-        "claude-api",
+        "codex",
     }
 
 
@@ -53,12 +53,12 @@ def test_load_registry_preserves_endpoint_config_fields() -> None:
     assert deepseek.timeout_seconds == 300.0
     assert deepseek.api_model_id == "Corianas/DeepSeek-R1-Distill-Qwen-14B-AWQ"
 
-    claude = contract.models["claude-api"]
-    assert claude.env_var == "ANTHROPIC_API_BASE_URL"
-    assert claude.default_url == "https://api.anthropic.com"
-    assert claude.kind == "api_fallback"
-    assert claude.timeout_seconds == 120.0
-    assert claude.api_model_id == "claude-sonnet-4-6"
+    codex = contract.models["codex"]
+    assert codex.env_var == "CODEX_BINARY"
+    assert codex.default_url == ""
+    assert codex.kind == "cli_fallback"
+    assert codex.timeout_seconds == 180.0
+    assert codex.api_model_id == "codex"
 
 
 def test_adapter_module_level_constants_match_contract() -> None:

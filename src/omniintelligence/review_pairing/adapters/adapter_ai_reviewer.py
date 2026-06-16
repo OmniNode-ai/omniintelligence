@@ -131,10 +131,20 @@ def select_models_with_fallback(
     reachable_local = [k for k in local_requested if reachability.get(k, False)]
     unreachable_local = [k for k in local_requested if not reachability.get(k, False)]
 
-    if reachable_local:
-        return reachable_local + non_local_requested, unreachable_local
+    def dedupe(keys: list[str]) -> list[str]:
+        seen: set[str] = set()
+        result: list[str] = []
+        for key in keys:
+            if key in seen:
+                continue
+            seen.add(key)
+            result.append(key)
+        return result
 
-    return list(_API_FALLBACK_KEYS) + non_local_requested, unreachable_local
+    if reachable_local:
+        return dedupe(reachable_local + non_local_requested), unreachable_local
+
+    return dedupe(list(_API_FALLBACK_KEYS) + non_local_requested), unreachable_local
 
 
 # ---------------------------------------------------------------------------
@@ -191,6 +201,13 @@ def _resolve_model_url(model_key: str) -> str:
             f"Set the {config.env_var} environment variable."
         )
     return url
+
+
+def _validate_model_key(model_key: str) -> None:
+    """Validate a model key without requiring an endpoint URL."""
+    if model_key not in MODEL_REGISTRY:
+        valid = ", ".join(sorted(MODEL_REGISTRY.keys()))
+        raise ValueError(f"Unknown model '{model_key}'. Valid: {valid}")
 
 
 async def _call_claude_api(
@@ -267,6 +284,10 @@ async def call_model(
 
     if config.kind == "api_fallback":
         return await _call_claude_api(system_prompt, user_prompt, config)
+    if config.kind == "cli_fallback":
+        raise ValueError(
+            f"Model '{model_key}' is handled by its CLI adapter, not the LLM adapter."
+        )
 
     from omnibase_infra.adapters.llm.adapter_llm_provider_openai import (
         TransportHolderLlmHttp,
@@ -499,8 +520,7 @@ def parse_raw(
     Returns:
         List of ModelReviewFindingObserved instances.
     """
-    # Validate model key.
-    _resolve_model_url(model)
+    _validate_model_key(model)
 
     text = raw if isinstance(raw, str) else json.dumps(raw)
     parsed = parse_review_response(text)
@@ -545,8 +565,7 @@ async def async_parse_raw(
         ModelExternalReviewResult with review findings or error.
     """
     try:
-        # Validate model key.
-        _resolve_model_url(model)
+        _validate_model_key(model)
         system_prompt, user_prompt = build_review_prompt(
             plan_content,
             review_type=review_type,

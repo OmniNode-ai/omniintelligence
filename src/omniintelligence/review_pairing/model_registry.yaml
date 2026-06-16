@@ -29,7 +29,7 @@ local_model_keys:
   - "qwen3-next"
 
 api_fallback_keys:
-  - "claude-api"
+  - "codex"
 
 models:
   deepseek-r1:
@@ -60,9 +60,9 @@ models:
     timeout_seconds: 120.0
     api_model_id: "Qwen3-Next-80B-A3B"
 
-  claude-api:
-    env_var: "ANTHROPIC_API_BASE_URL"
-    default_url: "https://api.anthropic.com"
-    kind: "api_fallback"
-    timeout_seconds: 120.0
-    api_model_id: "claude-sonnet-4-6"
+  codex:
+    env_var: "CODEX_BINARY"
+    default_url: ""
+    kind: "cli_fallback"
+    timeout_seconds: 180.0
+    api_model_id: "codex"

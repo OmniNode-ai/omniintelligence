@@ -99,7 +99,7 @@ class TestSelectModelsWithFallback:
                 ["deepseek-r1", "qwen3-coder"]
             )
 
-        assert "claude-api" in models
+        assert "codex" in models
         assert "deepseek-r1" in skipped
         assert "qwen3-coder" in skipped
         assert "deepseek-r1" not in models
@@ -116,7 +116,7 @@ class TestSelectModelsWithFallback:
 
         assert "deepseek-r1" in models
         assert "qwen3-next" in skipped
-        assert "claude-api" not in models
+        assert "codex" not in models
 
     def test_all_local_reachable_no_fallback(self) -> None:
         with patch(
@@ -129,7 +129,7 @@ class TestSelectModelsWithFallback:
 
         assert set(models) == {"deepseek-r1", "qwen3-coder"}
         assert skipped == []
-        assert "claude-api" not in models
+        assert "codex" not in models
 
     def test_non_local_keys_pass_through_unchanged(self) -> None:
         with patch(
@@ -148,8 +148,7 @@ class TestSelectModelsWithFallback:
         ):
             models, skipped = select_models_with_fallback(["codex", "deepseek-r1"])
 
-        assert "codex" in models
-        assert "claude-api" in models
+        assert models.count("codex") == 1
         assert "deepseek-r1" in skipped
 
     def test_no_local_models_requested_no_probe_called(self) -> None:
@@ -167,4 +166,3 @@ class TestSelectModelsWithFallback:
         assert "qwen3-coder" in _LOCAL_MODEL_KEYS
         assert "qwen3-14b" in _LOCAL_MODEL_KEYS
         assert "codex" not in _LOCAL_MODEL_KEYS
-        assert "claude-api" not in _LOCAL_MODEL_KEYS
