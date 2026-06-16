@@ -320,11 +320,17 @@ class TestMain:
         plan_file = tmp_path / "plan.md"
         plan_file.write_text("# Test Plan")
 
-        with patch(
-            "omniintelligence.review_pairing.cli_review.llm_async_parse_raw",
-            new_callable=AsyncMock,
-            return_value=_success_result("deepseek-r1"),
-        ) as mock_llm:
+        with (
+            patch(
+                "omniintelligence.review_pairing.cli_review.select_models_with_fallback",
+                return_value=(["deepseek-r1"], []),
+            ),
+            patch(
+                "omniintelligence.review_pairing.cli_review.llm_async_parse_raw",
+                new_callable=AsyncMock,
+                return_value=_success_result("deepseek-r1"),
+            ) as mock_llm,
+        ):
             main(["--file", str(plan_file)])
 
         mock_llm.assert_called_once()
