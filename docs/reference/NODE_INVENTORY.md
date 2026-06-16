@@ -4,7 +4,7 @@
 
 **Source of truth:** `pyproject.toml [project.entry-points."onex.nodes"]`
 **Owner:** omniintelligence
-**Last verified:** 2026-04-29
+**Last verified:** 2026-06-16
 **Verification:** `grep -A200 '\[project.entry-points."onex.nodes"\]' pyproject.toml`
 
 This inventory is sourced directly from the `[project.entry-points."onex.nodes"]` section of `pyproject.toml`. When a node is added or removed, this file must be updated in the same PR.
@@ -54,6 +54,7 @@ Total registered nodes: **59**
 | `node_context_item_writer_effect` | `omniintelligence.nodes.node_context_item_writer_effect` | Write context items to storage |
 | `node_crawl_scheduler_effect` | `omniintelligence.nodes.node_crawl_scheduler_effect` | Schedule and manage crawl jobs |
 | `node_debug_fix_record_effect` | `omniintelligence.nodes.node_debug_fix_record_effect` | Record debug fix events |
+| `node_dispatch_outcome_eval_effect` | `omniintelligence.nodes.node_dispatch_outcome_eval_effect` | Evaluate omniclaude dispatch worker outcomes (OMN-12280) |
 | `node_doc_staleness_detector_effect` | `omniintelligence.nodes.node_doc_staleness_detector_effect` | Detect stale documents and emit staleness events |
 | `node_document_fetch_effect` | `omniintelligence.nodes.node_document_fetch_effect` | Fetch documents from external sources |
 | `node_embedding_generation_effect` | `omniintelligence.nodes.node_embedding_generation_effect` | Generate and store embeddings |
@@ -111,3 +112,19 @@ Total registered nodes: **59**
 - `node_pattern_learning_effect` has no `node.py` — it is a contract-only node wired by the dispatch engine. See [ONEX Four-Node Architecture](../architecture/ONEX_FOUR_NODE_ARCHITECTURE.md#contract-only-nodes).
 - Node types (Compute / Effect / Reducer / Orchestrator) are inferred from naming convention and base class. The `pyproject.toml` entry-points list does not encode type.
 - For Kafka topics associated with each node, see [EVENT_SURFACE.md](EVENT_SURFACE.md).
+
+## Unregistered Node Directories
+
+The following node directories exist in `src/omniintelligence/nodes/` with full implementations (contract.yaml, handlers/, models/, node.py) but are **not registered** in `pyproject.toml [project.entry-points."onex.nodes"]`. They are in-progress or deferred work and not yet part of the active node registry:
+
+| Directory | Notes |
+|-----------|-------|
+| `node_anti_gaming_alerter_effect` | Anti-gaming alerter effect (unregistered) |
+| `node_intelligence_orchestrator` | Intelligence orchestrator (unregistered; distinct from `NodeIntelligenceOrchestrator` in orchestrator table) |
+| `node_intelligence_reducer` | Intelligence reducer (unregistered; distinct from registered reducers) |
+| `node_intent_graph_reducer` | Intent graph reducer (unregistered) |
+| `node_objective_ab_framework_compute` | Objective A/B framework compute (unregistered) |
+| `node_quality_scoring_compute` | Quality scoring compute (unregistered; distinct from `NodeQualityScoringCompute`) |
+| `node_tcb_generation_compute` | TCB generation compute (unregistered) |
+
+These directories should be registered in `pyproject.toml` or removed in a future cleanup PR.
