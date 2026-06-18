@@ -643,6 +643,24 @@ repos:
         types: [python]
         exclude: ^tests/|^examples/|^scripts/
 
+      # OMN-10414 / OMN-13296: block skip-token bypasses in local hooks.
+      # Escape hatch: add '# skip-token-allowed: <receipt-id>' with a traceable approval receipt.
+      - id: reject-deploy-gate-skip-token
+        name: Reject skip-gate bypass tokens (OMN-10414)
+        entry: scripts/validation/reject_deploy_gate_skip_token.sh
+        language: script
+        pass_filenames: true
+        always_run: true
+        stages: [pre-commit]
+        exclude: ^tests/.*fixtures/
+
+      - id: reject-deploy-gate-skip-token-commit-msg
+        name: Reject skip-gate bypass tokens in commit messages (OMN-10414)
+        entry: scripts/validation/reject_deploy_gate_skip_token.sh
+        language: script
+        pass_filenames: true
+        stages: [commit-msg]
+
 # Default stage for hooks (commit, not push)
 default_stages: [pre-commit]
 
@@ -662,11 +680,3 @@ exclude: |
     # Git internals - not user code
     \.git/.*
   )$
-
-  - repo: local
-    hooks:
-      - id: normalization-symmetry
-        name: normalization-symmetry
-        entry: uv run python -m omnibase_core.validators.normalization-symmetry
-        language: system
-        pass_filenames: false
