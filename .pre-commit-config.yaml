@@ -247,6 +247,22 @@
 fail_fast: true
 
 repos:
+  - repo: local
+    hooks:
+      # OMN-12957: runtime_profiles contract validator (omnibase_core).
+      # Enforces runtime_profiles_missing (OMN-9886) — command-consuming contracts
+      # must declare a runtime lane. Pre-existing violators are frozen in
+      # scripts/validation/runtime_profiles_allowlist.yaml (drain tracked by OMN-12982).
+      # The wrapper script is used (instead of the bare module) so the repo-local
+      # allowlist is loaded the same way as the CI gate (OMN-13297 / mirrors OMN-12955).
+      - id: onex-validate-runtime-profiles
+        name: Validate runtime_profiles on node contracts (OMN-12957)
+        language: system
+        entry: uv run python scripts/ci/run_runtime_profiles_validator.py
+        files: ^src/omniintelligence/nodes/node_.*/contract\.yaml$
+        pass_filenames: false
+        stages: [pre-commit]
+
   # Stub implementation detection — sourced from omnibase_core (OMN-4473)
   - repo: https://github.com/OmniNode-ai/omnibase_core
     rev: 30a06f85bb5849902d33c8d0bdb90fc6cba0c346  # pragma: allowlist secret
