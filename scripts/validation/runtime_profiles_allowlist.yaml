@@ -1,0 +1,54 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# OMN-13297 baseline allowlist: freezes pre-existing runtime_profiles violators
+# so the gate blocks NEW orphans without forcing a mass remediation.
+# Drain tracked by OMN-12982 — fix each node's lane and delete its entry here.
+# ValidatorRuntimeProfiles receives this path explicitly from the repo-local
+# wrapper; no env var or package-local fallback owns this repo's baseline.
+allowlist:
+  - node_id: node_bloom_eval_orchestrator
+    reason: OMN-13297 baseline freeze; remediate via OMN-12982 (assign correct runtime lane or document
+      runtime-exempt)
+  - node_id: node_ci_failure_tracker_effect
+    reason: OMN-13297 baseline freeze; remediate via OMN-12982 (assign correct runtime lane or document
+      runtime-exempt)
+  - node_id: node_claude_hook_event_effect
+    reason: OMN-13297 baseline freeze; remediate via OMN-12982 (assign correct runtime lane or document
+      runtime-exempt)
+  - node_id: node_code_crawler_effect
+    reason: OMN-13297 baseline freeze; remediate via OMN-12982 (assign correct runtime lane or document
+      runtime-exempt)
+  - node_id: node_compliance_evaluate_effect
+    reason: OMN-13297 baseline freeze; remediate via OMN-12982 (assign correct runtime lane or document
+      runtime-exempt)
+  - node_id: node_crawl_scheduler_effect
+    reason: OMN-13297 baseline freeze; remediate via OMN-12982 (assign correct runtime lane or document
+      runtime-exempt)
+  - node_id: node_debug_fix_record_effect
+    reason: OMN-13297 baseline freeze; remediate via OMN-12982 (assign correct runtime lane or document
+      runtime-exempt)
+  - node_id: node_git_repo_crawler_effect
+    reason: OMN-13297 baseline freeze; remediate via OMN-12982 (assign correct runtime lane or document
+      runtime-exempt)
+  - node_id: node_linear_crawler_effect
+    reason: OMN-13297 baseline freeze; remediate via OMN-12982 (assign correct runtime lane or document
+      runtime-exempt)
+  - node_id: node_llm_routing_decision_effect
+    reason: OMN-13297 baseline freeze; remediate via OMN-12982 (assign correct runtime lane or document
+      runtime-exempt)
+  - node_id: node_pattern_feedback_effect
+    reason: OMN-13297 baseline freeze; remediate via OMN-12982 (assign correct runtime lane or document
+      runtime-exempt)
+  - node_id: node_pattern_learning_effect
+    reason: OMN-13297 baseline freeze; remediate via OMN-12982 (assign correct runtime lane or document
+      runtime-exempt)
+  - node_id: node_pattern_lifecycle_effect
+    reason: OMN-13297 baseline freeze; remediate via OMN-12982 (assign correct runtime lane or document
+      runtime-exempt)
+  - node_id: node_pattern_promotion_effect
+    reason: OMN-13297 baseline freeze; remediate via OMN-12982 (assign correct runtime lane or document
+      runtime-exempt)
+  - node_id: node_protocol_handler_effect
+    reason: OMN-13297 baseline freeze; remediate via OMN-12982 (assign correct runtime lane or document
+      runtime-exempt)

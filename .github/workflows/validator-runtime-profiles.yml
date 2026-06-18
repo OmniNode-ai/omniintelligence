@@ -9,7 +9,7 @@
 #     declare a runtime lane so the runtime knows how to wire their subscriptions.
 #
 # Pre-existing violators are frozen in
-# validation/runtime_profiles_allowlist.yaml (drain tracked by OMN-12982); the
+# scripts/validation/runtime_profiles_allowlist.yaml (drain tracked by OMN-12982); the
 # gate blocks NEW orphans without forcing mass remediation.
 #
 # Wired via OMN-13297 (W3: runtime-profiles gate fleet wiring).

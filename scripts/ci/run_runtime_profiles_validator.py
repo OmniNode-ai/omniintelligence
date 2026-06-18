@@ -1,10 +1,10 @@
-# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
 """Run the runtime_profiles contract validator with the omniintelligence allowlist.
 
 Mirrors the required CI gate `.github/workflows/validator-runtime-profiles.yml`
 exactly: it constructs `ValidatorRuntimeProfiles` with the repo-local
-`validation/runtime_profiles_allowlist.yaml` and validates `src/`.
+`scripts/validation/runtime_profiles_allowlist.yaml` and validates `src/`.
 
 This script exists so the local pre-commit hook and CI run the SAME invocation.
 The validator's module `__main__` entry point resolves its allowlist from the
@@ -23,7 +23,7 @@ from omnibase_core.validation.validator_runtime_profiles import (
     ValidatorRuntimeProfiles,
 )
 
-ALLOWLIST_PATH = Path("validation/runtime_profiles_allowlist.yaml")
+ALLOWLIST_PATH = Path("scripts/validation/runtime_profiles_allowlist.yaml")
 SRC_ROOT = Path("src")
 
 
