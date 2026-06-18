@@ -201,6 +201,32 @@ class _DelayedStubEventBus(_StubEventBus):
         )
 
 
+class _PartiallyFailingEventBus(_StubEventBus):
+    """Event bus stub that succeeds once, then fails a selected topic."""
+
+    def __init__(self, fail_topic: str) -> None:
+        super().__init__()
+        self.fail_topic = fail_topic
+
+    async def subscribe(
+        self,
+        topic: str,
+        group_id: str = "",
+        on_message: Callable[[Any], Awaitable[None]] | None = None,
+        **kwargs: Any,
+    ) -> Callable[[], Awaitable[None]]:
+        if topic == self.fail_topic:
+            await asyncio.sleep(0.01)
+            msg = f"subscribe failed for {topic}"
+            raise RuntimeError(msg)
+        return await super().subscribe(
+            topic=topic,
+            group_id=group_id,
+            on_message=on_message,
+            **kwargs,
+        )
+
+
 assert isinstance(_StubEventBus(), ProtocolEventBus)
 
 
@@ -602,6 +628,51 @@ class TestPluginStartConsumersDispatch:
             f"Expected concurrent startup below 70% of serial baseline "
             f"({serial_baseline:.3f}s), got {elapsed:.3f}s"
         )
+
+    @pytest.mark.unit
+    def test_active_subscription_topics_skip_missing_handler(self) -> None:
+        """Topics without registered dispatch handlers are skipped explicitly."""
+        plugin = PluginIntelligence()
+        missing_topic = INTELLIGENCE_SUBSCRIBE_TOPICS[0]
+        handlers = {
+            topic: AsyncMock()
+            for topic in INTELLIGENCE_SUBSCRIBE_TOPICS
+            if topic != missing_topic
+        }
+
+        active_topics = plugin._active_subscription_topics(
+            topic_handlers=handlers,
+            correlation_id=uuid4(),
+        )
+
+        assert missing_topic not in active_topics
+        assert active_topics == INTELLIGENCE_SUBSCRIBE_TOPICS[1:]
+
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_subscribe_dispatch_topics_rolls_back_partial_success(
+        self,
+    ) -> None:
+        """If one topic fails to subscribe, earlier subscriptions are closed."""
+        fail_topic = INTELLIGENCE_SUBSCRIBE_TOPICS[1]
+        event_bus = _PartiallyFailingEventBus(fail_topic=fail_topic)
+        plugin = PluginIntelligence()
+        config = _make_config(event_bus=event_bus)
+        active_topics = INTELLIGENCE_SUBSCRIBE_TOPICS[:2]
+        handlers = {topic: AsyncMock() for topic in active_topics}
+
+        with pytest.raises(RuntimeError, match="subscribe failed"):
+            await plugin._subscribe_dispatch_topics(
+                config=config,
+                active_topics=active_topics,
+                topic_handlers=handlers,
+                intelligence_group="omniintelligence-hooks",
+                correlation_id=uuid4(),
+            )
+
+        assert len(event_bus.subscriptions) == 1
+        assert event_bus.subscriptions[0].topic == active_topics[0]
+        assert event_bus.subscriptions[0]._unsubscribed is True
 
 
 # =============================================================================
