@@ -660,3 +660,23 @@ exclude: |
         entry: uv run python -m omnibase_core.validators.normalization-symmetry
         language: system
         pass_filenames: false
+
+  # Skip-token rejection gate (OMN-10414 / OMN-13296)
+  # Blocks [skip-*] bypass tokens in staged markdown/yaml/txt files.
+  # Escape hatch: add '# skip-token-allowed: <receipt-id>' with a traceable approval receipt.
+  - repo: local
+    hooks:
+      - id: reject-deploy-gate-skip-token
+        name: Reject skip-gate bypass tokens (OMN-10414)
+        entry: .pre-commit-hooks/reject-deploy-gate-skip-token.sh
+        language: script
+        pass_filenames: true
+        always_run: true
+        stages: [pre-commit]
+        exclude: ^tests/.*fixtures/
+      - id: reject-deploy-gate-skip-token-commit-msg
+        name: Reject skip-gate bypass tokens in commit messages (OMN-10414)
+        entry: .pre-commit-hooks/reject-deploy-gate-skip-token.sh
+        language: script
+        pass_filenames: true
+        stages: [commit-msg]
