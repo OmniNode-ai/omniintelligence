@@ -637,7 +637,7 @@ repos:
       # Escape hatch: add '# skip-token-allowed: <receipt-id>' with a traceable approval receipt.
       - id: reject-deploy-gate-skip-token
         name: Reject skip-gate bypass tokens (OMN-10414)
-        entry: .pre-commit-hooks/reject-deploy-gate-skip-token.sh
+        entry: scripts/validation/reject_deploy_gate_skip_token.sh
         language: script
         pass_filenames: true
         always_run: true
@@ -646,7 +646,7 @@ repos:
 
       - id: reject-deploy-gate-skip-token-commit-msg
         name: Reject skip-gate bypass tokens in commit messages (OMN-10414)
-        entry: .pre-commit-hooks/reject-deploy-gate-skip-token.sh
+        entry: scripts/validation/reject_deploy_gate_skip_token.sh
         language: script
         pass_filenames: true
         stages: [commit-msg]
