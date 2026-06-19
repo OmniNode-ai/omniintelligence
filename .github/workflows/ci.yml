@@ -672,15 +672,16 @@ jobs:
         # Excludes mirror the former io_audit_whitelist.yaml file-scoped exemptions.
         run: |
           echo "Running ONEX node purity audit (omnibase_core node-purity)..."
-          files=$(find src/omniintelligence/nodes -name '*.py' \
+          mapfile -d '' files < <(find src/omniintelligence/nodes -name '*.py' \
             -not -name '__main__.py' \
             -not -path '*/node_git_repo_crawler_effect/handlers/handler_git_repo_crawl.py' \
             -not -path '*/node_code_crawler_effect/handlers/handler_onextree_generator.py' \
             -not -path '*/node_code_crawler_effect/handlers/handler_crawl_files.py' \
             -not -path '*/node_document_fetch_effect/handlers/handler_document_fetch.py' \
             -not -path '*/node_intent_classifier_compute/handlers/handler_adaptive_classification.py' \
-            -not -path '*/node_gmail_intent_evaluator_effect/handlers/handler_gmail_intent_evaluate.py')
-          uv run python -m omnibase_core.validation.validator_node_purity $files
+            -not -path '*/node_gmail_intent_evaluator_effect/handlers/handler_gmail_intent_evaluate.py' \
+            -print0)
+          uv run python -m omnibase_core.validation.validator_node_purity "${files[@]}"
 
   # Cross-repo validation - enforces architectural boundaries
   # Prevents direct Kafka imports in nodes/ (must use Protocol abstractions)

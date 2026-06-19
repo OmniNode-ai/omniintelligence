@@ -59,6 +59,13 @@ class TestResolveTestPaths:
         )
         assert paths == []
 
+    def test_audit_module_change_maps_to_audit_tests(self) -> None:
+        paths = resolve_test_paths(
+            ["src/omniintelligence/audit/model_audit_result.py"],
+            ADJACENCY_PATH,
+        )
+        assert paths == ["tests/audit/"]
+
 
 @pytest.mark.unit
 class TestComputeSelection:
