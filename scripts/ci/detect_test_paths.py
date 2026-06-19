@@ -24,6 +24,9 @@ from scripts.ci.test_selection_models import (
 SRC_PREFIX = "src/omniintelligence/"
 TEST_UNIT_PREFIX = "tests/unit/"
 TEST_INTEGRATION_PREFIX = "tests/integration/"
+MODULE_TEST_PATH_OVERRIDES = {
+    "audit": "tests/audit/",
+}
 
 FULL_SUITE_BRANCHES = {"main"}
 
@@ -56,7 +59,9 @@ def _resolve(changed_files: list[str], config: ModelAdjacencyMap) -> list[str]:
         expanded.update(config.adjacency[module].reverse_deps)
 
     for module in expanded:
-        selected.add(f"{TEST_UNIT_PREFIX}{module}/")
+        selected.add(
+            MODULE_TEST_PATH_OVERRIDES.get(module, f"{TEST_UNIT_PREFIX}{module}/")
+        )
 
     return sorted(selected)
 

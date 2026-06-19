@@ -293,6 +293,30 @@ repos:
       - id: check-url-authority
         args: [--repo, omniintelligence, --repo-root, .]
         exclude: ^(tests/|archived/|archive/).*\.py$
+  # Transport-import + node-purity gates — consolidated into omnibase_core
+  # (OMN-13283 / GAP-8a). Replaces the former omniintelligence-local
+  # scripts/validate_no_transport_imports.py + src/omniintelligence/audit io-audit.
+  # node-purity excludes mirror the former io_audit_whitelist.yaml file-scoped
+  # exemptions: effect-node handlers (file I/O is their purpose), __main__.py entry
+  # points (bootstrap), and the documented compute exemption. Pin advances to the
+  # core merge SHA once omnibase_core#1272 lands.
+  - repo: https://github.com/OmniNode-ai/omnibase_core
+    rev: 664c42c354cb19c3a127a1564312c54bf2377127  # pragma: allowlist secret
+    hooks:
+      - id: validate-no-transport-imports
+        files: ^src/omniintelligence/nodes/
+      - id: node-purity
+        files: ^src/omniintelligence/nodes/
+        exclude: >-
+          (?x)^src/omniintelligence/nodes/(
+            [^/]+/__main__\.py
+            |node_git_repo_crawler_effect/handlers/handler_git_repo_crawl\.py
+            |node_code_crawler_effect/handlers/handler_onextree_generator\.py
+            |node_code_crawler_effect/handlers/handler_crawl_files\.py
+            |node_document_fetch_effect/handlers/handler_document_fetch\.py
+            |node_intent_classifier_compute/handlers/handler_adaptive_classification\.py
+            |node_gmail_intent_evaluator_effect/handlers/handler_gmail_intent_evaluate\.py
+          )$
   # Hardcoded topic string detection — sourced from onex_change_control (OMN-5259)
   - repo: https://github.com/OmniNode-ai/onex_change_control
     rev: 8d7e85bc00e7f1b1306d1cb40949be1ab6e7e91a  # pragma: allowlist secret
@@ -505,43 +529,9 @@ repos:
         # - (.*_contract\.yaml|fsm_.*\.yaml) : Main contracts or FSM files
         files: ^src/omniintelligence/nodes/[^/]+/v\d+(_\d+)*/contracts/(.*_contract\.yaml|fsm_.*\.yaml)$
 
-      # --------------------------------------------------------------------------
-      # I/O Audit - ONEX node purity enforcement
-      # Validates: Compute nodes do not have forbidden I/O patterns
-      # Scope: Node source files and audit module changes
-      # Purpose: Enforces architectural boundary between pure compute and effect nodes
-      # --------------------------------------------------------------------------
-      - id: io-audit
-        name: io-audit (ONEX purity)
-        entry: uv run python -m omniintelligence.audit.io_audit
-        language: system
-        pass_filenames: false
-        types: [python]
-        # Trigger on changes to:
-        #   - Node implementations (where purity rules apply)
-        #   - Audit module itself (to validate audit changes)
-        files: ^(src/omniintelligence/nodes/|src/omniintelligence/audit/)
-        stages: [pre-commit]
-
-      # --------------------------------------------------------------------------
-      # Transport Import Validator - ARCH-002 enforcement
-      # Validates: Nodes do not import transport/I/O libraries at runtime
-      # Scope: Node source files (where ARCH-002 applies)
-      # Purpose: Enforces "Nodes never touch Kafka directly. Runtime owns all
-      #          Kafka plumbing." TYPE_CHECKING imports are allowed.
-      # Banned: aiohttp, httpx, asyncpg, aiokafka, redis, grpc, etc.
-      # --------------------------------------------------------------------------
-      - id: validate-no-transport-imports
-        name: validate-no-transport-imports (ARCH-002)
-        entry: uv run python scripts/validate_no_transport_imports.py --exclude src/omniintelligence/runtime
-          --exclude src/omniintelligence/api --exclude src/omniintelligence/clients --exclude src/omniintelligence/adapters
-          --exclude src/omniintelligence/decision_store
-        language: system
-        pass_filenames: false
-        types: [python]
-        # Trigger on changes to node implementations
-        files: ^src/omniintelligence/nodes/
-        stages: [pre-commit]
+      # NOTE(OMN-13283): the local 'io-audit' and 'validate-no-transport-imports'
+      # hooks were consolidated into the omnibase_core remote hooks 'node-purity'
+      # and 'validate-no-transport-imports' (declared in the repos: block above).
 
       # --------------------------------------------------------------------------
       # Pytest Smoke Tests - Quick unit tests on commit
