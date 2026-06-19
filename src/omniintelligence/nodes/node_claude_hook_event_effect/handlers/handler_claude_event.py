@@ -818,7 +818,21 @@ def _extract_check_results_from_payload(
     # Access extra fields via model_extra (Pydantic extra="allow")
     extra = payload.model_extra or {}
 
-    # --- Gate results ---
+    return ModelSessionCheckResults(
+        run_id=run_id,
+        session_id=session_id,
+        correlation_id=run_id,
+        gate_results=_extract_gate_results(extra),
+        test_results=_extract_test_results(extra),
+        static_analysis_results=_extract_static_analysis_results(extra),
+        cost_usd=_extract_non_negative_float(extra, "cost_usd"),
+        latency_seconds=_extract_non_negative_float(extra, "latency_seconds"),
+        collected_at_utc=collected_at_utc,
+    )
+
+
+def _extract_gate_results(extra: dict[str, Any]) -> tuple[ModelGateCheckResult, ...]:
+    """Extract gate check results from hook payload extras."""
     gate_results: list[ModelGateCheckResult] = []
 
     # Synthesize a session_completion gate from completion_status
@@ -841,7 +855,11 @@ def _extract_check_results_from_payload(
                 with contextlib.suppress(Exception):
                     gate_results.append(ModelGateCheckResult(**g))
 
-    # --- Test results ---
+    return tuple(gate_results)
+
+
+def _extract_test_results(extra: dict[str, Any]) -> tuple[ModelTestRunResult, ...]:
+    """Extract test run results from hook payload extras."""
     test_results: list[ModelTestRunResult] = []
     raw_tests = extra.get("test_results")
     if isinstance(raw_tests, list):
@@ -850,7 +868,13 @@ def _extract_check_results_from_payload(
                 with contextlib.suppress(Exception):
                     test_results.append(ModelTestRunResult(**t))
 
-    # --- Static analysis results ---
+    return tuple(test_results)
+
+
+def _extract_static_analysis_results(
+    extra: dict[str, Any],
+) -> tuple[ModelStaticAnalysisResult, ...]:
+    """Extract static analysis results from hook payload extras."""
     static_results: list[ModelStaticAnalysisResult] = []
     raw_static = extra.get("static_analysis_results")
     if isinstance(raw_static, list):
@@ -859,28 +883,15 @@ def _extract_check_results_from_payload(
                 with contextlib.suppress(Exception):
                     static_results.append(ModelStaticAnalysisResult(**s))
 
-    # --- Cost and latency telemetry ---
-    cost_usd: float | None = None
-    raw_cost = extra.get("cost_usd")
-    if isinstance(raw_cost, (int, float)) and raw_cost >= 0:
-        cost_usd = float(raw_cost)
+    return tuple(static_results)
 
-    latency_seconds: float | None = None
-    raw_latency = extra.get("latency_seconds")
-    if isinstance(raw_latency, (int, float)) and raw_latency >= 0:
-        latency_seconds = float(raw_latency)
 
-    return ModelSessionCheckResults(
-        run_id=run_id,
-        session_id=session_id,
-        correlation_id=run_id,
-        gate_results=tuple(gate_results),
-        test_results=tuple(test_results),
-        static_analysis_results=tuple(static_results),
-        cost_usd=cost_usd,
-        latency_seconds=latency_seconds,
-        collected_at_utc=collected_at_utc,
-    )
+def _extract_non_negative_float(extra: dict[str, Any], key: str) -> float | None:
+    """Extract a non-negative numeric payload extra as a float."""
+    raw_value = extra.get(key)
+    if isinstance(raw_value, (int, float)) and raw_value >= 0:
+        return float(raw_value)
+    return None
 
 
 def _launch_objective_evaluation(
