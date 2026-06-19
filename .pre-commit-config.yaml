@@ -677,15 +677,15 @@ repos:
         pass_filenames: true
         stages: [commit-msg]
 
-# Default stage for hooks (commit, not push)
-
   # OMN-13291 (W0): validator-requirements fleet gate. Reports ALL missing
   # required gates for omniintelligence against omnibase_core's
   # architecture-handshakes/validator-requirements.yaml, ratcheted by this
   # repo's own architecture-handshakes/validator-requirements-baseline.yaml.
   # Re-pin rev to the merged-dev SHA once the omnibase_core export PR lands.
   - repo: https://github.com/OmniNode-ai/omnibase_core
-    rev: d163312724489f10f58ffdf8115ba1fa9d5783e8 # pragma: allowlist secret
+    # Default stage for hooks (commit, not push)
+
+    rev: d163312724489f10f58ffdf8115ba1fa9d5783e8  # pragma: allowlist secret
     hooks:
       - id: validate-validator-requirements
         args:
