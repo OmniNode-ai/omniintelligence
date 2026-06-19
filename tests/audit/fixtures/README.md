@@ -215,6 +215,6 @@ When fixture files are modified:
 
 ## Related Documentation
 
-- [I/O Audit Tool](../../../src/omniintelligence/audit/io_audit.py) - Main audit implementation
-- [Whitelist Configuration](../io_audit_whitelist.yaml) - YAML whitelist for test fixtures
+- [I/O Audit Package](../../../src/omniintelligence/audit/README.md) - Audit model and policy documentation
+- [Whitelist Configuration Model](../../../src/omniintelligence/audit/model_whitelist_config.py) - Whitelist schema for audit fixtures
 - [Contract Linter Tool README](../../../src/omniintelligence/validators/README.md) - CLI tool documentation
