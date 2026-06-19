@@ -309,10 +309,12 @@ class TestProjectionHandlerNotRegistered:
             intent_classifier=mock_intent_classifier,
             pattern_query_store=None,
         )
-        # Without projection handler, handler count should be the baseline (30)
-        # and route count should be the baseline (37) — OMN-6979, OMN-12280 adds 2 handlers/routes
-        assert engine.handler_count == 30
-        assert engine.route_count == 37
+        # Without projection handler, handler count should be the baseline (29)
+        # and route count should be the baseline (36) — OMN-6979, OMN-12280 adds 2
+        # handlers/routes; OMN-9536 removed the legacy routing.feedback drain
+        # handler + route.
+        assert engine.handler_count == 29
+        assert engine.route_count == 36
 
     @pytest.mark.unit
     def test_projection_handler_skipped_logs_warning(

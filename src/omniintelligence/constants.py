@@ -623,16 +623,6 @@ Consumed by omnimemory crawl nodes.
 Reference: OMN-2384
 """
 
-TOPIC_LEGACY_ROUTING_FEEDBACK_BARE: str = "routing.feedback"
-"""DEPRECATED (OMN-2366): Legacy bare topic name for routing feedback.
-
-Predates the canonical onex.evt.omniclaude.routing-feedback.v1 naming convention
-(OMN-2622). No active producers detected as of 2026-04-09.
-
-Subscribed in node_routing_feedback_effect contract.yaml for drain purposes only.
-Remove this constant after the topic is confirmed empty and purged from Redpanda.
-"""
-
 # =============================================================================
 # Exports
 # =============================================================================
@@ -667,7 +657,6 @@ __all__ = [
     "TOPIC_CRAWL_TICK_V1",
     "TOPIC_GMAIL_INTENT_EVALUATED_V1",
     "TOPIC_GMAIL_INTENT_SURFACED_V1",
-    "TOPIC_LEGACY_ROUTING_FEEDBACK_BARE",
     "TOPIC_OMNICLAUDE_DISPATCH_WORKER_COMPLETED_V1",
     "TOPIC_OMNICLAUDE_ROUTING_FEEDBACK_V1",
     "TOPIC_QUALITY_ASSESSMENT_CMD_V1",

@@ -122,10 +122,6 @@ EXPECTED_DISPATCH_OUTCOME_EVALUATED = ".".join(
     )
 )
 
-# Legacy bare routing feedback topic (drain subscription only — see
-# node_routing_feedback_effect/contract.yaml, OMN-2366).
-EXPECTED_ROUTING_FEEDBACK_LEGACY = "routing.feedback"
-
 EXPECTED_TOPICS = {
     EXPECTED_CLAUDE_HOOK,
     EXPECTED_TOOL_CONTENT,
@@ -171,7 +167,6 @@ EXPECTED_TOPICS = {
     EXPECTED_CODE_ENTITIES_EXTRACTED,
     EXPECTED_DISPATCH_WORKER_COMPLETED,
     EXPECTED_DISPATCH_OUTCOME_EVALUATED,
-    EXPECTED_ROUTING_FEEDBACK_LEGACY,
 }
 
 
