@@ -14,7 +14,7 @@
 | **Compute** | `NodeCompute` | `result` only | 24 | `NodeQualityScoringCompute` |
 | **Effect** | `NodeEffect` | `events[]` only | 30 | `NodeClaudeHookEventEffect` |
 | **Reducer** | `NodeReducer` | `projections[]` only | 2 | `NodeDocPromotionReducer` |
-| **Orchestrator** | `NodeOrchestrator` | `events[]`, `intents[]` | 2 | `NodeIntelligenceOrchestrator` |
+| **Orchestrator** | `NodeOrchestrator` | `events[]`, `intents[]` | 2 | `NodePatternAssemblerOrchestrator` |
 
 > Counts reflect `[project.entry-points."onex.nodes"]` in `pyproject.toml` (59 total registered, plus 1 Audit node). For the full inventory see [docs/reference/NODE_INVENTORY.md](../reference/NODE_INVENTORY.md).
 
@@ -89,6 +89,13 @@ NodePatternDemotionEffect  --publishes-->                       |
 
 ### Intelligence Orchestration Pipeline
 
+> **Registration note**: `node_intelligence_orchestrator` and `node_intelligence_reducer` are
+> **not** registered in `pyproject.toml [project.entry-points."onex.nodes"]` (see
+> [NODE_INVENTORY.md](../reference/NODE_INVENTORY.md#unregistered-node-directories)). The
+> orchestrator's `handler_receive_intent` is nonetheless wired into the live dispatch engine
+> (`runtime/dispatch_handlers.py`), so this pipeline runs via dispatch rather than via a
+> registered standalone node entry-point.
+
 ```
 Kafka (code-analysis / document-ingestion / pattern-learning / quality-assessment commands)
     |
@@ -112,7 +119,16 @@ NodeIntelligenceReducer (FSM: INGESTION | PATTERN_LEARNING | QUALITY_ASSESSMENT)
 
 ## Contract-Only Nodes
 
-`NodePatternLearningEffect` has no `node.py`. Its directory contains only `contract.yaml`.
+Three node directories have no `node.py` and are driven entirely by `contract.yaml` plus
+handler modules wired through the dispatch engine:
+
+| Directory | Registered in `pyproject.toml`? |
+|-----------|----------------------------------|
+| `node_pattern_learning_effect` | Yes |
+| `node_intent_graph_reducer` | No (unregistered — see [NODE_INVENTORY.md](../reference/NODE_INVENTORY.md#unregistered-node-directories)) |
+| `node_tcb_generation_compute` | No (unregistered) |
+
+The registered example is `NodePatternLearningEffect`.
 
 **Why**: The pattern learning handler coordinates multiple compute nodes (extraction, learning),
 reads from PostgreSQL, and publishes to Kafka. The handler logic is complex enough that wrapping
@@ -146,7 +162,7 @@ implements `ProtocolDomainPlugin` and runs five sequential bootstrap phases:
 2. initialize()        — creates PostgreSQL pool + RegistryMessageType
 2.5 validate_handshake() — B1: verifies DB ownership; B2: verifies schema fingerprint
 3. wire_handlers()     — registers handlers with the container
-4. wire_dispatchers()  — builds MessageDispatchEngine with 31 handlers / 40 routes
+4. wire_dispatchers()  — builds MessageDispatchEngine (30 register_handler / 39 register_route calls in runtime/dispatch_handlers.py; 1 handler + 3 routes register conditionally inside an `if _projection_store is not None:` block — the pattern-projection handler)
 5. start_consumers()   — subscribes to all intelligence Kafka topics
 ```
 
@@ -165,9 +181,12 @@ Source contracts scanned:
 
 **Dispatch engine routes**:
 
-The engine registers 31 handlers and 40 routes across 14 dispatch handler modules under
-`runtime/dispatch_handler_*.py`. The table below shows the original core routes; for the full
-event surface see [docs/reference/EVENT_SURFACE.md](../reference/EVENT_SURFACE.md).
+`create_intelligence_dispatch_engine()` in `runtime/dispatch_handlers.py` issues 30
+`engine.register_handler(...)` and 39 `engine.register_route(...)` calls (1 handler and 3 routes
+are inside the `if _projection_store is not None:` block that wires the pattern-projection handler;
+`_projection_store` is resolved from `pattern_query_store`/`pattern_upsert_store`), drawing
+on the 14 `runtime/dispatch_handler_*.py` modules. The table below shows the original core routes;
+for the full event surface see [docs/reference/EVENT_SURFACE.md](../reference/EVENT_SURFACE.md).
 
 | Route | Handler | Source Topic |
 |-------|---------|--------------|
@@ -199,7 +218,9 @@ Does the node manage FSM state transitions?
 
 Does the node coordinate other nodes without doing I/O itself?
     YES --> Orchestrator node
-        Examples: IntelligenceOrchestrator, PatternAssemblerOrchestrator
+        Registered examples: PatternAssemblerOrchestrator, BloomEvalOrchestrator
+        (note: node_bloom_eval_orchestrator declares node_type: orchestrator but its
+         node.py class is NodeBloomEvalEffect)
 
 Does the node read/write external systems (Kafka, PostgreSQL)?
     YES --> Effect node
@@ -233,5 +254,9 @@ All intelligence topics follow: `{env}.onex.{kind}.omniintelligence.{event-name}
 
 ---
 
-**Last Updated**: 2026-06-16
+**Last Updated**: 2026-06-21 (verified against code on this refresh, OMN-13455) — node-type counts
+re-derived from the 59 `[project.entry-points."onex.nodes"]` (24 compute / 30 effect / 2 reducer /
+2 orchestrator); dispatch handler/route counts re-counted in `runtime/dispatch_handlers.py`
+(30 `register_handler` / 39 `register_route`); contract-only node list and the unregistered
+`node_intelligence_orchestrator`/`node_intelligence_reducer` status verified.
 **See Also**: `omnibase_core/docs/architecture/ONEX_FOUR_NODE_ARCHITECTURE.md` — base class definitions, handler output constraints, and FSM/workflow subcontract reference.
