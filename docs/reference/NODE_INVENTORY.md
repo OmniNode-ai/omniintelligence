@@ -4,8 +4,8 @@
 
 **Source of truth:** `pyproject.toml [project.entry-points."onex.nodes"]`
 **Owner:** omniintelligence
-**Last verified:** 2026-06-16
-**Verification:** `grep -A200 '\[project.entry-points."onex.nodes"\]' pyproject.toml`
+**Last verified:** 2026-06-21 (verified against code on this refresh, OMN-13455)
+**Verification:** parsed `pyproject.toml [project.entry-points."onex.nodes"]` (59 entries: 24 compute / 30 effect / 2 reducer / 2 orchestrator + 1 audit; `node_plan_reviewer_multi_compute` re-classified as compute)
 
 This inventory is sourced directly from the `[project.entry-points."onex.nodes"]` section of `pyproject.toml`. When a node is added or removed, this file must be updated in the same PR.
 
@@ -37,6 +37,7 @@ Total registered nodes: **59**
 | `node_pattern_extraction_compute` | `omniintelligence.nodes.node_pattern_extraction_compute` | Extract pattern candidates from code and traces |
 | `node_pattern_learning_compute` | `omniintelligence.nodes.node_pattern_learning_compute` | ML pattern learning pipeline |
 | `node_pattern_matching_compute` | `omniintelligence.nodes.node_pattern_matching_compute` | Match patterns against code or events |
+| `node_plan_reviewer_multi_compute` | `omniintelligence.nodes.node_plan_reviewer_multi_compute` | Multi-model plan review (compute) |
 | `node_scoring_reducer_compute` | `omniintelligence.nodes.node_scoring_reducer_compute` | Reduce multiple score signals into composite score |
 | `node_semantic_analysis_compute` | `omniintelligence.nodes.node_semantic_analysis_compute` | Semantic code analysis |
 | `node_success_criteria_matcher_compute` | `omniintelligence.nodes.node_success_criteria_matcher_compute` | Match patterns against success criteria |
@@ -93,9 +94,8 @@ Total registered nodes: **59**
 
 | Entry point | Module path | Purpose |
 |-------------|-------------|---------|
-| `node_bloom_eval_orchestrator` | `omniintelligence.nodes.node_bloom_eval_orchestrator` | Bloom evaluation orchestration |
+| `node_bloom_eval_orchestrator` | `omniintelligence.nodes.node_bloom_eval_orchestrator` | Bloom evaluation orchestration (contract `node_type: orchestrator`; `node.py` class is `NodeBloomEvalEffect`) |
 | `node_pattern_assembler_orchestrator` | `omniintelligence.nodes.node_pattern_assembler_orchestrator` | Pattern assembly from execution traces |
-| `node_plan_reviewer_multi_compute` | `omniintelligence.nodes.node_plan_reviewer_multi_compute` | Multi-model plan review orchestration |
 
 ---
 

@@ -114,12 +114,12 @@ Dated plans and migration context are in `omni_home/docs/plans/`. They are not p
 
 | Document | Status | Notes |
 |----------|--------|-------|
-| [ONEX Four-Node Architecture](architecture/ONEX_FOUR_NODE_ARCHITECTURE.md) | Active | Updated 2026-02-19; pipeline diagrams reflect dispatch engine routing |
+| [ONEX Four-Node Architecture](architecture/ONEX_FOUR_NODE_ARCHITECTURE.md) | Active | Verified against code 2026-06-21 (OMN-13455); node-type counts, dispatch handler/route counts, contract-only and unregistered-node status re-derived from source |
 | [Contract Package Spec](architecture/contract-package-spec.md) | Active | Contract YAML reference |
 | [Naming Conventions](conventions/NAMING_CONVENTIONS.md) | Active | Canonical naming standard |
 | [Standard Doc Layout](standards/STANDARD_DOC_LAYOUT.md) | Active | Documentation structure standard |
 | [Contract Validation Guide](CONTRACT_VALIDATION_GUIDE.md) | Active | Contract linting and validation reference |
 | [Node State Policy](NODE_STATE_POLICY.md) | Active | Node state and lifecycle policy |
-| [Node Inventory](reference/NODE_INVENTORY.md) | Active | Sourced from `pyproject.toml` — updated 2026-04-29 |
+| [Node Inventory](reference/NODE_INVENTORY.md) | Active | Sourced from `pyproject.toml` — verified against code 2026-06-21 (OMN-13455) |
 | [Event Surface](reference/EVENT_SURFACE.md) | Active | Sourced from CLAUDE.md and contract YAML files — updated 2026-04-29 |
 | [Dash Integration Truth Boundary](reference/DASH_INTEGRATION_TRUTH_BOUNDARY.md) | Active | Sourced from wiring-gaps plan — updated 2026-04-29 |
