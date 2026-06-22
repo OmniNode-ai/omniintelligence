@@ -443,7 +443,7 @@ class TestCreateIntelligenceDispatchEngine:
         )
         assert (
             engine.handler_count == 29
-        )  # Pattern projection and code-analysis enrichment are excluded without their optional adapters.
+        )  # No-LLM test surface excludes optional adapter-backed projection/enrichment paths.
 
     def test_engine_has_expected_routes(
         self,
@@ -459,7 +459,7 @@ class TestCreateIntelligenceDispatchEngine:
         )
         assert (
             engine.route_count == 36
-        )  # Pattern projection and code-analysis enrichment are excluded without their optional adapters.
+        )  # No-LLM test surface excludes optional adapter-backed projection/enrichment paths.
 
 
 # =============================================================================
