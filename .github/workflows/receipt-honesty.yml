@@ -35,9 +35,10 @@ jobs:
   receipt-honesty:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Clone omnibase_core (provides the receipt-honesty validator)
         run: git clone --depth=1 https://github.com/OmniNode-ai/omnibase_core.git ../omnibase_core
       - name: Install uv
