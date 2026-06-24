@@ -131,6 +131,9 @@ class IntelligenceCommandTopic(UtilStrValueHelper, str, Enum):
     CLAUDE_HOOK_EVENT = "onex.cmd.omniintelligence.claude-hook-event.v1"
     """Claude Code hook event command."""
 
+    CURSOR_HOOK_EVENT = "onex.cmd.omniintelligence.cursor-hook-event.v1"
+    """Cursor IDE hook event command (peer of CLAUDE_HOOK_EVENT)."""
+
     SESSION_OUTCOME = "onex.cmd.omniintelligence.session-outcome.v1"
     """Session outcome command."""
 

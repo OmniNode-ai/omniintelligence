@@ -78,6 +78,21 @@ RuntimeHostProcess routes them to NodeClaudeHookEventEffect.
 Deletion ticket: OMN-1546
 """
 
+TOPIC_SUFFIX_CURSOR_HOOK_EVENT_V1: str = (
+    "onex.cmd.omniintelligence.cursor-hook-event.v1"
+)
+"""
+Canonical topic for Cursor IDE hook events (INPUT).
+
+Canonical topic: onex.cmd.omniintelligence.cursor-hook-event.v1
+
+OmniCursor publishes Cursor hook events to this topic (via the omnimarket
+emit daemon). RuntimeHostProcess routes them to NodeCursorHookEventEffect,
+the Cursor-side peer of NodeClaudeHookEventEffect. Cursor and Claude are
+interchangeable dispatchers; the agent_source field on emitted events keeps
+their provenance distinct.
+"""
+
 TOPIC_SUFFIX_INTENT_CLASSIFIED_V1: str = (
     "onex.evt.omniintelligence.intent-classified.v1"
 )
@@ -666,6 +681,7 @@ __all__ = [
     "TOPIC_ROUTING_FEEDBACK_PROCESSED",
     "TOPIC_RUN_EVALUATED_V1",
     "TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1",
+    "TOPIC_SUFFIX_CURSOR_HOOK_EVENT_V1",
     "TOPIC_SUFFIX_INTENT_CLASSIFIED_V1",
     "TOPIC_SUFFIX_PATTERN_DEPRECATED_V1",
     "TOPIC_SUFFIX_PATTERN_LEARNING_CMD_V1",
