@@ -67,7 +67,7 @@ uv sync --group all        # Everything
 # Run tests (always prefix with uv run)
 uv run pytest tests/ -v                     # Full suite — required before any PR
 uv run pytest tests/ -v -m unit             # Unit tests only
-uv run pytest tests/ -v -m integration      # Integration tests (requires Postgres + Kafka on .201)
+uv run pytest tests/ -v -m integration      # Integration tests (requires Postgres + Kafka on the runtime host)
 uv run pytest tests/ -v -m audit            # I/O purity enforcement (AST checks)
 uv run pytest tests/ -v -m "not slow"       # Exclude slow tests
 uv run pytest tests/ --cov=src/omniintelligence --cov-report=html  # With coverage
@@ -845,7 +845,7 @@ See [docs/reference/EVENT_SURFACE.md](docs/reference/EVENT_SURFACE.md) for the a
 |------|---------|
 | `plugin.py` | `PluginIntelligence` — implements `ProtocolDomainPlugin` for kernel bootstrap |
 | `wiring.py` | `wire_intelligence_handlers()` — registers handlers with container |
-| `dispatch_handlers.py` | `create_intelligence_dispatch_engine()` — builds `MessageDispatchEngine` with 31 handlers / 40 routes (as of OMN-12280) |
+| `dispatch_handlers.py` | `create_intelligence_dispatch_engine()` — builds `MessageDispatchEngine` with 31 handlers / 40 routes |
 | `dispatch_handler_*.py` | 14 dispatch handler modules in `runtime/`; each encapsulates logic for one domain (pattern learning, compliance, crawl scheduling, code analysis, routing feedback, and others) |
 | `adapters.py` | Protocol adapters: `AdapterPatternRepositoryRuntime`, `AdapterKafkaPublisher`, `AdapterIntentClassifier`, `AdapterIdempotencyStoreInfra` |
 | `contract_topics.py` | `collect_subscribe_topics_from_contracts()`, `collect_publish_topics_for_dispatch()` |
@@ -878,7 +878,7 @@ See [docs/reference/EVENT_SURFACE.md](docs/reference/EVENT_SURFACE.md) for the a
 | `model_pattern_query_page.py` | `ModelPatternQueryPage` — paginated response model |
 | `model_pattern_query_response.py` | Individual pattern response model |
 
-**Purpose** (OMN-2253): REST API for enforcement nodes to query the pattern store. Replaces direct DB access disabled in OMN-2058.
+**Purpose**: REST API for enforcement nodes to query the pattern store. Replaces direct DB access that was removed in an earlier cleanup.
 
 **Endpoint**: `GET /api/v1/patterns` — filters by `domain`, `language`, `min_confidence`, `limit`, `offset`.
 
@@ -947,7 +947,7 @@ See [docs/reference/EVENT_SURFACE.md](docs/reference/EVENT_SURFACE.md) for the a
 
 ```python
 # Correct — with Linear ticket
-# TODO(OMN-1234): Add validation for edge case
+# TODO(TICKET-123): Add validation for edge case
 
 # Wrong — missing ticket
 # TODO: Fix this later

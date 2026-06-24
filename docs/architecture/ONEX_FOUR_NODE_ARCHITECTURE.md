@@ -254,7 +254,7 @@ All intelligence topics follow: `{env}.onex.{kind}.omniintelligence.{event-name}
 
 ---
 
-**Last Updated**: 2026-06-21 (verified against code on this refresh, OMN-13455) — node-type counts
+**Last Updated**: 2026-06-21 (verified against code on this refresh) — node-type counts
 re-derived from the 59 `[project.entry-points."onex.nodes"]` (24 compute / 30 effect / 2 reducer /
 2 orchestrator); dispatch handler/route counts re-counted in `runtime/dispatch_handlers.py`
 (30 `register_handler` / 39 `register_route`); contract-only node list and the unregistered

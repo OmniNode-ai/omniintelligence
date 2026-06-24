@@ -396,7 +396,7 @@ files:
 
   # All legacy nodes (glob pattern)
   - path: "src/omniintelligence/nodes/legacy_*.py"
-    reason: "Legacy nodes pending refactor - tracked in OMN-123"
+    reason: "Legacy nodes pending refactor - tracked in the issue tracker"
     allowed_rules:
       - "env-access"
       - "file-io"
@@ -799,7 +799,7 @@ A: Inline pragmas only work for files listed in the YAML whitelist. Add your fil
 A: Add a whitelist entry with a documented reason and reference a tracking ticket:
 ```yaml
 - path: "src/nodes/my_compute_node.py"
-  reason: "Temporary - pending refactor to Effect pattern - OMN-456"
+  reason: "Temporary - pending refactor to Effect pattern"
   allowed_rules:
     - "env-access"
 ```

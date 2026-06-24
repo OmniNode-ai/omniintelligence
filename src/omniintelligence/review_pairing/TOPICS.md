@@ -1,7 +1,7 @@
 # Review-Fix Pairing Kafka Topics
 
 This document defines the canonical Kafka topic names and JSON schemas for the
-Review-Fix Pairing subsystem (OMN-2353). All topic names and field definitions
+Review-Fix Pairing subsystem. All topic names and field definitions
 match the Pydantic models in `omniintelligence.review_pairing.models` exactly.
 
 ---
@@ -114,5 +114,3 @@ Consumed by: Pattern Candidate Reducer, metrics collectors
 - `diff_hunks` is a JSON array of unified-diff hunk strings. Each string begins with `@@` and includes the changed lines. The array may be empty if diff data is unavailable.
 
 ---
-
-Reference: OMN-2535

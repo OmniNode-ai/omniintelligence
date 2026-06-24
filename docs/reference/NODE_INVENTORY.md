@@ -4,7 +4,7 @@
 
 **Source of truth:** `pyproject.toml [project.entry-points."onex.nodes"]`
 **Owner:** omniintelligence
-**Last verified:** 2026-06-21 (verified against code on this refresh, OMN-13455)
+**Last verified:** 2026-06-21 (verified against code on this refresh)
 **Verification:** parsed `pyproject.toml [project.entry-points."onex.nodes"]` (59 entries: 24 compute / 30 effect / 2 reducer / 2 orchestrator + 1 audit; `node_plan_reviewer_multi_compute` re-classified as compute)
 
 This inventory is sourced directly from the `[project.entry-points."onex.nodes"]` section of `pyproject.toml`. When a node is added or removed, this file must be updated in the same PR.
@@ -55,7 +55,7 @@ Total registered nodes: **59**
 | `node_context_item_writer_effect` | `omniintelligence.nodes.node_context_item_writer_effect` | Write context items to storage |
 | `node_crawl_scheduler_effect` | `omniintelligence.nodes.node_crawl_scheduler_effect` | Schedule and manage crawl jobs |
 | `node_debug_fix_record_effect` | `omniintelligence.nodes.node_debug_fix_record_effect` | Record debug fix events |
-| `node_dispatch_outcome_eval_effect` | `omniintelligence.nodes.node_dispatch_outcome_eval_effect` | Evaluate omniclaude dispatch worker outcomes (OMN-12280) |
+| `node_dispatch_outcome_eval_effect` | `omniintelligence.nodes.node_dispatch_outcome_eval_effect` | Evaluate omniclaude dispatch worker outcomes |
 | `node_doc_staleness_detector_effect` | `omniintelligence.nodes.node_doc_staleness_detector_effect` | Detect stale documents and emit staleness events |
 | `node_document_fetch_effect` | `omniintelligence.nodes.node_document_fetch_effect` | Fetch documents from external sources |
 | `node_embedding_generation_effect` | `omniintelligence.nodes.node_embedding_generation_effect` | Generate and store embeddings |

@@ -1,7 +1,6 @@
 # FK Scan Report — omniintelligence
 
-**Ticket**: OMN-2067 (DB-SPLIT-03)
-**Parent**: OMN-2054
+**Report ID**: DB-SPLIT-03
 **Date**: 2026-02-10
 **Repo**: omniintelligence
 
