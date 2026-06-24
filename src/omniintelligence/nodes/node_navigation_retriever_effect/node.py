@@ -54,7 +54,6 @@ class NodeNavigationRetrieverEffect(NodeEffect):
 
     Example:
         ```python
-        import os
         from omniintelligence.nodes.node_navigation_retriever_effect.handlers import (
             handle_navigation_retrieve,
         )
@@ -86,8 +85,11 @@ class NodeNavigationRetrieverEffect(NodeEffect):
                     fingerprint="sha256:abc123",
                     valid_transitions=frozenset([("node-start", "to_auth")]),
                 ),
-                embedding_url=os.environ["LLM_EMBEDDING_URL"],
-                qdrant_url=os.environ["QDRANT_URL"],
+                # endpoints are injected by the caller — in production they are
+                # resolved from contract overlays (LLM routing authority /
+                # ${env.QDRANT_URL}), never read from os.environ here:
+                embedding_url=embedding_endpoint,
+                qdrant_url=qdrant_endpoint,
             )
         )
         # result.paths — ranked list of RetrievedPath (may be empty on cold start)
