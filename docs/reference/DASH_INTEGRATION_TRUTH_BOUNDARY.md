@@ -89,7 +89,7 @@ omnidash (consumer / read-model)
 
 | Topic | Status | Notes |
 |-------|--------|-------|
-| `routing.feedback` (bare topic, no `onex.*` prefix) | Drain pending (OMN-2366) | Legacy bare topic from before `onex.*` naming standard. `NodeRoutingFeedbackEffect` now subscribes to `onex.evt.omniclaude.routing-feedback.v1`. Verify no producer remains on the bare topic. |
+| `routing.feedback` (bare topic, no `onex.*` prefix) | Drain pending | Legacy bare topic from before `onex.*` naming standard. `NodeRoutingFeedbackEffect` now subscribes to `onex.evt.omniclaude.routing-feedback.v1`. Verify no producer remains on the bare topic. |
 
 ---
 

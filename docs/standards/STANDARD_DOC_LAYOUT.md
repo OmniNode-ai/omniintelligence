@@ -100,7 +100,7 @@ All links in `INDEX.md` must use relative paths and resolve to existing files.
 | `docs/migrations/OMNIARCHON_MIGRATION_INVENTORY.md` | Completed migration; stale |
 | `docs/migrations/ONEX_MIGRATION_PLAN.md` | Completed migration; stale |
 | `docs/migrations/omniarchon_to_omniintelligence.md` | Completed migration; stale |
-| `docs/plans/OMN-1757-declarative-node-refactor.md` | Completed work; stale plan |
+| `docs/plans/declarative-node-refactor.md` | Completed work; stale plan |
 | `docs/specs/DECLARATIVE_EFFECT_NODES_SPEC.md` | Superseded; no current value |
 
 ---

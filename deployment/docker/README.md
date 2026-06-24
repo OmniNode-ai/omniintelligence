@@ -274,10 +274,10 @@ Ensure `DATABASE_URL` in your `.env` points to the correct host:
 
 ### Node Cannot Connect to Kafka
 
-Redpanda runs on the **remote M2 Ultra (192.168.86.200)**, not locally. Verify
+Redpanda runs on the **remote runtime host**, not locally. Verify
 `KAFKA_BOOTSTRAP_SERVERS` is set correctly:
 - Docker services: `omnibase-infra-redpanda:9092` (via `/etc/hosts` DNS)
-- Host scripts: `192.168.86.200:29092`
+- Host scripts: `${ONEX_HOST}:29092`
 
 ### Network Not Found
 

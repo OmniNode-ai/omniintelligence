@@ -81,7 +81,7 @@ uv run pytest tests/ -v -m unit
 # Audit tests (AST purity enforcement)
 uv run pytest tests/ -v -m audit
 
-# Integration tests (requires Postgres + Kafka on .201)
+# Integration tests (requires Postgres + Kafka on the runtime host)
 uv run pytest tests/ -v -m integration
 
 # Lint and format
