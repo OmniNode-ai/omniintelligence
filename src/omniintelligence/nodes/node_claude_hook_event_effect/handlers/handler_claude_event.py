@@ -29,6 +29,8 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
 
+from omnibase_core.enums.hooks import EnumAgentSource
+
 from omniintelligence.constants import TOPIC_SUFFIX_PATTERN_LEARNING_CMD_V1
 from omniintelligence.nodes.node_claude_hook_event_effect.models import (
     EnumClaudeCodeHookEventType,
@@ -174,6 +176,7 @@ async def route_hook_event(
     kafka_producer: ProtocolKafkaPublisher | None = None,
     publish_topic: str | None = None,
     repository: ProtocolPatternRepository | None = None,
+    agent_source: EnumAgentSource | str = EnumAgentSource.CLAUDE,
 ) -> ModelClaudeHookResult:
     """Route a Claude Code hook event to the appropriate handler.
 
@@ -189,10 +192,20 @@ async def route_hook_event(
             Source of truth is the contract's event_bus.publish_topics.
         repository: Optional database repository for PostToolUse persistence.
             When None, PostToolUse events degrade to no-op (no DB write).
+        agent_source: Originating agent frontend (EnumAgentSource). Stamped onto
+            downstream emitted events so consumers can distinguish which
+            dispatcher produced the event. Defaults to EnumAgentSource.CLAUDE;
+            the cursor node passes EnumAgentSource.CURSOR. A bare string is
+            accepted and coerced for backward compatibility with existing
+            callers.
 
     Returns:
         ModelClaudeHookResult with processing outcome.
     """
+    # Coerce at the seam: accept a bare string from legacy callers, but route
+    # a canonical EnumAgentSource through the rest of the pipeline. Raises
+    # ValueError on an unrecognized source rather than silently mis-attributing.
+    agent_source = EnumAgentSource(agent_source)
     start_time = time.perf_counter()
 
     try:
@@ -203,11 +216,13 @@ async def route_hook_event(
                 intent_classifier=intent_classifier,
                 kafka_producer=kafka_producer,
                 publish_topic=publish_topic,
+                agent_source=agent_source,
             )
         elif event.event_type == EnumClaudeCodeHookEventType.STOP:
             result = await handle_stop(
                 event=event,
                 kafka_producer=kafka_producer,
+                agent_source=agent_source,
             )
         elif event.event_type in (
             EnumClaudeCodeHookEventType.POST_TOOL_USE,
@@ -295,6 +310,7 @@ async def handle_stop(
     event: ModelClaudeCodeHookEvent,
     *,
     kafka_producer: ProtocolKafkaPublisher | None = None,
+    agent_source: EnumAgentSource = EnumAgentSource.CLAUDE,
 ) -> ModelClaudeHookResult:
     """Handle Stop events by triggering pattern extraction.
 
@@ -317,7 +333,8 @@ async def handle_stop(
     """
     start_time = time.perf_counter()
     metadata: ClaudeHookResultMetadataDict = {
-        "handler": "stop_trigger_pattern_learning"
+        "handler": "stop_trigger_pattern_learning",
+        "agent_source": agent_source.value,
     }
 
     # Resolve correlation_id to a non-None UUID for downstream calls that
@@ -1114,6 +1131,7 @@ async def handle_user_prompt_submit(
     intent_classifier: ProtocolIntentClassifier | None = None,
     kafka_producer: ProtocolKafkaPublisher | None = None,
     publish_topic: str | None = None,
+    agent_source: EnumAgentSource = EnumAgentSource.CLAUDE,
 ) -> ModelClaudeHookResult:
     """Handle UserPromptSubmit events with intent classification.
 
@@ -1133,7 +1151,10 @@ async def handle_user_prompt_submit(
     Returns:
         ModelClaudeHookResult with intent classification results.
     """
-    metadata: ClaudeHookResultMetadataDict = {"handler": "user_prompt_submit"}
+    metadata: ClaudeHookResultMetadataDict = {
+        "handler": "user_prompt_submit",
+        "agent_source": agent_source.value,
+    }
 
     # Resolve correlation_id: use event's if present, generate one otherwise
     if event.correlation_id is not None:
@@ -1239,6 +1260,7 @@ async def handle_user_prompt_submit(
                 correlation_id=correlation_id,
                 producer=kafka_producer,
                 topic=publish_topic,
+                agent_source=agent_source,
             )
             emitted_to_kafka = True
             metadata["kafka_emission"] = EnumKafkaEmissionStatus.SUCCESS.value
@@ -1374,6 +1396,7 @@ async def _emit_intent_to_kafka(
     producer: ProtocolKafkaPublisher,
     *,
     topic: str,
+    agent_source: EnumAgentSource = EnumAgentSource.CLAUDE,
 ) -> None:
     """Emit the classified intent to Kafka with enriched provenance payload.
 
@@ -1424,9 +1447,13 @@ async def _emit_intent_to_kafka(
         "event_version": {"major": 1, "minor": 1, "patch": 0},
         "secondary_intents": secondary_intents,
         "success": success,
+        # Originating dispatcher frontend ("claude" or "cursor"). Additive field
+        # so downstream consumers can distinguish Cursor intents from Claude
+        # intents on the shared intent-classified.v1 topic.
+        "agent_source": agent_source.value,
         "provenance": {
             "source_system": "omniintelligence",
-            "source_node": "claude_hook_event_effect",
+            "source_node": f"{agent_source.value}_hook_event_effect",
             "classifier_version": _parse_semver_str(classifier_version_str),
             "processing_time_ms": processing_time_ms,
         },

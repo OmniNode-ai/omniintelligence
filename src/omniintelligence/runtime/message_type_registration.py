@@ -37,7 +37,7 @@ INTELLIGENCE_DOMAIN = "intelligence"
 
 # Total number of unique message types registered.
 # Used in tests and validate_startup logging.
-EXPECTED_MESSAGE_TYPE_COUNT = 10
+EXPECTED_MESSAGE_TYPE_COUNT = 11
 
 
 def register_intelligence_message_types(
@@ -45,7 +45,7 @@ def register_intelligence_message_types(
 ) -> list[str]:
     """Register all intelligence wire models with the message type registry.
 
-    This function registers 10 message types spanning:
+    This function registers 11 message types spanning:
     - 5 Kafka event models (published by effect nodes)
     - 4 Kafka command/event models (consumed by effect nodes)
     - 1 external input model (session outcome)
@@ -137,6 +137,16 @@ def register_intelligence_message_types(
         description="Claude Code hook event command input",
     )
     registered.append("ModelClaudeCodeHookEvent")
+
+    # 6b. Cursor IDE hook event (cmd topic) -- peer of ModelClaudeCodeHookEvent
+    registry.register_simple(
+        message_type="ModelCursorHookEvent",
+        handler_id="node_cursor_hook_event_effect",
+        category=EnumMessageCategory.COMMAND,
+        domain=INTELLIGENCE_DOMAIN,
+        description="Cursor IDE hook event command input",
+    )
+    registered.append("ModelCursorHookEvent")
 
     # 7. Pattern storage input (consumed from evt topic: pattern-learned)
     registry.register_simple(

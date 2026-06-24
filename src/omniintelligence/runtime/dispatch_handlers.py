@@ -97,6 +97,10 @@ DISPATCH_ALIAS_CLAUDE_HOOK = canonical_topic_to_dispatch_alias(
     IntelligenceCommandTopic.CLAUDE_HOOK_EVENT
 )
 """Dispatch-compatible alias for claude-hook-event canonical topic."""
+DISPATCH_ALIAS_CURSOR_HOOK = canonical_topic_to_dispatch_alias(
+    IntelligenceCommandTopic.CURSOR_HOOK_EVENT
+)
+"""Dispatch-compatible alias for cursor-hook-event canonical topic."""
 DISPATCH_ALIAS_SESSION_OUTCOME = canonical_topic_to_dispatch_alias(
     IntelligenceCommandTopic.SESSION_OUTCOME
 )
@@ -854,6 +858,144 @@ def create_claude_hook_dispatch_handler(
 
         logger.info(
             "Claude hook event processed via dispatch engine "
+            "(status=%s, event_type=%s, correlation_id=%s)",
+            result.status,
+            result.event_type,
+            ctx_correlation_id,
+        )
+
+        return "ok"
+
+    return _handle
+
+
+def create_cursor_hook_dispatch_handler(
+    *,
+    intent_classifier: ProtocolIntentClassifier,
+    kafka_producer: ProtocolKafkaPublisher | None = None,
+    publish_topic: str | None = None,
+    correlation_id: UUID | None = None,
+    repository: ProtocolPatternRepository | None = None,
+) -> Callable[
+    [ModelEventEnvelope[object], ProtocolHandlerContext],
+    Awaitable[str],
+]:
+    """Create a dispatch engine handler for Cursor hook events.
+
+    Cursor-side peer of ``create_claude_hook_dispatch_handler``. Parses the
+    envelope payload into a ``ModelCursorHookEvent`` (reusing the shared daemon
+    reshape helpers) and delegates to ``route_cursor_hook_event``, which in turn
+    delegates to the shared Claude handler core with ``agent_source="cursor"``.
+
+    Args:
+        intent_classifier: REQUIRED intent classifier for user prompt analysis.
+        kafka_producer: Optional Kafka producer (graceful degradation if absent).
+        publish_topic: Full topic for intent classification events (from contract).
+        correlation_id: Optional fixed correlation ID for tracing.
+        repository: Optional database repository for PostToolUse persistence.
+
+    Returns:
+        Async handler function with signature (envelope, context) -> str.
+    """
+
+    async def _handle(
+        envelope: ModelEventEnvelope[object],
+        context: ProtocolHandlerContext,
+    ) -> str:
+        """Bridge handler: envelope -> route_cursor_hook_event()."""
+        from omniintelligence.nodes.node_cursor_hook_event_effect.handlers import (
+            route_cursor_hook_event,
+        )
+        from omniintelligence.nodes.node_cursor_hook_event_effect.models import (
+            ModelCursorHookEvent,
+        )
+
+        ctx_correlation_id = (
+            correlation_id or getattr(context, "correlation_id", None) or uuid4()
+        )
+
+        payload = envelope.payload
+
+        if isinstance(payload, ModelCursorHookEvent):
+            event = payload
+        elif isinstance(payload, dict):
+            try:
+                # Recover envelope-absorbed keys (see claude handler note, OMN-2322).
+                payload = _reconstruct_payload_from_envelope(payload, envelope)
+
+                if _needs_daemon_reshape(payload):
+                    logger.debug(
+                        "Applying daemon reshape strategy for cursor-hook-event "
+                        "(correlation_id=%s) %s",
+                        ctx_correlation_id,
+                        _diagnostic_key_summary(payload),
+                    )
+                    parsed = _reshape_daemon_hook_payload_v1(payload)
+                    event = ModelCursorHookEvent(**parsed)
+                else:
+                    logger.debug(
+                        "Applying canonical parse strategy for cursor-hook-event "
+                        "(correlation_id=%s) %s",
+                        ctx_correlation_id,
+                        _diagnostic_key_summary(payload),
+                    )
+                    event = ModelCursorHookEvent(**payload)
+            except ValueError as e:
+                sanitized = get_log_sanitizer().sanitize(str(e))
+                msg = (
+                    f"Failed to parse payload as ModelCursorHookEvent: {sanitized} "
+                    f"(correlation_id={ctx_correlation_id})"
+                )
+                logger.error(
+                    "Permanent reshape failure for cursor-hook-event, message will be "
+                    "discarded to prevent NACK loop: %s %s",
+                    msg,
+                    _diagnostic_key_summary(payload)
+                    if isinstance(payload, dict)
+                    else f"(payload_type={type(payload).__name__})",
+                )
+                raise ValueError(msg) from e
+            except Exception as e:
+                sanitized_exc = get_log_sanitizer().sanitize(str(e))
+                msg = (
+                    f"Failed to parse payload as ModelCursorHookEvent: {sanitized_exc} "
+                    f"(correlation_id={ctx_correlation_id})"
+                )
+                logger.error(
+                    "Permanent reshape failure (unexpected error) for cursor-hook-event, "
+                    "message will be discarded to prevent NACK loop: %s",
+                    msg,
+                )
+                raise ValueError(msg) from e
+        else:
+            msg = (
+                f"Unexpected payload type {type(payload).__name__} "
+                f"for cursor-hook-event (correlation_id={ctx_correlation_id})"
+            )
+            logger.error(
+                "Permanent dispatch failure (unexpected payload type), message will be "
+                "discarded to prevent NACK loop: %s",
+                msg,
+            )
+            raise ValueError(msg)
+
+        logger.info(
+            "Dispatching cursor-hook-event via MessageDispatchEngine "
+            "(event_type=%s, correlation_id=%s)",
+            event.event_type,
+            ctx_correlation_id,
+        )
+
+        result = await route_cursor_hook_event(
+            event=event,
+            intent_classifier=intent_classifier,
+            kafka_producer=kafka_producer,
+            publish_topic=publish_topic,
+            repository=repository,
+        )
+
+        logger.info(
+            "Cursor hook event processed via dispatch engine "
             "(status=%s, event_type=%s, correlation_id=%s)",
             result.status,
             result.event_type,
@@ -2548,6 +2690,33 @@ def create_intelligence_dispatch_engine(
         )
     )
 
+    # --- Handler 1b: cursor-hook-event (peer of claude-hook) ---
+    cursor_hook_handler = create_cursor_hook_dispatch_handler(
+        intent_classifier=intent_classifier,
+        kafka_producer=kafka_producer,
+        publish_topic=topics.get("cursor_hook") or topics.get("claude_hook"),
+        repository=repository,
+    )
+    engine.register_handler(
+        handler_id="intelligence-cursor-hook-handler",
+        handler=cursor_hook_handler,
+        category=EnumMessageCategory.COMMAND,
+        node_kind=EnumNodeKind.EFFECT,
+        message_types=None,
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-cursor-hook-route",
+            topic_pattern=DISPATCH_ALIAS_CURSOR_HOOK,
+            message_category=EnumMessageCategory.COMMAND,
+            handler_id="intelligence-cursor-hook-handler",
+            description=(
+                "Routes cursor-hook-event commands to the cursor intelligence "
+                "handler (delegates to the shared claude hook core)."
+            ),
+        )
+    )
+
     # --- Handler 2: session-outcome ---
     session_outcome_handler = create_session_outcome_dispatch_handler(
         repository=repository,
@@ -3906,6 +4075,7 @@ __all__ = [
     "DISPATCH_ALIAS_CI_RECOVERY",
     "DISPATCH_ALIAS_CLAUDE_HOOK",
     "DISPATCH_ALIAS_COMPLIANCE_EVALUATE",
+    "DISPATCH_ALIAS_CURSOR_HOOK",
     "DISPATCH_ALIAS_DISPATCH_OUTCOME_EVALUATED",
     "DISPATCH_ALIAS_DISPATCH_WORKER_COMPLETED",
     "DISPATCH_ALIAS_INTELLIGENCE_ORCHESTRATOR",
@@ -3923,6 +4093,7 @@ __all__ = [
     "create_ci_fingerprint_dispatch_handler",
     "create_claude_hook_dispatch_handler",
     "create_compliance_evaluate_dispatch_handler",
+    "create_cursor_hook_dispatch_handler",
     "create_dispatch_callback",
     "create_dispatch_outcome_eval_dispatch_handler",
     "create_dispatch_outcome_record_dispatch_handler",
