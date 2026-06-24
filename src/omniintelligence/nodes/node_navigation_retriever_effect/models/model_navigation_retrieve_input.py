@@ -33,8 +33,9 @@ class ModelNavigationRetrieveInput(BaseModel):
         goal: The goal condition the navigation is trying to satisfy.
         current_state: Current position in the contract graph.
         graph: The current contract graph (for staleness filtering).
-        embedding_url: Base URL for the Qwen3-Embedding server.
-            Required — callers must pass ``os.environ["LLM_EMBEDDING_URL"]``.
+        embedding_url: Base URL for the Qwen3-Embedding server. Required —
+            caller-injected; production callers resolve it from the LLM routing
+            authority, not a direct env read.
         qdrant_url: Base URL for the Qdrant instance.
         qdrant_collection: Name of the Qdrant collection for navigation paths.
         top_k: Number of top paths to return (default 3).
@@ -55,12 +56,15 @@ class ModelNavigationRetrieveInput(BaseModel):
     )
     embedding_url: str = Field(
         description=(
-            "Base URL for the Qwen3-Embedding server. "
-            "Required — callers must source this from the LLM_EMBEDDING_URL environment variable."
+            "Base URL for the Qwen3-Embedding server. Required — caller-injected; "
+            "production callers resolve it from the LLM routing authority."
         ),
     )
     qdrant_url: str = Field(
-        description="Base URL for the Qdrant instance. Required — callers must source from QDRANT_URL env var.",
+        description=(
+            "Base URL for the Qdrant instance. Required — caller-injected; "
+            "production callers resolve it from the contract overlay (${env.QDRANT_URL})."
+        ),
     )
     qdrant_collection: str = Field(
         default=_DEFAULT_COLLECTION,
