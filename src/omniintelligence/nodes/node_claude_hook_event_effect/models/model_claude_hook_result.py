@@ -33,6 +33,9 @@ class ClaudeHookResultMetadataDict(TypedDict, total=False):
     handler: str
     reason: str
 
+    # Originating agent frontend ("claude" or "cursor")
+    agent_source: str
+
     # Intent classification
     classification_source: str
     classification_error: str

@@ -442,8 +442,8 @@ class TestCreateIntelligenceDispatchEngine:
             intent_classifier=mock_intent_classifier,
         )
         assert (
-            engine.handler_count == 29
-        )  # No-LLM test surface excludes optional adapter-backed projection/enrichment paths.
+            engine.handler_count == 30
+        )  # No-LLM test surface excludes optional adapter-backed projection/enrichment paths; +1 cursor-hook
 
     def test_engine_has_expected_routes(
         self,
@@ -458,8 +458,8 @@ class TestCreateIntelligenceDispatchEngine:
             intent_classifier=mock_intent_classifier,
         )
         assert (
-            engine.route_count == 36
-        )  # No-LLM test surface excludes optional adapter-backed projection/enrichment paths.
+            engine.route_count == 37
+        )  # No-LLM test surface excludes optional adapter-backed projection/enrichment paths; +1 cursor-hook route
 
 
 # =============================================================================

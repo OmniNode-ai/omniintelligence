@@ -31,6 +31,7 @@ from omniintelligence.runtime.contract_topics import (
 # =============================================================================
 
 EXPECTED_CLAUDE_HOOK = "onex.cmd.omniintelligence.claude-hook-event.v1"
+EXPECTED_CURSOR_HOOK = "onex.cmd.omniintelligence.cursor-hook-event.v1"
 EXPECTED_TOOL_CONTENT = "onex.cmd.omniintelligence.tool-content.v1"
 EXPECTED_SESSION_OUTCOME = "onex.cmd.omniintelligence.session-outcome.v1"
 EXPECTED_PATTERN_LEARNING = "onex.cmd.omniintelligence.pattern-learning.v1"
@@ -124,6 +125,7 @@ EXPECTED_DISPATCH_OUTCOME_EVALUATED = ".".join(
 
 EXPECTED_TOPICS = {
     EXPECTED_CLAUDE_HOOK,
+    EXPECTED_CURSOR_HOOK,
     EXPECTED_TOOL_CONTENT,
     EXPECTED_SESSION_OUTCOME,
     EXPECTED_PATTERN_LEARNING,
