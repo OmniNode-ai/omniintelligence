@@ -8,6 +8,7 @@ the intelligence system for FSM operations, operation types,
 entity types, and other categorical values.
 """
 
+from omniintelligence.enums.enum_agent_source import EnumAgentSource
 from omniintelligence.enums.enum_analysis_error_code import EnumAnalysisErrorCode
 from omniintelligence.enums.enum_analysis_operation_type import (
     EnumAnalysisOperationType,
@@ -47,6 +48,7 @@ __all__ = [
     "DOMAIN_TAXONOMY_VERSION",
     "HEURISTIC_CONFIDENCE",
     "EnumAnalysisErrorCode",
+    "EnumAgentSource",
     "EnumAnalysisOperationType",
     "EnumCodeAnalysisEventType",
     "EnumCohort",

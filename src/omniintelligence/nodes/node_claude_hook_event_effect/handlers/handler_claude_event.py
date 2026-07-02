@@ -29,9 +29,8 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
 
-from omnibase_core.enums.hooks import EnumAgentSource
-
 from omniintelligence.constants import TOPIC_SUFFIX_PATTERN_LEARNING_CMD_V1
+from omniintelligence.enums import EnumAgentSource
 from omniintelligence.nodes.node_claude_hook_event_effect.models import (
     EnumClaudeCodeHookEventType,
     EnumHookProcessingStatus,

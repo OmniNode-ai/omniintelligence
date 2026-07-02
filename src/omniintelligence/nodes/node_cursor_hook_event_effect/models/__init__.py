@@ -1,13 +1,7 @@
 # SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
 
-"""Models for Cursor Hook Event Effect node.
-
-Cursor's canonical input types (ModelCursorHookEvent, EnumCursorHookEventType)
-are defined in omnibase_core and re-exported here. The processing result and
-intent models are platform-neutral and reused from the Claude hook node to keep
-the two dispatchers interchangeable without duplicating output schemas.
-"""
+"""Models for Cursor Hook Event Effect node."""
 
 # Platform-neutral output/result models reused from the Claude hook node.
 from omniintelligence.nodes.node_claude_hook_event_effect.models.enum_hook_processing_status import (
@@ -27,7 +21,7 @@ from omniintelligence.nodes.node_cursor_hook_event_effect.models.model_input imp
 )
 
 __all__ = [
-    # Input models (canonical from omnibase_core)
+    # Input models
     "EnumClaudeCodeHookEventType",
     "EnumCursorHookEventType",
     "ModelCursorHookEvent",

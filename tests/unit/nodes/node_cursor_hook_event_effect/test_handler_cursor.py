@@ -13,12 +13,8 @@ from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
-from omnibase_core.enums.hooks import EnumAgentSource
 from omnibase_core.enums.hooks.claude_code.enum_claude_code_hook_event_type import (
     EnumClaudeCodeHookEventType,
-)
-from omnibase_core.enums.hooks.cursor.enum_cursor_hook_event_type import (
-    EnumCursorHookEventType,
 )
 from omnibase_core.models.hooks.claude_code.model_claude_code_hook_event import (
     ModelClaudeCodeHookEvent,
@@ -27,6 +23,7 @@ from omnibase_core.models.hooks.claude_code.model_claude_code_hook_event_payload
     ModelClaudeCodeHookEventPayload,
 )
 
+from omniintelligence.enums import EnumAgentSource
 from omniintelligence.nodes.node_claude_hook_event_effect.handlers.handler_claude_event import (
     route_hook_event,
 )
@@ -38,6 +35,7 @@ from omniintelligence.nodes.node_cursor_hook_event_effect.handlers.handler_curso
     _to_canonical_event,
 )
 from omniintelligence.nodes.node_cursor_hook_event_effect.models import (
+    EnumCursorHookEventType,
     EnumHookProcessingStatus,
     ModelCursorHookEvent,
     ModelCursorHookEventPayload,

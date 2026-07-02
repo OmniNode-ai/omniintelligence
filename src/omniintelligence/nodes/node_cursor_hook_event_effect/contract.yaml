@@ -27,6 +27,7 @@ node_version:
 
 # Node type
 node_type: "EFFECT_GENERIC"
+runtime_profiles: ["effects"]
 
 # Description
 description: >

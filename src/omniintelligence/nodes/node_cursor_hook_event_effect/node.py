@@ -23,8 +23,7 @@ class NodeCursorHookEventEffect(NodeEffect):
     """Declarative effect node for Cursor IDE hook event handling.
 
     A lightweight shell that defines the I/O contract for Cursor hook event
-    processing. All routing and execution logic is driven by contract.yaml -
-    this class contains NO custom routing code.
+    processing. Routing and execution remain contract-defined in contract.yaml.
 
     Supported Operations (defined in contract.yaml handler_routing):
         - beforeSubmitPrompt: Classify intent, emit to Kafka

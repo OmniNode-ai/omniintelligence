@@ -19,11 +19,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from omnibase_core.enums.hooks import EnumAgentSource
 from omnibase_core.models.hooks.claude_code.model_claude_code_hook_event import (
     ModelClaudeCodeHookEvent,
 )
 
+from omniintelligence.enums import EnumAgentSource
 from omniintelligence.nodes.node_claude_hook_event_effect.handlers.handler_claude_event import (
     route_hook_event,
 )
