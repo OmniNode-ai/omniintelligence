@@ -27,7 +27,7 @@ keywords = ["omninode", "intelligence", "intent", "routing", "onex", "llm"]
 # Versions aligned with [dependency-groups].core for consistency
 dependencies = [
     "httpx>=0.28.1",
-    "omnibase-core>=0.42.0,<0.43.0",
+    "omnibase-core>=0.46.3,<0.47.0",
     "pyyaml>=6.0",
     "pydantic>=2.12.5,<3.0.0",
     "pydantic-settings>=2.7.0,<3.0.0",
@@ -36,7 +36,7 @@ dependencies = [
     "tenacity>=8.2.0",
     "watchdog>=6.0.0",
     "adaptive-classifier>=0.1.2",
-    "omnibase-infra>=0.37.0,<0.38.0",
+    "omnibase-infra>=0.38.4,<0.39.0",
     "omnimarket>=0.4.0",
 ]
 
@@ -157,9 +157,9 @@ core = [
     # ONEX private ecosystem dependencies (NOT on public PyPI)
     # Installed via editable installs from sibling repos or private registry.
     # Version bounds match Poetry caret syntax above.
-    "omnibase-core>=0.42.0,<0.43.0",
-    "omnibase-spi>=0.22.0,<0.23.0",
-    "omnibase-infra>=0.37.0,<0.38.0",
+    "omnibase-core>=0.46.3,<0.47.0",
+    "omnibase-spi>=0.23.1,<0.24.0",
+    "omnibase-infra>=0.38.4,<0.39.0",
     "omnimarket>=0.4.0",
     "pydantic>=2.12.5,<3.0.0",
     "pydantic-settings>=2.7.0,<3.0.0",
@@ -207,12 +207,10 @@ all = [
 ]
 
 [tool.uv.sources]
-onex-change-control = { git = "https://github.com/OmniNode-ai/onex_change_control.git", rev = "4877d3c223517cb0c7e1eca462ba0f4d38916314" }  # pragma: allowlist secret
+onex-change-control = { git = "https://github.com/OmniNode-ai/onex_change_control.git", rev = "4877d3c223517cb0c7e1eca462ba0f4d38916314" } # pragma: allowlist secret
 # Release v0.24.0: pin to release tags
 omnimarket = { git = "https://github.com/OmniNode-ai/omnimarket.git", tag = "v0.4.0" }
-omnibase-core = { git = "https://github.com/OmniNode-ai/omnibase_core.git", tag = "v0.42.0" }
-omnibase-infra = { git = "https://github.com/OmniNode-ai/omnibase_infra.git", tag = "v0.37.0" }
-omnibase-spi = { git = "https://github.com/OmniNode-ai/omnibase_spi.git", tag = "v0.22.0" }
+omnibase-infra = { git = "https://github.com/OmniNode-ai/omnibase_infra.git", rev = "c253d73648eae6d44e68c75907d8a60114afd534" } # pragma: allowlist secret
 
 [tool.ruff]
 target-version = "py312"
@@ -343,7 +341,7 @@ ignore = [
 # BaseHTTPRequestHandler requires do_GET method name
 "src/omniintelligence/runtime/stub_launcher.py" = ["N802"]
 # __init__.py files re-export for public API
-"src/omniintelligence/tools/__init__.py" = ["F401"]
+"src/omniintelligence/validators/__init__.py" = ["F401"]
 # Test intentionally catches broad exceptions for validation error testing
 "tests/nodes/pattern_extraction_compute/test_handlers.py" = ["B017"]
 # Test files — relaxed rules
@@ -431,7 +429,7 @@ markers = [
 [tool.uv]
 # Override transitive pins so our direct pins win.
 override-dependencies = [
-    "omnibase-core>=0.42.0,<0.43.0",
-    "omnibase-spi>=0.22.0,<0.23.0",
-    "omnibase-infra>=0.37.0,<0.38.0",
+    "omnibase-core>=0.46.3,<0.47.0",
+    "omnibase-spi>=0.23.1,<0.24.0",
+    "omnibase-infra>=0.38.4,<0.39.0",
 ]

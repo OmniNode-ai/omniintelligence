@@ -78,6 +78,21 @@ RuntimeHostProcess routes them to NodeClaudeHookEventEffect.
 Deletion ticket: OMN-1546
 """
 
+TOPIC_SUFFIX_CURSOR_HOOK_EVENT_V1: str = (
+    "onex.cmd.omniintelligence.cursor-hook-event.v1"
+)
+"""
+Canonical topic for Cursor IDE hook events (INPUT).
+
+Canonical topic: onex.cmd.omniintelligence.cursor-hook-event.v1
+
+OmniCursor publishes Cursor hook events to this topic (via the omnimarket
+emit daemon). RuntimeHostProcess routes them to NodeCursorHookEventEffect,
+the Cursor-side peer of NodeClaudeHookEventEffect. Cursor and Claude are
+interchangeable dispatchers; the agent_source field on emitted events keeps
+their provenance distinct.
+"""
+
 TOPIC_SUFFIX_INTENT_CLASSIFIED_V1: str = (
     "onex.evt.omniintelligence.intent-classified.v1"
 )
@@ -623,16 +638,6 @@ Consumed by omnimemory crawl nodes.
 Reference: OMN-2384
 """
 
-TOPIC_LEGACY_ROUTING_FEEDBACK_BARE: str = "routing.feedback"
-"""DEPRECATED (OMN-2366): Legacy bare topic name for routing feedback.
-
-Predates the canonical onex.evt.omniclaude.routing-feedback.v1 naming convention
-(OMN-2622). No active producers detected as of 2026-04-09.
-
-Subscribed in node_routing_feedback_effect contract.yaml for drain purposes only.
-Remove this constant after the topic is confirmed empty and purged from Redpanda.
-"""
-
 # =============================================================================
 # Exports
 # =============================================================================
@@ -667,7 +672,6 @@ __all__ = [
     "TOPIC_CRAWL_TICK_V1",
     "TOPIC_GMAIL_INTENT_EVALUATED_V1",
     "TOPIC_GMAIL_INTENT_SURFACED_V1",
-    "TOPIC_LEGACY_ROUTING_FEEDBACK_BARE",
     "TOPIC_OMNICLAUDE_DISPATCH_WORKER_COMPLETED_V1",
     "TOPIC_OMNICLAUDE_ROUTING_FEEDBACK_V1",
     "TOPIC_QUALITY_ASSESSMENT_CMD_V1",
@@ -677,6 +681,7 @@ __all__ = [
     "TOPIC_ROUTING_FEEDBACK_PROCESSED",
     "TOPIC_RUN_EVALUATED_V1",
     "TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1",
+    "TOPIC_SUFFIX_CURSOR_HOOK_EVENT_V1",
     "TOPIC_SUFFIX_INTENT_CLASSIFIED_V1",
     "TOPIC_SUFFIX_PATTERN_DEPRECATED_V1",
     "TOPIC_SUFFIX_PATTERN_LEARNING_CMD_V1",

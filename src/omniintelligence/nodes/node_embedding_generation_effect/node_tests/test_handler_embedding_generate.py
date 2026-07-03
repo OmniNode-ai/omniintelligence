@@ -28,11 +28,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from omniintelligence.clients.embedding_client import (
+from omniintelligence.adapters.embedding_client import (
     EmbeddingClient,
     EmbeddingClientError,
 )
-from omniintelligence.clients.embedding_client_local_openai import (
+from omniintelligence.adapters.embedding_client_local_openai import (
     EmbeddingClientLocalOpenAI,
 )
 from omniintelligence.nodes.node_chunk_classifier_compute.models.enum_context_item_type import (

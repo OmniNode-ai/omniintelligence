@@ -320,11 +320,17 @@ class TestMain:
         plan_file = tmp_path / "plan.md"
         plan_file.write_text("# Test Plan")
 
-        with patch(
-            "omniintelligence.review_pairing.cli_review.llm_async_parse_raw",
-            new_callable=AsyncMock,
-            return_value=_success_result("deepseek-r1"),
-        ) as mock_llm:
+        with (
+            patch(
+                "omniintelligence.review_pairing.cli_review.select_models_with_fallback",
+                return_value=(["deepseek-r1"], []),
+            ),
+            patch(
+                "omniintelligence.review_pairing.cli_review.llm_async_parse_raw",
+                new_callable=AsyncMock,
+                return_value=_success_result("deepseek-r1"),
+            ) as mock_llm,
+        ):
             main(["--file", str(plan_file)])
 
         mock_llm.assert_called_once()
@@ -405,7 +411,7 @@ class TestDegradedExitCodes:
 
         assert code == 1
 
-    def test_api_fallback_activates_when_locals_unreachable(
+    def test_cli_fallback_activates_when_locals_unreachable(
         self, tmp_path: Path
     ) -> None:
         plan_file = tmp_path / "plan.md"
@@ -414,12 +420,12 @@ class TestDegradedExitCodes:
         with (
             patch(
                 "omniintelligence.review_pairing.cli_review.select_models_with_fallback",
-                return_value=(["claude-api"], ["deepseek-r1"]),
+                return_value=(["codex"], ["deepseek-r1"]),
             ),
             patch(
-                "omniintelligence.review_pairing.cli_review.llm_async_parse_raw",
+                "omniintelligence.review_pairing.cli_review.codex_async_parse_raw",
                 new_callable=AsyncMock,
-                return_value=_success_result("claude-api"),
+                return_value=_success_result("codex"),
             ),
         ):
             code = main(["--file", str(plan_file), "--model", "deepseek-r1"])

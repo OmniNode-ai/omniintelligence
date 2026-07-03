@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: MIT
 
 # Copyright (c) 2025 OmniNode Team
-"""Re-exports for embedding clients from omniintelligence.clients.
+"""Re-exports for embedding clients from omniintelligence.adapters.
 
-The embedding client implementations live in omniintelligence.clients (outside
+The embedding client implementations live in omniintelligence.adapters (outside
 nodes/) to comply with ARCH-002 — nodes must not import transport libraries
 (httpx, aiohttp, etc.) directly. This module re-exports the clients so that
 existing node-level imports continue to work.
@@ -12,13 +12,13 @@ existing node-level imports continue to work.
 
 from __future__ import annotations
 
-from omniintelligence.clients.embedding_client import (
+from omniintelligence.adapters.embedding_client import (
     EmbeddingClient,
     EmbeddingClientError,
     EmbeddingConnectionError,
     EmbeddingTimeoutError,
 )
-from omniintelligence.clients.embedding_client_local_openai import (
+from omniintelligence.adapters.embedding_client_local_openai import (
     EmbeddingClientLocalOpenAI,
 )
 

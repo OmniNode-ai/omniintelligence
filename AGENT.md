@@ -25,4 +25,4 @@
 
 - All nodes follow ONEX 4-node architecture
 - Intelligence events published via Kafka event bus
-- Pattern storage in Qdrant vector database
+- Pattern storage in PostgreSQL via NodePatternStorageEffect; Qdrant is used by omnimemory, not omniintelligence directly (Qdrant appears in omniintelligence only as an EnumStorageBackend option in node_storage_router_effect)

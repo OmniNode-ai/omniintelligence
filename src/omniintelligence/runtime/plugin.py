@@ -106,9 +106,9 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from omnibase_core.protocols.event_bus.protocol_event_bus import ProtocolEventBus
-    from omnibase_core.runtime.runtime_message_dispatch import MessageDispatchEngine
     from omnibase_infra.idempotency.store_postgres import StoreIdempotencyPostgres
     from omnibase_infra.runtime.db import PostgresRepositoryRuntime
+    from omnibase_infra.runtime.message_dispatch_engine import MessageDispatchEngine
     from omnibase_infra.runtime.registry import RegistryMessageType
 
     from omniintelligence.runtime.introspection import (
@@ -222,7 +222,7 @@ def _build_bloom_eval_llm_client(
         )
         return None
 
-    from omniintelligence.clients.eval_llm_client import EvalLLMClient
+    from omniintelligence.adapters.eval_llm_client import EvalLLMClient
 
     return EvalLLMClient(
         generator_url=generator_url,
@@ -1101,7 +1101,7 @@ class PluginIntelligence:
                 "(routes=%d, handlers=%d, kafka=%s, introspection=%d, "
                 "correlation_id=%s)",
                 self._dispatch_engine.route_count,
-                self._dispatch_engine.handler_count,
+                self._dispatch_engine.dispatcher_count,
                 kafka_publisher is not None,
                 len(self._introspection_nodes),
                 correlation_id,
@@ -1221,63 +1221,17 @@ class PluginIntelligence:
             # Build per-topic handler map (dispatch engine guaranteed non-None)
             topic_handlers = self._build_topic_handlers(correlation_id)
 
-            active_topics: list[str] = []
-            for topic in INTELLIGENCE_SUBSCRIBE_TOPICS:
-                if topic not in topic_handlers:
-                    logger.warning(
-                        "Topic %s declared in contract but has no registered "
-                        "dispatch route, skipping (correlation_id=%s)",
-                        topic,
-                        correlation_id,
-                    )
-                    continue
-                active_topics.append(topic)
-
-            async def _subscribe_topic(
-                topic: str,
-            ) -> tuple[str, Callable[[], Awaitable[None]]]:
-                handler = topic_handlers[topic]
-                logger.info(
-                    "Subscribing to intelligence topic: %s "
-                    "(mode=dispatch_engine, correlation_id=%s)",
-                    topic,
-                    correlation_id,
-                )
-                unsub = await config.event_bus.subscribe(
-                    topic=topic,
-                    group_id=intelligence_group,
-                    on_message=handler,
-                )
-                return topic, unsub
-
-            unsubscribe_callbacks: list[Callable[[], Awaitable[None]]] = []
-            subscribe_tasks = [
-                asyncio.create_task(_subscribe_topic(topic)) for topic in active_topics
-            ]
-            completed_topics = 0
-            try:
-                for subscribe_result in asyncio.as_completed(subscribe_tasks):
-                    topic, unsub = await subscribe_result
-                    completed_topics += 1
-                    unsubscribe_callbacks.append(unsub)
-                    logger.info(
-                        "Intelligence consumer progress: %d/%d topics subscribed "
-                        "(latest=%s, correlation_id=%s)",
-                        completed_topics,
-                        len(active_topics),
-                        topic,
-                        correlation_id,
-                    )
-            except Exception:
-                for task in subscribe_tasks:
-                    if not task.done():
-                        task.cancel()
-                await asyncio.gather(*subscribe_tasks, return_exceptions=True)
-                # Roll back any subscriptions that succeeded before the failure.
-                for rollback_unsub in unsubscribe_callbacks:
-                    with contextlib.suppress(Exception):
-                        await rollback_unsub()
-                raise
+            active_topics = self._active_subscription_topics(
+                topic_handlers=topic_handlers,
+                correlation_id=correlation_id,
+            )
+            unsubscribe_callbacks = await self._subscribe_dispatch_topics(
+                config=config,
+                active_topics=active_topics,
+                topic_handlers=topic_handlers,
+                intelligence_group=intelligence_group,
+                correlation_id=correlation_id,
+            )
 
             self._unsubscribe_callbacks = unsubscribe_callbacks
 
@@ -1329,6 +1283,113 @@ class PluginIntelligence:
                 error_message=get_log_sanitizer().sanitize(str(e)),
                 duration_seconds=duration,
             )
+
+    def _active_subscription_topics(
+        self,
+        *,
+        topic_handlers: dict[str, Callable[[object], Awaitable[None]]],
+        correlation_id: object,
+    ) -> list[str]:
+        """Return contract topics that have dispatch handlers."""
+        active_topics: list[str] = []
+        for topic in INTELLIGENCE_SUBSCRIBE_TOPICS:
+            if topic not in topic_handlers:
+                logger.warning(
+                    "Topic %s declared in contract but has no registered "
+                    "dispatch route, skipping (correlation_id=%s)",
+                    topic,
+                    correlation_id,
+                )
+                continue
+            active_topics.append(topic)
+        return active_topics
+
+    async def _subscribe_dispatch_topic(
+        self,
+        *,
+        config: ModelDomainPluginConfig,
+        topic: str,
+        handler: Callable[[object], Awaitable[None]],
+        intelligence_group: str,
+        correlation_id: object,
+    ) -> tuple[str, Callable[[], Awaitable[None]]]:
+        """Subscribe one topic to its dispatch-engine callback."""
+        logger.info(
+            "Subscribing to intelligence topic: %s "
+            "(mode=dispatch_engine, correlation_id=%s)",
+            topic,
+            correlation_id,
+        )
+        unsub = await config.event_bus.subscribe(
+            topic=topic,
+            group_id=intelligence_group,
+            on_message=handler,
+        )
+        return topic, unsub
+
+    async def _subscribe_dispatch_topics(
+        self,
+        *,
+        config: ModelDomainPluginConfig,
+        active_topics: list[str],
+        topic_handlers: dict[str, Callable[[object], Awaitable[None]]],
+        intelligence_group: str,
+        correlation_id: object,
+    ) -> list[Callable[[], Awaitable[None]]]:
+        """Subscribe all active topics concurrently and roll back partial joins."""
+        unsubscribe_callbacks: list[Callable[[], Awaitable[None]]] = []
+        subscribe_tasks = [
+            asyncio.create_task(
+                self._subscribe_dispatch_topic(
+                    config=config,
+                    topic=topic,
+                    handler=topic_handlers[topic],
+                    intelligence_group=intelligence_group,
+                    correlation_id=correlation_id,
+                )
+            )
+            for topic in active_topics
+        ]
+
+        completed_topics = 0
+        try:
+            for subscribe_result in asyncio.as_completed(subscribe_tasks):
+                topic, unsub = await subscribe_result
+                completed_topics += 1
+                unsubscribe_callbacks.append(unsub)
+                logger.info(
+                    "Intelligence consumer progress: %d/%d topics subscribed "
+                    "(latest=%s, correlation_id=%s)",
+                    completed_topics,
+                    len(active_topics),
+                    topic,
+                    correlation_id,
+                )
+        except Exception:
+            await self._cancel_pending_subscriptions(subscribe_tasks)
+            await self._rollback_subscriptions(unsubscribe_callbacks)
+            raise
+
+        return unsubscribe_callbacks
+
+    async def _cancel_pending_subscriptions(
+        self,
+        subscribe_tasks: list[asyncio.Task[tuple[str, Callable[[], Awaitable[None]]]]],
+    ) -> None:
+        """Cancel unfinished subscribe tasks after a startup failure."""
+        for task in subscribe_tasks:
+            if not task.done():
+                task.cancel()
+        await asyncio.gather(*subscribe_tasks, return_exceptions=True)
+
+    async def _rollback_subscriptions(
+        self,
+        unsubscribe_callbacks: list[Callable[[], Awaitable[None]]],
+    ) -> None:
+        """Best-effort cleanup for subscriptions opened before startup failed."""
+        for rollback_unsub in unsubscribe_callbacks:
+            with contextlib.suppress(Exception):
+                await rollback_unsub()
 
     def _build_topic_handlers(
         self,

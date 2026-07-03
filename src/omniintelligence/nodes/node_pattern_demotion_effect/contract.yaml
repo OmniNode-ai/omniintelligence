@@ -19,7 +19,6 @@ name: "node_pattern_demotion_effect"
 version: "1.0.0"
 contract_name: "pattern_demotion_effect"
 node_name: "pattern_demotion_effect"
-contract_version: {major: 1, minor: 0, patch: 0}
 node_version:
   major: 1
   minor: 0

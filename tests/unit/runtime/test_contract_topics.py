@@ -31,6 +31,7 @@ from omniintelligence.runtime.contract_topics import (
 # =============================================================================
 
 EXPECTED_CLAUDE_HOOK = "onex.cmd.omniintelligence.claude-hook-event.v1"
+EXPECTED_CURSOR_HOOK = "onex.cmd.omniintelligence.cursor-hook-event.v1"
 EXPECTED_TOOL_CONTENT = "onex.cmd.omniintelligence.tool-content.v1"
 EXPECTED_SESSION_OUTCOME = "onex.cmd.omniintelligence.session-outcome.v1"
 EXPECTED_PATTERN_LEARNING = "onex.cmd.omniintelligence.pattern-learning.v1"
@@ -122,12 +123,9 @@ EXPECTED_DISPATCH_OUTCOME_EVALUATED = ".".join(
     )
 )
 
-# Legacy bare routing feedback topic (drain subscription only — see
-# node_routing_feedback_effect/contract.yaml, OMN-2366).
-EXPECTED_ROUTING_FEEDBACK_LEGACY = "routing.feedback"
-
 EXPECTED_TOPICS = {
     EXPECTED_CLAUDE_HOOK,
+    EXPECTED_CURSOR_HOOK,
     EXPECTED_TOOL_CONTENT,
     EXPECTED_SESSION_OUTCOME,
     EXPECTED_PATTERN_LEARNING,
@@ -171,7 +169,6 @@ EXPECTED_TOPICS = {
     EXPECTED_CODE_ENTITIES_EXTRACTED,
     EXPECTED_DISPATCH_WORKER_COMPLETED,
     EXPECTED_DISPATCH_OUTCOME_EVALUATED,
-    EXPECTED_ROUTING_FEEDBACK_LEGACY,
 }
 
 

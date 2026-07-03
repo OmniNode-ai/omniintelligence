@@ -1,30 +1,30 @@
 ## v0.24.0 (2026-05-21)
 
 ### Features
-- feat(OMN-10765): port change-aware test selection to omniintelligence (#645)
-- feat(OMN-10388): record dispatch feedback outcomes (#634)
-- feat(OMN-10386): accept dispatch worker cost payload (#630)
-- feat(OMN-10387): subscribe pattern feedback to dispatch outcomes (#628)
-- feat(OMN-10385): wire dispatch outcome quality scoring (#627)
-- feat(OMN-10382): use shared usage source enum (#629)
-- feat(OMN-10380): scaffold dispatch outcome eval effect (#626)
-- feat(OMN-10316): wire docs-validate as required CI gate (#623)
-- feat(OMN-10603): migrate runner selector to vars.OMNI_TRUSTED_CI_RUNS_ON_JSON (#649)
-- feat(OMN-7835): remove ANTHROPIC_API_KEY hard requirement from Claude API fallback (#632)
+- feat: port change-aware test selection to omniintelligence (#645)
+- feat: record dispatch feedback outcomes (#634)
+- feat: accept dispatch worker cost payload (#630)
+- feat: subscribe pattern feedback to dispatch outcomes (#628)
+- feat: wire dispatch outcome quality scoring (#627)
+- feat: use shared usage source enum (#629)
+- feat: scaffold dispatch outcome eval effect (#626)
+- feat: wire docs-validate as required CI gate (#623)
+- feat: migrate runner selector to vars.OMNI_TRUSTED_CI_RUNS_ON_JSON (#649)
+- feat: remove ANTHROPIC_API_KEY hard requirement from Claude API fallback (#632)
 
 ### Bug Fixes
-- fix(OMN-11008): remove LOCAL_LLM_SHARED_SECRET source synthesis in adapter (#651)
-- fix(OMN-10970): wire skip-token rejection CI gate (#650)
-- fix(OMN-11045): route merge queue off self-hosted runner (#652)
-- fix(OMN-10757): consolidate env fallback validator (#647)
-- fix(OMN-10736): resolve fallback validator review threads (#646)
-- fix(OMN-10736): replace 4 silent env fallbacks with os.environ[] (#644)
-- fix(OMN-7609): wire Kafka producer into crawl scheduler registry (#639)
+- fix: remove LOCAL_LLM_SHARED_SECRET source synthesis in adapter (#651)
+- fix: wire skip-token rejection CI gate (#650)
+- fix: route merge queue off self-hosted runner (#652)
+- fix: consolidate env fallback validator (#647)
+- fix: resolve fallback validator review threads (#646)
+- fix: replace 4 silent env fallbacks with os.environ[] (#644)
+- fix: wire Kafka producer into crawl scheduler registry (#639)
 
 ### Tests
-- test(OMN-7209): verify seed_patterns_from_families dry-run pipeline (#641)
-- test(OMN-7203): verify AST crawl yields >500 entities across 4 repos (#640)
-- test(OMN-7205): add integration tests for node family grouping (#633)
+- test: verify seed_patterns_from_families dry-run pipeline (#641)
+- test: verify AST crawl yields >500 entities across 4 repos (#640)
+- test: add integration tests for node family grouping (#633)
 
 ### Pin Updates (2026-05-21 release wave 2)
 - omnibase-core: `>=0.40.1,<0.41.0` → `>=0.42.0,<0.43.0`
@@ -41,48 +41,48 @@
 ## v0.23.0 (2026-04-03)
 
 ### Features
-- feat: wire ChangeFrame data from STOP payload into objective evaluation [OMN-7378] (#536)
-- feat(intelligence): embed source content in crawl events [OMN-7232] (#532)
+- feat: wire ChangeFrame data from STOP payload into objective evaluation (#536)
+- feat(intelligence): embed source content in crawl events (#532)
 - feat(review): add Qwen3-Next-80B-A3B to model registry (#528)
-- feat: add NodeFamily to learned_patterns bridge [OMN-7208] (#527)
-- feat: add NodeFamily grouping for subsystem pattern instances [OMN-7204] (#526)
-- feat: add match_pattern_role function for role detection [OMN-7177] (#522)
-- feat: add ModelPatternDefinition and ModelPatternRole [OMN-7176] (#521)
-- feat: add directory scanner for role occurrences [OMN-7178] (#523)
-- feat: add cross-repo pattern baseline scanner [OMN-7179] (#524)
-- feat: add contract declarations for 7 orphan dispatch routes [OMN-6979] (#516)
-- feat: wire dispatch handlers for 7 command topics [OMN-6979] (#515)
-- feat: replace hardcoded INTELLIGENCE_NODES with contract-driven discovery [OMN-7155] (#512)
-- feat: intelligence contract packages — auto-wiring migration [OMN-7142] (#510)
-- feat: add projection handler registration tests and pattern seed script [OMN-7140] (#508)
+- feat: add NodeFamily to learned_patterns bridge (#527)
+- feat: add NodeFamily grouping for subsystem pattern instances (#526)
+- feat: add match_pattern_role function for role detection (#522)
+- feat: add ModelPatternDefinition and ModelPatternRole (#521)
+- feat: add directory scanner for role occurrences (#523)
+- feat: add cross-repo pattern baseline scanner (#524)
+- feat: add contract declarations for 7 orphan dispatch routes (#516)
+- feat: wire dispatch handlers for 7 command topics (#515)
+- feat: replace hardcoded INTELLIGENCE_NODES with contract-driven discovery (#512)
+- feat: intelligence contract packages — auto-wiring migration (#510)
+- feat: add projection handler registration tests and pattern seed script (#508)
 
 ### Bug Fixes
-- fix: update is_current test assertions after PR #535 removal [OMN-7040] (#537)
+- fix: update is_current test assertions after PR #535 removal (#537)
 - fix: remove is_current filter from pattern read queries (#535)
 - fix: set is_current=TRUE for version-1 patterns and lifecycle transitions (#534)
-- fix(api): use correct column name 'status' in retention cleanup SQL [OMN-7234] (#533)
-- fix(intelligence): disable old behavioral pattern extractors [OMN-7231] (#531)
-- fix(intelligence): remove all localhost fallbacks, require env vars [OMN-7227] (#530)
+- fix(api): use correct column name 'status' in retention cleanup SQL (#533)
+- fix(intelligence): disable old behavioral pattern extractors (#531)
+- fix(intelligence): remove all localhost fallbacks, require env vars (#530)
 - fix: update test fixtures to match ModelCodeEntity/ModelCodeRelationship schema (#529)
 - fix: update test fixtures to match ModelCodeEntity/ModelCodeRelationship schema (#517)
-- fix(ci): auto-tag workflow matches chore: release PR titles [OMN-6909] (#513)
-- fix: add MIN_CLASSIFIABLE_LENGTH guard and clean up OMN-2377 TODO [OMN-7141] (#507)
+- fix(ci): auto-tag workflow matches chore: release PR titles (#513)
+- fix: add MIN_CLASSIFIABLE_LENGTH guard and clean up TODO (#507)
 
 ### Other Changes
 - chore(deps): bump omnibase_core to 0.37.0 (#538)
-- test: verify role detection on real compute node file [OMN-7175] (#520)
-- test: verify AST extraction on all four ONEX base node classes [OMN-7174] (#519)
-- test: verify AST extraction on NodeCompute base class [OMN-7173] (#518)
-- test: document AST extraction quality baseline and known gaps [OMN-7180] (#525)
-- test: add dispatch parity contract test [OMN-6979] (#514)
+- test: verify role detection on real compute node file (#520)
+- test: verify AST extraction on all four ONEX base node classes (#519)
+- test: verify AST extraction on NodeCompute base class (#518)
+- test: document AST extraction quality baseline and known gaps (#525)
+- test: add dispatch parity contract test (#514)
 - chore: bump version to 0.22.0 for release (#511)
-- test: add CI pattern pipeline health checks and trigger verification [OMN-6981] (#509)
+- test: add CI pattern pipeline health checks and trigger verification (#509)
 
 ## v0.21.1 (2026-03-31)
 
 ### Changed
 - chore(deps): bump omnibase_core to 0.36.0, omnibase_infra to 0.30.1
-- ci: add onex compliance check to CI [OMN-7080] (#505)
+- ci: add onex compliance check to CI (#505)
 
 ## v0.21.0 (2026-03-30)
 
@@ -92,14 +92,14 @@
 ## v0.20.0 (2026-03-28)
 
 ### Added
-- ci: add CodeQL security scanning workflow [OMN-5412] (#491)
-- feat(ci): add auto-merge-on-open workflow [OMN-6571] (#490)
-- feat(ci): add handler contract compliance check [OMN-6841] (#488)
-- feat(topics): centralize omnidash projection topics + emission regression tests [OMN-6808] (#487)
+- ci: add CodeQL security scanning workflow (#491)
+- feat(ci): add auto-merge-on-open workflow (#490)
+- feat(ci): add handler contract compliance check (#488)
+- feat(topics): centralize omnidash projection topics + emission regression tests (#487)
 
 ### Fixed
-- fix(types): resolve 32 mypy strict errors across 15 files [OMN-6810] (#486)
-- fix: pass event_publisher to UtilizationLLMClient for LLM cost emission [OMN-6801] (#483)
+- fix(types): resolve 32 mypy strict errors across 15 files (#486)
+- fix: pass event_publisher to UtilizationLLMClient for LLM cost emission (#483)
 
 ### Changed
 - chore(deps): bump omnibase-core to 0.34.0
@@ -110,21 +110,21 @@
 ## v0.19.1 (2026-03-27)
 
 ### Fixed
-- fix: add tiktoken to dev dependencies [OMN-6716] (#480)
+- fix: add tiktoken to dev dependencies (#480)
 
 ### Changed
-- chore(lint): remove 17 stale noqa directives for globally-ignored rules [OMN-6669] (#481)
+- chore(lint): remove 17 stale noqa directives for globally-ignored rules (#481)
 - chore(deps): bump omnibase_core to 0.33.1, omnibase_spi to 0.20.2, omnibase_infra to 0.28.0
 
 ## v0.19.0 (2026-03-26)
 
 ### Added
-- feat: wire CI intelligence nodes into dispatch engine [OMN-6597] (#469)
+- feat: wire CI intelligence nodes into dispatch engine (#469)
 - feat(crawl): add Postgres persistence to sync crawl pipeline (#474)
 
 ### Changed
-- chore: standardize TODO markers with ticket references [OMN-6655] (#475)
-- chore: bump omnibase-spi to 0.20.1 [OMN-6691] (#476)
+- chore: standardize TODO markers with ticket references (#475)
+- chore: bump omnibase-spi to 0.20.1 (#476)
 - chore(deps): bump omnibase_core to 0.33.0
 - chore(deps-dev): bump requests from 2.32.5 to 2.33.0 (#473)
 
@@ -136,43 +136,43 @@
 ## v0.18.0 (2026-03-25)
 
 ### Added
-- feat: wire model_selector DecisionEmitter into dispatch engine [OMN-6595] (#467)
-- feat: register review_pairing node package for topic discovery [OMN-6593] (#466)
-- feat(runtime): wire orchestrator, reducer, and CI nodes into dispatch engine OMN-6590 OMN-6594 OMN-6598 (#470)
-- feat: add review_pairing PairingEngine to intelligence handler specs [OMN-6591] (#464)
+- feat: wire model_selector DecisionEmitter into dispatch engine (#467)
+- feat: register review_pairing node package for topic discovery (#466)
+- feat(runtime): wire orchestrator, reducer, and CI nodes into dispatch engine (#470)
+- feat: add review_pairing PairingEngine to intelligence handler specs (#464)
 
 ### Fixed
-- fix: add code_entities and code_relationships to schema manifest [OMN-5669] (#468)
-- fix: add relevance filters to file access pattern extraction [OMN-6566] (#465)
-- fix: correct stale DATABASE_URL default to omniintelligence database [OMN-6427] (#463)
+- fix: add code_entities and code_relationships to schema manifest (#468)
+- fix: add relevance filters to file access pattern extraction (#465)
+- fix: correct stale DATABASE_URL default to omniintelligence database (#463)
 
 ### Changed
-- feat(projection): truncate pattern_signature to 512 chars in projection snapshots [OMN-6341] (#461)
+- feat(projection): truncate pattern_signature to 512 chars in projection snapshots (#461)
 - chore(deps): bump omnibase-core to 0.32.0, omnibase-infra to 0.27.0 (coordinated release)
 - chore(deps): bump omnibase_core to 0.31.0 (#462)
 
 ## v0.17.0 (2026-03-24)
 
 ### Added
-- feat(calibration): add documentation and wiring for calibration system [OMN-6179] (#455)
-- feat(calibration): add CLI entry point for calibration [OMN-6172] (#453)
-- feat(calibration): add prompt writer for few-shot injection [OMN-6175] (#452)
-- feat(calibration): add calibration run orchestrator [OMN-6169] (#451)
-- feat(calibration): add few-shot extractor [OMN-6174] (#450)
-- feat(review-pairing): add calibration Kafka topic [OMN-6173] (#449)
-- feat(review-pairing): add calibration persistence layer [OMN-6171] (#448)
-- feat(review-pairing): add calibration scorer [OMN-6168] (#447)
-- feat(review-pairing): add finding alignment engine [OMN-6167] (#445)
-- feat(review-pairing): add R1-R6 finding serializer [OMN-6166] (#444)
-- feat(review-pairing): add calibration data models [OMN-6165] (#442)
-- feat(db): add calibration runs migration [OMN-6170] (#443)
-- feat: wire omniintelligence event emissions for omnidash upstream [OMN-6153] (#446)
+- feat(calibration): add documentation and wiring for calibration system (#455)
+- feat(calibration): add CLI entry point for calibration (#453)
+- feat(calibration): add prompt writer for few-shot injection (#452)
+- feat(calibration): add calibration run orchestrator (#451)
+- feat(calibration): add few-shot extractor (#450)
+- feat(review-pairing): add calibration Kafka topic (#449)
+- feat(review-pairing): add calibration persistence layer (#448)
+- feat(review-pairing): add calibration scorer (#447)
+- feat(review-pairing): add finding alignment engine (#445)
+- feat(review-pairing): add R1-R6 finding serializer (#444)
+- feat(review-pairing): add calibration data models (#442)
+- feat(db): add calibration runs migration (#443)
+- feat: wire omniintelligence event emissions for omnidash upstream (#446)
 
 ### Tests
-- test(calibration): add calibration integration tests [OMN-6178] (#454)
+- test(calibration): add calibration integration tests (#454)
 
 ### Changed
-- fix(deps): update stale omnibase-infra and spi version pins [OMN-6112] (#438)
+- fix(deps): update stale omnibase-infra and spi version pins (#438)
 - chore(deps): bump omnibase-infra from 0.22.0 to 0.24.1 (#439)
 - chore(deps): bump actions/checkout from 4 to 6 (#440)
 - chore(deps-dev): bump omnibase-spi from 0.18.0 to 0.19.1 (#441)
@@ -180,34 +180,34 @@
 ## v0.16.0 (2026-03-20)
 
 ### Added
-- feat(rl): policy-to-Bifrost config exporter with fidelity check [OMN-5567] (#405)
-- feat(rl): routing observation builder + offline training pipeline [OMN-5565] (#404)
-- feat: add periodic promotion-check scheduler to plugin lifecycle [OMN-5499] (#395)
-- feat(rl): add episode replay buffer and data sources [OMN-5562] (#403)
-- feat(rl): observation, action, and reward contracts [OMN-5561] (#400)
-- feat: add promotion-check dispatch handler [OMN-5498] (#392)
-- feat: add one-time bootstrap promotion sweep script [OMN-5502] (#396)
-- feat(rl): add reward shaping module with calibration gate [OMN-5564] (#399)
-- feat: wire utilization scoring handler into dispatch engine [OMN-5507] (#394)
+- feat(rl): policy-to-Bifrost config exporter with fidelity check (#405)
+- feat(rl): routing observation builder + offline training pipeline (#404)
+- feat: add periodic promotion-check scheduler to plugin lifecycle (#395)
+- feat(rl): add episode replay buffer and data sources (#403)
+- feat(rl): observation, action, and reward contracts (#400)
+- feat: add promotion-check dispatch handler (#392)
+- feat: add one-time bootstrap promotion sweep script (#396)
+- feat(rl): add reward shaping module with calibration gate (#399)
+- feat: wire utilization scoring handler into dispatch engine (#394)
 
 ### Tests
-- test: add E2E verification script for pattern lifecycle pipeline [OMN-5509] (#397)
+- test: add E2E verification script for pattern lifecycle pipeline (#397)
 
 ## v0.15.0 (2026-03-19)
 
 ### Added
-- feat(ci): deploy CodeQL security scanning to omniintelligence [OMN-5423] (#382)
-- feat(audit): add NodeContextAuditAggregatorCompute node [OMN-5242] (#373)
-- feat(telemetry): add LLM call completion event for Cost Trends page [OMN-5184] (#371)
+- feat(ci): deploy CodeQL security scanning to omniintelligence (#382)
+- feat(audit): add NodeContextAuditAggregatorCompute node (#373)
+- feat(telemetry): add LLM call completion event for Cost Trends page (#371)
 
 ### Changed
-- ci(omniintelligence): add ruff UP007 standards compliance workflow [OMN-5132] (#381)
-- chore(standards): fix PEP 604 type-unions and mypy errors [OMN-5132] (#380)
-- refactor: deduplicate topic constants to single source in omniintelligence [OMN-5254] (#372)
+- ci(omniintelligence): add ruff UP007 standards compliance workflow (#381)
+- chore(standards): fix PEP 604 type-unions and mypy errors (#380)
+- refactor: deduplicate topic constants to single source in omniintelligence (#372)
 - chore(deps): bump omnibase-core to 0.29.0, omnibase-spi to 0.18.0, omnibase-infra to 0.22.0
 
 ### Fixed
-- fix: remove {env}. prefix from contract YAML and fix port defaults [OMN-5215] (#370)
+- fix: remove {env}. prefix from contract YAML and fix port defaults (#370)
 
 ## v0.13.2 (2026-03-13)
 
@@ -222,7 +222,7 @@
 ## v0.13.0 (2026-03-12)
 
 ### Features
-- feat(spdx): add validate-spdx-headers pre-commit hook and stamp all Python files [OMN-4383] (#348)
+- feat(spdx): add validate-spdx-headers pre-commit hook and stamp all Python files (#348)
 
 ### Other Changes
 - chore(deps): bump omnibase_infra to 0.17.0 (#346)
@@ -237,24 +237,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.10.0] - 2026-03-07
 
 ### Added
-- Protocol handlers for declarative effect nodes (OMN-373, #314)
-- NodeStorageRouterEffect for storage coordination (OMN-371, #313)
-- LOCAL_OPENAI embedding provider for MLX server (OMN-368, #312)
-- `project_scope` field to learned patterns (OMN-1607, #303)
+- Protocol handlers for declarative effect nodes (#314)
+- NodeStorageRouterEffect for storage coordination (#313)
+- LOCAL_OPENAI embedding provider for MLX server (#312)
+- `project_scope` field to learned patterns (#303)
 
 ### Fixed
-- Pin actions/checkout@v4 and actions/setup-python@v5 (OMN-3804, #311)
-- Remove `{env}.` topic prefix from CLAUDE.md, make correlation_id required (OMN-3739, #309)
-- Remove boilerplate_docstring AI-slop violations across 100 files (OMN-3667, #305)
-- Convert all :named SQL placeholders to $N positional syntax (OMN-3644, #302)
-- Convert upsert_pattern SQL to asyncpg positional syntax (OMN-3592, #301)
+- Pin actions/checkout@v4 and actions/setup-python@v5 (#311)
+- Remove `{env}.` topic prefix from CLAUDE.md, make correlation_id required (#309)
+- Remove boilerplate_docstring AI-slop violations across 100 files (#305)
+- Convert all :named SQL placeholders to $N positional syntax (#302)
+- Convert upsert_pattern SQL to asyncpg positional syntax (#301)
 
 ### Changed
-- CI resilience fixes (OMN-3662, #304)
+- CI resilience fixes (#304)
 - Relax ONEX version bounds, raise core lower bound to >=0.23.0 (#308)
-- Add cloud bus guard pre-commit hook (OMN-3777, #310)
-- Add no-env-file pre-commit hook (OMN-3705, #307)
-- Add no-planning-docs pre-commit hook (OMN-3619, #300)
+- Add cloud bus guard pre-commit hook (#310)
+- Add no-env-file pre-commit hook (#307)
+- Add no-planning-docs pre-commit hook (#300)
 
 ### Dependencies
 - `omnibase-core` pinned to `0.24.0`
@@ -264,25 +264,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.9.2] - 2026-03-03
 
 ### Dependencies
-- `omnibase-infra` bumped to `>=0.14.0,<0.15.0` (was `>=0.13.0,<0.14.0`) to resolve dependency conflict with `omnibase-infra 0.14.0` release (OMN-3512)
+- `omnibase-infra` bumped to `>=0.14.0,<0.15.0` (was `>=0.13.0,<0.14.0`) to resolve dependency conflict with `omnibase-infra 0.14.0` release
 
 ## [0.8.0] - 2026-02-28
 
 ### Added
-- Bifrost feedback loop consumer for routing-feedback events (OMN-2939, #240)
-- `emitted_at` field to intent-classified.v1 event payload (OMN-2921, #236)
-- Import canonical `ModelRewardAssignedEvent` from omnibase_core (OMN-2928, #237)
+- Bifrost feedback loop consumer for routing-feedback events (#240)
+- `emitted_at` field to intent-classified.v1 event payload (#236)
+- Import canonical `ModelRewardAssignedEvent` from omnibase_core (#237)
 - AI-slop checker Phase 2 rollout (#243)
-- Migration 019 for `agent_actions` and `workflow_steps` tables (OMN-2985, #245)
+- Migration 019 for `agent_actions` and `workflow_steps` tables (#245)
 
 ### Fixed
-- Wire PostToolUse write path to `omniintelligence.agent_actions` (OMN-2984, #246)
-- Switch routing-feedback consumer from `routing-outcome-raw.v1` to `routing-feedback.v1` (OMN-2622, #242)
-- Wire intent output topics to downstream consumers (OMN-2938, #239)
+- Wire PostToolUse write path to `omniintelligence.agent_actions` (#246)
+- Switch routing-feedback consumer from `routing-outcome-raw.v1` to `routing-feedback.v1` (#242)
+- Wire intent output topics to downstream consumers (#239)
 - Remove internal IP references from `.env.example` (#241)
 - Replace Step N narration with intent comments in handler docs (#244)
-- Tune AI-slop checker v1.0 — scope `step_narration` to markdown only (OMN-3191, #248)
-- Add code fence tracking to AI-slop checker follow-up (OMN-3191, #249)
+- Tune AI-slop checker v1.0 — scope `step_narration` to markdown only (#248)
+- Add code fence tracking to AI-slop checker follow-up (#249)
 
 ### Dependencies
 - `omnibase-core` bumped to >=0.22.0,<0.23.0 (was ==0.21.0)
@@ -322,26 +322,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **NodePatternProjectionEffect** — publishes a pattern snapshot event on
   every lifecycle change, enabling downstream projection consumers to stay
-  in sync without polling the database. (OMN-2424, #135)
+  in sync without polling the database. (#135)
 - **Integration tests for `handle_intent_classification` langextract seam** —
   covers the full path from raw hook payload through intent classification
-  to Kafka emission. (OMN-2377, #133)
+  to Kafka emission. (#133)
 
 ### Fixed
 
 - **Dispatch handlers reshape crash** — NACK loop on every omniclaude hook
-  event caused by missing payload reshaping before dispatch. (OMN-2423, #132)
+  event caused by missing payload reshaping before dispatch. (#132)
 - **Routing feedback orphan topic** — add `routing.feedback` consumer to
-  prevent unrouted messages from building up on the orphan topic.
-  (OMN-2366, #130)
+  prevent unrouted messages from building up on the orphan topic. (#130)
 - **session_id propagation** — thread `session_id` through the compliance
-  evaluate command and corresponding event. (OMN-2368, #131)
+  evaluate command and corresponding event. (#131)
 - **Multi-class file split** — split files containing multiple classes to
-  satisfy the architecture validator. (OMN-2206, #126)
+  satisfy the architecture validator. (#126)
 - **Rename `ServiceHandlerRegistry` → `RegistryLifecycleHandlers`** — align
-  with ONEX naming conventions. (OMN-2200, #127)
-- **Tech debt from OMN-2221 review cycle** — address deferred architectural
-  items flagged during the OMN-2221 PR review. (OMN-2321, #134)
+  with ONEX naming conventions. (#127)
+- **Tech debt from an earlier review cycle** — address deferred architectural
+  items flagged during that PR review. (#134)
 
 ### Changed
 
@@ -359,10 +358,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Compliance evaluation effect** (`NodeComplianceEvaluateEffect`) — consumes
   `compliance-evaluate` events and processes ONEX compliance evaluation
-  results. (OMN-2339, #124)
+  results. (#124)
 - **Gated intelligence introspection publishing** — intelligence introspection
   events are now published only to the designated container, preventing
-  unintended broadcast to other consumers. (OMN-2342, #123)
+  unintended broadcast to other consumers. (#123)
 
 ### Changed
 
@@ -379,7 +378,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `-0.01` quality score adjustments per confirmed violation (requires both
   `was_advised=True` and `was_corrected=True`). 50 confirmed violations to drop
   from 1.0 to 0.5. Per-violation error isolation prevents one DB failure from
-  blocking others. (OMN-2270, #120)
+  blocking others. (#120)
 
 ### Fixed
 
@@ -408,18 +407,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Intelligence pipeline wiring** — storage handler, node registration, and
-  tool-content consumer for end-to-end pipeline execution (OMN-2222, #107)
+  tool-content consumer for end-to-end pipeline execution (#107)
 - **CI compliance gates** — automated compliance checks for omniintelligence
-  repository (OMN-2227, #108)
+  repository (#108)
 - **Node registration + pattern extraction** — wired intelligence nodes into
-  registration system with pattern extraction support (OMN-2210, #105)
+  registration system with pattern extraction support (#105)
 - **omnibase_core Python validators** — wired all validators and fixed
   violations (#103)
 
 ### Fixed
 
 - **Missing pattern_learning_compute node** — added missing node and updated
-  stale topic documentation (OMN-2221, #106)
+  stale topic documentation (#106)
 
 ## [0.1.1] - 2026-02-13
 

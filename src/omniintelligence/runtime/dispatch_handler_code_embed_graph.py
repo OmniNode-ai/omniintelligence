@@ -156,7 +156,13 @@ async def _embed_entities(
             if entity.bases:
                 parts.append(f"bases: {', '.join(entity.bases)}")
             if entity.methods:
-                parts.append(f"methods: {', '.join(entity.methods)}")
+                method_names = [
+                    method.get("name", str(method))
+                    if isinstance(method, dict)
+                    else str(method)
+                    for method in entity.methods
+                ]
+                parts.append(f"methods: {', '.join(method_names)}")
             text = " | ".join(parts)
 
             # Get embedding from LLM

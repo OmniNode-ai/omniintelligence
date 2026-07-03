@@ -53,6 +53,11 @@ _HANDLER_SPECS: list[tuple[str, str, bool]] = [
         False,
     ),
     (
+        "omniintelligence.nodes.node_cursor_hook_event_effect.handlers",
+        "HandlerCursorHookEvent",
+        False,
+    ),
+    (
         "omniintelligence.nodes.node_pattern_feedback_effect.handlers",
         "record_session_outcome",
         False,

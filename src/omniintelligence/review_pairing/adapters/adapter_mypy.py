@@ -90,6 +90,8 @@ def parse_raw(
         or input contains no valid diagnostics.
     """
     findings: list[ModelReviewFindingObserved] = []
+    if not isinstance(raw, str):
+        return findings
 
     for idx, line in enumerate(raw.splitlines()):
         line = line.strip()

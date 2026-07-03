@@ -18,7 +18,7 @@ class ModelEventBusConfig(BaseModel):
 
     Note:
         This is the transport layer configuration. The event bus consumes
-        Kafka messages, wraps them into ModelOnexEnvelope, and routes them
+        Kafka messages, wraps them into ModelEventEnvelope, and routes them
         to the appropriate nodes.
 
     Attributes:

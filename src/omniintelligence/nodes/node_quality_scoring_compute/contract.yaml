@@ -6,7 +6,6 @@
 # IMPLEMENTATION STATUS: COMPLETE
 # Tracking: https://github.com/OmniNode-ai/omniintelligence/issues/13
 # =============================================================================
-contract_version: {major: 1, minor: 0, patch: 0}
 node_version:
   major: 1
   minor: 0

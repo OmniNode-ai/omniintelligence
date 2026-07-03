@@ -121,7 +121,15 @@ def constant_checkpoint_path(tmp_path: Path) -> Path:
 @pytest.fixture()
 def exporter(trained_policy: PPOPolicy) -> PolicyExporter:
     """Create a PolicyExporter with the test policy."""
-    return PolicyExporter(trained_policy)
+    return PolicyExporter(
+        trained_policy,
+        backend_urls={
+            "qwen3-30b": "http://192.168.86.201:8000",
+            "qwen3-14b": "http://192.168.86.201:8001",
+            "deepseek-r1": "http://192.168.86.201:8001",
+            "embedding": "http://192.168.86.200:8100",
+        },
+    )
 
 
 @pytest.fixture()

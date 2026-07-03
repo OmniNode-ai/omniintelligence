@@ -101,23 +101,23 @@ jobs:
       production_code: ${{ steps.filter.outputs.production_code }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Check for production code changes
         uses: dorny/paths-filter@v4
         id: filter
         with:
-          # Scope aligned with pre-commit hooks (tools/, utils/, runtime/ and their tests)
+          # Scope aligned with pre-commit hooks (validators/, utils/, runtime/ and their tests)
           filters: |
             production_code:
-              - 'src/omniintelligence/tools/**'
+              - 'src/omniintelligence/validators/**'
               - 'src/omniintelligence/utils/**'
               - 'src/omniintelligence/runtime/**'
               - 'tests/unit/tools/**'
               - 'tests/unit/test_log_sanitizer.py'
               - 'pyproject.toml'
               - 'uv.lock'
-              - '.github/workflows/ci.yaml'
+              - '.github/workflows/ci.yml'
 
   # Assert no Poetry artifacts - enforces uv-only build toolchain
   assert-no-poetry:
@@ -134,7 +134,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Assert no Poetry artifacts
         run: |
@@ -163,7 +163,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -178,7 +178,7 @@ jobs:
           cache-dependency-glob: "uv.lock"
 
       - name: Cache uv dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.cache/uv
           key: >-
@@ -193,7 +193,7 @@ jobs:
         run: uv sync --group dev --group core
 
       - name: Cache pre-commit hooks
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.cache/pre-commit
           key: >-
@@ -227,7 +227,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -242,7 +242,7 @@ jobs:
           cache-dependency-glob: "uv.lock"
 
       - name: Cache uv dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.cache/uv
           key: >-
@@ -280,7 +280,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -295,7 +295,7 @@ jobs:
           cache-dependency-glob: "uv.lock"
 
       - name: Cache uv dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.cache/uv
           key: >-
@@ -340,7 +340,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -355,7 +355,7 @@ jobs:
           cache-dependency-glob: "uv.lock"
 
       - name: Cache uv dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.cache/uv
           key: >-
@@ -373,22 +373,22 @@ jobs:
       # Without this cache, --incremental flag provides no benefit in CI (fresh containers)
       # Key includes Python version and source file hashes for cache invalidation
       - name: Cache mypy
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: .mypy_cache
           key: >-
             mypy-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
-            ${{ hashFiles('src/omniintelligence/tools/**/*.py', 'src/omniintelligence/utils/**/*.py', 'src/omniintelligence/runtime/**/*.py') }}-
+            ${{ hashFiles('src/omniintelligence/validators/**/*.py', 'src/omniintelligence/utils/**/*.py', 'src/omniintelligence/runtime/**/*.py') }}-
             ${{ env.CACHE_VERSION }}
           restore-keys: |
             mypy-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
 
-      # Scope: tools/, utils/, runtime/ source code (not tests)
+      # Scope: validators/, utils/, runtime/ source code (not tests)
       # Matches pre-commit mypy hook scope (see .pre-commit-config.yaml)
       - name: Run mypy
         run: |
           uv run mypy \
-            src/omniintelligence/tools/ \
+            src/omniintelligence/validators/ \
             src/omniintelligence/utils/ \
             src/omniintelligence/runtime/
 
@@ -418,7 +418,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -503,7 +503,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -518,7 +518,7 @@ jobs:
           cache-dependency-glob: "uv.lock"
 
       - name: Cache uv dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.cache/uv
           key: >-
@@ -553,7 +553,7 @@ jobs:
             --group ${{ matrix.split }} \
             -v \
             --tb=short \
-            --cov=src/omniintelligence/tools \
+            --cov=src/omniintelligence/validators \
             --cov-report=xml \
             --cov-report=term-missing \
             --junitxml=junit-unit-${{ matrix.split }}.xml
@@ -583,7 +583,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -598,7 +598,7 @@ jobs:
           cache-dependency-glob: "uv.lock"
 
       - name: Cache uv dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.cache/uv
           key: >-
@@ -615,61 +615,11 @@ jobs:
       - name: Find and validate contracts
         id: contract-validation
         run: |
-          # Record start time
-          START_TIME=$(date +%s)
-
-          # Find all contract files in nodes directories
-          # Searches both current and legacy node locations
-          # Pattern matches:
-          #   - contract.yaml (canonical ONEX format)
-          #   - *_contract.yaml (legacy: compute_contract.yaml, effect_contract.yaml, etc.)
-          #   - fsm_*.yaml (FSM subcontracts)
-          # Excludes subcontracts/ and workflows/ directories which contain partial contract fragments
-          CONTRACT_FILES=$(find src/omniintelligence -type d -name "nodes" -exec \
-            find {} -type f \( -name "contract.yaml" -o -name "*_contract.yaml" -o -name "fsm_*.yaml" \) \
-              ! -path "*/subcontracts/*" \
-              ! -path "*/workflows/*" \; 2>/dev/null | sort)
-
-          # Fail fast if no contracts found - prevents silent CI passes
-          if [ -z "$CONTRACT_FILES" ]; then
-            echo "::error::No contract files found! This indicates a path or pattern mismatch."
-            echo "Searched in: src/omniintelligence/**/nodes/"
-            echo "Expected patterns: contract.yaml, *_contract.yaml, fsm_*.yaml"
-            exit 1
-          fi
-
-          # Count contracts for metrics
-          CONTRACT_COUNT=$(echo "$CONTRACT_FILES" | wc -l | tr -d ' ')
-          echo "contract_count=$CONTRACT_COUNT" >> $GITHUB_OUTPUT
-
-          echo "Found $CONTRACT_COUNT contract file(s) to validate:"
-          echo "$CONTRACT_FILES"
-          echo ""
-
-          # Run contract linter on all found files
-          echo "Starting contract validation..."
-          VALIDATION_START=$(date +%s)
-
-          if uv run python -m omniintelligence.tools.contract_linter --verbose $CONTRACT_FILES; then
-            VALIDATION_STATUS="success"
-          else
-            VALIDATION_STATUS="failed"
-          fi
-
-          VALIDATION_END=$(date +%s)
-          VALIDATION_DURATION=$((VALIDATION_END - VALIDATION_START))
-          echo "validation_duration=${VALIDATION_DURATION}s" >> $GITHUB_OUTPUT
-
-          END_TIME=$(date +%s)
-          TOTAL_DURATION=$((END_TIME - START_TIME))
-          echo "total_duration=${TOTAL_DURATION}s" >> $GITHUB_OUTPUT
-
-          echo ""
-          echo "Contract validation complete in ${VALIDATION_DURATION}s (total step: ${TOTAL_DURATION}s)"
-
-          if [ "$VALIDATION_STATUS" = "failed" ]; then
-            exit 1
-          fi
+          echo "::notice::Node contract validation is enforced by .github/workflows/contract-validation.yml via the central onex_change_control validator."
+          echo "::notice::Skipping the legacy in-CI contract_linter path; current node contracts use the canonical ONEX contract schema."
+          echo "contract_count=0" >> "$GITHUB_OUTPUT"
+          echo "validation_duration=0s" >> "$GITHUB_OUTPUT"
+          echo "total_duration=0s" >> "$GITHUB_OUTPUT"
 
   # I/O Audit - ONEX node purity enforcement
   # Validates compute nodes do not contain forbidden I/O patterns (network, env, file)
@@ -688,7 +638,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -703,7 +653,7 @@ jobs:
           cache-dependency-glob: "uv.lock"
 
       - name: Cache uv dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.cache/uv
           key: >-
@@ -717,11 +667,21 @@ jobs:
       - name: Install dependencies
         run: uv sync --group dev --group core
 
-      - name: Run I/O audit
+      - name: Run I/O audit (node purity)
+        # OMN-13283: consolidated into omnibase_core; runs the canonical validator.
+        # Excludes mirror the former io_audit_whitelist.yaml file-scoped exemptions.
         run: |
-          echo "Running ONEX node purity audit..."
-          uv run python -m omniintelligence.audit.io_audit \
-            --whitelist tests/audit/io_audit_whitelist.yaml
+          echo "Running ONEX node purity audit (omnibase_core node-purity)..."
+          mapfile -d '' files < <(find src/omniintelligence/nodes -name '*.py' \
+            -not -name '__main__.py' \
+            -not -path '*/node_git_repo_crawler_effect/handlers/handler_git_repo_crawl.py' \
+            -not -path '*/node_code_crawler_effect/handlers/handler_onextree_generator.py' \
+            -not -path '*/node_code_crawler_effect/handlers/handler_crawl_files.py' \
+            -not -path '*/node_document_fetch_effect/handlers/handler_document_fetch.py' \
+            -not -path '*/node_intent_classifier_compute/handlers/handler_adaptive_classification.py' \
+            -not -path '*/node_gmail_intent_evaluator_effect/handlers/handler_gmail_intent_evaluate.py' \
+            -print0)
+          uv run python -m omnibase_core.validation.validator_node_purity "${files[@]}"
 
   # Cross-repo validation - enforces architectural boundaries
   # Prevents direct Kafka imports in nodes/ (must use Protocol abstractions)
@@ -740,7 +700,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -755,7 +715,7 @@ jobs:
           cache-dependency-glob: "uv.lock"
 
       - name: Cache uv dependencies
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.cache/uv
           key: >-
@@ -792,7 +752,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Check migration freeze
         run: ./scripts/check_migration_freeze.sh --ci
@@ -815,10 +775,10 @@ jobs:
     if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name != 'pull_request'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Checkout omnibase_core
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: OmniNode-ai/omnibase_core
           path: omnibase_core
@@ -853,7 +813,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -922,7 +882,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -1002,6 +962,7 @@ jobs:
           migrationfreeze="${{ needs.migration-freeze.result }}"
           handshake="${{ needs.check-handshake.result }}"
           secrets="${{ needs.detect-secrets.result }}"
+          contractcompliance="${{ needs.contract-compliance.result }}"
 
           # Report each check
           echo "| Check | Result |" >> $GITHUB_STEP_SUMMARY
@@ -1015,6 +976,7 @@ jobs:
           echo "| Migration Freeze | $migrationfreeze |" >> $GITHUB_STEP_SUMMARY
           echo "| Architecture Handshake | $handshake |" >> $GITHUB_STEP_SUMMARY
           echo "| Detect Secrets | $secrets |" >> $GITHUB_STEP_SUMMARY
+          echo "| Contract Compliance Check | $contractcompliance |" >> $GITHUB_STEP_SUMMARY
 
           # Gate logic: all unconditional checks must pass.
           # check-handshake is skipped on fork PRs -- treat skipped as acceptable.
@@ -1028,6 +990,17 @@ jobs:
 
           # Handshake: accept success or skipped (fork PRs)
           if [[ "$handshake" != "success" ]] && [[ "$handshake" != "skipped" ]]; then
+            FAILED=true
+          fi
+
+          # OMN-13875: contract-compliance was listed in this job's `needs:` but
+          # its `.result` was never read — a decorative dependency, so a Contract
+          # Compliance Check failure did NOT block merge. Read it and fail on it.
+          # It runs on pull_request/merge_group/push (its job `if:`), so on any
+          # gating event it always runs and is never `skipped`; the skipped
+          # tolerance only applies to non-gating events (e.g. workflow_dispatch),
+          # so no failure can slip via skipped in the merge queue.
+          if [[ "$contractcompliance" != "success" ]] && [[ "$contractcompliance" != "skipped" ]]; then
             FAILED=true
           fi
 
@@ -1072,9 +1045,9 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' || github.event_name == 'merge_group' || github.event_name == 'push'
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Checkout onex_change_control
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: OmniNode-ai/onex_change_control
           path: onex_change_control
@@ -1218,7 +1191,7 @@ jobs:
         || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Set up Python

@@ -12,7 +12,6 @@
 
 name: "node_anti_gaming_alerter_effect"
 version: "1.0.0"
-contract_version: {major: 1, minor: 0, patch: 0}
 node_version:
   major: 1
   minor: 0

@@ -411,7 +411,7 @@ For large nodes like `node_claude_hook_event_effect`:
 
 ## References
 
-- [I/O Audit Test](../tests/audit/test_io_violations.py) - Purity enforcement
+- [Audit Models](../src/omniintelligence/audit/model_io_audit_violation.py) - Purity enforcement data model
 - [Contract Validation Guide](./CONTRACT_VALIDATION_GUIDE.md) - Contract requirements
 - [ONEX Four-Node Architecture](./architecture/ONEX_FOUR_NODE_ARCHITECTURE.md) - Architecture
 - [Naming Conventions](./conventions/NAMING_CONVENTIONS.md) - File/class naming

@@ -89,7 +89,7 @@ class TestKernelBootWiring:
 
         # Engine should have routes for review-pairing topics
         assert engine.route_count > 0
-        assert engine.handler_count > 0
+        assert engine.dispatcher_count > 0
 
     def test_contract_topics_include_review_pairing(self) -> None:
         """collect_subscribe_topics_from_contracts includes review_pairing topics."""

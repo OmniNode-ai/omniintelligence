@@ -18,7 +18,6 @@ name: "node_navigation_retriever_effect"
 version: "1.0.0"
 contract_name: "navigation_retriever_effect"
 node_name: "navigation_retriever_effect"
-contract_version: {major: 1, minor: 0, patch: 0}
 node_version:
   major: 1
   minor: 0

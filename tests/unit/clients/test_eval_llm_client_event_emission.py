@@ -18,7 +18,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from omniintelligence.clients.eval_llm_client import EvalLLMClient
+from omniintelligence.adapters.eval_llm_client import EvalLLMClient
 from omniintelligence.topics import IntentTopic
 
 

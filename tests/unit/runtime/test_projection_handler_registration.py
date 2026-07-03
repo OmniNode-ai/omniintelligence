@@ -166,7 +166,7 @@ class TestProjectionHandlerRegistration:
             intent_classifier=mock_intent_classifier,
             pattern_query_store=None,
         )
-        assert engine.handler_count == engine_without.handler_count + 1
+        assert engine.dispatcher_count == engine_without.dispatcher_count + 1
         assert engine.route_count == engine_without.route_count + 3
 
     @pytest.mark.unit
@@ -282,7 +282,7 @@ class TestProjectionHandlerRegistration:
             pattern_query_store=None,
             pattern_upsert_store=None,
         )
-        assert engine.handler_count == engine_without.handler_count + 1, (
+        assert engine.dispatcher_count == engine_without.dispatcher_count + 1, (
             "Expected fallback from pattern_upsert_store to register projection handler"
         )
 
@@ -309,10 +309,12 @@ class TestProjectionHandlerNotRegistered:
             intent_classifier=mock_intent_classifier,
             pattern_query_store=None,
         )
-        # Without projection handler, handler count should be the baseline (27)
-        # and route count should be the baseline (34) — OMN-6979
-        assert engine.handler_count == 27
-        assert engine.route_count == 34
+        # Without projection handler, handler count should be the baseline (30)
+        # and route count should be the baseline (37) — OMN-6979, OMN-12280 adds 2
+        # handlers/routes; OMN-9536 removed the legacy routing.feedback drain
+        # handler + route; OMN-13802 added the cursor-hook handler + route (+1/+1).
+        assert engine.dispatcher_count == 30
+        assert engine.route_count == 37
 
     @pytest.mark.unit
     def test_projection_handler_skipped_logs_warning(

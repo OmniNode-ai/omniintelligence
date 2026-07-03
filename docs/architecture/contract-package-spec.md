@@ -1,6 +1,5 @@
 # Intelligence Contract Package Specification
 
-**Ticket**: OMN-7142
 **Status**: Active
 **Last Updated**: 2026-03-31
 

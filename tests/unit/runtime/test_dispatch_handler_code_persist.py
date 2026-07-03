@@ -93,7 +93,9 @@ def _make_context() -> ProtocolHandlerContext:
 async def test_persist_deletes_then_upserts() -> None:
     """Handler deletes old entities for file, then upserts new ones."""
     store = AsyncMock()
-    store.delete_entities_by_file = AsyncMock(return_value=3)
+    store.delete_stale_entities = AsyncMock(return_value=3)
+    store.delete_stale_relationships_for_file = AsyncMock(return_value=1)
+    store.get_entity_id_by_qualified_name = AsyncMock(return_value="entity_id")
     store.upsert_entity = AsyncMock(return_value="entity_id")
     store.upsert_relationship = AsyncMock(return_value="rel_id")
 
@@ -106,9 +108,10 @@ async def test_persist_deletes_then_upserts() -> None:
     result = await handler(envelope, ctx)
 
     assert result == "ok"
-    store.delete_entities_by_file.assert_called_once_with(
+    store.delete_stale_entities.assert_called_once_with(
         source_repo="test_repo",
-        file_path="src/models.py",
+        source_path="src/models.py",
+        current_qualified_names=["src.models.Entity0", "src.models.Entity1"],
     )
     assert store.upsert_entity.call_count == 2
     assert store.upsert_relationship.call_count == 1

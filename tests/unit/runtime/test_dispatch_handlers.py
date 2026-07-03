@@ -435,15 +435,15 @@ class TestCreateIntelligenceDispatchEngine:
         mock_idempotency_store: MagicMock,
         mock_intent_classifier: MagicMock,
     ) -> None:
-        """All intelligence domain handlers must be registered (pattern-projection excluded without pattern_query_store; OMN-5498 adds promotion-check; OMN-5507 adds utilization-scoring)."""
+        """All intelligence domain handlers must be registered for the no-LLM-env test surface."""
         engine = create_intelligence_dispatch_engine(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             intent_classifier=mock_intent_classifier,
         )
         assert (
-            engine.handler_count == 28
-        )  # 22 baseline + 5 cmd topic handlers (OMN-6979) + 1 added in subsequent tickets
+            engine.dispatcher_count == 30
+        )  # No-LLM test surface excludes optional adapter-backed projection/enrichment paths; +1 cursor-hook
 
     def test_engine_has_expected_routes(
         self,
@@ -451,15 +451,15 @@ class TestCreateIntelligenceDispatchEngine:
         mock_idempotency_store: MagicMock,
         mock_intent_classifier: MagicMock,
     ) -> None:
-        """All intelligence domain routes must be registered (pattern-projection excluded without pattern_query_store; OMN-5498 adds promotion-check; OMN-5507 adds utilization-scoring)."""
+        """All intelligence domain routes must be registered for the no-LLM-env test surface."""
         engine = create_intelligence_dispatch_engine(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             intent_classifier=mock_intent_classifier,
         )
         assert (
-            engine.route_count == 35
-        )  # 29 baseline + 5 cmd topic routes (OMN-6979) + 1 added in subsequent tickets
+            engine.route_count == 37
+        )  # No-LLM test surface excludes optional adapter-backed projection/enrichment paths; +1 cursor-hook route
 
 
 # =============================================================================
