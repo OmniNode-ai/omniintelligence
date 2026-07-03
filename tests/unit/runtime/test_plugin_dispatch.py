@@ -342,7 +342,7 @@ class TestPluginWireDispatchers:
         await _wire_plugin(plugin, config)
 
         assert plugin._dispatch_engine is not None
-        assert plugin._dispatch_engine.handler_count == 31
+        assert plugin._dispatch_engine.dispatcher_count == 31
 
     @pytest.mark.asyncio
     async def test_wire_dispatchers_returns_resources_created(self) -> None:
@@ -371,7 +371,7 @@ class TestPluginWireDispatchers:
             captured["debug_store"] = kwargs["debug_store"]
             engine = MagicMock()
             engine.route_count = 38
-            engine.handler_count = 29
+            engine.dispatcher_count = 29
             engine.is_frozen = True
             return engine
 
@@ -406,7 +406,7 @@ class TestPluginWireDispatchers:
         engine = MagicMock()
         engine.is_frozen = True
         engine.route_count = 0
-        engine.handler_count = 0
+        engine.dispatcher_count = 0
 
         monkeypatch.setenv("LLM_CODER_FAST_URL", "http://generator.test")
         monkeypatch.setenv("LLM_DEEPSEEK_R1_URL", "http://judge.test")

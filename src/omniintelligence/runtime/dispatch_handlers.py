@@ -50,7 +50,7 @@ from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
 from omnibase_core.protocols.handler.protocol_handler_context import (
     ProtocolHandlerContext,
 )
-from omnibase_core.runtime.runtime_message_dispatch import MessageDispatchEngine
+from omnibase_infra.runtime.message_dispatch_engine import MessageDispatchEngine
 from pydantic import ValidationError
 
 from omniintelligence.nodes.node_claude_hook_event_effect.models import (
@@ -2590,6 +2590,113 @@ def create_dispatch_outcome_record_dispatch_handler(
 # =============================================================================
 # Dispatch Engine Factory
 # =============================================================================
+#
+# Envelope-rehydration adapter (OMN-13887)
+# -----------------------------------------
+# omnibase_core removed its in-tree ``MessageDispatchEngine`` in 0.46.x; the
+# canonical successor is ``omnibase_infra.runtime.message_dispatch_engine``.
+# That engine materializes every envelope to a JSON-safe dict at the dispatch
+# (serialization) boundary (OMN-1518) before invoking a dispatcher, so it hands
+# handlers a ``{"payload", "__bindings", "__debug_trace"}`` dict rather than the
+# ``ModelEventEnvelope`` the Intelligence bridge handlers were written against.
+#
+# Rather than rewrite ~30 behavior-sensitive handlers to consume the raw dict
+# (and risk silent regressions on the barely-covered dispatch path), we restore
+# a ``ModelEventEnvelope`` view at the single registration seam. The domain
+# handlers stay byte-for-byte unchanged and behavior-preserving; only the
+# transport shape is normalized back to what they expect. correlation_id,
+# event_type, and timestamp are recovered from the materialized ``__debug_trace``
+# snapshot; envelope metadata is not part of that snapshot and is therefore not
+# reconstructed (the one handler that consults it — the claude-hook daemon-key
+# recovery path — already degrades gracefully when it is absent).
+
+
+def _rehydrate_dispatch_envelope(materialized: object) -> ModelEventEnvelope[object]:
+    """Rebuild a ``ModelEventEnvelope`` from a dispatch-engine materialized dict.
+
+    Passthrough when the value is already a ``ModelEventEnvelope`` (the direct
+    handler-call path exercised by unit tests). For the engine path the value is
+    the materialized dict produced by
+    ``MessageDispatchEngine._materialize_envelope_with_bindings``.
+    """
+    if isinstance(materialized, ModelEventEnvelope):
+        return materialized
+    if not isinstance(materialized, dict):
+        # Defensive: wrap any unexpected shape as an opaque payload so handlers
+        # fail on their own validation rather than on attribute access.
+        return ModelEventEnvelope(payload=materialized)
+
+    payload = materialized.get("payload", {})
+    debug_trace = materialized.get("__debug_trace") or {}
+    if not isinstance(debug_trace, dict):
+        debug_trace = {}
+
+    envelope_kwargs: dict[str, Any] = {"payload": payload}
+
+    raw_corr = debug_trace.get("correlation_id")
+    if raw_corr:
+        with contextlib.suppress(ValueError, AttributeError, TypeError):
+            envelope_kwargs["correlation_id"] = UUID(str(raw_corr))
+
+    event_type = debug_trace.get("event_type")
+    if event_type is not None and str(event_type):
+        envelope_kwargs["event_type"] = str(event_type)
+
+    raw_ts = debug_trace.get("timestamp")
+    if raw_ts:
+        with contextlib.suppress(ValueError, TypeError):
+            ts = datetime.fromisoformat(str(raw_ts))
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=UTC)
+            envelope_kwargs["envelope_timestamp"] = ts
+
+    return ModelEventEnvelope(**envelope_kwargs)
+
+
+def _adapt_context_dispatcher(
+    handler: Callable[
+        [ModelEventEnvelope[object], ProtocolHandlerContext], Awaitable[Any]
+    ],
+) -> Callable[[object, ProtocolHandlerContext], Awaitable[Any]]:
+    """Wrap a ``(envelope, context)`` handler so the engine's materialized dict
+    is rehydrated into a ``ModelEventEnvelope`` before the handler runs (OMN-13887).
+
+    The two-parameter async signature is required so the engine's
+    ``_dispatcher_accepts_context`` inspection routes the ``ProtocolHandlerContext``
+    through (all Intelligence dispatchers register with a ``node_kind``).
+    """
+
+    async def _adapted(
+        envelope: object,
+        context: ProtocolHandlerContext,
+    ) -> Any:
+        output = await handler(_rehydrate_dispatch_envelope(envelope), context)
+        # The Intelligence bridge handlers return a status *sentinel* string
+        # (e.g. "ok" / "skip" / "error:...") and publish their real downstream
+        # events internally via kafka_producer. The omnibase_infra dispatch
+        # engine, by contrast, interprets a non-None ``str`` return as an OUTPUT
+        # TOPIC to publish and rejects it if it is not a valid dotted topic. Map
+        # any non-topic sentinel (a string with no namespace dot) to ``None`` so
+        # the engine records a clean SUCCESS with no spurious output topic —
+        # preserving pre-migration behavior. Real topic strings (containing a
+        # dot), lists, ``None``, and ModelDispatchResult pass through unchanged
+        # so handlers that DO delegate publishing to the engine keep working.
+        if isinstance(output, str) and "." not in output:
+            return None
+        return output
+
+    return _adapted
+
+
+def _register_dispatcher_adapted(engine: MessageDispatchEngine, **kwargs: Any) -> None:
+    """Register a dispatcher, wrapping it with the envelope-rehydration adapter.
+
+    Thin shim over ``engine.register_dispatcher`` so every Intelligence handler
+    receives a rehydrated ``ModelEventEnvelope`` at the dispatch boundary
+    (OMN-13887). All other registration semantics are unchanged.
+    """
+    kwargs["dispatcher"] = _adapt_context_dispatcher(kwargs["dispatcher"])
+    engine.register_dispatcher(**kwargs)
 
 
 def create_intelligence_dispatch_engine(
@@ -2659,9 +2766,10 @@ def create_intelligence_dispatch_engine(
         publish_topic=topics.get("claude_hook"),
         repository=repository,
     )
-    engine.register_handler(
-        handler_id="intelligence-claude-hook-handler",
-        handler=claude_hook_handler,
+    _register_dispatcher_adapted(
+        engine,
+        dispatcher_id="intelligence-claude-hook-handler",
+        dispatcher=claude_hook_handler,
         category=EnumMessageCategory.COMMAND,
         node_kind=EnumNodeKind.EFFECT,
         message_types=None,
@@ -2697,9 +2805,10 @@ def create_intelligence_dispatch_engine(
         publish_topic=topics.get("cursor_hook") or topics.get("claude_hook"),
         repository=repository,
     )
-    engine.register_handler(
-        handler_id="intelligence-cursor-hook-handler",
-        handler=cursor_hook_handler,
+    _register_dispatcher_adapted(
+        engine,
+        dispatcher_id="intelligence-cursor-hook-handler",
+        dispatcher=cursor_hook_handler,
         category=EnumMessageCategory.COMMAND,
         node_kind=EnumNodeKind.EFFECT,
         message_types=None,
@@ -2721,9 +2830,10 @@ def create_intelligence_dispatch_engine(
     session_outcome_handler = create_session_outcome_dispatch_handler(
         repository=repository,
     )
-    engine.register_handler(
-        handler_id="intelligence-session-outcome-handler",
-        handler=session_outcome_handler,
+    _register_dispatcher_adapted(
+        engine,
+        dispatcher_id="intelligence-session-outcome-handler",
+        dispatcher=session_outcome_handler,
         category=EnumMessageCategory.COMMAND,
         node_kind=EnumNodeKind.EFFECT,
         message_types=None,
@@ -2747,9 +2857,10 @@ def create_intelligence_dispatch_engine(
         kafka_producer=kafka_producer,
         publish_topic=topics.get("lifecycle"),
     )
-    engine.register_handler(
-        handler_id="intelligence-pattern-lifecycle-handler",
-        handler=pattern_lifecycle_handler,
+    _register_dispatcher_adapted(
+        engine,
+        dispatcher_id="intelligence-pattern-lifecycle-handler",
+        dispatcher=pattern_lifecycle_handler,
         category=EnumMessageCategory.COMMAND,
         node_kind=EnumNodeKind.EFFECT,
         message_types=None,
@@ -2778,9 +2889,10 @@ def create_intelligence_dispatch_engine(
         kafka_producer=kafka_producer,
         publish_topic=topics.get("pattern_storage"),
     )
-    engine.register_handler(
-        handler_id="intelligence-pattern-storage-handler",
-        handler=pattern_storage_handler,
+    _register_dispatcher_adapted(
+        engine,
+        dispatcher_id="intelligence-pattern-storage-handler",
+        dispatcher=pattern_storage_handler,
         category=EnumMessageCategory.EVENT,
         node_kind=EnumNodeKind.EFFECT,
         message_types=None,
@@ -2819,9 +2931,10 @@ def create_intelligence_dispatch_engine(
             DISPATCH_ALIAS_PATTERN_LEARNED,
         ),
     )
-    engine.register_handler(
-        handler_id="intelligence-pattern-learning-handler",
-        handler=pattern_learning_handler,
+    _register_dispatcher_adapted(
+        engine,
+        dispatcher_id="intelligence-pattern-learning-handler",
+        dispatcher=pattern_learning_handler,
         category=EnumMessageCategory.COMMAND,
         node_kind=EnumNodeKind.EFFECT,
         message_types=None,
@@ -2844,9 +2957,10 @@ def create_intelligence_dispatch_engine(
         kafka_producer=kafka_producer,
         publish_topic=topics.get("compliance_evaluate"),
     )
-    engine.register_handler(
-        handler_id="intelligence-compliance-evaluate-handler",
-        handler=compliance_evaluate_handler,
+    _register_dispatcher_adapted(
+        engine,
+        dispatcher_id="intelligence-compliance-evaluate-handler",
+        dispatcher=compliance_evaluate_handler,
         category=EnumMessageCategory.COMMAND,
         node_kind=EnumNodeKind.EFFECT,
         message_types=None,
@@ -2886,9 +3000,10 @@ def create_intelligence_dispatch_engine(
             kafka_producer=kafka_producer,
             publish_topic=topics.get("pattern_projection"),
         )
-        engine.register_handler(
-            handler_id="intelligence-pattern-projection-handler",
-            handler=pattern_projection_handler,
+        _register_dispatcher_adapted(
+            engine,
+            dispatcher_id="intelligence-pattern-projection-handler",
+            dispatcher=pattern_projection_handler,
             category=EnumMessageCategory.EVENT,
             node_kind=EnumNodeKind.EFFECT,
             message_types=None,
@@ -2958,9 +3073,10 @@ def create_intelligence_dispatch_engine(
         )
 
     crawl_requested_handler = create_crawl_requested_dispatch_handler()
-    engine.register_handler(
-        handler_id="intelligence-crawl-requested-handler",
-        handler=crawl_requested_handler,
+    _register_dispatcher_adapted(
+        engine,
+        dispatcher_id="intelligence-crawl-requested-handler",
+        dispatcher=crawl_requested_handler,
         category=EnumMessageCategory.COMMAND,
         node_kind=EnumNodeKind.EFFECT,
         message_types=None,
@@ -2981,9 +3097,10 @@ def create_intelligence_dispatch_engine(
 
     # --- Handler 9: document-indexed (OMN-2384) ---
     document_indexed_handler = create_document_indexed_dispatch_handler()
-    engine.register_handler(
-        handler_id="intelligence-document-indexed-handler",
-        handler=document_indexed_handler,
+    _register_dispatcher_adapted(
+        engine,
+        dispatcher_id="intelligence-document-indexed-handler",
+        dispatcher=document_indexed_handler,
         category=EnumMessageCategory.EVENT,
         node_kind=EnumNodeKind.EFFECT,
         message_types=None,
@@ -3031,9 +3148,10 @@ def create_intelligence_dispatch_engine(
         publisher=kafka_producer,  # type: ignore[arg-type]
         llm_client=_utilization_llm_client,
     )
-    engine.register_handler(
-        handler_id="intelligence-utilization-scoring-handler",
-        handler=utilization_scoring_handler,
+    _register_dispatcher_adapted(
+        engine,
+        dispatcher_id="intelligence-utilization-scoring-handler",
+        dispatcher=utilization_scoring_handler,
         category=EnumMessageCategory.COMMAND,
         node_kind=EnumNodeKind.EFFECT,
         message_types=None,
@@ -3051,9 +3169,10 @@ def create_intelligence_dispatch_engine(
         kafka_producer=kafka_producer,
         publish_topic=topics.get("lifecycle"),
     )
-    engine.register_handler(
-        handler_id="intelligence-promotion-check-handler",
-        handler=promotion_check_handler,
+    _register_dispatcher_adapted(
+        engine,
+        dispatcher_id="intelligence-promotion-check-handler",
+        dispatcher=promotion_check_handler,
         category=EnumMessageCategory.COMMAND,
         node_kind=EnumNodeKind.EFFECT,
         message_types=None,
@@ -3101,9 +3220,10 @@ def create_intelligence_dispatch_engine(
         kafka_publisher=kafka_producer,
         publish_topic=topics.get("code_file_discovered"),
     )
-    engine.register_handler(
-        handler_id="intelligence-code-crawl-handler",
-        handler=code_crawl_handler,
+    _register_dispatcher_adapted(
+        engine,
+        dispatcher_id="intelligence-code-crawl-handler",
+        dispatcher=code_crawl_handler,
         category=EnumMessageCategory.COMMAND,
         node_kind=EnumNodeKind.EFFECT,
         message_types=None,
@@ -3133,9 +3253,10 @@ def create_intelligence_dispatch_engine(
         kafka_publisher=kafka_producer,
         publish_topic=topics.get("code_entities_extracted"),
     )
-    engine.register_handler(
-        handler_id="intelligence-code-extract-handler",
-        handler=code_extract_handler,
+    _register_dispatcher_adapted(
+        engine,
+        dispatcher_id="intelligence-code-extract-handler",
+        dispatcher=code_extract_handler,
         category=EnumMessageCategory.EVENT,
         node_kind=EnumNodeKind.EFFECT,
         message_types=None,
@@ -3162,9 +3283,10 @@ def create_intelligence_dispatch_engine(
     )
 
     code_persist_handler = create_code_persist_dispatch_handler()
-    engine.register_handler(
-        handler_id="intelligence-code-persist-handler",
-        handler=code_persist_handler,
+    _register_dispatcher_adapted(
+        engine,
+        dispatcher_id="intelligence-code-persist-handler",
+        dispatcher=code_persist_handler,
         category=EnumMessageCategory.EVENT,
         node_kind=EnumNodeKind.EFFECT,
         message_types=None,
@@ -3195,9 +3317,10 @@ def create_intelligence_dispatch_engine(
         qdrant_client=qdrant_client,
         bolt_handler=bolt_handler,
     )
-    engine.register_handler(
-        handler_id="intelligence-code-embed-graph-handler",
-        handler=code_embed_graph_handler,
+    _register_dispatcher_adapted(
+        engine,
+        dispatcher_id="intelligence-code-embed-graph-handler",
+        dispatcher=code_embed_graph_handler,
         category=EnumMessageCategory.EVENT,
         node_kind=EnumNodeKind.EFFECT,
         message_types=None,
@@ -3228,9 +3351,10 @@ def create_intelligence_dispatch_engine(
         kafka_publisher=kafka_producer,
         publish_topic=topics.get("code_entity_patterns_derived"),
     )
-    engine.register_handler(
-        handler_id="intelligence-code-entity-bridge-handler",
-        handler=code_entity_bridge_handler,
+    _register_dispatcher_adapted(
+        engine,
+        dispatcher_id="intelligence-code-entity-bridge-handler",
+        dispatcher=code_entity_bridge_handler,
         category=EnumMessageCategory.EVENT,
         node_kind=EnumNodeKind.COMPUTE,
         message_types=None,
@@ -3254,9 +3378,10 @@ def create_intelligence_dispatch_engine(
 
     # --- Handler: intelligence orchestrator (OMN-6590) ---
     orchestrator_handler = create_intelligence_orchestrator_dispatch_handler()
-    engine.register_handler(
-        handler_id="intelligence-orchestrator-handler",
-        handler=orchestrator_handler,
+    _register_dispatcher_adapted(
+        engine,
+        dispatcher_id="intelligence-orchestrator-handler",
+        dispatcher=orchestrator_handler,
         category=EnumMessageCategory.COMMAND,
         node_kind=EnumNodeKind.ORCHESTRATOR,
         message_types=None,
@@ -3275,9 +3400,10 @@ def create_intelligence_dispatch_engine(
 
     # --- Handler: CI fingerprint compute (OMN-6598) ---
     ci_fingerprint_handler = create_ci_fingerprint_dispatch_handler()
-    engine.register_handler(
-        handler_id="intelligence-ci-fingerprint-handler",
-        handler=ci_fingerprint_handler,
+    _register_dispatcher_adapted(
+        engine,
+        dispatcher_id="intelligence-ci-fingerprint-handler",
+        dispatcher=ci_fingerprint_handler,
         category=EnumMessageCategory.COMMAND,
         node_kind=EnumNodeKind.COMPUTE,
         message_types=None,
@@ -3300,9 +3426,10 @@ def create_intelligence_dispatch_engine(
         debug_store=debug_store,
         kafka_producer=kafka_producer,
     )
-    engine.register_handler(
-        handler_id="intelligence-ci-failure-tracker-handler",
-        handler=ci_tracker_handler,
+    _register_dispatcher_adapted(
+        engine,
+        dispatcher_id="intelligence-ci-failure-tracker-handler",
+        dispatcher=ci_tracker_handler,
         category=EnumMessageCategory.COMMAND,
         node_kind=EnumNodeKind.EFFECT,
         message_types=None,
@@ -3345,9 +3472,10 @@ def create_intelligence_dispatch_engine(
         )
         return "ok"
 
-    engine.register_handler(
-        handler_id="intelligence-decision-recorded-handler",
-        handler=_noop_decision_recorded_handler,
+    _register_dispatcher_adapted(
+        engine,
+        dispatcher_id="intelligence-decision-recorded-handler",
+        dispatcher=_noop_decision_recorded_handler,
         category=EnumMessageCategory.COMMAND,
         node_kind=EnumNodeKind.EFFECT,
         message_types=None,
@@ -3394,9 +3522,10 @@ def create_intelligence_dispatch_engine(
         )
         return "ok"
 
-    engine.register_handler(
-        handler_id="intelligence-debug-trigger-record-handler",
-        handler=_noop_debug_trigger_record_handler,
+    _register_dispatcher_adapted(
+        engine,
+        dispatcher_id="intelligence-debug-trigger-record-handler",
+        dispatcher=_noop_debug_trigger_record_handler,
         category=EnumMessageCategory.EVENT,
         node_kind=EnumNodeKind.EFFECT,
         message_types=None,
@@ -3429,9 +3558,10 @@ def create_intelligence_dispatch_engine(
         )
         return "ok"
 
-    engine.register_handler(
-        handler_id="intelligence-review-pairing-handler",
-        handler=_review_pairing_dispatch_handler,
+    _register_dispatcher_adapted(
+        engine,
+        dispatcher_id="intelligence-review-pairing-handler",
+        dispatcher=_review_pairing_dispatch_handler,
         category=EnumMessageCategory.EVENT,
         node_kind=EnumNodeKind.EFFECT,
         message_types=None,
@@ -3511,9 +3641,10 @@ def create_intelligence_dispatch_engine(
         # Why: Runtime validation intentionally accepts this broader fixture/input shape.
         llm_adapter=_code_analysis_llm_adapter,  # type: ignore[arg-type]
     )
-    engine.register_handler(
-        handler_id="intelligence-code-analysis-handler",
-        handler=code_analysis_handler,
+    _register_dispatcher_adapted(
+        engine,
+        dispatcher_id="intelligence-code-analysis-handler",
+        dispatcher=code_analysis_handler,
         category=EnumMessageCategory.COMMAND,
         node_kind=EnumNodeKind.EFFECT,
         message_types=None,
@@ -3539,9 +3670,10 @@ def create_intelligence_dispatch_engine(
         eval_llm_client=eval_llm_client,
     )
 
-    engine.register_handler(
-        handler_id="intelligence-bloom-eval-run-handler",
-        handler=bloom_eval_run_handler,
+    _register_dispatcher_adapted(
+        engine,
+        dispatcher_id="intelligence-bloom-eval-run-handler",
+        dispatcher=bloom_eval_run_handler,
         category=EnumMessageCategory.COMMAND,
         node_kind=EnumNodeKind.ORCHESTRATOR,
         message_types=None,
@@ -3575,9 +3707,10 @@ def create_intelligence_dispatch_engine(
         )
         return "ok"
 
-    engine.register_handler(
-        handler_id="intelligence-document-ingestion-handler",
-        handler=_document_ingestion_handler,
+    _register_dispatcher_adapted(
+        engine,
+        dispatcher_id="intelligence-document-ingestion-handler",
+        dispatcher=_document_ingestion_handler,
         category=EnumMessageCategory.COMMAND,
         node_kind=EnumNodeKind.ORCHESTRATOR,
         message_types=None,
@@ -3611,9 +3744,10 @@ def create_intelligence_dispatch_engine(
         )
         return "ok"
 
-    engine.register_handler(
-        handler_id="intelligence-protocol-execute-handler",
-        handler=_protocol_execute_handler,
+    _register_dispatcher_adapted(
+        engine,
+        dispatcher_id="intelligence-protocol-execute-handler",
+        dispatcher=_protocol_execute_handler,
         category=EnumMessageCategory.COMMAND,
         node_kind=EnumNodeKind.EFFECT,
         message_types=None,
@@ -3648,9 +3782,10 @@ def create_intelligence_dispatch_engine(
         )
         return "ok"
 
-    engine.register_handler(
-        handler_id="intelligence-crawl-tick-handler",
-        handler=_crawl_tick_handler,
+    _register_dispatcher_adapted(
+        engine,
+        dispatcher_id="intelligence-crawl-tick-handler",
+        dispatcher=_crawl_tick_handler,
         category=EnumMessageCategory.COMMAND,
         node_kind=EnumNodeKind.EFFECT,
         message_types=None,
@@ -3678,9 +3813,10 @@ def create_intelligence_dispatch_engine(
         repository=repository,
         kafka_producer=kafka_producer,
     )
-    engine.register_handler(
-        handler_id="intelligence-routing-feedback-handler",
-        handler=routing_feedback_handler,
+    _register_dispatcher_adapted(
+        engine,
+        dispatcher_id="intelligence-routing-feedback-handler",
+        dispatcher=routing_feedback_handler,
         category=EnumMessageCategory.EVENT,
         node_kind=EnumNodeKind.EFFECT,
         message_types=None,
@@ -3705,9 +3841,10 @@ def create_intelligence_dispatch_engine(
         kafka_producer=kafka_producer,
         publish_topic=topics.get("dispatch_outcome_eval"),
     )
-    engine.register_handler(
-        handler_id="intelligence-dispatch-outcome-eval-handler",
-        handler=dispatch_outcome_eval_handler,
+    _register_dispatcher_adapted(
+        engine,
+        dispatcher_id="intelligence-dispatch-outcome-eval-handler",
+        dispatcher=dispatch_outcome_eval_handler,
         category=EnumMessageCategory.EVENT,
         node_kind=EnumNodeKind.EFFECT,
         message_types=None,
@@ -3730,9 +3867,10 @@ def create_intelligence_dispatch_engine(
     dispatch_outcome_record_handler = create_dispatch_outcome_record_dispatch_handler(
         repository=repository,
     )
-    engine.register_handler(
-        handler_id="intelligence-dispatch-outcome-record-handler",
-        handler=dispatch_outcome_record_handler,
+    _register_dispatcher_adapted(
+        engine,
+        dispatcher_id="intelligence-dispatch-outcome-record-handler",
+        dispatcher=dispatch_outcome_record_handler,
         category=EnumMessageCategory.EVENT,
         node_kind=EnumNodeKind.EFFECT,
         message_types=None,
@@ -3763,7 +3901,7 @@ def create_intelligence_dispatch_engine(
         "Intelligence dispatch engine created and frozen "
         "(routes=%d, handlers=%d, compliance_evaluate=%s, pattern_projection=%s)",
         engine.route_count,
-        engine.handler_count,
+        engine.dispatcher_count,
         llm_client is not None,
         _projection_store is not None,
     )
@@ -3912,7 +4050,7 @@ def create_dispatch_callback(
                 "Dispatch result: status=%s, handler=%s, duration=%.2fms "
                 "(correlation_id=%s)",
                 result.status,
-                result.handler_id,
+                result.dispatcher_id,
                 result.duration_ms,
                 msg_correlation_id,
             )

@@ -106,9 +106,9 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from omnibase_core.protocols.event_bus.protocol_event_bus import ProtocolEventBus
-    from omnibase_core.runtime.runtime_message_dispatch import MessageDispatchEngine
     from omnibase_infra.idempotency.store_postgres import StoreIdempotencyPostgres
     from omnibase_infra.runtime.db import PostgresRepositoryRuntime
+    from omnibase_infra.runtime.message_dispatch_engine import MessageDispatchEngine
     from omnibase_infra.runtime.registry import RegistryMessageType
 
     from omniintelligence.runtime.introspection import (
@@ -1101,7 +1101,7 @@ class PluginIntelligence:
                 "(routes=%d, handlers=%d, kafka=%s, introspection=%d, "
                 "correlation_id=%s)",
                 self._dispatch_engine.route_count,
-                self._dispatch_engine.handler_count,
+                self._dispatch_engine.dispatcher_count,
                 kafka_publisher is not None,
                 len(self._introspection_nodes),
                 correlation_id,
