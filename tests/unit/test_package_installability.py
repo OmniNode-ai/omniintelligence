@@ -51,6 +51,7 @@ EXPECTED_NODE_DIRS = [
     "node_contract_eval_compute",
     "node_context_item_writer_effect",
     "node_crawl_scheduler_effect",
+    "node_cursor_hook_event_effect",
     "node_debug_fix_record_effect",
     "node_debug_retrieval_compute",
     "node_dispatch_outcome_eval_effect",

@@ -331,7 +331,7 @@ class TestPluginWireDispatchers:
         await _wire_plugin(plugin, config)
 
         assert plugin._dispatch_engine is not None
-        assert plugin._dispatch_engine.route_count == 39
+        assert plugin._dispatch_engine.route_count == 40
 
     @pytest.mark.asyncio
     async def test_wire_dispatchers_engine_has_expected_handlers(self) -> None:
@@ -342,7 +342,7 @@ class TestPluginWireDispatchers:
         await _wire_plugin(plugin, config)
 
         assert plugin._dispatch_engine is not None
-        assert plugin._dispatch_engine.handler_count == 30
+        assert plugin._dispatch_engine.handler_count == 31
 
     @pytest.mark.asyncio
     async def test_wire_dispatchers_returns_resources_created(self) -> None:
