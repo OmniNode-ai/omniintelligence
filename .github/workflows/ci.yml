@@ -962,6 +962,7 @@ jobs:
           migrationfreeze="${{ needs.migration-freeze.result }}"
           handshake="${{ needs.check-handshake.result }}"
           secrets="${{ needs.detect-secrets.result }}"
+          contractcompliance="${{ needs.contract-compliance.result }}"
 
           # Report each check
           echo "| Check | Result |" >> $GITHUB_STEP_SUMMARY
@@ -975,6 +976,7 @@ jobs:
           echo "| Migration Freeze | $migrationfreeze |" >> $GITHUB_STEP_SUMMARY
           echo "| Architecture Handshake | $handshake |" >> $GITHUB_STEP_SUMMARY
           echo "| Detect Secrets | $secrets |" >> $GITHUB_STEP_SUMMARY
+          echo "| Contract Compliance Check | $contractcompliance |" >> $GITHUB_STEP_SUMMARY
 
           # Gate logic: all unconditional checks must pass.
           # check-handshake is skipped on fork PRs -- treat skipped as acceptable.
@@ -988,6 +990,17 @@ jobs:
 
           # Handshake: accept success or skipped (fork PRs)
           if [[ "$handshake" != "success" ]] && [[ "$handshake" != "skipped" ]]; then
+            FAILED=true
+          fi
+
+          # OMN-13875: contract-compliance was listed in this job's `needs:` but
+          # its `.result` was never read — a decorative dependency, so a Contract
+          # Compliance Check failure did NOT block merge. Read it and fail on it.
+          # It runs on pull_request/merge_group/push (its job `if:`), so on any
+          # gating event it always runs and is never `skipped`; the skipped
+          # tolerance only applies to non-gating events (e.g. workflow_dispatch),
+          # so no failure can slip via skipped in the merge queue.
+          if [[ "$contractcompliance" != "success" ]] && [[ "$contractcompliance" != "skipped" ]]; then
             FAILED=true
           fi
 
