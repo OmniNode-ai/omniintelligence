@@ -22,7 +22,7 @@ jobs:
     uses: OmniNode-ai/onex_change_control/.github/workflows/codeql-reusable.yml@main
     with:
       language: python
-      query_suite: security-and-quality
+      query_suite: security-extended
     permissions:
       actions: read
       contents: read
