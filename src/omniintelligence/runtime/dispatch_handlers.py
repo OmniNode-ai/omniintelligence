@@ -198,11 +198,13 @@ DISPATCH_ALIAS_DEBUG_TRIGGER_RECORD_CREATED = canonical_topic_to_dispatch_alias(
 )
 """Dispatch-compatible alias for debug-trigger-record-created event topic (OMN-6597)."""
 DISPATCH_ALIAS_DISPATCH_WORKER_COMPLETED = canonical_topic_to_dispatch_alias(
-    "onex.evt.omniclaude.dispatch_worker-completed.v1"
+    "onex.evt.omniclaude.dispatch_worker-completed.v1"  # onex-topic-allow: cross-repo omniclaude producer topic, no local registry entry (OMN-13944)
 )
 """Dispatch-compatible alias for dispatch_worker-completed event (OMN-12280)."""
+TOPIC_DISPATCH_OUTCOME_EVALUATED_V1 = "onex.evt.omniintelligence.dispatch-outcome-evaluated.v1"  # onex-topic-allow: canonical Kafka topic const, referenced below and by the fallback default publish topic (OMN-13944)
+"""Canonical Kafka topic for dispatch-outcome-evaluated events (OMN-12280)."""
 DISPATCH_ALIAS_DISPATCH_OUTCOME_EVALUATED = canonical_topic_to_dispatch_alias(
-    "onex.evt.omniintelligence.dispatch-outcome-evaluated.v1"
+    TOPIC_DISPATCH_OUTCOME_EVALUATED_V1
 )
 """Dispatch-compatible alias for dispatch-outcome-evaluated event (OMN-12280)."""
 # =============================================================================
@@ -2381,10 +2383,7 @@ def create_dispatch_outcome_eval_dispatch_handler(
         result = await handle_dispatch_outcome(event)
 
         if kafka_producer is not None:
-            _publish_topic = (
-                publish_topic
-                or "onex.evt.omniintelligence.dispatch-outcome-evaluated.v1"
-            )
+            _publish_topic = publish_topic or TOPIC_DISPATCH_OUTCOME_EVALUATED_V1
             try:
                 await kafka_producer.publish(
                     topic=_publish_topic,

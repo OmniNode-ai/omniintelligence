@@ -344,7 +344,7 @@ class TestTopicNames:
         """TOPIC_LLM_ROUTING_DECISION_PROCESSED has the correct topic name."""
         assert (
             TOPIC_LLM_ROUTING_DECISION_PROCESSED
-            == "onex.evt.omniintelligence.llm-routing-decision-processed.v1"
+            == "onex.evt.omniintelligence.llm-routing-decision-processed.v1"  # onex-topic-test-fixture
         )
 
     def test_dlq_topic_derived_from_processed_topic(self) -> None:

@@ -1476,7 +1476,10 @@ class TestEventPayloadVerification:
         )
 
         topic, _key, _value = mock_producer.published_events[0]
-        assert topic == "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
+        assert (
+            topic
+            == "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"  # onex-topic-test-fixture
+        )
 
     @pytest.mark.asyncio
     async def test_event_key_is_pattern_id(

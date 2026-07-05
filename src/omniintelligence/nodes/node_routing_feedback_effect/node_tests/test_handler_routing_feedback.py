@@ -800,7 +800,7 @@ class TestTopicNames:
         """TOPIC_ROUTING_FEEDBACK_PROCESSED has the correct canonical name."""
         assert (
             TOPIC_ROUTING_FEEDBACK_PROCESSED
-            == "onex.evt.omniintelligence.routing-feedback-processed.v1"
+            == "onex.evt.omniintelligence.routing-feedback-processed.v1"  # onex-topic-test-fixture
         )
 
 

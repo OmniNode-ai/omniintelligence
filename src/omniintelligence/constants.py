@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
 
+# onex-topic-sot: canonical registry of TOPIC_SUFFIX_*/TOPIC_*_V1 Kafka topic constants for omniintelligence (OMN-13944)
+
 """
 Shared Constants for OmniIntelligence.
 

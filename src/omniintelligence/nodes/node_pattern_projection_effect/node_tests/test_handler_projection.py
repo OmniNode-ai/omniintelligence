@@ -61,7 +61,7 @@ class TestSnapshotConstruction:
             pattern_query_store=mock_query_store,
             producer=mock_producer,
             correlation_id=sample_correlation_id,
-            publish_topic="onex.evt.omniintelligence.pattern-projection.v1",
+            publish_topic="onex.evt.omniintelligence.pattern-projection.v1",  # onex-topic-test-fixture
         )
 
         assert isinstance(result, ModelPatternProjectionEvent)
@@ -81,7 +81,7 @@ class TestSnapshotConstruction:
             pattern_query_store=mock_query_store,
             producer=mock_producer,
             correlation_id=sample_correlation_id,
-            publish_topic="onex.evt.omniintelligence.pattern-projection.v1",
+            publish_topic="onex.evt.omniintelligence.pattern-projection.v1",  # onex-topic-test-fixture
         )
 
         # Pydantic frozen models raise ValidationError on direct attribute assignment
@@ -100,7 +100,7 @@ class TestSnapshotConstruction:
             pattern_query_store=mock_query_store,
             producer=mock_producer,
             correlation_id=sample_correlation_id,
-            publish_topic="onex.evt.omniintelligence.pattern-projection.v1",
+            publish_topic="onex.evt.omniintelligence.pattern-projection.v1",  # onex-topic-test-fixture
         )
 
         assert result.correlation_id == sample_correlation_id
@@ -117,7 +117,7 @@ class TestSnapshotConstruction:
             pattern_query_store=mock_query_store,
             producer=mock_producer,
             correlation_id=sample_correlation_id,
-            publish_topic="onex.evt.omniintelligence.pattern-projection.v1",
+            publish_topic="onex.evt.omniintelligence.pattern-projection.v1",  # onex-topic-test-fixture
         )
 
         assert result.snapshot_at.tzinfo is not None
@@ -136,7 +136,7 @@ class TestSnapshotConstruction:
             pattern_query_store=mock_query_store,
             producer=mock_producer,
             correlation_id=sample_correlation_id,
-            publish_topic="onex.evt.omniintelligence.pattern-projection.v1",
+            publish_topic="onex.evt.omniintelligence.pattern-projection.v1",  # onex-topic-test-fixture
         )
 
         assert result.total_count == 0
@@ -161,7 +161,9 @@ class TestKafkaEmission:
     ) -> None:
         """Projection event is published to the correct topic on trigger."""
         mock_query_store.rows = [make_pattern_row()]
-        topic = "onex.evt.omniintelligence.pattern-projection.v1"
+        topic = (
+            "onex.evt.omniintelligence.pattern-projection.v1"  # onex-topic-test-fixture
+        )
 
         await publish_projection(
             pattern_query_store=mock_query_store,
@@ -187,7 +189,9 @@ class TestKafkaEmission:
         """Kafka publish failure is swallowed — fire-and-forget semantics."""
         mock_query_store.rows = [make_pattern_row()]
         mock_producer.simulate_error = RuntimeError("Kafka connection refused")
-        topic = "onex.evt.omniintelligence.pattern-projection.v1"
+        topic = (
+            "onex.evt.omniintelligence.pattern-projection.v1"  # onex-topic-test-fixture
+        )
 
         # Must NOT raise
         result = await publish_projection(
@@ -213,7 +217,7 @@ class TestKafkaEmission:
             pattern_query_store=mock_query_store,
             producer=None,
             correlation_id=sample_correlation_id,
-            publish_topic="onex.evt.omniintelligence.pattern-projection.v1",
+            publish_topic="onex.evt.omniintelligence.pattern-projection.v1",  # onex-topic-test-fixture
         )
 
         assert result.total_count == 1  # snapshot still built
@@ -263,7 +267,7 @@ class TestErrorResilience:
             pattern_query_store=mock_query_store,
             producer=mock_producer,
             correlation_id=sample_correlation_id,
-            publish_topic="onex.evt.omniintelligence.pattern-projection.v1",
+            publish_topic="onex.evt.omniintelligence.pattern-projection.v1",  # onex-topic-test-fixture
         )
 
         assert result.total_count == 0
@@ -283,7 +287,7 @@ class TestErrorResilience:
             pattern_query_store=mock_query_store,
             producer=mock_producer,
             correlation_id=None,
-            publish_topic="onex.evt.omniintelligence.pattern-projection.v1",
+            publish_topic="onex.evt.omniintelligence.pattern-projection.v1",  # onex-topic-test-fixture
         )
 
         assert result.total_count == 1
@@ -322,7 +326,7 @@ class TestPagination:
             pattern_query_store=store,
             producer=mock_producer,
             correlation_id=sample_correlation_id,
-            publish_topic="onex.evt.omniintelligence.pattern-projection.v1",
+            publish_topic="onex.evt.omniintelligence.pattern-projection.v1",  # onex-topic-test-fixture
         )
 
         assert result.total_count == total_rows
