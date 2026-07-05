@@ -997,7 +997,7 @@ class TestKafkaEvents:
             to_status=EnumPatternLifecycleStatus.VALIDATED,
             trigger="promote",
             transition_at=sample_transition_at,
-            publish_topic="onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1",
+            publish_topic="onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1",  # onex-topic-test-fixture
         )
 
         # Assert
@@ -1038,7 +1038,7 @@ class TestKafkaEvents:
             to_status=EnumPatternLifecycleStatus.VALIDATED,
             trigger="promote",
             transition_at=sample_transition_at,
-            publish_topic="onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1",
+            publish_topic="onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1",  # onex-topic-test-fixture
         )
 
         # Assert
@@ -1095,7 +1095,7 @@ class TestKafkaEvents:
         mock_repository.add_pattern(
             sample_pattern_id, status="provisional", evidence_tier="measured"
         )
-        publish_topic = "onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1"
+        publish_topic = "onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1"  # onex-topic-test-fixture
 
         # Act
         await apply_transition(

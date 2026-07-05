@@ -68,13 +68,19 @@ pytestmark = pytest.mark.unit
 
 def test_publish_topic_matches_contract() -> None:
     """PUBLISH_TOPIC constant matches contract.yaml publish_topics[0]."""
-    assert PUBLISH_TOPIC == "onex.evt.omniintelligence.compliance-evaluated.v1"
+    assert (
+        PUBLISH_TOPIC
+        == "onex.evt.omniintelligence.compliance-evaluated.v1"  # onex-topic-test-fixture
+    )
 
 
 def test_dlq_topic_is_publish_topic_with_dlq_suffix() -> None:
     """DLQ_TOPIC is PUBLISH_TOPIC with .dlq appended."""
     assert f"{PUBLISH_TOPIC}.dlq" == DLQ_TOPIC
-    assert DLQ_TOPIC == "onex.evt.omniintelligence.compliance-evaluated.v1.dlq"
+    assert (
+        DLQ_TOPIC
+        == "onex.evt.omniintelligence.compliance-evaluated.v1.dlq"  # onex-topic-test-fixture
+    )
 
 
 def test_fixed_content_sha256_matches_hash() -> None:
