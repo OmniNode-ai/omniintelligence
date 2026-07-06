@@ -12,7 +12,7 @@ This client lives in omniintelligence.adapters (not inside nodes/) to comply
 with ARCH-002, which prohibits nodes from importing transport libraries
 directly. Nodes receive clients via dependency injection.
 
-Endpoint: ``LLM_EMBEDDING_URL`` env var or custom URL
+Endpoint: contract-resolved embedding base URL
 API: POST /v1/embeddings with ``{"input": [...], "model": "..."}``
 
 Example:
@@ -24,7 +24,8 @@ Example:
         ModelEmbeddingClientConfig,
     )
 
-    config = ModelEmbeddingClientConfig(base_url="http://localhost:8100")
+    embedding_base_url = resolve_embedding_base_url()
+    config = ModelEmbeddingClientConfig(base_url=embedding_base_url)
     async with EmbeddingClientLocalOpenAI(config) as client:
         embeddings = await client.get_embeddings_batch(["Hello", "World"])
     ```
@@ -75,14 +76,16 @@ class EmbeddingClientLocalOpenAI:
 
     Example (context manager):
         ```python
-        config = ModelEmbeddingClientConfig(base_url="http://localhost:8100")
+        embedding_base_url = resolve_embedding_base_url()
+        config = ModelEmbeddingClientConfig(base_url=embedding_base_url)
         async with EmbeddingClientLocalOpenAI(config) as client:
             embedding = await client.get_embedding("Hello world")
         ```
 
     Example (manual lifecycle):
         ```python
-        config = ModelEmbeddingClientConfig(base_url="http://localhost:8100")
+        embedding_base_url = resolve_embedding_base_url()
+        config = ModelEmbeddingClientConfig(base_url=embedding_base_url)
         client = EmbeddingClientLocalOpenAI(config)
         await client.connect()
         try:
