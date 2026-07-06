@@ -66,6 +66,14 @@ class TestResolveTestPaths:
         )
         assert paths == ["tests/audit/"]
 
+    def test_missing_module_test_dir_is_filtered(self) -> None:
+        paths = resolve_test_paths(
+            ["src/omniintelligence/adapters/embedding_client_local_openai.py"],
+            ADJACENCY_PATH,
+        )
+        assert "tests/unit/adapters/" not in paths
+        assert "tests/unit/runtime/" in paths
+
 
 @pytest.mark.unit
 class TestComputeSelection:
