@@ -69,7 +69,7 @@ _SEVERITY_MAP: dict[str, EnumFindingSeverity] = {
 
 
 def parse_raw(
-    raw: str,
+    raw: object,
     *,
     repo: str,
     pr_id: int,

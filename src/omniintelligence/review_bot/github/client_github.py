@@ -19,7 +19,7 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
-from typing import Any
+from typing import Any, cast
 
 _BOT_MARKER = "<!-- omni-review-bot -->"
 _DEFAULT_GITHUB_API = "https://api.github.com"
@@ -131,7 +131,7 @@ class GitHubClient:
                         file=sys.stderr,
                     )
                     return None
-                return json.loads(resp.read().decode("utf-8"))
+                return cast("dict[str, Any]", json.loads(resp.read().decode("utf-8")))
         except urllib.error.HTTPError as exc:
             print(f"WARNING: GitHub API HTTP error: {exc}", file=sys.stderr)
             return None

@@ -225,7 +225,7 @@ class PPOTrainer:
                 )
 
                 self.optimizer.zero_grad()
-                loss.backward()
+                loss.backward()  # type: ignore[no-untyped-call]
                 self.optimizer.step()
 
                 # KL divergence approximation

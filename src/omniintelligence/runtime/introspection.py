@@ -189,7 +189,7 @@ INTELLIGENCE_NODES: tuple[_NodeDescriptor, ...] = discover_intelligence_nodes()
 # =============================================================================
 
 
-class IntelligenceNodeIntrospectionProxy(MixinNodeIntrospection):
+class IntelligenceNodeIntrospectionProxy(MixinNodeIntrospection):  # type: ignore[misc]
     """Proxy that uses MixinNodeIntrospection to publish on behalf of a node.
 
     Intelligence nodes are thin shells that run inside the plugin lifecycle.
