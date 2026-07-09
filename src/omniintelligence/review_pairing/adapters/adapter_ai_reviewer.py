@@ -371,19 +371,26 @@ async def call_model(
         max_tokens=_DEFAULT_MAX_TOKENS,
         temperature=_DEFAULT_TEMPERATURE,
         timeout_seconds=config.timeout_seconds,
-        # OMN-14176: suppress Qwen3 reasoning output at generation time. The
-        # extra_body passthrough (OMN-12816) already exists on this model and
-        # is proven in production by node_generation_consumer (omnimarket) for
-        # SEA generation determinism -- it was never wired into the reviewer.
-        # Without it, qwen3-review/-b spend most of max_tokens on an unwrapped
-        # reasoning preamble (observed live: 3496/4096 tokens, no <think>
-        # opener but an unmatched </think> closer) that both defeats the
-        # strip-think-tags step below (needs both tags) and, on slower
+        # OMN-14176: enable_thinking is a DECLARATIVE per-model registry field
+        # (model_registry.yaml), not a code-baked constant -- flipping it for
+        # a model is a config edit, not a code change + redeploy. The
+        # extra_body passthrough itself (OMN-12816) already exists on this
+        # request model and is proven in production by node_generation_consumer
+        # (omnimarket) for SEA generation determinism; this reads the same
+        # config.enable_thinking the registry declares per model and threads
+        # it through. When a thinking-capable model is allowed to reason
+        # (enable_thinking=True), it can spend most of max_tokens on an
+        # unwrapped reasoning preamble (observed live: 3496/4096 tokens, no
+        # <think> opener but an unmatched </think> closer) that both defeats
+        # the strip-think-tags step below (needs both tags) and, on slower
         # backends, risks consuming the full budget before an answer is ever
-        # generated. Confirmed live on both vLLM (5090) and llama.cpp (4090):
-        # completions drop to a fraction of the token cost and parse cleanly
-        # with no preamble at all.
-        extra_body={"chat_template_kwargs": {"enable_thinking": False}},
+        # generated. qwen3-review and qwen3-review-b are configured
+        # enable_thinking: false in the registry; confirmed live on both
+        # vLLM (5090) and llama.cpp (4090) that the toggle suppresses the
+        # preamble entirely at generation time.
+        extra_body={
+            "chat_template_kwargs": {"enable_thinking": config.enable_thinking}
+        },
     )
 
     response = await handler.handle(request)
@@ -428,7 +435,20 @@ def parse_review_response(raw_text: str) -> list[dict[str, Any]]:
         parsed = json.loads(text)
         if isinstance(parsed, list):
             return parsed
-        logger.warning("Parsed JSON is not a list; got %s", type(parsed).__name__)
+        if isinstance(parsed, dict):
+            # OMN-14176: observed live with enable_thinking:false -- without a
+            # reasoning scratchpad to plan the response shape, the model
+            # sometimes emits a single well-formed finding object instead of
+            # wrapping it in the array the system prompt requires. Treat a
+            # single object as a one-element result rather than discarding a
+            # real finding because of a missing wrapper.
+            logger.warning(
+                "Parsed JSON is a single object, not an array; treating as one finding"
+            )
+            return [parsed]
+        logger.warning(
+            "Parsed JSON is not a list or object; got %s", type(parsed).__name__
+        )
         return []
     except json.JSONDecodeError:
         pass
@@ -440,6 +460,8 @@ def parse_review_response(raw_text: str) -> list[dict[str, Any]]:
             parsed = json.loads(fence_match.group(1).strip())
             if isinstance(parsed, list):
                 return parsed
+            if isinstance(parsed, dict):
+                return [parsed]
         except json.JSONDecodeError:
             logger.debug("Fenced block was not valid JSON, trying bracket extraction")
 

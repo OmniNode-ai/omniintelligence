@@ -26,6 +26,10 @@ class ModelEndpointConfig(BaseModel, frozen=True):
         kind: Model capability category (reasoning, long_context, fast_review).
         timeout_seconds: Request timeout in seconds.
         api_model_id: Model identifier for the API (empty string for CLI-only models).
+        enable_thinking: Whether the model is allowed to emit a reasoning
+            preamble (Qwen3 chat_template_kwargs.enable_thinking). Declarative
+            per-model toggle (OMN-14176) -- flipping reasoning off/on for a
+            model is a config change here, not a code change in call_model().
     """
 
     env_var: str = Field(description="Environment variable name for the endpoint URL.")
@@ -37,6 +41,15 @@ class ModelEndpointConfig(BaseModel, frozen=True):
     api_model_id: str = Field(
         default="",
         description="Model identifier for the API (empty string for CLI-only models).",
+    )
+    enable_thinking: bool = Field(
+        default=True,
+        description=(
+            "Whether the model may emit a reasoning preamble before its "
+            "answer (Qwen3 chat_template_kwargs.enable_thinking). Additive: "
+            "defaults to the pre-OMN-14176 behavior (thinking allowed) so "
+            "existing entries that don't set it are unaffected."
+        ),
     )
 
 

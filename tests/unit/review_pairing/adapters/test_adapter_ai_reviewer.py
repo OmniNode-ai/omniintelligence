@@ -112,8 +112,17 @@ class TestParseReviewResponse:
         result = parse_review_response("This is not JSON at all")
         assert result == []
 
-    def test_returns_empty_for_non_list_json(self) -> None:
+    def test_wraps_single_finding_object_as_one_element_list(self) -> None:
+        """OMN-14176: a bare JSON object (no array wrapper) is treated as a
+        single finding rather than discarded. Observed live with
+        enable_thinking:false -- without a reasoning scratchpad, the model
+        sometimes emits one well-formed finding without the array wrapper
+        the system prompt requires."""
         result = parse_review_response('{"key": "value"}')
+        assert result == [{"key": "value"}]
+
+    def test_returns_empty_for_non_dict_non_list_json(self) -> None:
+        result = parse_review_response('"just a string"')
         assert result == []
 
     def test_returns_empty_for_empty_string(self) -> None:
@@ -305,9 +314,16 @@ class TestParseRaw:
             parse_raw("[]", model="invalid-model")
 
     def test_dict_input(self) -> None:
-        # parse_raw also accepts dict; it JSON-serializes it
+        # parse_raw also accepts dict; it JSON-serializes it. A dict that
+        # isn't a findings list is still a single well-formed JSON object,
+        # so OMN-14176's parse_review_response wraps it as one finding
+        # (with defaults for missing fields) rather than discarding it.
         findings = parse_raw({"not": "a list"})
-        assert findings == []
+        assert len(findings) == 1
+
+    def test_dict_input_missing_all_fields_uses_defaults(self) -> None:
+        findings = parse_raw({"not": "a list"})
+        assert findings[0].severity.value == "info"
 
 
 # ---------------------------------------------------------------------------
@@ -436,6 +452,23 @@ class TestModelRegistry:
         assert config.env_var == "LLM_CODER_FAST_URL"
         assert config.kind == "fast_review"
         assert config.timeout_seconds == 60.0
+
+    def test_qwen3_review_enable_thinking_false(self) -> None:
+        """OMN-14176: model_registry.yaml declares enable_thinking: false
+        for qwen3-review -- proves the YAML round-trips into config, not
+        just that call_model's mocked behavior matches."""
+        assert MODEL_REGISTRY["qwen3-review"].enable_thinking is False
+
+    def test_qwen3_review_b_enable_thinking_false(self) -> None:
+        assert MODEL_REGISTRY["qwen3-review-b"].enable_thinking is False
+
+    def test_qwen3_review_b_timeout_raised(self) -> None:
+        assert MODEL_REGISTRY["qwen3-review-b"].timeout_seconds == 600.0
+
+    def test_unconfigured_model_defaults_enable_thinking_true(self) -> None:
+        """A model that doesn't set enable_thinking in the registry
+        defaults to True (additive: pre-OMN-14176 behavior unaffected)."""
+        assert MODEL_REGISTRY["qwen3-coder"].enable_thinking is True
 
     def test_env_var_override(self) -> None:
         """Verify model URL resolution respects env vars."""
@@ -571,19 +604,60 @@ class TestLocalLlmSharedSecretOwnership:
 
 
 class TestCallModelThinkingSuppression:
-    """call_model must suppress Qwen3 reasoning output at generation time.
+    """call_model reads enable_thinking from the DECLARATIVE per-model
+    registry config (model_registry.yaml -> ModelEndpointConfig.enable_thinking)
+    and threads it into extra_body -- it is not a code-baked constant.
+    Flipping reasoning on/off for a model is a config edit, not a code
+    change + redeploy.
 
-    OMN-14176: extra_body={"chat_template_kwargs": {"enable_thinking": False}}
-    is the proven, merged fix (already live in node_generation_consumer for
-    SEA generation, OMN-12816) -- this was never wired into the reviewer.
-    Without it, reviewer models spend most of max_tokens on an unwrapped
+    OMN-14176: the extra_body passthrough mechanism itself is the proven,
+    merged fix (already live in node_generation_consumer for SEA generation,
+    OMN-12816) -- it was never wired into the reviewer. Without disabling
+    reasoning, reviewer models spend most of max_tokens on an unwrapped
     reasoning preamble that defeats the strip-think-tags fallback below and
-    the JSON extraction in parse_review_response.
+    the JSON extraction in parse_review_response. qwen3-review and
+    qwen3-review-b are configured enable_thinking: false in the registry.
     """
 
     @pytest.mark.asyncio
-    async def test_call_model_passes_enable_thinking_false_extra_body(self) -> None:
-        """The request sent to the transport must disable Qwen3 thinking."""
+    async def test_call_model_reads_enable_thinking_false_from_registry(self) -> None:
+        """qwen3-review-b is configured enable_thinking: false in
+        model_registry.yaml -- the request must carry that value, read from
+        config, not a hardcoded literal."""
+        from omniintelligence.review_pairing.adapters import adapter_ai_reviewer
+
+        with patch.dict(
+            "os.environ",
+            {
+                "LOCAL_LLM_SHARED_SECRET": "x",  # pragma: allowlist secret
+                "LLM_QWEN3_REVIEW_B_URL": "http://x:1",
+            },
+            clear=False,
+        ):
+            with patch(
+                "omnibase_infra.nodes.node_llm_inference_effect.handlers.handler_llm_openai_compatible.HandlerLlmOpenaiCompatible"
+            ) as handler_cls:
+                handler_inst = AsyncMock()
+                handler_inst.handle.return_value = AsyncMock(generated_text="[]")
+                handler_cls.return_value = handler_inst
+                await adapter_ai_reviewer.call_model(
+                    "sys", "usr", model_key="qwen3-review-b"
+                )
+
+            request = handler_inst.handle.call_args[0][0]
+            assert request.extra_body == {
+                "chat_template_kwargs": {"enable_thinking": False}
+            }
+
+    @pytest.mark.asyncio
+    async def test_call_model_reads_enable_thinking_true_default_from_registry(
+        self,
+    ) -> None:
+        """A model that does NOT set enable_thinking in the registry
+        (qwen3-coder) defaults to True (additive: pre-OMN-14176 behavior).
+        Proves the toggle is genuinely declarative config, not a hardcoded
+        constant -- different models resolve to different values from the
+        same code path."""
         from omniintelligence.review_pairing.adapters import adapter_ai_reviewer
 
         with patch.dict(
@@ -606,7 +680,7 @@ class TestCallModelThinkingSuppression:
 
             request = handler_inst.handle.call_args[0][0]
             assert request.extra_body == {
-                "chat_template_kwargs": {"enable_thinking": False}
+                "chat_template_kwargs": {"enable_thinking": True}
             }
 
     @pytest.mark.asyncio
