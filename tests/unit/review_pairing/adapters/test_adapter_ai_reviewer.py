@@ -568,3 +568,107 @@ class TestLocalLlmSharedSecretOwnership:
             import os as _os
 
             assert "LOCAL_LLM_SHARED_SECRET" not in _os.environ
+
+
+class TestCallModelThinkingSuppression:
+    """call_model must suppress Qwen3 reasoning output at generation time.
+
+    OMN-14176: extra_body={"chat_template_kwargs": {"enable_thinking": False}}
+    is the proven, merged fix (already live in node_generation_consumer for
+    SEA generation, OMN-12816) -- this was never wired into the reviewer.
+    Without it, reviewer models spend most of max_tokens on an unwrapped
+    reasoning preamble that defeats the strip-think-tags fallback below and
+    the JSON extraction in parse_review_response.
+    """
+
+    @pytest.mark.asyncio
+    async def test_call_model_passes_enable_thinking_false_extra_body(self) -> None:
+        """The request sent to the transport must disable Qwen3 thinking."""
+        from omniintelligence.review_pairing.adapters import adapter_ai_reviewer
+
+        with patch.dict(
+            "os.environ",
+            {
+                "LOCAL_LLM_SHARED_SECRET": "x",  # pragma: allowlist secret
+                "LLM_CODER_URL": "http://x:1",
+            },
+            clear=False,
+        ):
+            with patch(
+                "omnibase_infra.nodes.node_llm_inference_effect.handlers.handler_llm_openai_compatible.HandlerLlmOpenaiCompatible"
+            ) as handler_cls:
+                handler_inst = AsyncMock()
+                handler_inst.handle.return_value = AsyncMock(generated_text="[]")
+                handler_cls.return_value = handler_inst
+                await adapter_ai_reviewer.call_model(
+                    "sys", "usr", model_key="qwen3-coder"
+                )
+
+            request = handler_inst.handle.call_args[0][0]
+            assert request.extra_body == {
+                "chat_template_kwargs": {"enable_thinking": False}
+            }
+
+    @pytest.mark.asyncio
+    async def test_call_model_strips_through_unmatched_closing_think_tag(
+        self,
+    ) -> None:
+        """A response with only a closing </think> (no opener) must still be
+        stripped down to the content following it.
+
+        Reproduces the live-observed failure: the model narrates reasoning as
+        plain prose (no <think> opener) but emits a trailing </think> marker,
+        which the paired-tag regex cannot match, leaving reasoning-preamble
+        brackets to defeat parse_review_response's bracket-search fallback.
+        """
+        from omniintelligence.review_pairing.adapters import adapter_ai_reviewer
+
+        raw = (
+            "Here's a thinking process: - [Done] - [Proceeds]\n</think>\n\n"
+            '[{"category": "correctness"}]'
+        )
+        with patch.dict(
+            "os.environ",
+            {
+                "LOCAL_LLM_SHARED_SECRET": "x",  # pragma: allowlist secret
+                "LLM_CODER_URL": "http://x:1",
+            },
+            clear=False,
+        ):
+            with patch(
+                "omnibase_infra.nodes.node_llm_inference_effect.handlers.handler_llm_openai_compatible.HandlerLlmOpenaiCompatible"
+            ) as handler_cls:
+                handler_inst = AsyncMock()
+                handler_inst.handle.return_value = AsyncMock(generated_text=raw)
+                handler_cls.return_value = handler_inst
+                result = await adapter_ai_reviewer.call_model(
+                    "sys", "usr", model_key="qwen3-coder"
+                )
+
+        assert result == '[{"category": "correctness"}]'
+
+    @pytest.mark.asyncio
+    async def test_call_model_still_strips_paired_think_tags(self) -> None:
+        """The original paired <think>...</think> case must keep working."""
+        from omniintelligence.review_pairing.adapters import adapter_ai_reviewer
+
+        raw = "<think>reasoning here</think>\n\n[]"
+        with patch.dict(
+            "os.environ",
+            {
+                "LOCAL_LLM_SHARED_SECRET": "x",  # pragma: allowlist secret
+                "LLM_CODER_URL": "http://x:1",
+            },
+            clear=False,
+        ):
+            with patch(
+                "omnibase_infra.nodes.node_llm_inference_effect.handlers.handler_llm_openai_compatible.HandlerLlmOpenaiCompatible"
+            ) as handler_cls:
+                handler_inst = AsyncMock()
+                handler_inst.handle.return_value = AsyncMock(generated_text=raw)
+                handler_cls.return_value = handler_inst
+                result = await adapter_ai_reviewer.call_model(
+                    "sys", "usr", model_key="qwen3-coder"
+                )
+
+        assert result == "[]"

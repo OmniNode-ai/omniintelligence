@@ -371,17 +371,38 @@ async def call_model(
         max_tokens=_DEFAULT_MAX_TOKENS,
         temperature=_DEFAULT_TEMPERATURE,
         timeout_seconds=config.timeout_seconds,
+        # OMN-14176: suppress Qwen3 reasoning output at generation time. The
+        # extra_body passthrough (OMN-12816) already exists on this model and
+        # is proven in production by node_generation_consumer (omnimarket) for
+        # SEA generation determinism -- it was never wired into the reviewer.
+        # Without it, qwen3-review/-b spend most of max_tokens on an unwrapped
+        # reasoning preamble (observed live: 3496/4096 tokens, no <think>
+        # opener but an unmatched </think> closer) that both defeats the
+        # strip-think-tags step below (needs both tags) and, on slower
+        # backends, risks consuming the full budget before an answer is ever
+        # generated. Confirmed live on both vLLM (5090) and llama.cpp (4090):
+        # completions drop to a fraction of the token cost and parse cleanly
+        # with no preamble at all.
+        extra_body={"chat_template_kwargs": {"enable_thinking": False}},
     )
 
     response = await handler.handle(request)
     text = str(response.generated_text)
 
     # Qwen3 models emit <think>...</think> reasoning blocks before the
-    # actual response. Strip them to get the JSON content.
-    if "<think>" in text:
-        import re as _re
-
-        text = _re.sub(r"<think>.*?</think>", "", text, flags=_re.DOTALL).strip()
+    # actual response. Strip through the LAST </think> to get the JSON
+    # content. Some backends / chat templates emit only the CLOSING </think>
+    # marker with no matching opener (observed live, OMN-14176) -- a paired-
+    # tag regex cannot match that case, so this takes everything after the
+    # last </think> regardless of whether an opener is present. Defense in
+    # depth in case extra_body above is ever bypassed or a future model
+    # reverts to emitting reasoning despite the toggle. A response with no
+    # </think> at all (reasoning never closed, e.g. truncated at max_tokens)
+    # has nothing to strip here -- that failure mode is addressed by
+    # suppressing reasoning at request time (extra_body above), not by
+    # post-hoc stripping.
+    if "</think>" in text:
+        text = text.rsplit("</think>", 1)[1].strip()
 
     return text
 
