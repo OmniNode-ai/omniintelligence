@@ -314,6 +314,17 @@ async def call_model(
             f"Set the {config.env_var} environment variable."
         )
 
+    # OMN-14176 / OMN-12815: the OpenAI-compatible effect posts ``endpoint_url``
+    # VERBATIM and performs no base_url + path construction. Registry URLs are
+    # host:port only, so resolve the COMPLETE chat-completion URL here or the
+    # transport raises "endpoint_url is required and must be the COMPLETE
+    # contract endpoint URL" and every review DEGRADES with "all models failed".
+    _normalized_url = base_url.rstrip("/")
+    if _normalized_url.endswith("/chat/completions"):
+        endpoint_url = _normalized_url
+    else:
+        endpoint_url = f"{_normalized_url}/v1/chat/completions"
+
     transport = TransportHolderLlmHttp(
         target_name=f"ai-reviewer-{model_key}",
         max_timeout_seconds=config.timeout_seconds + 30.0,
@@ -322,6 +333,7 @@ async def call_model(
 
     request = ModelLlmInferenceRequest(
         base_url=base_url,
+        endpoint_url=endpoint_url,
         operation_type=EnumLlmOperationType.CHAT_COMPLETION,
         model=config.api_model_id or model_key,
         messages=({"role": "user", "content": user_prompt},),
