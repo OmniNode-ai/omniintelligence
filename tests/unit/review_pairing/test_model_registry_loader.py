@@ -29,6 +29,8 @@ def test_load_registry_returns_contract_with_expected_keys() -> None:
     assert contract.default_model_key == MODEL_DEEPSEEK_R1
     assert set(contract.local_model_keys) == {
         MODEL_DEEPSEEK_R1,
+        "qwen3-review",
+        "qwen3-review-b",
         "qwen3-coder",
         MODEL_QWEN3_14B,
         "qwen3-next",
@@ -36,6 +38,8 @@ def test_load_registry_returns_contract_with_expected_keys() -> None:
     assert contract.api_fallback_keys == ("codex",)
     assert set(contract.models.keys()) == {
         MODEL_DEEPSEEK_R1,
+        "qwen3-review",
+        "qwen3-review-b",
         "qwen3-coder",
         MODEL_QWEN3_14B,
         "qwen3-next",
