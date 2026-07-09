@@ -25,6 +25,7 @@ default_model_key: "deepseek-r1"
 local_model_keys:
   - "deepseek-r1"
   - "qwen3-review"
+  - "qwen3-review-b"
   - "qwen3-coder"
   - "qwen3-14b"
   - "qwen3-next"
@@ -51,6 +52,18 @@ models:
     kind: "code_review"
     timeout_seconds: 120.0
     api_model_id: "Qwen3.6-35B-A3B"
+
+  # qwen3-review-b — second adversarial reviewer on the RTX 4090 (.201:8001,
+  # llama-server). Added (OMN-14176) so the hostile reviewer runs TWO models,
+  # making cli_review exit 0 (>=2 succeeded) reachable instead of the
+  # single-model exit-2 collapse. llama-server ignores the request model field,
+  # but api_model_id is set to the exact served id for clarity/observability.
+  qwen3-review-b:
+    env_var: "LLM_QWEN3_REVIEW_B_URL"
+    default_url: "http://192.168.86.201:8001"  # onex-allow-internal-ip
+    kind: "code_review"
+    timeout_seconds: 120.0
+    api_model_id: "Qwen3.6-27B-MTP-IQ4_XS.gguf"
 
   qwen3-coder:
     env_var: "LLM_CODER_URL"
