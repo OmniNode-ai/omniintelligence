@@ -11,13 +11,15 @@ Reference: OMN-8654
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from omniintelligence.review_pairing.adapters.adapter_ai_reviewer import (
     _API_FALLBACK_KEYS,
     _LOCAL_MODEL_KEYS,
+    _PROBE_MAX_ATTEMPTS,
+    _PROBE_TIMEOUT_SECONDS,
     _probe_tcp,
     probe_local_reachability,
     select_models_with_fallback,
@@ -27,8 +29,9 @@ from omniintelligence.review_pairing.adapters.adapter_ai_reviewer import (
 @pytest.mark.unit
 class TestProbeTcp:
     def test_unreachable_returns_false(self) -> None:
-        # 192.0.2.x is TEST-NET — guaranteed unreachable per RFC 5737
-        result = _probe_tcp("192.0.2.1", 9999, timeout=0.5)
+        # 192.0.2.x is TEST-NET — guaranteed unreachable per RFC 5737.
+        # Single attempt keeps this test fast; retry semantics covered below.
+        result = _probe_tcp("192.0.2.1", 9999, timeout=0.5, attempts=1)
         assert result is False
 
     def test_reachable_returns_true(self) -> None:
@@ -40,8 +43,46 @@ class TestProbeTcp:
 
     def test_os_error_returns_false(self) -> None:
         with patch("socket.create_connection", side_effect=OSError("refused")):
+            result = _probe_tcp("127.0.0.1", 9999, attempts=1)
+        assert result is False
+
+    def test_default_threshold_matches_ci_preflight(self) -> None:
+        # Regression guard for OMN-14176: the probe must match the CI reviewer
+        # preflight threshold (5s x 3 attempts). A 2s single-shot lost the race
+        # under GPU load and produced a DEGRADED false-green.
+        assert _PROBE_TIMEOUT_SECONDS == 5.0
+        assert _PROBE_MAX_ATTEMPTS == 3
+
+    def test_retries_until_success(self) -> None:
+        # Two transient failures, then a live connect — a live-but-slow endpoint.
+        with (
+            patch(
+                "socket.create_connection",
+                side_effect=[OSError("busy"), OSError("busy"), MagicMock()],
+            ) as mock_conn,
+            patch(
+                "omniintelligence.review_pairing.adapters.adapter_ai_reviewer.time.sleep"
+            ) as mock_sleep,
+        ):
+            result = _probe_tcp("127.0.0.1", 80, attempts=3)
+        assert result is True
+        assert mock_conn.call_count == 3
+        assert mock_sleep.call_count == 2
+
+    def test_exhausts_all_attempts(self) -> None:
+        with (
+            patch(
+                "socket.create_connection", side_effect=OSError("refused")
+            ) as mock_conn,
+            patch(
+                "omniintelligence.review_pairing.adapters.adapter_ai_reviewer.time.sleep"
+            ) as mock_sleep,
+        ):
             result = _probe_tcp("127.0.0.1", 9999)
         assert result is False
+        assert mock_conn.call_count == _PROBE_MAX_ATTEMPTS
+        # Sleep only between attempts, never after the final failure.
+        assert mock_sleep.call_count == _PROBE_MAX_ATTEMPTS - 1
 
 
 @pytest.mark.unit

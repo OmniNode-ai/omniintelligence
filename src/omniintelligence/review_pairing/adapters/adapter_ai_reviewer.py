@@ -23,6 +23,7 @@ import logging
 import os
 import re
 import socket
+import time
 import urllib.parse
 from typing import Any
 from uuid import uuid4
@@ -78,8 +79,21 @@ _DEFAULT_MAX_TOKENS: int = 4096
 # Default temperature for consistent review output.
 _DEFAULT_TEMPERATURE: float = 0.3
 
-# TCP probe timeout for reachability checks (seconds).
-_PROBE_TIMEOUT_SECONDS: float = 2.0
+# TCP probe threshold for reachability checks — mirrors the CI reviewer endpoint
+# preflight EXACTLY (omnimarket hostile-reviewer.yml, OMN-14176):
+#   for attempt in 1 2 3; do timeout 5 ...; [ attempt -lt 3 ] && sleep 2; done
+# The prior 2s single-shot lost the race against a live-but-slow endpoint under
+# GPU load, fell back to codex (absent on CI), and produced a DEGRADED
+# "Models succeeded: none" false-green while the job still reported success.
+# Matching the preflight makes this probe a strict superset of the preflight's
+# tolerance, so the reviewer never degrades on an endpoint the preflight cleared.
+_PROBE_TIMEOUT_SECONDS: float = 5.0
+
+# Number of TCP probe attempts before declaring an endpoint unreachable.
+_PROBE_MAX_ATTEMPTS: int = 3
+
+# Delay between probe attempts (seconds) — matches the preflight's `sleep 2`.
+_PROBE_RETRY_DELAY_SECONDS: float = 2.0
 
 
 # ---------------------------------------------------------------------------
@@ -87,13 +101,29 @@ _PROBE_TIMEOUT_SECONDS: float = 2.0
 # ---------------------------------------------------------------------------
 
 
-def _probe_tcp(host: str, port: int, timeout: float = _PROBE_TIMEOUT_SECONDS) -> bool:
-    """Return True if a TCP connection to host:port succeeds within timeout."""
-    try:
-        with socket.create_connection((host, port), timeout=timeout):
-            return True
-    except OSError:
-        return False
+def _probe_tcp(
+    host: str,
+    port: int,
+    timeout: float = _PROBE_TIMEOUT_SECONDS,
+    attempts: int = _PROBE_MAX_ATTEMPTS,
+    retry_delay: float = _PROBE_RETRY_DELAY_SECONDS,
+) -> bool:
+    """Return True if a TCP connection to host:port succeeds within timeout.
+
+    Retries up to ``attempts`` times, sleeping ``retry_delay`` seconds between
+    attempts, mirroring the CI reviewer preflight probe (5s x 3). This gives a
+    slow-but-live endpoint under load the same tolerance the workflow preflight
+    uses, preventing a false "unreachable" -> codex-fallback -> DEGRADED
+    false-green (OMN-14176).
+    """
+    for attempt in range(1, attempts + 1):
+        try:
+            with socket.create_connection((host, port), timeout=timeout):
+                return True
+        except OSError:
+            if attempt < attempts:
+                time.sleep(retry_delay)
+    return False
 
 
 def probe_local_reachability(model_keys: list[str]) -> dict[str, bool]:
