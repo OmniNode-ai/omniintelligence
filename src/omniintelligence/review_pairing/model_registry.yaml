@@ -17,6 +17,12 @@
 #   timeout_seconds:  HTTP request timeout (float).
 #   api_model_id:     Wire-level model identifier sent in the chat-completion
 #                     payload. Empty for CLI-only models.
+#   enable_thinking:  Optional bool (default true). Whether the model may emit
+#                     a reasoning preamble before its answer (Qwen3
+#                     chat_template_kwargs.enable_thinking). call_model()
+#                     reads this per-model and passes it through --
+#                     flipping reasoning on/off is a config edit here, not a
+#                     code change.
 #
 # Reference: OMN-7213
 
@@ -46,24 +52,43 @@ models:
   # fleet; .201:8001 now serves Qwen3.6-27B and .201:8000 serves Qwen3.6-35B-A3B
   # on the 5090 (~2x the 4090's tokens/sec for a review-sized prompt). vLLM
   # validates the model id, so api_model_id must match the served id exactly.
+  # enable_thinking: false (OMN-14176) -- without a reasoning scratchpad,
+  # a thinking-model response can consume the whole max_tokens budget on a
+  # <think> preamble before producing an answer, and (observed live) can
+  # emit only a trailing </think> with no matching opener, which defeats
+  # naive strip-think-tags parsing. Live-confirmed: suppresses the preamble
+  # entirely, response is a clean directly-parseable JSON array.
   qwen3-review:
     env_var: "LLM_QWEN3_REVIEW_URL"
     default_url: "http://192.168.86.201:8000"  # onex-allow-internal-ip
     kind: "code_review"
     timeout_seconds: 120.0
     api_model_id: "Qwen3.6-35B-A3B"
+    enable_thinking: false
 
   # qwen3-review-b — second adversarial reviewer on the RTX 4090 (.201:8001,
   # llama-server). Added (OMN-14176) so the hostile reviewer runs TWO models,
   # making cli_review exit 0 (>=2 succeeded) reachable instead of the
   # single-model exit-2 collapse. llama-server ignores the request model field,
   # but api_model_id is set to the exact served id for clarity/observability.
+  #
+  # timeout_seconds raised 120 -> 600 (OMN-14176 gate-5): live-measured
+  # throughput on this endpoint is ~9 tokens/sec (llama.cpp, IQ4_XS quant,
+  # draft-mtp speculative decoding), so a completion anywhere near the
+  # adapter's max_tokens=4096 budget needs ~400-450s. The prior 120s budget
+  # could never finish such a completion -- every real review request hit
+  # ONEX_CORE_092_TIMEOUT_ERROR after 4 retries (~480s wasted), not because
+  # the model or host was down (a small max_tokens=5 probe round-tripped in
+  # 1.6-2.6s) but because the timeout was sized for the 5090's throughput,
+  # not the 4090's. Left qwen3-review's timeout untouched -- the 5090 is
+  # ~2x faster per the comment above and has not been observed to need it.
   qwen3-review-b:
     env_var: "LLM_QWEN3_REVIEW_B_URL"
     default_url: "http://192.168.86.201:8001"  # onex-allow-internal-ip
     kind: "code_review"
-    timeout_seconds: 120.0
+    timeout_seconds: 600.0
     api_model_id: "Qwen3.6-27B-MTP-IQ4_XS.gguf"
+    enable_thinking: false
 
   qwen3-coder:
     env_var: "LLM_CODER_URL"
