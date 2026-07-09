@@ -35,9 +35,15 @@ dependencies = [
     "confluent-kafka>=2.12.0,<3.0.0",
     "tenacity>=8.2.0",
     "watchdog>=6.0.0",
-    "adaptive-classifier>=0.1.2",
     "omnibase-infra>=0.38.4,<0.39.0",
     "omnimarket>=0.4.0",
+    # review_pairing/alignment_engine.py imports numpy + scipy directly (Hungarian
+    # assignment). Previously satisfied transitively via the ML chain
+    # (adaptive-classifier -> scikit-learn -> scipy); that chain moved to the opt-in
+    # `rl` group (OMN-14176), so declare them explicitly to keep the review path
+    # (which runs review_pairing) installable without torch.
+    "numpy>=1.26.0",
+    "scipy>=1.11.0",
 ]
 
 [project.optional-dependencies]
@@ -182,10 +188,11 @@ core = [
     "python-docx>=1.1.2",
     "markdown>=3.8",
     # AI/ML
+    # NOTE (OMN-14176): torch / transformers / sentence-transformers moved to the
+    # opt-in, non-default `rl` group below so the default install and the review
+    # path (`uv sync --locked --all-extras`) install ZERO torch/nvidia. openai and
+    # tiktoken stay here (no CUDA/torch pull).
     "openai>=1.71.0",
-    "sentence-transformers>=4.1.0",
-    "torch>=2.0.0",
-    "transformers>=4.30.0",
     "tiktoken>=0.5.0",
     # Utilities
     "tenacity>=8.2.0",
@@ -198,9 +205,31 @@ core = [
     "psutil>=5.9.0",
 ]
 
+# RL training + adaptive intent backend — OPT-IN, NON-DEFAULT (OMN-14176).
+# These are the only heavy CUDA/ML dependencies in the project. They are kept OUT
+# of the default install and the review path (`uv sync --locked --all-extras`) so
+# review CI installs zero torch/nvidia/triton. Restore with `uv sync --group rl`.
+#   - torch / transformers / sentence-transformers: used only by
+#     src/omniintelligence/rl/ (self-contained — no entry-point or runtime import)
+#     and its tests. CUDA torch is left unpinned (>=2.0.0) so the 4090 GPU path is
+#     recoverable with no lock surgery.
+#   - adaptive-classifier: transitively pulls torch + transformers. It backs the
+#     adaptive intent classifier, which is NOT on the node's runtime path (TF-IDF
+#     is) — only its unit tests exercise it. Being a base dependency was the sole
+#     reason torch reached the default/review install.
+# Intentionally NOT composed into `all`: the 0-torch guarantee must hold on every
+# default/review path. Run rl + adaptive tests explicitly with `--group rl`.
+rl = [
+    "torch>=2.0.0",
+    "transformers>=4.30.0",
+    "sentence-transformers>=4.1.0",
+    "adaptive-classifier>=0.1.2",
+]
+
 # All dependencies for development and testing
 # Uses include-group (PEP 735) to compose from core and dev groups
 # This eliminates duplication and prevents version drift between groups
+# NOTE (OMN-14176): `rl` is deliberately excluded — see the `rl` group comment.
 all = [
     {include-group = "core"},
     {include-group = "dev"},

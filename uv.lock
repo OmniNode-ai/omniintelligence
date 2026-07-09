@@ -2737,9 +2737,9 @@ name = "omninode-intelligence"
 version = "0.24.0"
 source = { editable = "." }
 dependencies = [
-    { name = "adaptive-classifier" },
     { name = "confluent-kafka" },
     { name = "httpx" },
+    { name = "numpy" },
     { name = "omnibase-core" },
     { name = "omnibase-infra" },
     { name = "omnimarket" },
@@ -2747,6 +2747,7 @@ dependencies = [
     { name = "pydantic-settings" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
+    { name = "scipy" },
     { name = "tenacity" },
     { name = "watchdog" },
 ]
@@ -2795,12 +2796,9 @@ all = [
     { name = "redis", extra = ["hiredis"] },
     { name = "requests" },
     { name = "ruff" },
-    { name = "sentence-transformers" },
     { name = "structlog" },
     { name = "tenacity" },
     { name = "tiktoken" },
-    { name = "torch" },
-    { name = "transformers" },
     { name = "types-pyyaml" },
     { name = "uvicorn" },
 ]
@@ -2828,12 +2826,9 @@ core = [
     { name = "python-multipart" },
     { name = "qdrant-client" },
     { name = "redis", extra = ["hiredis"] },
-    { name = "sentence-transformers" },
     { name = "structlog" },
     { name = "tenacity" },
     { name = "tiktoken" },
-    { name = "torch" },
-    { name = "transformers" },
     { name = "uvicorn" },
 ]
 dev = [
@@ -2854,12 +2849,18 @@ dev = [
     { name = "tiktoken" },
     { name = "types-pyyaml" },
 ]
+rl = [
+    { name = "adaptive-classifier" },
+    { name = "sentence-transformers" },
+    { name = "torch" },
+    { name = "transformers" },
+]
 
 [package.metadata]
 requires-dist = [
-    { name = "adaptive-classifier", specifier = ">=0.1.2" },
     { name = "confluent-kafka", specifier = ">=2.12.0,<3.0.0" },
     { name = "httpx", specifier = ">=0.28.1" },
+    { name = "numpy", specifier = ">=1.26.0" },
     { name = "omnibase-core", specifier = ">=0.46.3,<0.47.0" },
     { name = "omnibase-infra", git = "https://github.com/OmniNode-ai/omnibase_infra.git?rev=c253d73648eae6d44e68c75907d8a60114afd534" },
     { name = "omnimarket", git = "https://github.com/OmniNode-ai/omnimarket.git?tag=v0.4.0" },
@@ -2868,6 +2869,7 @@ requires-dist = [
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "radon", marker = "extra == 'analysis'", specifier = ">=6.0.0" },
+    { name = "scipy", specifier = ">=1.11.0" },
     { name = "tenacity", specifier = ">=8.2.0" },
     { name = "watchdog", specifier = ">=6.0.0" },
 ]
@@ -2912,13 +2914,10 @@ all = [
     { name = "redis", extras = ["hiredis"], specifier = ">=5.0.0" },
     { name = "requests", specifier = ">=2.31.0" },
     { name = "ruff", specifier = ">=0.12.5" },
-    { name = "sentence-transformers", specifier = ">=4.1.0" },
     { name = "structlog", specifier = ">=23.1.0" },
     { name = "tenacity", specifier = ">=8.2.0" },
     { name = "tiktoken", specifier = ">=0.5.0" },
     { name = "tiktoken", specifier = ">=0.7.0" },
-    { name = "torch", specifier = ">=2.0.0" },
-    { name = "transformers", specifier = ">=4.30.0" },
     { name = "types-pyyaml", specifier = ">=6.0.0" },
     { name = "uvicorn", specifier = ">=0.24.0" },
 ]
@@ -2946,12 +2945,9 @@ core = [
     { name = "python-multipart", specifier = ">=0.0.20" },
     { name = "qdrant-client", specifier = ">=1.15.1" },
     { name = "redis", extras = ["hiredis"], specifier = ">=5.0.0" },
-    { name = "sentence-transformers", specifier = ">=4.1.0" },
     { name = "structlog", specifier = ">=23.1.0" },
     { name = "tenacity", specifier = ">=8.2.0" },
     { name = "tiktoken", specifier = ">=0.5.0" },
-    { name = "torch", specifier = ">=2.0.0" },
-    { name = "transformers", specifier = ">=4.30.0" },
     { name = "uvicorn", specifier = ">=0.24.0" },
 ]
 dev = [
@@ -2971,6 +2967,12 @@ dev = [
     { name = "ruff", specifier = ">=0.12.5" },
     { name = "tiktoken", specifier = ">=0.7.0" },
     { name = "types-pyyaml", specifier = ">=6.0.0" },
+]
+rl = [
+    { name = "adaptive-classifier", specifier = ">=0.1.2" },
+    { name = "sentence-transformers", specifier = ">=4.1.0" },
+    { name = "torch", specifier = ">=2.0.0" },
+    { name = "transformers", specifier = ">=4.30.0" },
 ]
 
 [[package]]
