@@ -17,8 +17,6 @@ topic, and node) at the boundary.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from omnibase_core.models.hooks.claude_code.model_claude_code_hook_event import (
     ModelClaudeCodeHookEvent,
 )
@@ -31,13 +29,11 @@ from omniintelligence.nodes.node_cursor_hook_event_effect.models import (
     ModelClaudeHookResult,
     ModelCursorHookEvent,
 )
-
-if TYPE_CHECKING:
-    from omniintelligence.protocols import (
-        ProtocolIntentClassifier,
-        ProtocolKafkaPublisher,
-        ProtocolPatternRepository,
-    )
+from omniintelligence.protocols import (
+    ProtocolIntentClassifier,
+    ProtocolKafkaPublisher,
+    ProtocolPatternRepository,
+)
 
 _AGENT_SOURCE = EnumAgentSource.CURSOR
 
@@ -146,5 +142,8 @@ class HandlerCursorHookEvent:
 
 __all__ = [
     "HandlerCursorHookEvent",
+    "ProtocolIntentClassifier",
+    "ProtocolKafkaPublisher",
+    "ProtocolPatternRepository",
     "route_cursor_hook_event",
 ]

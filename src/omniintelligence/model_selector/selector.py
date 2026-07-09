@@ -28,7 +28,9 @@ import logging
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
+
+from omnibase_core.types import JsonType
 
 from omniintelligence.model_selector.decision_emitter import (
     DecisionEmitter,
@@ -242,14 +244,17 @@ class ModelSelector:
         # decision_snapshot captures ONLY pre-action observation state.
         # ------------------------------------------------------------------
         episode_id = decision_id  # Reuse decision_id as episode dedup key
+        candidates_considered = cast("list[JsonType]", list(candidates))
+        constraints_applied = cast("list[JsonType]", list(self._constraints))
+        scoring_weights = cast("dict[str, JsonType]", dict(self._scoring_weights))
         try:
             self._episode_emitter.emit_started(
                 episode_id=episode_id,
                 surface="routing",
                 decision_snapshot={
-                    "candidates_considered": candidates,
-                    "constraints_applied": list(self._constraints.keys()),
-                    "scoring_weights": dict(self._scoring_weights),
+                    "candidates_considered": candidates_considered,
+                    "constraints_applied": constraints_applied,
+                    "scoring_weights": scoring_weights,
                     "model_registry_version": self._model_registry_version,
                 },
                 observation_timestamp=timestamp,

@@ -100,7 +100,11 @@ def _train_surface(
             synthetic_episodes=episodes,
             log_interval=log_interval,
         )
-        checkpoint_path = PipelineTrainingPipeline(config=pipeline_config).run()
+        pipeline_result = PipelineTrainingPipeline(config=pipeline_config).run()
+        if pipeline_result.skipped or pipeline_result.checkpoint_path is None:
+            logger.info("Skipping %s: %s", surface, pipeline_result.skip_reason)
+            return False
+        checkpoint_path = pipeline_result.checkpoint_path
 
     elif surface == "team":
         team_config = TeamTrainingPipelineConfig(
@@ -111,7 +115,11 @@ def _train_surface(
             synthetic_episodes=episodes,
             log_interval=log_interval,
         )
-        checkpoint_path = TeamTrainingPipeline(config=team_config).run()
+        team_result = TeamTrainingPipeline(config=team_config).run()
+        if team_result.skipped or team_result.checkpoint_path is None:
+            logger.info("Skipping %s: %s", surface, team_result.skip_reason)
+            return False
+        checkpoint_path = team_result.checkpoint_path
 
     else:
         logger.error("Unknown surface: %s", surface)

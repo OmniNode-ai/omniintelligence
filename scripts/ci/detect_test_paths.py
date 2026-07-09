@@ -63,7 +63,7 @@ def _resolve(changed_files: list[str], config: ModelAdjacencyMap) -> list[str]:
             MODULE_TEST_PATH_OVERRIDES.get(module, f"{TEST_UNIT_PREFIX}{module}/")
         )
 
-    return sorted(selected)
+    return sorted(path for path in selected if (REPO_ROOT / path).exists())
 
 
 def compute_selection(
