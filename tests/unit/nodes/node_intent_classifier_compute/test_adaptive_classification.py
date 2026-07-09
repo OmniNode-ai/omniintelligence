@@ -32,6 +32,15 @@ from types import ModuleType
 
 import pytest
 
+# The adaptive backend (adaptive-classifier -> torch/transformers) lives in the
+# opt-in, non-default `rl` dependency group (OMN-14176). Skip this module cleanly
+# when it is not installed so the default (torch-free) suite stays green. Run
+# with `uv sync --group rl` to exercise these tests.
+pytest.importorskip(
+    "adaptive_classifier",
+    reason="adaptive intent backend is in the opt-in `rl` dependency group (OMN-14176)",
+)
+
 # ---------------------------------------------------------------------------
 # Isolated module loading
 # ---------------------------------------------------------------------------
