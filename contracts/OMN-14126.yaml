@@ -1,0 +1,34 @@
+---
+schema_version: "1.0.0"
+ticket_id: "OMN-14126"
+title: "Disable automatic PR merge enrollment"
+summary: >-
+  Stop automatically enrolling omniintelligence PRs for auto-merge so manual sweep ordering controls runner
+  pressure, while keeping an explicit workflow_dispatch helper that supplies the required squash strategy.
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+emergency_bypass:
+  enabled: false
+  justification: ""
+  follow_up_ticket_id: ""
+dod_evidence:
+  - id: "dod-auto-merge-yaml"
+    description: "Auto-merge workflow YAML parses after trigger reduction."
+    source: "manual"
+    status: "verified"
+    checks:
+      - check_type: "command"
+        check_value: "python3 -c \"import pathlib, yaml; yaml.safe_load(pathlib.Path('.github/workflows/auto-merge.yml').read_text())\""
+  - id: "dod-auto-enrollment-disabled"
+    description: >-
+      The workflow no longer runs from pull_request, pull_request_review, or check_suite events, and the
+      manual helper passes --squash with --auto.
+    source: "manual"
+    status: "verified"
+    checks:
+      - check_type: "command"
+        check_value: "grep -q 'workflow_dispatch:' .github/workflows/auto-merge.yml && ! grep -q '^  pull_request:'
+          .github/workflows/auto-merge.yml && ! grep -q '^  pull_request_review:' .github/workflows/auto-merge.yml
+          && ! grep -q '^  check_suite:' .github/workflows/auto-merge.yml && grep -q -- '--squash --auto'
+          .github/workflows/auto-merge.yml"
