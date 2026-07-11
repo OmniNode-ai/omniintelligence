@@ -130,6 +130,8 @@ ALLOWED_ROOT_DIRECTORIES: frozenset[str] = frozenset(
         ".vscode",
         ".idea",
         ".claude",
+        # OMN-14350: frozen ratchet-allowlist baselines consumed by CI ratchet gates.
+        ".onex_ratchets",
         # Cache directories (should be gitignored)
         ".mypy_cache",
         ".pytest_cache",
