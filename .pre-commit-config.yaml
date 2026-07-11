@@ -277,6 +277,19 @@ repos:
     hooks:
       - id: check-stub-implementations
 
+  # OMN-14350: non-canonical lifecycle-class ratchet (fan-out from the omnibase_core
+  # canary #1430). Consumes the canonical omnibase_core remote hook and ratchets this
+  # repo's frozen residual set (.onex_ratchets/noncanonical_class_allowlist.yaml) DOWN
+  # toward zero. rev is pinned to a specific core dev SHA (never a moving ref, per the
+  # deterministic-truth doctrine). CI merge-gating is via the dedicated
+  # .github/workflows/noncanonical-lifecycle-gate.yml job; this local hook is dev-ergonomics.
+  - repo: https://github.com/OmniNode-ai/omnibase_core
+    rev: 63635097705d832e0ee9c4811093efb31349105c  # pragma: allowlist secret
+    hooks:
+      - id: no-noncanonical-lifecycle-classes
+        args: [--allowlist, .onex_ratchets/noncanonical_class_allowlist.yaml, src/omniintelligence]
+        files: ^src/omniintelligence/.*\.py$
+
   # Canonical Inference Gate (OMN-13249, fleet rollout of OMN-13219).
   # Rejects NEW non-canonical model-inference surfaces: shelled model CLIs
   # (codex/claude/gemini/opencode) and *_MODEL/*_PROVIDER env reads. Structural
