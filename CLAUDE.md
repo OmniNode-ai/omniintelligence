@@ -114,7 +114,7 @@ The system decomposes intelligence operations into specialized ONEX nodes:
 
 ### Node Inventory
 
-60 nodes registered in `pyproject.toml [project.entry-points."onex.nodes"]`. For the full list see [docs/reference/NODE_INVENTORY.md](docs/reference/NODE_INVENTORY.md).
+60 nodes registered in `pyproject.toml [project.entry-points."onex.nodes"]` (59 four-type + `node_audit`). For the full list see [docs/reference/NODE_INVENTORY.md](docs/reference/NODE_INVENTORY.md).
 
 Key nodes referenced in this file:
 

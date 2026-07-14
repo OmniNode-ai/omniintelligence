@@ -16,7 +16,7 @@
 | **Reducer** | `NodeReducer` | `projections[]` only | 2 | `NodeDocPromotionReducer` |
 | **Orchestrator** | `NodeOrchestrator` | `events[]`, `intents[]` | 2 | `NodePatternAssemblerOrchestrator` |
 
-> Counts reflect `[project.entry-points."onex.nodes"]` in `pyproject.toml` (59 total registered, plus 1 Audit node). For the full inventory see [docs/reference/NODE_INVENTORY.md](../reference/NODE_INVENTORY.md).
+> Counts reflect `[project.entry-points."onex.nodes"]` in `pyproject.toml` (60 total registered: 59 four-type + 1 Audit node). For the full inventory see [docs/reference/NODE_INVENTORY.md](../reference/NODE_INVENTORY.md).
 
 ---
 
@@ -255,8 +255,8 @@ All intelligence topics follow: `{env}.onex.{kind}.omniintelligence.{event-name}
 ---
 
 **Last Updated**: 2026-06-21 (verified against code on this refresh) — node-type counts
-re-derived from the 59 `[project.entry-points."onex.nodes"]` (24 compute / 30 effect / 2 reducer /
-2 orchestrator); dispatch handler/route counts re-counted in `runtime/dispatch_handlers.py`
+re-derived from the 60 `[project.entry-points."onex.nodes"]` (24 compute / 31 effect / 2 reducer /
+2 orchestrator + 1 audit); dispatch handler/route counts re-counted in `runtime/dispatch_handlers.py`
 (30 `register_handler` / 39 `register_route`); contract-only node list and the unregistered
 `node_intelligence_orchestrator`/`node_intelligence_reducer` status verified.
 **See Also**: `omnibase_core/docs/architecture/ONEX_FOUR_NODE_ARCHITECTURE.md` — base class definitions, handler output constraints, and FSM/workflow subcontract reference.

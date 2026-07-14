@@ -9,7 +9,7 @@
 
 This inventory is sourced directly from the `[project.entry-points."onex.nodes"]` section of `pyproject.toml`. When a node is added or removed, this file must be updated in the same PR.
 
-Total registered nodes: **60**
+Total registered nodes: **60** (59 four-type + `node_audit`; the total counts every `onex.nodes` entry point, audit included)
 
 ---
 
