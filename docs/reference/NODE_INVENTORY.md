@@ -5,11 +5,11 @@
 **Source of truth:** `pyproject.toml [project.entry-points."onex.nodes"]`
 **Owner:** omniintelligence
 **Last verified:** 2026-06-21 (verified against code on this refresh)
-**Verification:** parsed `pyproject.toml [project.entry-points."onex.nodes"]` (59 entries: 24 compute / 30 effect / 2 reducer / 2 orchestrator + 1 audit; `node_plan_reviewer_multi_compute` re-classified as compute)
+**Verification:** parsed `pyproject.toml [project.entry-points."onex.nodes"]` (60 entries: 24 compute / 31 effect / 2 reducer / 2 orchestrator + 1 audit; `node_plan_reviewer_multi_compute` re-classified as compute)
 
 This inventory is sourced directly from the `[project.entry-points."onex.nodes"]` section of `pyproject.toml`. When a node is added or removed, this file must be updated in the same PR.
 
-Total registered nodes: **59**
+Total registered nodes: **60**
 
 ---
 
@@ -54,6 +54,7 @@ Total registered nodes: **59**
 | `node_compliance_evaluate_effect` | `omniintelligence.nodes.node_compliance_evaluate_effect` | Evaluate and record compliance checks |
 | `node_context_item_writer_effect` | `omniintelligence.nodes.node_context_item_writer_effect` | Write context items to storage |
 | `node_crawl_scheduler_effect` | `omniintelligence.nodes.node_crawl_scheduler_effect` | Schedule and manage crawl jobs |
+| `node_cursor_hook_event_effect` | `omniintelligence.nodes.node_cursor_hook_event_effect` | Process Cursor IDE hook events from omnicursor |
 | `node_debug_fix_record_effect` | `omniintelligence.nodes.node_debug_fix_record_effect` | Record debug fix events |
 | `node_dispatch_outcome_eval_effect` | `omniintelligence.nodes.node_dispatch_outcome_eval_effect` | Evaluate omniclaude dispatch worker outcomes |
 | `node_doc_staleness_detector_effect` | `omniintelligence.nodes.node_doc_staleness_detector_effect` | Detect stale documents and emit staleness events |
