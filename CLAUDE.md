@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-OmniIntelligence is the intelligence platform for the ONEX ecosystem. It provides 59 first-class ONEX nodes covering pattern learning, code quality analysis, evaluation, intent classification, document analysis, CI failure tracking, bloom evaluation, and Claude Code hook processing. All nodes follow the ONEX Four-Node Architecture (Effect / Compute / Reducer / Orchestrator) and delegate all business logic to handler modules.
+OmniIntelligence is the intelligence platform for the ONEX ecosystem. It provides 60 first-class ONEX nodes covering pattern learning, code quality analysis, evaluation, intent classification, document analysis, CI failure tracking, bloom evaluation, and Claude Code hook processing. All nodes follow the ONEX Four-Node Architecture (Effect / Compute / Reducer / Orchestrator) and delegate all business logic to handler modules.
 
 **Key Capabilities**:
 - **Claude Code Hook Processing**: Receives and processes `UserPromptSubmit` and `Stop` hook events from omniclaude
@@ -114,7 +114,7 @@ The system decomposes intelligence operations into specialized ONEX nodes:
 
 ### Node Inventory
 
-59 nodes registered in `pyproject.toml [project.entry-points."onex.nodes"]`. For the full list see [docs/reference/NODE_INVENTORY.md](docs/reference/NODE_INVENTORY.md).
+60 nodes registered in `pyproject.toml [project.entry-points."onex.nodes"]` (59 four-type + `node_audit`). For the full list see [docs/reference/NODE_INVENTORY.md](docs/reference/NODE_INVENTORY.md).
 
 Key nodes referenced in this file:
 
