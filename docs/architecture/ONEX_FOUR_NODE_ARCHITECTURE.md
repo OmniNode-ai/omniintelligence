@@ -12,7 +12,7 @@
 | Type | Base Class | Allowed Handler Outputs | Count | Example Node |
 |------|-----------|------------------------|-------|--------------|
 | **Compute** | `NodeCompute` | `result` only | 24 | `NodeQualityScoringCompute` |
-| **Effect** | `NodeEffect` | `events[]` only | 30 | `NodeClaudeHookEventEffect` |
+| **Effect** | `NodeEffect` | `events[]` only | 31 | `NodeClaudeHookEventEffect` |
 | **Reducer** | `NodeReducer` | `projections[]` only | 2 | `NodeDocPromotionReducer` |
 | **Orchestrator** | `NodeOrchestrator` | `events[]`, `intents[]` | 2 | `NodePatternAssemblerOrchestrator` |
 
