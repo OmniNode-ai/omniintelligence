@@ -796,6 +796,78 @@ jobs:
           echo "::endgroup::"
 
   # ============================================================================
+  # Canonical handler-shape GROWTH RATCHET fan-out (OMN-14588, per OMN-14355/14368).
+  # ============================================================================
+  # compliance_sweep checks handler HYGIENE but is blind to handler SHAPE, so a
+  # non-canonical handler passes green CI. This classifies each omniintelligence
+  # node's contract-declared handler (definition B: typed-payload handle(request)
+  # -> response, adapted by the shared runtime, no envelope in the core), WARNs
+  # the committed baseline's debt (scripts/ci/canonical_handler_shape_baseline.py,
+  # OMN-14588: 65 non-canonical / 67 scanned), and HARD-FAILS a NEW non-canonical
+  # node or baseline-count growth. Sourced from a sibling omnibase_core checkout
+  # (the classifier lives at omnibase_core's repo-root scripts/ci/, not the
+  # installed package). Runs --full (not the default --scope changed): the
+  # classifier's diff-scoped git-diff runs with cwd = the classifier's OWN repo,
+  # wrong for a fan-out invocation against this sibling checkout — --full is
+  # cheap here (~67 nodes, sub-second). --receipts-dir is mandatory (mirrors the
+  # OMN-14633 fix in the omnibase_infra fan-out): the classifier's default for a
+  # non-core --package is a directory NEXT TO ITS OWN __file__ (inside the
+  # ephemeral sibling checkout), which never contains this repo's committed
+  # receipts. No pre-commit mirror yet: same infeasibility already verified for
+  # the omnimarket/omnibase_infra fan-outs (OMN-14372/14587) — pre-commit's
+  # language:python remote-hook install only ships the installed
+  # src/omnibase_core/ package (classifier isn't importable that way) and
+  # language:script has no dependency isolation (the classifier needs the
+  # data-modeling/yaml-parsing libraries already vendored in this repo's own
+  # venv); real fix is OMN-14563 (relocate the classifier into an installed
+  # omnibase_core module). CI-only matches the omnimarket/omnibase_infra
+  # precedent.
+  canon-shape-ratchet:
+    name: Canonical Handler-Shape Ratchet
+    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
+    runs-on: >-
+      ${{
+        github.event_name != 'pull_request'
+        && github.event_name != 'merge_group'
+        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+      }}
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Checkout omnibase_core validator source
+        uses: actions/checkout@v7
+        with:
+          repository: OmniNode-ai/omnibase_core
+          ref: dev
+          path: .ci/omnibase_core
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Install dependencies
+        run: uv sync --group dev --group core
+
+      - name: Canonical handler-shape ratchet (OMN-14355 fan-out, OMN-14588)
+        run: |
+          uv run python .ci/omnibase_core/scripts/ci/canonical_handler_shape.py \
+            --package omniintelligence --src-root src \
+            --baseline scripts/ci/canonical_handler_shape_baseline.py \
+            --receipts-dir scripts/ci/adequacy_receipts \
+            --full
+
+  # ============================================================================
   # Detect Secrets - Baseline security scan (OMN-2227)
   # ============================================================================
   # Uses detect-secrets-hook for proper baseline comparison (handles type+hash equality)
@@ -944,7 +1016,7 @@ jobs:
         && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
         || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
-    needs: [assert-no-poetry, pre-commit, scope-alignment, contract-validation, io-audit, cross-repo-validation, migration-freeze, check-handshake, detect-secrets, contract-compliance]
+    needs: [assert-no-poetry, pre-commit, scope-alignment, contract-validation, io-audit, cross-repo-validation, migration-freeze, check-handshake, canon-shape-ratchet, detect-secrets, contract-compliance]
     if: always()
 
     steps:
@@ -961,6 +1033,7 @@ jobs:
           crossrepo="${{ needs.cross-repo-validation.result }}"
           migrationfreeze="${{ needs.migration-freeze.result }}"
           handshake="${{ needs.check-handshake.result }}"
+          canonshape="${{ needs.canon-shape-ratchet.result }}"
           secrets="${{ needs.detect-secrets.result }}"
           contractcompliance="${{ needs.contract-compliance.result }}"
 
@@ -975,6 +1048,7 @@ jobs:
           echo "| Cross-Repo Validation | $crossrepo |" >> $GITHUB_STEP_SUMMARY
           echo "| Migration Freeze | $migrationfreeze |" >> $GITHUB_STEP_SUMMARY
           echo "| Architecture Handshake | $handshake |" >> $GITHUB_STEP_SUMMARY
+          echo "| Canonical Handler-Shape Ratchet | $canonshape |" >> $GITHUB_STEP_SUMMARY
           echo "| Detect Secrets | $secrets |" >> $GITHUB_STEP_SUMMARY
           echo "| Contract Compliance Check | $contractcompliance |" >> $GITHUB_STEP_SUMMARY
 
@@ -987,6 +1061,10 @@ jobs:
               FAILED=true
             fi
           done
+
+          if [[ "$canonshape" != "success" ]]; then
+            FAILED=true
+          fi
 
           # Handshake: accept success or skipped (fork PRs)
           if [[ "$handshake" != "success" ]] && [[ "$handshake" != "skipped" ]]; then
