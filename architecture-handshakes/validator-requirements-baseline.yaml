@@ -111,9 +111,6 @@ gaps:
     kind: MISSING_CI_WORKFLOW
   - repo: omniintelligence
     validator: pydantic-patterns
-    kind: MISSING_CI_WORKFLOW
-  - repo: omniintelligence
-    validator: pydantic-patterns
     kind: MISSING_PRE_COMMIT
   - repo: omniintelligence
     validator: self-gating-workflows
