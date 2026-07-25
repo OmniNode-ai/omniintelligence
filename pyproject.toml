@@ -463,4 +463,10 @@ override-dependencies = [
     "omnibase-core>=0.46.3,<0.47.0",
     "omnibase-spi>=0.23.1,<0.24.0",
     "omnibase-infra>=0.38.4,<0.39.0",
+    # OMN-15129: freeze ruff at the pre-existing dev-HEAD version. The unrelated
+    # infra/core/compat pin refresh in this PR forced a full uv.lock re-resolve,
+    # which floated ruff 0.15.8 -> 0.16.0 (unpinned lower-bound-only constraint)
+    # and surfaced ~110 new PLR0917-class lint findings in pre-existing test code
+    # that are out of scope for this dependency-pin fix.
+    "ruff==0.15.8",
 ]
