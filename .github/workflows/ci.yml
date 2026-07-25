@@ -907,8 +907,20 @@ jobs:
           # Excludes: uv.lock (dependency hashes), .venv/, test fixtures,
           # .git/, .secrets.baseline (contains hashed values that self-trigger),
           # workflow YAML (references "secret" in config context)
+          #
+          # -n/--no-verify (OMN-15063): several plugins (SlackDetector,
+          # StripeDetector, ...) call the live vendor API to "verify" each
+          # regex-matched candidate, then silently drop anything that comes
+          # back VERIFIED_FALSE. RED-proven against this exact invocation: a
+          # synthetic Slack incoming-webhook URL and a synthetic Slack bot
+          # token, both matching the dedicated SlackDetector regex, are
+          # silently absent from the report without -n even though the
+          # regex matches. A negative/uncertain live-verification result
+          # must not silently remove a finding (fail-closed). Never remove
+          # this flag without re-proving the miss is fixed another way.
           set +e
           git ls-files -z | xargs -0 detect-secrets-hook \
+            --no-verify \
             --baseline .secrets.baseline \
             --exclude-files 'uv\.lock' \
             --exclude-files '\.venv/' \
@@ -929,7 +941,7 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "If these are false positives, regenerate the baseline:" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
-            echo 'detect-secrets scan --exclude-files "uv\.lock" --exclude-files "\.venv/" --exclude-files "tests/fixtures/" --exclude-files "\.git/" --exclude-files "\.secrets\.baseline" --exclude-files "\.github/workflows/.*\.ya?ml" --force-use-all-plugins > .secrets.baseline' >> $GITHUB_STEP_SUMMARY
+            echo 'detect-secrets scan --no-verify --exclude-files "uv\.lock" --exclude-files "\.venv/" --exclude-files "tests/fixtures/" --exclude-files "\.git/" --exclude-files "\.secrets\.baseline" --exclude-files "\.github/workflows/.*\.ya?ml" --force-use-all-plugins > .secrets.baseline' >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
@@ -1187,7 +1199,7 @@ jobs:
         && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
         || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
-    needs: [changes, quality-gate, lint, type-check, test-unit, compliance, no-noncanonical-lifecycle-classes]
+    needs: [changes, quality-gate, lint, type-check, test-unit, compliance, no-noncanonical-lifecycle-classes, detect-secrets]
     if: always()
 
     steps:
@@ -1198,6 +1210,19 @@ jobs:
           # in needs: so this job WAITS for it (no race).
           if [[ "${{ needs.no-noncanonical-lifecycle-classes.result }}" != "success" ]]; then
             echo "::error::no-noncanonical-lifecycle-classes ratchet did not pass (result: ${{ needs.no-noncanonical-lifecycle-classes.result }}) - fail-closed (OMN-14350)"
+            exit 1
+          fi
+
+          # OMN-15063: detect-secrets was written to fail (exit 1) on a new,
+          # non-baselined secret but was never actually in the required-check
+          # path — "CI Summary" is the only required context here and its
+          # needs: list omitted detect-secrets entirely, so the job could red
+          # forever without blocking a merge. Only 'success' passes; the
+          # verification-suppression fix in the same PR (OMN-15063) makes
+          # this job stop silently dropping Slack/Stripe-shaped findings, so
+          # it must also actually gate.
+          if [[ "${{ needs.detect-secrets.result }}" != "success" ]]; then
+            echo "::error::detect-secrets did not pass (result: ${{ needs.detect-secrets.result }}) - fail-closed (OMN-15063)"
             exit 1
           fi
           echo "## CI Summary" >> $GITHUB_STEP_SUMMARY
