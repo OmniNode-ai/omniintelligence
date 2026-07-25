@@ -87,7 +87,8 @@ class TestLogSanitizerBasics:
         """Test Google API key sanitization."""
         sanitizer = LogSanitizer()
         text = (
-            "Google: AIza" + "SyA1234567890abcdefghijklmnopqrstuv"
+            "Google: AIza"
+            "SyA1234567890abcdefghijklmnopqrstuv"  # pragma: allowlist secret
         )  # split literal: avoids GH google_api_key scanner false-positive (fixture only, never issued)
         result = sanitizer.sanitize(text)
         assert "[GOOGLE_API_KEY]" in result
