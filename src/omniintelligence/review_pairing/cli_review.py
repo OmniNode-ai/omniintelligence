@@ -49,6 +49,7 @@ import argparse
 import asyncio
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 from omniintelligence.review_pairing.adapters.adapter_ai_reviewer import (
@@ -174,7 +175,27 @@ async def run_review(
     """
     results: list[ModelExternalReviewResult] = []
 
+    # OMN-15066: print a visible progress marker around each sequential model
+    # call. This does NOT depend on Python logging configuration (unlike the
+    # omnibase_infra transport's retry-loop logger, fixed separately) --
+    # cli_review.py never calls logging.basicConfig, so a caller that only
+    # captures stderr (e.g. the hostile-reviewer GitHub Actions step) would
+    # otherwise see nothing at all between "Reviewing PR #N" and the final
+    # JSON output, indistinguishable from a hang for the full duration of a
+    # slow or stalled model call.
     for model_key in model_keys:
+        config = MODEL_REGISTRY.get(model_key)
+        timeout_note = (
+            f"timeout={config.timeout_seconds:g}s"
+            if config is not None
+            else "timeout=?"
+        )
+        print(
+            f"Calling model '{model_key}' ({timeout_note})...",
+            file=sys.stderr,
+            flush=True,
+        )
+        call_started_at = time.monotonic()
         if model_key == _CODEX_MODEL_KEY:
             result = await codex_async_parse_raw(
                 content,
@@ -187,6 +208,14 @@ async def run_review(
                 review_type=review_type,
                 system_prompt_prefix=persona.content if persona is not None else None,
             )
+        elapsed = time.monotonic() - call_started_at
+        status = "succeeded" if result.success else "FAILED"
+        print(
+            f"Model '{model_key}' {status} in {elapsed:.1f}s "
+            f"({result.result_count} finding(s)).",
+            file=sys.stderr,
+            flush=True,
+        )
         results.append(result)
 
     models_succeeded = [r.model for r in results if r.success]
