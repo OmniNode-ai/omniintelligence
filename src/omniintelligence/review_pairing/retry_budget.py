@@ -125,9 +125,14 @@ def compute_sequential_worst_case(
     Args:
         model_keys: Model keys as passed to ``cli_review`` (e.g. via
             repeated ``--model`` flags).
-        max_retries: Override for the retry count. Defaults to the live
-            installed transport's default via
-            ``resolve_live_max_retries_default()``.
+        max_retries: Global override for the retry count, applied to every
+            model that does NOT declare its own ``max_retries`` in
+            ``model_registry.yaml`` (test/CLI convenience). Per-model
+            precedence (OMN-15115): ``config.max_retries`` (registry
+            override) > this ``max_retries`` argument >
+            ``resolve_live_max_retries_default()`` -- this must mirror
+            ``call_model()``'s real resolution order exactly, or the
+            invariant simulates a budget the real call path doesn't use.
 
     Returns:
         One ``ModelRetryBudgetResult`` per model key that resolves to a
@@ -136,7 +141,7 @@ def compute_sequential_worst_case(
         not an HTTP retry loop, and has its own timeout mechanism).
     """
     registry = load_registry()
-    resolved_max_retries = (
+    fallback_max_retries = (
         max_retries if max_retries is not None else resolve_live_max_retries_default()
     )
 
@@ -145,6 +150,11 @@ def compute_sequential_worst_case(
         config = registry.models.get(model_key)
         if config is None or config.kind == "cli_fallback":
             continue
+        resolved_max_retries = (
+            config.max_retries
+            if config.max_retries is not None
+            else fallback_max_retries
+        )
         total_attempts, worst_case = _simulate_worst_case_seconds(
             config.timeout_seconds, resolved_max_retries
         )

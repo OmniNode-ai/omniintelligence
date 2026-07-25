@@ -361,6 +361,16 @@ async def call_model(
     )
     handler = HandlerLlmOpenaiCompatible(transport)
 
+    # OMN-15115: max_retries is an OPTIONAL per-model registry override.
+    # ``None`` means "no override" -- omit the kwarg entirely so
+    # ModelLlmInferenceRequest applies its own default (3), which mirrors the
+    # transport's historical hardcoded retry count. Only build an explicit
+    # kwargs dict entry when the registry declares a real override, so models
+    # that don't set it are provably unaffected by this change.
+    _request_kwargs: dict[str, object] = {}
+    if config.max_retries is not None:
+        _request_kwargs["max_retries"] = config.max_retries
+
     request = ModelLlmInferenceRequest(
         base_url=base_url,
         endpoint_url=endpoint_url,
@@ -371,6 +381,7 @@ async def call_model(
         max_tokens=_DEFAULT_MAX_TOKENS,
         temperature=_DEFAULT_TEMPERATURE,
         timeout_seconds=config.timeout_seconds,
+        **_request_kwargs,
         # OMN-14176: enable_thinking is a DECLARATIVE per-model registry field
         # (model_registry.yaml), not a code-baked constant -- flipping it for
         # a model is a config edit, not a code change + redeploy. The

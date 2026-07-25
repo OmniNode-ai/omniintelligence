@@ -72,23 +72,42 @@ models:
   # single-model exit-2 collapse. llama-server ignores the request model field,
   # but api_model_id is set to the exact served id for clarity/observability.
   #
-  # timeout_seconds raised 120 -> 600 (OMN-14176 gate-5): live-measured
-  # throughput on this endpoint is ~9 tokens/sec (llama.cpp, IQ4_XS quant,
-  # draft-mtp speculative decoding), so a completion anywhere near the
-  # adapter's max_tokens=4096 budget needs ~400-450s. The prior 120s budget
-  # could never finish such a completion -- every real review request hit
-  # ONEX_CORE_092_TIMEOUT_ERROR after 4 retries (~480s wasted), not because
-  # the model or host was down (a small max_tokens=5 probe round-tripped in
-  # 1.6-2.6s) but because the timeout was sized for the 5090's throughput,
-  # not the 4090's. Left qwen3-review's timeout untouched -- the 5090 is
-  # ~2x faster per the comment above and has not been observed to need it.
+  # timeout_seconds raised 600 -> 1200 (OMN-15115): the OMN-14176 gate-5 value
+  # of 600s assumed ~9 tokens/sec throughput, which was NEVER LIVE-VERIFIED
+  # against sustained generation. Live-measured (OMN-15115, journalctl on the
+  # llama-server PID over a 6-hour window, many independent tasks) sustained
+  # decode throughput is 4.3-4.6 tokens/sec -- roughly HALF the assumed rate.
+  # At the real rate a completion near max_tokens=4096 needs ~950-1000s, which
+  # ALWAYS exceeded the old 600s timeout even for a single, uncontended
+  # request -- this was a deterministic timeout-undersizing defect, not a
+  # contention artifact (single-slot queueing under concurrent PRs makes it
+  # worse on top of this, but isn't required to reproduce it). 1200s covers
+  # the real worst case with margin down to ~3.6 tok/s.
+  #
+  # max_retries lowered 3 -> 1 (2 total attempts, OMN-15115): retrying a
+  # systematically-slow (not transiently-flaky) endpoint burns the same
+  # wall-clock budget for the same outcome, and this endpoint is a SINGLE
+  # concurrency slot (`llama-server --parallel 1`) shared across every
+  # concurrent PR's review -- a doomed retry also extends how long that one
+  # slot is held from other PRs' requests. One retry is kept (not zero) to
+  # still cover a genuine transient connection blip.
+  #
+  # Worst-case sequential budget with these values: qwen3-review (unchanged,
+  # ~500s) + qwen3-review-b (2 x 1200s = 2400s) = ~2900s, within the 3600s
+  # (60min) hostile-review job ceiling with ~700s margin. See
+  # omniintelligence.review_pairing.retry_budget, which asserts this on every
+  # hostile-review CI run against the LIVE registry + LIVE per-model overrides.
+  #
+  # Left qwen3-review's timeout/retries untouched -- the 5090 vLLM endpoint is
+  # not known to exhibit this defect (see qwen3-review's own comment above).
   qwen3-review-b:
     env_var: "LLM_QWEN3_REVIEW_B_URL"
     default_url: "http://192.168.86.201:8001"  # onex-allow-internal-ip
     kind: "code_review"
-    timeout_seconds: 600.0
+    timeout_seconds: 1200.0
     api_model_id: "Qwen3.6-27B-MTP-IQ4_XS.gguf"
     enable_thinking: false
+    max_retries: 1
 
   qwen3-coder:
     env_var: "LLM_CODER_URL"

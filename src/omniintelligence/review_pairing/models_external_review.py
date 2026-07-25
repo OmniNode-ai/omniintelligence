@@ -30,6 +30,15 @@ class ModelEndpointConfig(BaseModel, frozen=True):
             preamble (Qwen3 chat_template_kwargs.enable_thinking). Declarative
             per-model toggle (OMN-14176) -- flipping reasoning off/on for a
             model is a config change here, not a code change in call_model().
+        max_retries: Optional per-model override for HTTP retry attempts
+            (OMN-15115). ``None`` (default) means "no override" -- call_model
+            leaves ``ModelLlmInferenceRequest.max_retries`` at its own default
+            (3, matching the transport's historical hardcoded behavior).
+            Set this for endpoints where retrying a timeout doesn't help
+            (a systematically slow, not transiently-flaky, endpoint) --
+            retrying just re-spends the same wall-clock budget for the same
+            outcome, and on a single-concurrency-slot endpoint it also
+            extends how long that slot is held by a doomed request.
     """
 
     env_var: str = Field(description="Environment variable name for the endpoint URL.")
@@ -49,6 +58,17 @@ class ModelEndpointConfig(BaseModel, frozen=True):
             "answer (Qwen3 chat_template_kwargs.enable_thinking). Additive: "
             "defaults to the pre-OMN-14176 behavior (thinking allowed) so "
             "existing entries that don't set it are unaffected."
+        ),
+    )
+    max_retries: int | None = Field(
+        default=None,
+        ge=0,
+        le=10,
+        description=(
+            "Optional per-model override for HTTP retry attempts (OMN-15115). "
+            "None means no override -- call_model leaves "
+            "ModelLlmInferenceRequest.max_retries at its own default. "
+            "Additive: existing entries that don't set it are unaffected."
         ),
     )
 

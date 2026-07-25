@@ -463,7 +463,21 @@ class TestModelRegistry:
         assert MODEL_REGISTRY["qwen3-review-b"].enable_thinking is False
 
     def test_qwen3_review_b_timeout_raised(self) -> None:
-        assert MODEL_REGISTRY["qwen3-review-b"].timeout_seconds == 600.0
+        """OMN-15115: raised 600 -> 1200 to match real measured throughput
+        (~4.3-4.6 tok/s, not the ~9 tok/s assumed by the OMN-14176 600s value)."""
+        assert MODEL_REGISTRY["qwen3-review-b"].timeout_seconds == 1200.0
+
+    def test_qwen3_review_b_max_retries_lowered(self) -> None:
+        """OMN-15115: lowered default(3) -> 1 -- retrying a systematically-slow
+        (not transiently-flaky) single-concurrency-slot endpoint just re-spends
+        the same wall-clock budget for the same outcome."""
+        assert MODEL_REGISTRY["qwen3-review-b"].max_retries == 1
+
+    def test_qwen3_review_max_retries_unset(self) -> None:
+        """qwen3-review (the 5090 endpoint) is untouched by OMN-15115 -- no
+        per-model max_retries override, so call_model() applies the
+        transport's own default."""
+        assert MODEL_REGISTRY["qwen3-review"].max_retries is None
 
     def test_unconfigured_model_defaults_enable_thinking_true(self) -> None:
         """A model that doesn't set enable_thinking in the registry
