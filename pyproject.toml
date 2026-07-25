@@ -237,10 +237,11 @@ all = [
 ]
 
 [tool.uv.sources]
-onex-change-control = { git = "https://github.com/OmniNode-ai/onex_change_control.git", rev = "4877d3c223517cb0c7e1eca462ba0f4d38916314" } # pragma: allowlist secret
+onex-change-control = { git = "https://github.com/OmniNode-ai/onex_change_control.git", rev = "dd2620d18001495b8d0f493b421b38399e9aab4b" } # pragma: allowlist secret  # OMN-15129: was 4877d3c2 (2026-05-04), conflicted with nested pin from bumped omnimarket rev; aligned to the SHA omnimarket@54fa07dd already nests
 # Release v0.24.0: pin to release tags
-omnimarket = { git = "https://github.com/OmniNode-ai/omnimarket.git", tag = "v0.4.0" }
-omnibase-infra = { git = "https://github.com/OmniNode-ai/omnibase_infra.git", rev = "c253d73648eae6d44e68c75907d8a60114afd534" } # pragma: allowlist secret
+omnimarket = { git = "https://github.com/OmniNode-ai/omnimarket.git", rev = "54fa07dd0d46e7ba719a201a950626a041ad6433" } # pragma: allowlist secret  # OMN-15129: was tag v0.4.0 (nested compat pin git-tag v0.5.0 conflicted with omnibase-infra requiring compat==0.5.6); this rev (2026-07-10, earliest available) resolves compat==0.5.6 from PyPI (OMN-13878), matching
+omnibase-infra = { git = "https://github.com/OmniNode-ai/omnibase_infra.git", rev = "ead076af5762be7777a42d52e3ed8668f2d0fa0d" } # pragma: allowlist secret
+omnibase-core = { git = "https://github.com/OmniNode-ai/omnibase_core.git", rev = "a2562165d7ab1358efb87df8ef8757064eef5ce7" } # pragma: allowlist secret  # raw-override-ok: OMN-15129 unreleased 0.46.8 that this omnibase-infra rev requires (PyPI latest is 0.46.7) is only available via git; pin matches omnibase_infra dev own override (OMN-14758)
 
 [tool.ruff]
 target-version = "py312"
@@ -462,4 +463,10 @@ override-dependencies = [
     "omnibase-core>=0.46.3,<0.47.0",
     "omnibase-spi>=0.23.1,<0.24.0",
     "omnibase-infra>=0.38.4,<0.39.0",
+    # OMN-15129: freeze ruff at the pre-existing dev-HEAD version. The unrelated
+    # infra/core/compat pin refresh in this PR forced a full uv.lock re-resolve,
+    # which floated ruff 0.15.8 -> 0.16.0 (unpinned lower-bound-only constraint)
+    # and surfaced ~110 new PLR0917-class lint findings in pre-existing test code
+    # that are out of scope for this dependency-pin fix.
+    "ruff==0.15.8",
 ]
