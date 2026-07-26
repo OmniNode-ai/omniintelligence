@@ -4,7 +4,7 @@
 
 **Owner:** omniintelligence
 **Last verified:** 2026-06-16
-**Verification source:** CLAUDE.md topic tables and contract YAML files under `src/omniintelligence/nodes/*/contract.yaml`
+**Verification source:** contract YAML files under `src/omniintelligence/nodes/*/contract.yaml` (CLAUDE.md no longer maintains topic tables; this file is the source of truth)
 
 This page lists all Kafka topics produced, consumed, or otherwise associated with omniintelligence. It follows the shared event-surface reference pattern from [omni_home docs/standards/REPO_DOCUMENTATION_STANDARD.md](https://github.com/OmniNode-ai/omni_home/blob/main/docs/standards/REPO_DOCUMENTATION_STANDARD.md).
 

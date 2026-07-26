@@ -121,5 +121,5 @@ Dated plans and migration context are in `omni_home/docs/plans/`. They are not p
 | [Contract Validation Guide](CONTRACT_VALIDATION_GUIDE.md) | Active | Contract linting and validation reference |
 | [Node State Policy](NODE_STATE_POLICY.md) | Active | Node state and lifecycle policy |
 | [Node Inventory](reference/NODE_INVENTORY.md) | Active | Sourced from `pyproject.toml` — verified against code 2026-06-21 |
-| [Event Surface](reference/EVENT_SURFACE.md) | Active | Sourced from CLAUDE.md and contract YAML files — updated 2026-04-29 |
+| [Event Surface](reference/EVENT_SURFACE.md) | Active | Sourced from contract YAML files (single topic source of truth) — updated 2026-07-26 |
 | [Dash Integration Truth Boundary](reference/DASH_INTEGRATION_TRUTH_BOUNDARY.md) | Active | Sourced from wiring-gaps plan — updated 2026-04-29 |
