@@ -272,7 +272,7 @@ def test_stale_pin_exempted_by_raw_override_ok(mod, tmp_path: Path) -> None:
     block = (
         "[tool.uv.sources]\n"
         'omnimarket = { git = "https://github.com/OmniNode-ai/omnimarket.git", '
-        'rev = "54fa07dd0d46e7ba719a201a950626a041ad6433" }  # raw-override-ok: OMN-15145\n'
+        'rev = "54fa07dd0d46e7ba719a201a950626a041ad6433" }  # pragma: allowlist secret  # raw-override-ok: OMN-15145\n'
     )
     path = _write_pyproject(tmp_path, block)
     resolver = _fake_resolver(mod, {"54fa07dd0d46e7ba719a201a950626a041ad6433": 217})
@@ -287,7 +287,7 @@ def test_stale_pin_empty_escape_token_still_fails(mod, tmp_path: Path) -> None:
     block = (
         "[tool.uv.sources]\n"
         'omnimarket = { git = "https://github.com/OmniNode-ai/omnimarket.git", '
-        'rev = "54fa07dd0d46e7ba719a201a950626a041ad6433" }  # raw-override-ok:\n'
+        'rev = "54fa07dd0d46e7ba719a201a950626a041ad6433" }  # pragma: allowlist secret  # raw-override-ok:\n'
     )
     path = _write_pyproject(tmp_path, block)
     resolver = _fake_resolver(mod, {"54fa07dd0d46e7ba719a201a950626a041ad6433": 217})
@@ -303,7 +303,7 @@ def test_onex_change_control_exempt_from_staleness(mod, tmp_path: Path) -> None:
     block = (
         "[tool.uv.sources]\n"
         'onex-change-control = { git = "https://github.com/OmniNode-ai/onex_change_control.git", '
-        'rev = "dd2620d18001495b8d0f493b421b38399e9aab4b" }\n'
+        'rev = "dd2620d18001495b8d0f493b421b38399e9aab4b" }  # pragma: allowlist secret\n'
     )
     path = _write_pyproject(tmp_path, block)
 
