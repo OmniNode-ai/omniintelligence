@@ -12,6 +12,7 @@ Reference: OMN-5793
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -280,6 +281,52 @@ class TestMain:
     def test_file_not_found(self) -> None:
         code = main(["--file", "/nonexistent/plan.md"])
         assert code == 1
+
+    def test_pr_large_diff_falls_back_to_files_api(self) -> None:
+        gh_error = subprocess.CalledProcessError(
+            1,
+            ["gh", "pr", "diff", "1907", "--repo", "OmniNode-ai/omnimarket"],
+            stderr=(
+                "HTTP 406: Sorry, the diff exceeded the maximum number of files "
+                "(300).\nPullRequest.diff too_large"
+            ),
+        )
+
+        with (
+            patch(
+                "omniintelligence.review_pairing.cli_review.subprocess.run",
+                side_effect=gh_error,
+            ),
+            patch(
+                "omniintelligence.review_pairing.cli_review._fetch_pr_files_fallback",
+                return_value="--- large.py ---\n@@ patch @@",
+            ) as mock_fallback,
+            patch(
+                "omniintelligence.review_pairing.cli_review.select_models_with_fallback",
+                return_value=(["deepseek-r1", "qwen3-coder"], []),
+            ),
+            patch(
+                "omniintelligence.review_pairing.cli_review.llm_async_parse_raw",
+                new_callable=AsyncMock,
+                return_value=_success_result("deepseek-r1"),
+            ) as mock_llm,
+        ):
+            code = main(
+                [
+                    "--pr",
+                    "1907",
+                    "--repo",
+                    "OmniNode-ai/omnimarket",
+                    "--model",
+                    "deepseek-r1",
+                    "--model",
+                    "qwen3-coder",
+                ]
+            )
+
+        assert code == 0
+        mock_fallback.assert_called_once_with(1907, "OmniNode-ai/omnimarket")
+        assert mock_llm.call_args.args[0] == "--- large.py ---\n@@ patch @@"
 
     def test_output_to_file(self, tmp_path: Path) -> None:
         plan_file = tmp_path / "plan.md"
