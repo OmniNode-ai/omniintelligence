@@ -47,6 +47,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import subprocess
 import sys
 import time
@@ -73,6 +74,11 @@ from omniintelligence.review_pairing.models_external_review import (
 from omniintelligence.review_pairing.persona_loader import load_persona
 
 _CODEX_MODEL_KEY: str = "codex"
+_LARGE_PR_DIFF_MARKERS: tuple[str, ...] = (
+    "PullRequest.diff too_large",
+    "diff exceeded the maximum number of files",
+    "HTTP 406",
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -259,6 +265,62 @@ def _severity_summary(result: ModelMultiReviewResult) -> str:
     return ", ".join(parts)
 
 
+def _is_large_pr_diff_error(stderr: str) -> bool:
+    return any(marker in stderr for marker in _LARGE_PR_DIFF_MARKERS)
+
+
+def _parse_paginated_gh_json(stdout: str) -> list[object]:
+    decoder = json.JSONDecoder()
+    values: list[object] = []
+    index = 0
+    while index < len(stdout):
+        while index < len(stdout) and stdout[index].isspace():
+            index += 1
+        if index >= len(stdout):
+            break
+        value, index = decoder.raw_decode(stdout, index)
+        if isinstance(value, list):
+            values.extend(value)
+        else:
+            values.append(value)
+    return values
+
+
+def _fetch_pr_files_fallback(pr_number: int, repo: str) -> str:
+    """Fetch PR file patches when GitHub refuses the unified diff endpoint."""
+    result = subprocess.run(
+        [
+            "gh",
+            "api",
+            "--paginate",
+            f"/repos/{repo}/pulls/{pr_number}/files?per_page=100",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=60,
+    )
+    files = _parse_paginated_gh_json(result.stdout)
+    chunks: list[str] = [
+        f"PR #{pr_number} in {repo} exceeded GitHub's unified diff size limit.",
+        "Fallback review target built from the pull request files API.",
+    ]
+    for file_info in files:
+        if not isinstance(file_info, dict):
+            continue
+        filename = str(file_info.get("filename", "<unknown>"))
+        status = str(file_info.get("status", "modified"))
+        additions = file_info.get("additions", 0)
+        deletions = file_info.get("deletions", 0)
+        chunks.append(f"\n--- {filename} ({status}, +{additions}/-{deletions}) ---")
+        patch = file_info.get("patch")
+        if isinstance(patch, str) and patch.strip():
+            chunks.append(patch)
+        else:
+            chunks.append("[patch unavailable from pull request files API]")
+    return "\n".join(chunks)
+
+
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point.
 
@@ -289,8 +351,31 @@ def main(argv: list[str] | None = None) -> int:
             print("Error: gh CLI not found", file=sys.stderr)
             return 1
         except subprocess.CalledProcessError as exc:
-            print(f"Error: gh pr diff failed: {exc.stderr.strip()}", file=sys.stderr)
-            return 1
+            stderr = exc.stderr.strip()
+            if not _is_large_pr_diff_error(stderr):
+                print(f"Error: gh pr diff failed: {stderr}", file=sys.stderr)
+                return 1
+            try:
+                review_content = _fetch_pr_files_fallback(args.pr, args.repo)
+            except subprocess.CalledProcessError as fallback_exc:
+                print(
+                    "Error: gh pr diff exceeded GitHub's size limit and "
+                    f"files API fallback failed: {fallback_exc.stderr.strip()}",
+                    file=sys.stderr,
+                )
+                return 1
+            except subprocess.TimeoutExpired:
+                print(
+                    "Error: gh pr diff exceeded GitHub's size limit and "
+                    "files API fallback timed out",
+                    file=sys.stderr,
+                )
+                return 1
+            print(
+                "WARNING: gh pr diff exceeded GitHub's size limit; "
+                "using pull request files API fallback",
+                file=sys.stderr,
+            )
         except subprocess.TimeoutExpired:
             print("Error: gh pr diff timed out", file=sys.stderr)
             return 1
