@@ -79,6 +79,8 @@ _LARGE_PR_DIFF_MARKERS: tuple[str, ...] = (
     "diff exceeded the maximum number of files",
     "HTTP 406",
 )
+_MAX_FALLBACK_REVIEW_CHARS = 120_000
+_MAX_FALLBACK_PATCH_CHARS = 6_000
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -286,6 +288,25 @@ def _parse_paginated_gh_json(stdout: str) -> list[object]:
     return values
 
 
+def _append_bounded_chunk(chunks: list[str], chunk: str, max_chars: int) -> bool:
+    """Append chunk if it fits, or append a clipped tail marker.
+
+    Returns True when the full chunk was appended.
+    """
+    current_size = sum(len(existing) + 1 for existing in chunks)
+    remaining = max_chars - current_size
+    if remaining <= 0:
+        return False
+    if len(chunk) <= remaining:
+        chunks.append(chunk)
+        return True
+
+    marker = "\n[truncated to stay within hostile-reviewer input budget]"
+    if remaining > len(marker):
+        chunks.append(chunk[: remaining - len(marker)] + marker)
+    return False
+
+
 def _fetch_pr_files_fallback(pr_number: int, repo: str) -> str:
     """Fetch PR file patches when GitHub refuses the unified diff endpoint."""
     result = subprocess.run(
@@ -301,23 +322,67 @@ def _fetch_pr_files_fallback(pr_number: int, repo: str) -> str:
         timeout=60,
     )
     files = _parse_paginated_gh_json(result.stdout)
+    file_dicts = [file_info for file_info in files if isinstance(file_info, dict)]
+    total_additions = sum(
+        int(file_info.get("additions") or 0) for file_info in file_dicts
+    )
+    total_deletions = sum(
+        int(file_info.get("deletions") or 0) for file_info in file_dicts
+    )
     chunks: list[str] = [
         f"PR #{pr_number} in {repo} exceeded GitHub's unified diff size limit.",
-        "Fallback review target built from the pull request files API.",
+        "Fallback review target built from the pull request files API with an explicit input budget.",
+        f"Budget: max_review_chars={_MAX_FALLBACK_REVIEW_CHARS}, max_patch_chars_per_file={_MAX_FALLBACK_PATCH_CHARS}.",
+        f"Files changed: {len(file_dicts)}. Totals: +{total_additions}/-{total_deletions}.",
+        "Only file metadata and patch excerpts present in this target are reviewable evidence.",
+        "Do not invent line-level findings for omitted files or truncated hunks.",
+        "",
+        "Changed files:",
     ]
-    for file_info in files:
-        if not isinstance(file_info, dict):
-            continue
+
+    for index, file_info in enumerate(file_dicts, start=1):
         filename = str(file_info.get("filename", "<unknown>"))
         status = str(file_info.get("status", "modified"))
         additions = file_info.get("additions", 0)
         deletions = file_info.get("deletions", 0)
-        chunks.append(f"\n--- {filename} ({status}, +{additions}/-{deletions}) ---")
+        summary = f"{index}. {filename} ({status}, +{additions}/-{deletions})"
+        if not _append_bounded_chunk(chunks, summary, _MAX_FALLBACK_REVIEW_CHARS):
+            return "\n".join(chunks)
+
+    chunks.append("")
+    chunks.append("Patch excerpts:")
+    omitted_patch_files = 0
+    for file_info in file_dicts:
+        filename = str(file_info.get("filename", "<unknown>"))
+        status = str(file_info.get("status", "modified"))
+        additions = file_info.get("additions", 0)
+        deletions = file_info.get("deletions", 0)
         patch = file_info.get("patch")
         if isinstance(patch, str) and patch.strip():
-            chunks.append(patch)
+            patch_text = patch.strip()
+            truncated = len(patch_text) > _MAX_FALLBACK_PATCH_CHARS
+            excerpt = patch_text[:_MAX_FALLBACK_PATCH_CHARS]
+            if truncated:
+                excerpt += "\n[patch excerpt truncated for this file]"
+            block = (
+                f"\n--- {filename} ({status}, +{additions}/-{deletions}) ---\n{excerpt}"
+            )
         else:
-            chunks.append("[patch unavailable from pull request files API]")
+            block = (
+                f"\n--- {filename} ({status}, +{additions}/-{deletions}) ---\n"
+                "[patch unavailable from pull request files API]"
+            )
+
+        if not _append_bounded_chunk(chunks, block, _MAX_FALLBACK_REVIEW_CHARS):
+            omitted_patch_files += 1
+            break
+
+    if omitted_patch_files:
+        _append_bounded_chunk(
+            chunks,
+            "[additional patch excerpts omitted due to input budget]",
+            _MAX_FALLBACK_REVIEW_CHARS,
+        )
     return "\n".join(chunks)
 
 
