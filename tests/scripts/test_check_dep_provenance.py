@@ -205,3 +205,188 @@ def test_escape_is_per_line(mod, tmp_path: Path) -> None:
 def test_missing_pyproject_fails_closed(mod, tmp_path: Path) -> None:
     missing = tmp_path / "nope" / "pyproject.toml"
     assert mod.main(["--pyproject", str(missing)]) == 1
+
+
+# ---------------------------------------------------------------------------
+# Staleness check (OMN-15144) — recurrence guard for the OMN-15129 incident:
+# a *permitted* cross-repo git pin (omnibase-infra, not in the forbidden set)
+# sat 240 commits behind its own repo's dev HEAD, silently withholding a
+# merged fix. These tests use an injected resolver so they run fully offline
+# and deterministically (no real network / git fetch).
+# ---------------------------------------------------------------------------
+
+
+def _fake_resolver(
+    mod, commits_by_pkg_sha: dict[str, int], *, raise_for: set[str] | None = None
+):
+    """Build a fake commits-behind resolver keyed by pinned SHA."""
+    raise_for = raise_for or set()
+
+    def resolver(git_url: str, pinned_sha: str, base_ref: str) -> int:
+        if pinned_sha in raise_for:
+            raise mod.StalenessResolutionError(
+                f"simulated unresolvable SHA {pinned_sha}"
+            )
+        return commits_by_pkg_sha[pinned_sha]
+
+    return resolver
+
+
+def test_stale_pin_over_threshold_fails(mod, tmp_path: Path) -> None:
+    """Reproduce the OMN-15129 shape: omnibase-infra pinned 240 commits behind."""
+    block = (
+        "[tool.uv.sources]\n"
+        'omnibase-infra = { git = "https://github.com/OmniNode-ai/omnibase_infra.git", '
+        'rev = "c253d73648eae6d44e68c75907d8a60114afd534" }\n'  # pragma: allowlist secret
+    )
+    path = _write_pyproject(tmp_path, block)
+    resolver = _fake_resolver(mod, {"c253d73648eae6d44e68c75907d8a60114afd534": 245})
+
+    violations = mod.find_staleness_violations(
+        path.read_text(), max_commits_behind=50, resolver=resolver
+    )
+    assert len(violations) == 1
+    assert "omnibase-infra" in violations[0]
+    assert "245" in violations[0]
+    # main()'s end-to-end wiring (via the real default resolver, monkeypatched)
+    # is exercised separately in test_main_wires_staleness_check_via_monkeypatch.
+
+
+def test_fresh_pin_under_threshold_passes(mod, tmp_path: Path) -> None:
+    """The post-fix (#812) pin, 5 commits behind — well under N=50."""
+    block = (
+        "[tool.uv.sources]\n"
+        'omnibase-infra = { git = "https://github.com/OmniNode-ai/omnibase_infra.git", '
+        'rev = "ead076af5762be7777a42d52e3ed8668f2d0fa0d" }\n'  # pragma: allowlist secret
+    )
+    path = _write_pyproject(tmp_path, block)
+    resolver = _fake_resolver(mod, {"ead076af5762be7777a42d52e3ed8668f2d0fa0d": 5})
+
+    violations = mod.find_staleness_violations(
+        path.read_text(), max_commits_behind=50, resolver=resolver
+    )
+    assert violations == []
+
+
+def test_stale_pin_exempted_by_raw_override_ok(mod, tmp_path: Path) -> None:
+    block = (
+        "[tool.uv.sources]\n"
+        'omnimarket = { git = "https://github.com/OmniNode-ai/omnimarket.git", '
+        'rev = "54fa07dd0d46e7ba719a201a950626a041ad6433" }  # pragma: allowlist secret  # raw-override-ok: OMN-15145\n'
+    )
+    path = _write_pyproject(tmp_path, block)
+    resolver = _fake_resolver(mod, {"54fa07dd0d46e7ba719a201a950626a041ad6433": 217})
+
+    violations = mod.find_staleness_violations(
+        path.read_text(), max_commits_behind=50, resolver=resolver
+    )
+    assert violations == []
+
+
+def test_stale_pin_empty_escape_token_still_fails(mod, tmp_path: Path) -> None:
+    block = (
+        "[tool.uv.sources]\n"
+        'omnimarket = { git = "https://github.com/OmniNode-ai/omnimarket.git", '
+        'rev = "54fa07dd0d46e7ba719a201a950626a041ad6433" }  # pragma: allowlist secret  # raw-override-ok:\n'
+    )
+    path = _write_pyproject(tmp_path, block)
+    resolver = _fake_resolver(mod, {"54fa07dd0d46e7ba719a201a950626a041ad6433": 217})
+
+    violations = mod.find_staleness_violations(
+        path.read_text(), max_commits_behind=50, resolver=resolver
+    )
+    assert len(violations) == 1
+
+
+def test_onex_change_control_exempt_from_staleness(mod, tmp_path: Path) -> None:
+    """occ follows an immutable-main pin model — never checked for staleness."""
+    block = (
+        "[tool.uv.sources]\n"
+        'onex-change-control = { git = "https://github.com/OmniNode-ai/onex_change_control.git", '
+        'rev = "dd2620d18001495b8d0f493b421b38399e9aab4b" }  # pragma: allowlist secret\n'
+    )
+    path = _write_pyproject(tmp_path, block)
+
+    def resolver(*_args, **_kwargs):  # should never be called
+        raise AssertionError("resolver must not be invoked for exempt packages")
+
+    violations = mod.find_staleness_violations(
+        path.read_text(), max_commits_behind=50, resolver=resolver
+    )
+    assert violations == []
+
+
+def test_branch_and_tag_pins_exempt_from_staleness(mod, tmp_path: Path) -> None:
+    """branch/tag pins track a moving ref — cannot go stale the way a frozen SHA can."""
+    block = (
+        "[tool.uv.sources]\n"
+        'omnibase-compat = { git = "https://github.com/OmniNode-ai/omnibase_compat.git", '
+        'branch = "dev" }\n'
+    )
+    path = _write_pyproject(tmp_path, block)
+
+    def resolver(*_args, **_kwargs):  # should never be called — no `rev` key present
+        raise AssertionError("resolver must not be invoked for branch/tag pins")
+
+    violations = mod.find_staleness_violations(
+        path.read_text(), max_commits_behind=50, resolver=resolver
+    )
+    assert violations == []
+
+
+def test_unresolvable_sha_fails_closed(mod, tmp_path: Path) -> None:
+    """An unfetchable pinned SHA is a violation, never a silent skip."""
+    block = (
+        "[tool.uv.sources]\n"
+        'omnibase-infra = { git = "https://github.com/OmniNode-ai/omnibase_infra.git", '
+        'rev = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" }\n'
+    )
+    path = _write_pyproject(tmp_path, block)
+    resolver = _fake_resolver(
+        mod, {}, raise_for={"deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"}
+    )
+
+    violations = mod.find_staleness_violations(
+        path.read_text(), max_commits_behind=50, resolver=resolver
+    )
+    assert len(violations) == 1
+    assert "could not be resolved" in violations[0]
+
+
+def test_main_wires_staleness_check_via_monkeypatch(
+    mod, tmp_path: Path, monkeypatch
+) -> None:
+    """End-to-end: main() calls find_staleness_violations with the real
+    default resolver unless overridden; monkeypatch the module-level default
+    to prove main() surfaces a staleness failure as exit code 1."""
+    block = (
+        "[tool.uv.sources]\n"
+        'omnibase-infra = { git = "https://github.com/OmniNode-ai/omnibase_infra.git", '
+        'rev = "c253d73648eae6d44e68c75907d8a60114afd534" }\n'  # pragma: allowlist secret
+    )
+    path = _write_pyproject(tmp_path, block)
+
+    monkeypatch.setattr(
+        mod,
+        "default_commits_behind_resolver",
+        lambda *_args, **_kwargs: 245,
+    )
+
+    assert mod.main(["--pyproject", str(path)]) == 1
+
+
+def test_main_skip_staleness_check_flag(mod, tmp_path: Path, monkeypatch) -> None:
+    """--skip-staleness-check bypasses the network-dependent check entirely."""
+    block = (
+        "[tool.uv.sources]\n"
+        'omnibase-infra = { git = "https://github.com/OmniNode-ai/omnibase_infra.git", '
+        'rev = "c253d73648eae6d44e68c75907d8a60114afd534" }\n'  # pragma: allowlist secret
+    )
+    path = _write_pyproject(tmp_path, block)
+
+    def _never_called(*_args, **_kwargs):
+        raise AssertionError("resolver must not be invoked when skipped")
+
+    monkeypatch.setattr(mod, "default_commits_behind_resolver", _never_called)
+
+    assert mod.main(["--pyproject", str(path), "--skip-staleness-check"]) == 0
