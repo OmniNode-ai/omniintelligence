@@ -19,6 +19,9 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from omniintelligence.review_pairing.cli_review import (
+    _MAX_FALLBACK_PATCH_CHARS,
+    _MAX_FALLBACK_REVIEW_CHARS,
+    _fetch_pr_files_fallback,
     build_parser,
     main,
     run_review,
@@ -327,6 +330,39 @@ class TestMain:
         assert code == 0
         mock_fallback.assert_called_once_with(1907, "OmniNode-ai/omnimarket")
         assert mock_llm.call_args.args[0] == "--- large.py ---\n@@ patch @@"
+
+    def test_pr_files_fallback_bounds_review_target(self) -> None:
+        huge_patch = "@@\n" + "\n".join(f"+line {i}" for i in range(30_000))
+        files = [
+            {
+                "filename": f"src/generated_{i}.py",
+                "status": "modified",
+                "additions": 30_000,
+                "deletions": 1,
+                "patch": huge_patch,
+            }
+            for i in range(8)
+        ]
+
+        completed = subprocess.CompletedProcess(
+            args=["gh", "api"],
+            returncode=0,
+            stdout=json.dumps(files),
+            stderr="",
+        )
+
+        with patch(
+            "omniintelligence.review_pairing.cli_review.subprocess.run",
+            return_value=completed,
+        ):
+            review_target = _fetch_pr_files_fallback(1907, "OmniNode-ai/omnimarket")
+
+        assert len(review_target) <= _MAX_FALLBACK_REVIEW_CHARS
+        assert f"max_patch_chars_per_file={_MAX_FALLBACK_PATCH_CHARS}" in review_target
+        assert "Files changed: 8. Totals: +240000/-8." in review_target
+        assert "Do not invent line-level findings for omitted files" in review_target
+        assert "[patch excerpt truncated for this file]" in review_target
+        assert "line 29999" not in review_target
 
     def test_output_to_file(self, tmp_path: Path) -> None:
         plan_file = tmp_path / "plan.md"
