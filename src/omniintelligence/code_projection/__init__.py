@@ -6,6 +6,7 @@
 from omniintelligence.code_projection.codec import (
     build_code_projection_batch,
     decode_canonical_batch,
+    derive_code_source_id,
     encode_canonical_batch,
     make_code_chunk,
     make_code_edge,
@@ -59,6 +60,7 @@ __all__ = [
     "ModelCodeProjectionSpan",
     "build_code_projection_batch",
     "decode_canonical_batch",
+    "derive_code_source_id",
     "encode_canonical_batch",
     "make_code_chunk",
     "make_code_edge",

@@ -93,14 +93,18 @@ def _artifact_ref(digest: str) -> str:
     return f"artifact://sha256/{digest}"
 
 
-def _source_id(*, repository_id: str, relative_path: str) -> str:
+def derive_code_source_id(*, repository_id: str, relative_path: str) -> str:
+    """Derive the stable source identity from canonical logical coordinates."""
+
+    canonical_repository_id = normalize_repository_id(repository_id)
+    canonical_relative_path = normalize_relative_path(relative_path)
     return stable_id(
         prefix=_SOURCE_ID_PREFIX,
         domain=_SOURCE_ID_DOMAIN,
         payload={
             "identity_version": CODE_PROJECTION_IDENTITY_VERSION,
-            "relative_path": relative_path,
-            "repository_id": repository_id,
+            "relative_path": canonical_relative_path,
+            "repository_id": canonical_repository_id,
         },
     )
 
@@ -204,7 +208,7 @@ def make_code_source(
     resolved_artifact_ref = artifact_ref or _artifact_ref(raw_content_hash_sha256)
     resolved_media_type = media_type or _LANGUAGE_MEDIA_TYPES[language]
     return ModelCodeProjectionSource(
-        source_id=_source_id(
+        source_id=derive_code_source_id(
             repository_id=canonical_repository_id,
             relative_path=canonical_relative_path,
         ),
@@ -446,7 +450,7 @@ def build_code_projection_batch(
 
 
 def _validate_stable_ids(batch: ModelCodeProjectionBatch) -> None:
-    expected_source_id = _source_id(
+    expected_source_id = derive_code_source_id(
         repository_id=batch.source.repository_id,
         relative_path=batch.source.relative_path,
     )
@@ -669,6 +673,7 @@ def decode_canonical_batch(payload: bytes | str) -> ModelCodeProjectionBatch:
 __all__ = [
     "build_code_projection_batch",
     "decode_canonical_batch",
+    "derive_code_source_id",
     "encode_canonical_batch",
     "make_code_chunk",
     "make_code_edge",
