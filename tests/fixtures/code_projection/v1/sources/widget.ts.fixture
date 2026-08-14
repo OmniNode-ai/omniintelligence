@@ -1,0 +1,11 @@
+// SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+// SPDX-License-Identifier: MIT
+
+// RAW_TYPESCRIPT_FIXTURE_BODY_V1: source bytes stay outside the projection batch.
+export interface Widget {
+  readonly id: string;
+}
+
+export function makeWidget(id: string): Widget {
+  return { id };
+}

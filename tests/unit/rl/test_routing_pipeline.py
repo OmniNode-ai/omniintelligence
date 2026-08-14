@@ -608,6 +608,8 @@ class TestTrainCLI:
                 "50",
                 "--checkpoint-dir",
                 str(tmp_path),
+                "--manifest",
+                str(tmp_path / "training_manifest.yaml"),
                 "--batch-size",
                 "32",
             ]
