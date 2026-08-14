@@ -240,7 +240,7 @@ all = [
 onex-change-control = { git = "https://github.com/OmniNode-ai/onex_change_control.git", rev = "dd2620d18001495b8d0f493b421b38399e9aab4b" } # pragma: allowlist secret  # OMN-15129: was 4877d3c2 (2026-05-04), conflicted with nested pin from bumped omnimarket rev; aligned to the SHA omnimarket@54fa07dd already nests
 # Release v0.24.0: pin to release tags
 omnimarket = { git = "https://github.com/OmniNode-ai/omnimarket.git", rev = "54fa07dd0d46e7ba719a201a950626a041ad6433" } # pragma: allowlist secret  # OMN-15129: was tag v0.4.0 (nested compat pin git-tag v0.5.0 conflicted with omnibase-infra requiring compat==0.5.6); this rev (2026-07-10, earliest available) resolves compat==0.5.6 from PyPI (OMN-13878), matching # raw-override-ok: OMN-15145 pin is 217+ commits behind omnimarket dev as of the OMN-15144 staleness gate landing; refresh tracked in OMN-15145 (requires re-verifying nested compat/core resolution, out of scope for the gate PR itself)
-omnibase-infra = { git = "https://github.com/OmniNode-ai/omnibase_infra.git", rev = "ead076af5762be7777a42d52e3ed8668f2d0fa0d" } # pragma: allowlist secret
+omnibase-infra = { git = "https://github.com/OmniNode-ai/omnibase_infra.git", rev = "ead076af5762be7777a42d52e3ed8668f2d0fa0d" } # pragma: allowlist secret  # raw-override-ok: OMN-15145 coupled infra/core/compat refresh is tracked with the stale omnimarket pin
 omnibase-core = { git = "https://github.com/OmniNode-ai/omnibase_core.git", rev = "a2562165d7ab1358efb87df8ef8757064eef5ce7" } # pragma: allowlist secret  # raw-override-ok: OMN-15129 unreleased 0.46.8 that this omnibase-infra rev requires (PyPI latest is 0.46.7) is only available via git; pin matches omnibase_infra dev own override (OMN-14758)
 
 [tool.ruff]

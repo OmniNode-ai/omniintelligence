@@ -351,8 +351,7 @@ def apply_operator(
     if operator == EnumCriteriaOperator.REGEX:
         return _apply_regex(actual, expected)
 
-    # Should never reach here if operator validation worked
-    return False, f"unknown operator: {operator}"
+    raise AssertionError(operator)
 
 
 # =============================================================================
