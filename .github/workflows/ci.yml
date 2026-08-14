@@ -1154,12 +1154,16 @@ jobs:
       - name: Validate contract YAML files
         working-directory: onex_change_control
         run: |
-          CONTRACTS=$(find "$GITHUB_WORKSPACE/onex_change_control/contracts" -name "OMN-*.yaml" 2>/dev/null)
-          if [ -z "$CONTRACTS" ]; then
+          # The top level is the legacy ModelTicketContract namespace. Nested
+          # contracts/v1 uses occ-contract/v1 and has its own OMN-15669 gate.
+          mapfile -t CONTRACTS < <(
+            find "$GITHUB_WORKSPACE/onex_change_control/contracts" -maxdepth 1 -type f -name "OMN-*.yaml" 2>/dev/null
+          )
+          if [ "${#CONTRACTS[@]}" -eq 0 ]; then
             echo "No contract YAML files found — skipping validation"
             exit 0
           fi
-          uv run validate-yaml $CONTRACTS
+          uv run validate-yaml "${CONTRACTS[@]}"
         env:
           GH_TOKEN: ${{ github.token }}
 
