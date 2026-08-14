@@ -1,4 +1,4 @@
-# Code projection v1 replay vectors
+# Code projection v2 replay vectors
 
 These OMN-16061 fixtures freeze the offline, source-scoped serialization seam
 between later OmniIntelligence artifact work and later OmniMemory projection
@@ -12,7 +12,7 @@ compact, key-sorted UTF-8/NFC JSON framed by exactly one LF byte.
 
 `replay_manifest.json` pins the base commit, source and output hashes, schema
 digest, contract versions, replay scenarios, no-network assertion, and exact
-focused test command. `code_projection_batch_v1.schema.sha256` is the portable
+focused test command. `code_projection_batch_v2.schema.sha256` is the portable
 schema-digest handoff for the later independent OmniMemory DTO implementation.
 
 The A→B→A vectors use increasing source-partition cursors. Source revision and

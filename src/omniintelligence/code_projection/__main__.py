@@ -11,20 +11,26 @@ import hashlib
 import json
 import os
 import sys
-from collections.abc import AsyncIterator, Mapping, Sequence
+from collections.abc import AsyncIterator, Callable, Mapping, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
+from urllib.parse import urlsplit
 
 import asyncpg
 import yaml
 from neo4j import AsyncDriver, AsyncGraphDatabase
+from qdrant_client import AsyncQdrantClient
 
 import omniintelligence.nodes.node_ast_extraction_compute as ast_extraction_package
+from omniintelligence.adapters.embedding_client_local_openai import (
+    EmbeddingClientLocalOpenAI,
+)
 from omniintelligence.code_projection._canonical import (
     normalize_relative_path,
     normalize_repository_id,
+    normalize_tenant_id,
     sha256_hex,
 )
 from omniintelligence.code_projection.artifacts import (
@@ -37,7 +43,10 @@ from omniintelligence.code_projection.codec import (
     derive_code_source_id,
     plan_code_projection_replay,
 )
-from omniintelligence.code_projection.extraction import project_source
+from omniintelligence.code_projection.extraction import (
+    ProjectedCodeSource,
+    project_source_with_documents,
+)
 from omniintelligence.code_projection.materializer import (
     ModelProjectionApplyReport,
     ModelProjectionReadback,
@@ -53,10 +62,23 @@ from omniintelligence.code_projection.models import (
     ModelCodeProjectionProvenance,
     ModelSourceLanguage,
 )
+from omniintelligence.code_projection.qdrant import (
+    CodeProjectionQdrantStore,
+    ModelCodeProjectionCurrentGeneration,
+    ModelCodeProjectionQdrantConfig,
+    ProtocolCodeProjectionContentResolver,
+    ProtocolCodeProjectionCurrentGenerationResolver,
+)
+from omniintelligence.nodes.node_embedding_generation_effect.models.model_embedding_client_config import (
+    ModelEmbeddingClientConfig,
+)
 
-_CURSOR_AUTHORITY = "omniintelligence.code-projection.dev-lab.v1"
-_PRODUCER_VERSION = "1.0.0"
+_CURSOR_AUTHORITY = "omniintelligence.code-projection.dev-lab.v2"
+_PRODUCER_VERSION = "2.0.0"
 _LAB_REPOSITORY_PREFIX = "lab/"
+_DEFAULT_QDRANT_COLLECTION = "code_semantic_v2"
+_DEFAULT_EMBEDDING_MODEL = "text-embedding-qwen3"
+_DEFAULT_EMBEDDING_MODEL_VERSION = "qwen3-embedding-0.6b-lab-2026-08-14"
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,6 +94,12 @@ class _ExtractionConfiguration:
 class _LiveClientConfiguration:
     postgres_url: str
     graph_uri: str
+    qdrant_url: str
+    qdrant_api_key: str | None
+    qdrant_collection: str
+    embedding_url: str
+    embedding_model: str
+    embedding_model_version: str
 
 
 def _require_mapping(value: object, *, name: str) -> Mapping[str, Any]:
@@ -109,16 +137,17 @@ def _load_extraction_configuration() -> _ExtractionConfiguration:
     )
 
 
-def _policy(repository_id: str) -> ModelCodeProjectionPolicy:
+def _policy(tenant_id: str, repository_id: str) -> ModelCodeProjectionPolicy:
     return ModelCodeProjectionPolicy(
-        scope_ref=f"repository:{repository_id}",
+        tenant_id=tenant_id,
+        scope_ref=f"tenant:{tenant_id}:repository:{repository_id}",
         access_scope="repository",
         visibility="repository",
         redaction_state="not_required",
         trust_tier="verified_source",
         retention_class="source_controlled",
-        policy_version="dev-lab-code-ingestion-v1",
-        metadata_allowlist_version="code-projection-metadata-v1",
+        policy_version="dev-lab-code-ingestion-v2",
+        metadata_allowlist_version="code-projection-metadata-v2",
     )
 
 
@@ -129,14 +158,14 @@ def _provenance(
     return ModelCodeProjectionProvenance(
         producer="omniintelligence.code_projection",
         producer_version=_PRODUCER_VERSION,
-        projection_builder_version="1.0.0",
+        projection_builder_version="2.0.0",
         extractor_name="python-ast-and-multilang-regex",
         extractor_version="1.0.0",
         extractor_config_hash_sha256=contract_hash,
         transform_manifest_ref=f"artifact://sha256/{contract_hash}",
         transform_manifest_hash_sha256=contract_hash,
         labeler_version="deterministic-classifier-quality-semantic-v1",
-        chunker_version=None,
+        chunker_version="syntax-aware-v2",
     )
 
 
@@ -149,6 +178,45 @@ def _live_client_configuration() -> _LiveClientConfiguration:
     graph_uri = os.environ[
         "ARCH_GRAPH_BOLT_URI"
     ]  # url-authority-ok: injected runtime-overlay binding; no fallback
+    qdrant_url = os.environ.get(
+        "QDRANT_URL", ""
+    ).strip()  # url-authority-ok: injected operator binding
+    if not qdrant_url:
+        qdrant_host = os.environ.get("QDRANT_HOST", "").strip()
+        qdrant_port = os.environ.get("QDRANT_PORT", "6333").strip()
+        if not qdrant_host:
+            raise ValueError(
+                "QDRANT_URL or QDRANT_HOST must be bound by the active runtime overlay"
+            )
+        if not qdrant_port.isdigit():
+            raise ValueError("QDRANT_PORT must be a decimal TCP port")
+        qdrant_url = f"http://{qdrant_host}:{qdrant_port}"
+    raw_qdrant_api_key = os.environ.get("QDRANT_API_KEY")
+    if raw_qdrant_api_key is not None and (
+        raw_qdrant_api_key != raw_qdrant_api_key.strip()
+    ):
+        raise ValueError("QDRANT_API_KEY must have no surrounding whitespace")
+    qdrant_api_key = raw_qdrant_api_key or None
+    qdrant_endpoint = urlsplit(qdrant_url)
+    if qdrant_endpoint.scheme not in {"http", "https"} or not qdrant_endpoint.netloc:
+        raise ValueError("QDRANT_URL must be an absolute http(s) endpoint")
+    if qdrant_api_key is not None and qdrant_endpoint.scheme != "https":
+        raise ValueError("QDRANT_API_KEY requires an https QDRANT_URL")
+    qdrant_collection = os.environ.get(
+        "CODE_PROJECTION_QDRANT_COLLECTION",
+        _DEFAULT_QDRANT_COLLECTION,
+    )
+    embedding_url = os.environ.get(
+        "LLM_EMBEDDING_URL", ""
+    ).strip()  # url-authority-ok: injected runtime-overlay binding
+    embedding_model = os.environ.get(
+        "CODE_PROJECTION_EMBEDDING_MODEL",
+        _DEFAULT_EMBEDDING_MODEL,
+    )
+    embedding_model_version = os.environ.get(
+        "CODE_PROJECTION_EMBEDDING_MODEL_VERSION",
+        _DEFAULT_EMBEDDING_MODEL_VERSION,
+    )
     if not postgres_url:
         raise ValueError(
             "OMNIINTELLIGENCE_DB_URL is not bound by the active runtime overlay"
@@ -157,9 +225,24 @@ def _live_client_configuration() -> _LiveClientConfiguration:
         raise ValueError(
             "ARCH_GRAPH_BOLT_URI is not bound by the active runtime overlay"
         )
+    if not embedding_url:
+        raise ValueError("LLM_EMBEDDING_URL is not bound by the active runtime overlay")
+    for name, value in (
+        ("CODE_PROJECTION_QDRANT_COLLECTION", qdrant_collection),
+        ("CODE_PROJECTION_EMBEDDING_MODEL", embedding_model),
+        ("CODE_PROJECTION_EMBEDDING_MODEL_VERSION", embedding_model_version),
+    ):
+        if not value or value != value.strip():
+            raise ValueError(f"{name} must be non-empty with no surrounding whitespace")
     return _LiveClientConfiguration(
         postgres_url=postgres_url,
         graph_uri=graph_uri,
+        qdrant_url=qdrant_url,
+        qdrant_api_key=qdrant_api_key,
+        qdrant_collection=qdrant_collection,
+        embedding_url=embedding_url,
+        embedding_model=embedding_model,
+        embedding_model_version=embedding_model_version,
     )
 
 
@@ -205,6 +288,12 @@ def _require_lab_repository_id(repository_id: str) -> str:
     return canonical
 
 
+def _require_tenant_id(tenant_id: str) -> str:
+    """Validate the explicit tenant boundary shared by every projection store."""
+
+    return normalize_tenant_id(tenant_id)
+
+
 def _next_sequence(
     current: ModelCodeProjectionBatch | None,
     *,
@@ -223,38 +312,40 @@ def _next_sequence(
 def _build_snapshot(
     *,
     raw_source: bytes,
+    tenant_id: str,
     repository_id: str,
     relative_path: str,
     current: ModelCodeProjectionBatch | None,
     configuration: _ExtractionConfiguration,
-) -> ModelCodeProjectionBatch:
+) -> ProjectedCodeSource:
     source_hash = sha256_hex(raw_source)
     sequence = _next_sequence(current, incoming_hash=source_hash)
 
-    def build(cursor_sequence: int) -> ModelCodeProjectionBatch:
-        return project_source(
+    def build(cursor_sequence: int) -> ProjectedCodeSource:
+        return project_source_with_documents(
             raw_source=raw_source,
+            tenant_id=tenant_id,
             repository_id=repository_id,
             relative_path=relative_path,
             source_version=f"sha256:{source_hash}",
             language=_language(relative_path),
             cursor_authority=_CURSOR_AUTHORITY,
             cursor_sequence=cursor_sequence,
-            policy=_policy(repository_id),
+            policy=_policy(tenant_id, repository_id),
             provenance=_provenance(configuration),
             classification_config=configuration.classification,
             quality_config=configuration.quality,
             language_extractor_config=configuration.languages,
         )
 
-    batch = build(sequence)
+    projected = build(sequence)
     if (
         current is not None
         and sequence == current.cursor.sequence
-        and batch.batch_id != current.batch_id
+        and projected.batch.batch_id != current.batch_id
     ):
         return build(sequence + 1)
-    return batch
+    return projected
 
 
 def _build_tombstone(current: ModelCodeProjectionBatch) -> ModelCodeProjectionBatch:
@@ -274,8 +365,102 @@ def _build_tombstone(current: ModelCodeProjectionBatch) -> ModelCodeProjectionBa
     )
 
 
+def _content_resolver(
+    store: CodeProjectionArtifactStore,
+) -> Callable[[str], bytes]:
+    def resolve(content_ref: str) -> bytes:
+        prefix = "artifact://sha256/"
+        if not content_ref.startswith(prefix):
+            raise ValueError("semantic content_ref is not a SHA-256 artifact URI")
+        return store.read_content_artifact(content_ref.removeprefix(prefix))
+
+    return resolve
+
+
+def _current_generation_resolver(
+    store: CodeProjectionArtifactStore,
+) -> Callable[[str, str], ModelCodeProjectionCurrentGeneration | None]:
+    def resolve(
+        tenant_id: str,
+        source_id: str,
+    ) -> ModelCodeProjectionCurrentGeneration | None:
+        current = store.load_current(source_id)
+        if current is None:
+            return None
+        batch = current.batch
+        if batch.source.tenant_id != tenant_id:
+            raise RuntimeError(
+                "current projection tenant does not match source identity"
+            )
+        return ModelCodeProjectionCurrentGeneration(
+            tenant_id=batch.source.tenant_id,
+            source_id=batch.source.source_id,
+            batch_id=batch.batch_id,
+            operation=batch.operation,
+            batch_content_hash_sha256=current.batch_content_hash_sha256,
+            document_ids=tuple(
+                document.document_id for document in batch.semantic_documents
+            ),
+        )
+
+    return resolve
+
+
 @asynccontextmanager
-async def _live_clients() -> AsyncIterator[tuple[asyncpg.Pool, AsyncDriver]]:
+async def _live_qdrant_store(
+    artifact_store: CodeProjectionArtifactStore,
+) -> AsyncIterator[CodeProjectionQdrantStore]:
+    configuration = _live_client_configuration()
+    qdrant_client = AsyncQdrantClient(
+        url=configuration.qdrant_url,
+        api_key=configuration.qdrant_api_key,
+        timeout=30,
+        prefer_grpc=False,
+        cloud_inference=False,
+    )
+    embedding_client = EmbeddingClientLocalOpenAI(
+        ModelEmbeddingClientConfig(
+            base_url=configuration.embedding_url,
+            embedding_dimension=1024,
+            timeout_seconds=60.0,
+            max_retries=2,
+            retry_base_delay=0.5,
+            max_concurrency=4,
+        ),
+        model_name=configuration.embedding_model,
+    )
+    await embedding_client.connect()
+    try:
+        yield CodeProjectionQdrantStore(
+            client=qdrant_client,
+            embedding_client=embedding_client,
+            content_resolver=cast(
+                ProtocolCodeProjectionContentResolver,
+                _content_resolver(artifact_store),
+            ),
+            current_generation_resolver=cast(
+                ProtocolCodeProjectionCurrentGenerationResolver,
+                _current_generation_resolver(artifact_store),
+            ),
+            config=ModelCodeProjectionQdrantConfig(
+                collection_name=configuration.qdrant_collection,
+                vector_name="code_semantic_v2",
+                embedding_model=configuration.embedding_model,
+                embedding_model_version=configuration.embedding_model_version,
+                embedding_dimension=1024,
+                read_consistency="majority",
+                write_ordering="medium",
+            ),
+        )
+    finally:
+        await embedding_client.close()
+        await qdrant_client.close()
+
+
+@asynccontextmanager
+async def _live_clients(
+    artifact_store: CodeProjectionArtifactStore,
+) -> AsyncIterator[tuple[asyncpg.Pool, AsyncDriver, CodeProjectionQdrantStore]]:
     configuration = _live_client_configuration()
     pool = await asyncpg.create_pool(
         configuration.postgres_url,
@@ -286,7 +471,8 @@ async def _live_clients() -> AsyncIterator[tuple[asyncpg.Pool, AsyncDriver]]:
     graph_driver = AsyncGraphDatabase.driver(configuration.graph_uri)
     try:
         await graph_driver.verify_connectivity()
-        yield pool, graph_driver
+        async with _live_qdrant_store(artifact_store) as qdrant_store:
+            yield pool, graph_driver, qdrant_store
     finally:
         await graph_driver.close()
         await pool.close()
@@ -296,6 +482,7 @@ async def _apply_and_verify(
     batch: ModelCodeProjectionBatch,
     *,
     current: ModelCodeProjectionBatch | None,
+    artifact_store: CodeProjectionArtifactStore,
 ) -> tuple[str, ModelProjectionApplyReport | None, ModelProjectionReadback]:
     replay = plan_code_projection_replay(
         batch,
@@ -305,19 +492,25 @@ async def _apply_and_verify(
         msg = f"refusing {replay.decision} live projection"
         raise RuntimeError(msg)
     decision: str = replay.decision
-    async with _live_clients() as (postgres_pool, graph_driver):
+    async with _live_clients(artifact_store) as (
+        postgres_pool,
+        graph_driver,
+        qdrant_store,
+    ):
         apply_report: ModelProjectionApplyReport | None = None
         if decision == "replace":
             apply_report = await apply_code_projection(
                 batch,
                 postgres_pool=postgres_pool,
                 graph_driver=graph_driver,
+                qdrant_store=qdrant_store,
             )
         try:
             readback = await read_code_projection(
                 batch,
                 postgres_pool=postgres_pool,
                 graph_driver=graph_driver,
+                qdrant_store=qdrant_store,
             )
             assert_projection_readback(batch, readback)
         except ProjectionReadbackIntegrityError:
@@ -327,11 +520,13 @@ async def _apply_and_verify(
                 batch,
                 postgres_pool=postgres_pool,
                 graph_driver=graph_driver,
+                qdrant_store=qdrant_store,
             )
             readback = await read_code_projection(
                 batch,
                 postgres_pool=postgres_pool,
                 graph_driver=graph_driver,
+                qdrant_store=qdrant_store,
             )
             assert_projection_readback(batch, readback)
             decision = "repair"
@@ -387,6 +582,9 @@ def _readback_payload(
         "graph_node_id_set_sha256": _id_set_digest(readback.graph_node_ids),
         "postgres_edge_count": len(edges),
         "postgres_node_count": len(nodes),
+        "qdrant_document_id_set_sha256": _id_set_digest(readback.qdrant.document_ids),
+        "qdrant_point_count": readback.qdrant.point_count,
+        "qdrant_point_id_set_sha256": _id_set_digest(readback.qdrant.point_ids),
         "selected_edges": [edge.model_dump(mode="json") for edge in selected_edges],
         "selected_nodes": [node.model_dump(mode="json") for node in selected_nodes],
     }
@@ -422,11 +620,13 @@ def _result_payload(
             "relative_path": batch.source.relative_path,
             "repository_id": batch.source.repository_id,
             "source_id": batch.source.source_id,
+            "tenant_id": batch.source.tenant_id,
         },
     }
 
 
 async def _ingest(args: argparse.Namespace) -> dict[str, object]:
+    tenant_id = _require_tenant_id(str(args.tenant_id))
     repository_id = _require_lab_repository_id(str(args.repository_id))
     source_path, relative_path = _resolve_source_path(
         Path(str(args.root)),
@@ -434,6 +634,7 @@ async def _ingest(args: argparse.Namespace) -> dict[str, object]:
     )
     store = CodeProjectionArtifactStore(Path(str(args.artifact_root)))
     source_id = derive_code_source_id(
+        tenant_id=tenant_id,
         repository_id=repository_id,
         relative_path=relative_path,
     )
@@ -453,15 +654,40 @@ async def _ingest(args: argparse.Namespace) -> dict[str, object]:
             != configuration.contract_bytes
         ):
             raise RuntimeError("staged transform manifest does not resolve exactly")
-        batch = _build_snapshot(
+        projected = _build_snapshot(
             raw_source=raw_source,
+            tenant_id=tenant_id,
             repository_id=repository_id,
             relative_path=relative_path,
             current=current,
             configuration=configuration,
         )
+        batch = projected.batch
+        documents_by_id = {
+            document.document_id: document for document in batch.semantic_documents
+        }
+        artifacts_by_id = {
+            artifact.document_id: artifact for artifact in projected.document_artifacts
+        }
+        if set(documents_by_id) != set(artifacts_by_id):
+            raise RuntimeError(
+                "semantic document records and generated artifacts do not match"
+            )
+        for document_id in sorted(documents_by_id):
+            document = documents_by_id[document_id]
+            artifact = artifacts_by_id[document_id]
+            staged_document = store.stage_content_artifact(artifact.content)
+            if (
+                staged_document.content_hash_sha256
+                != document.sanitized_content_hash_sha256
+            ):
+                raise RuntimeError("staged semantic document digest does not match")
         staged = store.stage(raw_source=raw_source, batch=batch)
-        decision, applied, readback = await _apply_and_verify(batch, current=current)
+        decision, applied, readback = await _apply_and_verify(
+            batch,
+            current=current,
+            artifact_store=store,
+        )
         store.mark_applied(staged)
     return _result_payload(
         command="ingest",
@@ -480,30 +706,38 @@ def _store_and_identity(
     str,
     str,
     str,
+    str,
 ]:
+    tenant_id = _require_tenant_id(str(args.tenant_id))
     repository_id = _require_lab_repository_id(str(args.repository_id))
     relative_path = normalize_relative_path(str(args.path))
     store = CodeProjectionArtifactStore(Path(str(args.artifact_root)))
     source_id = derive_code_source_id(
+        tenant_id=tenant_id,
         repository_id=repository_id,
         relative_path=relative_path,
     )
-    return store, repository_id, relative_path, source_id
+    return store, tenant_id, repository_id, relative_path, source_id
 
 
 def _load_current(
     store: CodeProjectionArtifactStore,
     *,
+    tenant_id: str,
     repository_id: str,
     relative_path: str,
     source_id: str,
 ) -> CurrentCodeProjection:
     current = store.load_current(source_id)
     if current is None:
-        msg = f"no applied projection exists for {repository_id}:{relative_path}"
+        msg = (
+            "no applied projection exists for "
+            f"{tenant_id}:{repository_id}:{relative_path}"
+        )
         raise FileNotFoundError(msg)
     if (
-        current.batch.source.repository_id != repository_id
+        current.batch.source.tenant_id != tenant_id
+        or current.batch.source.repository_id != repository_id
         or current.batch.source.relative_path != relative_path
     ):
         raise RuntimeError("current source identity does not match its stable ID")
@@ -511,20 +745,28 @@ def _load_current(
 
 
 async def _inspect(args: argparse.Namespace) -> dict[str, object]:
-    store, repository_id, relative_path, source_id = _store_and_identity(args)
+    store, tenant_id, repository_id, relative_path, source_id = _store_and_identity(
+        args
+    )
     with store.source_lock(source_id):
         current = _load_current(
             store,
+            tenant_id=tenant_id,
             repository_id=repository_id,
             relative_path=relative_path,
             source_id=source_id,
         )
         batch = current.batch
-        async with _live_clients() as (postgres_pool, graph_driver):
+        async with _live_clients(store) as (
+            postgres_pool,
+            graph_driver,
+            qdrant_store,
+        ):
             readback = await read_code_projection(
                 batch,
                 postgres_pool=postgres_pool,
                 graph_driver=graph_driver,
+                qdrant_store=qdrant_store,
             )
             assert_projection_readback(batch, readback)
     return _result_payload(
@@ -539,10 +781,13 @@ async def _inspect(args: argparse.Namespace) -> dict[str, object]:
 
 
 async def _tombstone(args: argparse.Namespace) -> dict[str, object]:
-    store, repository_id, relative_path, source_id = _store_and_identity(args)
+    store, tenant_id, repository_id, relative_path, source_id = _store_and_identity(
+        args
+    )
     with store.source_lock(source_id):
         current_record = _load_current(
             store,
+            tenant_id=tenant_id,
             repository_id=repository_id,
             relative_path=relative_path,
             source_id=source_id,
@@ -551,7 +796,11 @@ async def _tombstone(args: argparse.Namespace) -> dict[str, object]:
         batch = _build_tombstone(current)
         raw_source = store.read_content_artifact(current.source.raw_content_hash_sha256)
         staged = store.stage(raw_source=raw_source, batch=batch)
-        decision, applied, readback = await _apply_and_verify(batch, current=current)
+        decision, applied, readback = await _apply_and_verify(
+            batch,
+            current=current,
+            artifact_store=store,
+        )
         store.mark_applied(staged)
     return _result_payload(
         command="tombstone",
@@ -563,17 +812,51 @@ async def _tombstone(args: argparse.Namespace) -> dict[str, object]:
     )
 
 
+async def _search(args: argparse.Namespace) -> dict[str, object]:
+    tenant_id = _require_tenant_id(str(args.tenant_id))
+    query_text = str(args.query)
+    repository_id = (
+        normalize_repository_id(str(args.repository_id))
+        if args.repository_id is not None
+        else None
+    )
+    store = CodeProjectionArtifactStore(Path(str(args.artifact_root)))
+    async with _live_qdrant_store(store) as qdrant_store:
+        collection = await qdrant_store.ensure_collection()
+        hits = await qdrant_store.search(
+            query_text=query_text,
+            tenant_id=tenant_id,
+            repository_id=repository_id,
+            limit=int(args.limit),
+            score_threshold=(
+                float(args.score_threshold)
+                if args.score_threshold is not None
+                else None
+            ),
+        )
+    return {
+        "collection": collection.model_dump(mode="json"),
+        "command": "search",
+        "query_sha256": sha256_hex(query_text.encode("utf-8")),
+        "repository_id": repository_id,
+        "result_count": len(hits),
+        "results": [hit.model_dump(mode="json") for hit in hits],
+        "tenant_id": tenant_id,
+    }
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m omniintelligence.code_projection",
         description=(
             "Extract real code and materialize a deterministic projection into "
-            "the existing dev-lab Postgres and Memgraph services."
+            "the existing dev-lab Postgres, Memgraph, and Qdrant services."
         ),
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
     for command in ("ingest", "inspect", "tombstone"):
         child = subparsers.add_parser(command)
+        child.add_argument("--tenant-id", required=True)
         child.add_argument("--repository-id", required=True)
         child.add_argument("--path", required=True)
         child.add_argument("--artifact-root", required=True)
@@ -581,6 +864,13 @@ def _parser() -> argparse.ArgumentParser:
             child.add_argument("--root", required=True)
         if command == "inspect":
             child.add_argument("--symbol")
+    search = subparsers.add_parser("search")
+    search.add_argument("--tenant-id", required=True)
+    search.add_argument("--query", required=True)
+    search.add_argument("--artifact-root", required=True)
+    search.add_argument("--repository-id")
+    search.add_argument("--limit", type=int, default=10)
+    search.add_argument("--score-threshold", type=float)
     return parser
 
 
@@ -591,6 +881,8 @@ def _dispatch(args: argparse.Namespace) -> dict[str, object]:
         return asyncio.run(_inspect(args))
     if args.command == "tombstone":
         return asyncio.run(_tombstone(args))
+    if args.command == "search":
+        return asyncio.run(_search(args))
     msg = f"unsupported command: {args.command}"
     raise ValueError(msg)
 

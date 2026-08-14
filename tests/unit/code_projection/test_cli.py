@@ -38,11 +38,19 @@ from omniintelligence.code_projection.models import (
     ModelCodeProjectionBatch,
     ModelCodeProjectionNode,
 )
+from omniintelligence.code_projection.qdrant import (
+    ModelCodeProjectionQdrantCollection,
+    ModelCodeProjectionQdrantReadback,
+    ModelCodeProjectionSearchHit,
+    derive_code_projection_manifest_point_id,
+    derive_code_projection_point_id,
+)
 from tests.unit.code_projection.fixture_vectors import build_fixture_batches
 
 pytestmark = pytest.mark.unit
 
 _LAB_REPOSITORY_ID = "lab/omn-16061/cli-proof"
+_TENANT_ID = "omninode-dev"
 _RELATIVE_PATH = "src/sample.py"
 _SOURCE_A = b'''"""Small executable projection fixture."""\n\n\nclass Greeter:\n    def greet(self, name: str) -> str:\n        return name\n'''
 _SOURCE_B = _SOURCE_A + b"\n\ndef build_greeter() -> Greeter:\n    return Greeter()\n"
@@ -64,10 +72,21 @@ def _record_digest(value: BaseModel) -> str:
 
 def _matching_readback(batch: ModelCodeProjectionBatch) -> ModelProjectionReadback:
     node_names = {node.node_id: node.qualified_name for node in batch.nodes}
+    point_ids = tuple(
+        derive_code_projection_point_id(
+            tenant_id=batch.source.tenant_id,
+            document_id=document.document_id,
+            embedding_model="text-embedding-qwen3",
+            embedding_model_version="lab-2026-08-14",
+        )
+        for document in batch.semantic_documents
+    )
     return ModelProjectionReadback(
+        tenant_id=batch.source.tenant_id,
         source_id=batch.source.source_id,
         postgres_nodes=tuple(
             ModelProjectionNodeReadback(
+                tenant_id=batch.source.tenant_id,
                 batch_id=batch.batch_id,
                 node_id=node.node_id,
                 qualified_name=node.qualified_name,
@@ -86,6 +105,7 @@ def _matching_readback(batch: ModelCodeProjectionBatch) -> ModelProjectionReadba
         ),
         postgres_edges=tuple(
             ModelProjectionEdgeReadback(
+                tenant_id=batch.source.tenant_id,
                 batch_id=batch.batch_id,
                 edge_id=edge.edge_id,
                 source_qualified_name=node_names[edge.source_node_id],
@@ -101,6 +121,7 @@ def _matching_readback(batch: ModelCodeProjectionBatch) -> ModelProjectionReadba
         ),
         graph_nodes=tuple(
             ModelProjectionNodeReadback(
+                tenant_id=batch.source.tenant_id,
                 batch_id=batch.batch_id,
                 node_id=node.node_id,
                 qualified_name=node.qualified_name,
@@ -119,6 +140,7 @@ def _matching_readback(batch: ModelCodeProjectionBatch) -> ModelProjectionReadba
         ),
         graph_edges=tuple(
             ModelProjectionEdgeReadback(
+                tenant_id=batch.source.tenant_id,
                 batch_id=batch.batch_id,
                 edge_id=edge.edge_id,
                 source_qualified_name=node_names[edge.source_node_id],
@@ -138,6 +160,24 @@ def _matching_readback(batch: ModelCodeProjectionBatch) -> ModelProjectionReadba
         graph_edge_ids=tuple(edge.edge_id for edge in batch.edges),
         policy_payload_sha256=_record_digest(batch.policy),
         provenance_payload_sha256=_record_digest(batch.provenance),
+        qdrant=ModelCodeProjectionQdrantReadback(
+            tenant_id=batch.source.tenant_id,
+            source_id=batch.source.source_id,
+            batch_id=batch.batch_id,
+            operation=batch.operation,
+            manifest_point_id=derive_code_projection_manifest_point_id(
+                tenant_id=batch.source.tenant_id,
+                source_id=batch.source.source_id,
+                embedding_model="text-embedding-qwen3",
+                embedding_model_version="lab-2026-08-14",
+            ),
+            point_ids=point_ids,
+            document_ids=tuple(
+                document.document_id for document in batch.semantic_documents
+            ),
+            point_count=len(point_ids),
+            record_count=len(point_ids) + 1,
+        ),
     )
 
 
@@ -145,7 +185,9 @@ async def _fake_apply_and_verify(
     batch: ModelCodeProjectionBatch,
     *,
     current: ModelCodeProjectionBatch | None,
+    artifact_store: CodeProjectionArtifactStore,
 ) -> tuple[str, ModelProjectionApplyReport | None, ModelProjectionReadback]:
+    del artifact_store
     replay = plan_code_projection_replay(
         batch,
         current.manifest if current is not None else None,
@@ -154,6 +196,7 @@ async def _fake_apply_and_verify(
         raise RuntimeError(f"unexpected {replay.decision} projection in test")
     applied = (
         ModelProjectionApplyReport(
+            tenant_id=batch.source.tenant_id,
             source_id=batch.source.source_id,
             batch_id=batch.batch_id,
             operation=batch.operation,
@@ -162,6 +205,12 @@ async def _fake_apply_and_verify(
             postgres_nodes_deleted=0,
             graph_nodes_written=len(batch.nodes),
             graph_edges_written=len(batch.edges),
+            qdrant_decision=(
+                "tombstone" if batch.operation == "tombstone" else "replace"
+            ),
+            qdrant_documents_embedded=len(batch.semantic_documents),
+            qdrant_points_upserted=len(batch.semantic_documents),
+            qdrant_points_deleted=0,
         )
         if replay.decision == "replace"
         else None
@@ -179,6 +228,8 @@ def _write_source(root: Path, payload: bytes = _SOURCE_A) -> Path:
 def _ingest_argv(root: Path, artifact_root: Path) -> list[str]:
     return [
         "ingest",
+        "--tenant-id",
+        _TENANT_ID,
         "--repository-id",
         _LAB_REPOSITORY_ID,
         "--root",
@@ -193,6 +244,8 @@ def _ingest_argv(root: Path, artifact_root: Path) -> list[str]:
 def _state_argv(command: str, artifact_root: Path) -> list[str]:
     return [
         command,
+        "--tenant-id",
+        _TENANT_ID,
         "--repository-id",
         _LAB_REPOSITORY_ID,
         "--path",
@@ -238,6 +291,7 @@ def test_ingest_cli_executes_real_extraction_and_noops_identical_replay(
     assert second["source"]["cursor_sequence"] == 1
 
     current = CodeProjectionArtifactStore(artifact_root).find_current_batch(
+        tenant_id=_TENANT_ID,
         repository_id=_LAB_REPOSITORY_ID,
         relative_path=_RELATIVE_PATH,
     )
@@ -318,8 +372,11 @@ def test_source_capture_occurs_after_winning_the_source_lock(
     results: dict[str, dict[str, object]] = {}
     failures: list[BaseException] = []
 
-    def delayed_derive(*, repository_id: str, relative_path: str) -> str:
-        source_id = original_derive(
+    def delayed_derive(
+        *, tenant_id: str, repository_id: str, relative_path: str
+    ) -> str:
+        source_id: str = original_derive(
+            tenant_id=tenant_id,
             repository_id=repository_id,
             relative_path=relative_path,
         )
@@ -386,8 +443,9 @@ def test_failed_live_apply_never_advances_current_artifact_state(
         batch: ModelCodeProjectionBatch,
         *,
         current: ModelCodeProjectionBatch | None,
+        artifact_store: CodeProjectionArtifactStore,
     ) -> tuple[str, ModelProjectionApplyReport | None, ModelProjectionReadback]:
-        del batch, current
+        del batch, current, artifact_store
         raise RuntimeError("simulated lab write failure")
 
     monkeypatch.setattr(cli, "_apply_and_verify", fail_apply)
@@ -403,6 +461,7 @@ def test_failed_live_apply_never_advances_current_artifact_state(
     }
     assert (
         CodeProjectionArtifactStore(artifact_root).find_current_batch(
+            tenant_id=_TENANT_ID,
             repository_id=_LAB_REPOSITORY_ID,
             relative_path=_RELATIVE_PATH,
         )
@@ -423,6 +482,7 @@ def test_retained_raw_source_never_claims_to_be_sanitized(
 
     _invoke_success(_ingest_argv(source_root, artifact_root), capsys)
     current = CodeProjectionArtifactStore(artifact_root).find_current(
+        tenant_id=_TENANT_ID,
         repository_id=_LAB_REPOSITORY_ID,
         relative_path=_RELATIVE_PATH,
     )
@@ -444,6 +504,7 @@ def test_content_addressed_transform_manifest_resolves_in_artifact_store(
 
     _invoke_success(_ingest_argv(source_root, artifact_root), capsys)
     current = CodeProjectionArtifactStore(artifact_root).find_current_batch(
+        tenant_id=_TENANT_ID,
         repository_id=_LAB_REPOSITORY_ID,
         relative_path=_RELATIVE_PATH,
     )
@@ -477,29 +538,34 @@ def test_content_addressed_transform_manifest_resolves_in_artifact_store(
 async def test_identical_replay_repairs_backend_drift_before_returning_success(
     corruption_kind: str,
     monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     batch = build_fixture_batches()["python_a_seq1.json"]
     exact = _matching_readback(batch)
     drifted = exact.model_copy(update={"postgres_nodes": ()})
     postgres = object()
     graph = object()
+    qdrant = object()
     read_attempts = 0
     apply_calls: list[ModelCodeProjectionBatch] = []
 
     @asynccontextmanager
-    async def fake_live_clients() -> Any:
-        yield postgres, graph
+    async def fake_live_clients(artifact_store: CodeProjectionArtifactStore) -> Any:
+        assert artifact_store.root == tmp_path.resolve()
+        yield postgres, graph, qdrant
 
     async def fake_read(
         incoming: ModelCodeProjectionBatch,
         *,
         postgres_pool: object,
         graph_driver: object,
+        qdrant_store: object,
     ) -> ModelProjectionReadback:
         nonlocal read_attempts
         assert incoming == batch
         assert postgres_pool is postgres
         assert graph_driver is graph
+        assert qdrant_store is qdrant
         read_attempts += 1
         if read_attempts == 1:
             if corruption_kind == "readback_drift":
@@ -520,11 +586,14 @@ async def test_identical_replay_repairs_backend_drift_before_returning_success(
         *,
         postgres_pool: object,
         graph_driver: object,
+        qdrant_store: object,
     ) -> ModelProjectionApplyReport:
         assert postgres_pool is postgres
         assert graph_driver is graph
+        assert qdrant_store is qdrant
         apply_calls.append(incoming)
         return ModelProjectionApplyReport(
+            tenant_id=incoming.source.tenant_id,
             source_id=incoming.source.source_id,
             batch_id=incoming.batch_id,
             operation=incoming.operation,
@@ -533,13 +602,24 @@ async def test_identical_replay_repairs_backend_drift_before_returning_success(
             postgres_nodes_deleted=0,
             graph_nodes_written=len(incoming.nodes),
             graph_edges_written=len(incoming.edges),
+            qdrant_decision=(
+                "tombstone" if incoming.operation == "tombstone" else "replace"
+            ),
+            qdrant_documents_embedded=len(incoming.semantic_documents),
+            qdrant_points_upserted=len(incoming.semantic_documents),
+            qdrant_points_deleted=0,
         )
 
     monkeypatch.setattr(cli, "_live_clients", fake_live_clients)
     monkeypatch.setattr(cli, "read_code_projection", fake_read)
     monkeypatch.setattr(cli, "apply_code_projection", fake_apply)
 
-    decision, applied, readback = await cli._apply_and_verify(batch, current=batch)
+    artifact_store = CodeProjectionArtifactStore(tmp_path)
+    decision, applied, readback = await cli._apply_and_verify(
+        batch,
+        current=batch,
+        artifact_store=artifact_store,
+    )
 
     assert decision == "repair"
     assert applied is not None
@@ -559,25 +639,30 @@ async def test_identical_replay_repairs_backend_drift_before_returning_success(
 async def test_identical_replay_does_not_repair_non_integrity_backend_failures(
     backend_failure: Exception,
     monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     batch = build_fixture_batches()["python_a_seq1.json"]
     postgres = object()
     graph = object()
+    qdrant = object()
     apply_calls = 0
 
     @asynccontextmanager
-    async def fake_live_clients() -> Any:
-        yield postgres, graph
+    async def fake_live_clients(artifact_store: CodeProjectionArtifactStore) -> Any:
+        assert artifact_store.root == tmp_path.resolve()
+        yield postgres, graph, qdrant
 
     async def fake_read(
         incoming: ModelCodeProjectionBatch,
         *,
         postgres_pool: object,
         graph_driver: object,
+        qdrant_store: object,
     ) -> ModelProjectionReadback:
         assert incoming == batch
         assert postgres_pool is postgres
         assert graph_driver is graph
+        assert qdrant_store is qdrant
         raise backend_failure
 
     async def fake_apply(
@@ -585,9 +670,10 @@ async def test_identical_replay_does_not_repair_non_integrity_backend_failures(
         *,
         postgres_pool: object,
         graph_driver: object,
+        qdrant_store: object,
     ) -> ModelProjectionApplyReport:
         nonlocal apply_calls
-        del incoming, postgres_pool, graph_driver
+        del incoming, postgres_pool, graph_driver, qdrant_store
         apply_calls += 1
         raise AssertionError("non-integrity backend failure triggered repair")
 
@@ -596,7 +682,11 @@ async def test_identical_replay_does_not_repair_non_integrity_backend_failures(
     monkeypatch.setattr(cli, "apply_code_projection", fake_apply)
 
     with pytest.raises(type(backend_failure), match=str(backend_failure)):
-        await cli._apply_and_verify(batch, current=batch)
+        await cli._apply_and_verify(
+            batch,
+            current=batch,
+            artifact_store=CodeProjectionArtifactStore(tmp_path),
+        )
 
     assert apply_calls == 0
 
@@ -629,6 +719,7 @@ def test_tombstone_cli_advances_once_then_noops(
     assert repeated["source"]["cursor_sequence"] == 2
 
     current = CodeProjectionArtifactStore(artifact_root).find_current_batch(
+        tenant_id=_TENANT_ID,
         repository_id=_LAB_REPOSITORY_ID,
         relative_path=_RELATIVE_PATH,
     )
@@ -647,26 +738,31 @@ def test_inspect_cli_reads_the_applied_projection_without_mutating_state(
     monkeypatch.setattr(cli, "_apply_and_verify", _fake_apply_and_verify)
     ingested = _invoke_success(_ingest_argv(source_root, artifact_root), capsys)
     current = CodeProjectionArtifactStore(artifact_root).find_current_batch(
+        tenant_id=_TENANT_ID,
         repository_id=_LAB_REPOSITORY_ID,
         relative_path=_RELATIVE_PATH,
     )
     assert current is not None
     postgres = object()
     graph = object()
+    qdrant = object()
 
     @asynccontextmanager
-    async def fake_live_clients() -> Any:
-        yield postgres, graph
+    async def fake_live_clients(artifact_store: CodeProjectionArtifactStore) -> Any:
+        assert artifact_store.root == artifact_root.resolve()
+        yield postgres, graph, qdrant
 
     async def fake_read(
         batch: ModelCodeProjectionBatch,
         *,
         postgres_pool: object,
         graph_driver: object,
+        qdrant_store: object,
     ) -> ModelProjectionReadback:
         assert batch == current
         assert postgres_pool is postgres
         assert graph_driver is graph
+        assert qdrant_store is qdrant
         return _matching_readback(batch)
 
     monkeypatch.setattr(cli, "_live_clients", fake_live_clients)
@@ -692,6 +788,7 @@ def test_inspect_cli_filters_by_qualified_symbol_and_fails_closed_when_absent(
     monkeypatch.setattr(cli, "_apply_and_verify", _fake_apply_and_verify)
     _invoke_success(_ingest_argv(source_root, artifact_root), capsys)
     current = CodeProjectionArtifactStore(artifact_root).find_current_batch(
+        tenant_id=_TENANT_ID,
         repository_id=_LAB_REPOSITORY_ID,
         relative_path=_RELATIVE_PATH,
     )
@@ -699,16 +796,18 @@ def test_inspect_cli_filters_by_qualified_symbol_and_fails_closed_when_absent(
     symbol = current.nodes[0].qualified_name
 
     @asynccontextmanager
-    async def fake_live_clients() -> Any:
-        yield object(), object()
+    async def fake_live_clients(artifact_store: CodeProjectionArtifactStore) -> Any:
+        assert artifact_store.root == artifact_root.resolve()
+        yield object(), object(), object()
 
     async def fake_read(
         batch: ModelCodeProjectionBatch,
         *,
         postgres_pool: object,
         graph_driver: object,
+        qdrant_store: object,
     ) -> ModelProjectionReadback:
-        del postgres_pool, graph_driver
+        del postgres_pool, graph_driver, qdrant_store
         return _matching_readback(batch)
 
     monkeypatch.setattr(cli, "_live_clients", fake_live_clients)
@@ -766,7 +865,7 @@ def test_ingest_cli_rejects_non_lab_repository_before_creating_artifacts(
 ) -> None:
     artifact_root = tmp_path / "artifacts"
     argv = _ingest_argv(tmp_path, artifact_root)
-    argv[2] = "github.com/OmniNode-ai/omniintelligence"
+    argv[4] = "github.com/OmniNode-ai/omniintelligence"
 
     assert cli.main(argv) == 1
 
@@ -843,3 +942,193 @@ def test_extraction_configuration_fails_closed_when_required_map_is_missing(
 
     with pytest.raises(ValueError, match="quality_scoring must be a mapping"):
         cli._load_extraction_configuration()
+
+
+def _bind_required_runtime_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(
+        "OMNIINTELLIGENCE_DB_URL",
+        "postgresql://projection-runtime/database",
+    )
+    monkeypatch.setenv("ARCH_GRAPH_BOLT_URI", "bolt://projection-graph:7687")
+    monkeypatch.setenv("LLM_EMBEDDING_URL", "http://embedding-runtime:8000/v1")
+
+
+def test_live_client_configuration_supports_local_qdrant_without_api_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _bind_required_runtime_environment(monkeypatch)
+    monkeypatch.delenv("QDRANT_URL", raising=False)
+    monkeypatch.setenv("QDRANT_HOST", "qdrant")
+    monkeypatch.delenv("QDRANT_PORT", raising=False)
+    monkeypatch.delenv("QDRANT_API_KEY", raising=False)
+    monkeypatch.delenv("CODE_PROJECTION_QDRANT_COLLECTION", raising=False)
+    monkeypatch.delenv("CODE_PROJECTION_EMBEDDING_MODEL", raising=False)
+    monkeypatch.delenv("CODE_PROJECTION_EMBEDDING_MODEL_VERSION", raising=False)
+
+    configuration = cli._live_client_configuration()
+
+    assert configuration.qdrant_url == "http://qdrant:6333"
+    assert configuration.qdrant_api_key is None
+    assert configuration.qdrant_collection == "code_semantic_v2"
+    assert configuration.embedding_model == "text-embedding-qwen3"
+    assert (
+        configuration.embedding_model_version == "qwen3-embedding-0.6b-lab-2026-08-14"
+    )
+
+
+def test_live_client_configuration_treats_empty_qdrant_api_key_as_unset(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _bind_required_runtime_environment(monkeypatch)
+    monkeypatch.delenv("QDRANT_URL", raising=False)
+    monkeypatch.setenv("QDRANT_HOST", "qdrant")
+    monkeypatch.setenv("QDRANT_API_KEY", "")
+
+    configuration = cli._live_client_configuration()
+
+    assert configuration.qdrant_url == "http://qdrant:6333"
+    assert configuration.qdrant_api_key is None
+
+
+def test_live_client_configuration_supports_cloud_qdrant_with_database_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _bind_required_runtime_environment(monkeypatch)
+    cloud_url = "https://projection.eu-central.aws.cloud.qdrant.io:6333"
+    cloud_database_key = "test-only-cloud-database-key"
+    monkeypatch.setenv("QDRANT_URL", cloud_url)
+    monkeypatch.setenv("QDRANT_HOST", "ignored-local-host")
+    monkeypatch.setenv("QDRANT_API_KEY", cloud_database_key)
+    monkeypatch.setenv("CODE_PROJECTION_QDRANT_COLLECTION", "tenant_code_search_v2")
+
+    configuration = cli._live_client_configuration()
+
+    assert configuration.qdrant_url == cloud_url
+    assert configuration.qdrant_api_key == cloud_database_key
+    assert configuration.qdrant_collection == "tenant_code_search_v2"
+
+
+def test_live_client_configuration_rejects_qdrant_key_over_plaintext(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _bind_required_runtime_environment(monkeypatch)
+    monkeypatch.setenv("QDRANT_URL", "http://projection.cloud.qdrant.io:6333")
+    monkeypatch.setenv("QDRANT_API_KEY", "test-only-cloud-database-key")
+
+    with pytest.raises(ValueError, match="requires an https QDRANT_URL"):
+        cli._live_client_configuration()
+
+
+def test_search_cli_returns_tenant_scoped_metadata_receipt_without_raw_query(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    query_text = "find the tenant-safe code projection path"
+    repository_id = "github.com/OmniNode-ai/omniintelligence"
+    collection = ModelCodeProjectionQdrantCollection(
+        collection_name="code_semantic_v2",
+        vector_name="code_semantic_v2",
+        embedding_model="text-embedding-qwen3",
+        embedding_model_version="qwen3-embedding-0.6b-lab-2026-08-14",
+        embedding_dimension=1024,
+        distance="Dot",
+        reembedding_cosine_threshold_basis_points=9990,
+        indexed_fields=("tenant_id", "source_id", "repository_id", "record_kind"),
+    )
+    hit = ModelCodeProjectionSearchHit(
+        point_id="d7f74ab4-1cc4-54a1-9b8b-9d7a2fa94b78",
+        score=0.875,
+        tenant_id=_TENANT_ID,
+        repository_id=repository_id,
+        relative_path="src/omniintelligence/code_projection/qdrant.py",
+        source_id="csrc_v2_00000000000000000000000000000000000000000000000000000000",
+        batch_id="cbat_v2_00000000000000000000000000000000000000000000000000000000",
+        document_id="cdoc_v2_00000000000000000000000000000000000000000000000000000000",
+        content_ref=(
+            "artifact://sha256/"
+            "0000000000000000000000000000000000000000000000000000000000000000"
+        ),
+        sanitized_content_hash_sha256=(
+            "0000000000000000000000000000000000000000000000000000000000000000"
+        ),
+        chunk_key="module",
+        chunk_kind="module",
+        anchor_node_id=None,
+        source_span=None,
+        embedding_model="text-embedding-qwen3",
+        embedding_model_version="qwen3-embedding-0.6b-lab-2026-08-14",
+    )
+    calls: list[dict[str, object]] = []
+
+    class FakeQdrantStore:
+        async def ensure_collection(self) -> ModelCodeProjectionQdrantCollection:
+            return collection
+
+        async def search(
+            self,
+            *,
+            query_text: str,
+            tenant_id: str,
+            repository_id: str | None = None,
+            limit: int = 10,
+            score_threshold: float | None = None,
+        ) -> tuple[ModelCodeProjectionSearchHit, ...]:
+            calls.append(
+                {
+                    "limit": limit,
+                    "query_text": query_text,
+                    "repository_id": repository_id,
+                    "score_threshold": score_threshold,
+                    "tenant_id": tenant_id,
+                }
+            )
+            return (hit,)
+
+    @asynccontextmanager
+    async def fake_live_qdrant_store(
+        artifact_store: CodeProjectionArtifactStore | None,
+    ) -> Any:
+        assert artifact_store is not None
+        yield FakeQdrantStore()
+
+    monkeypatch.setattr(cli, "_live_qdrant_store", fake_live_qdrant_store)
+
+    result = _invoke_success(
+        [
+            "search",
+            "--tenant-id",
+            _TENANT_ID,
+            "--query",
+            query_text,
+            "--artifact-root",
+            str(tmp_path),
+            "--repository-id",
+            repository_id,
+            "--limit",
+            "7",
+            "--score-threshold",
+            "0.75",
+        ],
+        capsys,
+    )
+
+    assert calls == [
+        {
+            "limit": 7,
+            "query_text": query_text,
+            "repository_id": repository_id,
+            "score_threshold": 0.75,
+            "tenant_id": _TENANT_ID,
+        }
+    ]
+    assert result["command"] == "search"
+    assert result["tenant_id"] == _TENANT_ID
+    assert result["repository_id"] == repository_id
+    assert (
+        result["query_sha256"] == hashlib.sha256(query_text.encode("utf-8")).hexdigest()
+    )
+    assert result["result_count"] == 1
+    assert result["collection"] == collection.model_dump(mode="json")
+    assert result["results"] == [hit.model_dump(mode="json")]
+    assert query_text not in json.dumps(result, sort_keys=True)

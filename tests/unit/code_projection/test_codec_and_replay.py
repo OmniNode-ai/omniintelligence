@@ -20,6 +20,7 @@ from omniintelligence.code_projection import (
     ModelCodeProjectionSpan,
     build_code_projection_batch,
     decode_canonical_batch,
+    derive_code_source_id,
     encode_canonical_batch,
     make_code_chunk,
     make_code_edge,
@@ -47,32 +48,33 @@ def _artifact_ref(value: bytes) -> str:
     return f"artifact://sha256/{_sha256(value)}"
 
 
-def _policy() -> ModelCodeProjectionPolicy:
+def _policy(tenant_id: str = "tenant-alpha") -> ModelCodeProjectionPolicy:
     return ModelCodeProjectionPolicy(
-        scope_ref="repository:omninode/omniintelligence",
+        tenant_id=tenant_id,
+        scope_ref=f"tenant:{tenant_id}:repository:omninode/omniintelligence",
         access_scope="repository",
         visibility="repository",
         redaction_state="sanitized",
         trust_tier="verified_source",
         retention_class="source_controlled",
-        policy_version="policy-v1",
-        metadata_allowlist_version="allowlist-v1",
+        policy_version="policy-v2",
+        metadata_allowlist_version="allowlist-v2",
     )
 
 
 def _provenance() -> ModelCodeProjectionProvenance:
-    manifest_bytes = b"code-projection-transform-manifest-v1"
+    manifest_bytes = b"code-projection-transform-manifest-v2"
     return ModelCodeProjectionProvenance(
         producer="omniintelligence.code_projection",
-        producer_version="1.0.0",
-        projection_builder_version="1.0.0",
+        producer_version="2.0.0",
+        projection_builder_version="2.0.0",
         extractor_name="python-ast",
-        extractor_version="1.0.0",
-        extractor_config_hash_sha256=_sha256(b"extractor-config-v1"),
+        extractor_version="2.0.0",
+        extractor_config_hash_sha256=_sha256(b"extractor-config-v2"),
         transform_manifest_ref=_artifact_ref(manifest_bytes),
         transform_manifest_hash_sha256=_sha256(manifest_bytes),
-        labeler_version="deterministic-labeler-v1",
-        chunker_version="ast-span-v1",
+        labeler_version="deterministic-labeler-v2",
+        chunker_version="ast-span-v2",
     )
 
 
@@ -81,6 +83,7 @@ def _build_batch(
     sequence: int = 7,
     raw_source: bytes = _RAW_A,
     source_version: str = "commit:a",
+    tenant_id: str = "tenant-alpha",
     repository_id: str = "omninode/omniintelligence",
     relative_path: str = "src/pkg/café.py",
     qualified_names: tuple[str, ...] = ("pkg.Shared", "pkg.café.Example"),
@@ -89,6 +92,7 @@ def _build_batch(
 ) -> ModelCodeProjectionBatch:
     raw_hash = _sha256(raw_source)
     source = make_code_source(
+        tenant_id=tenant_id,
         repository_id=repository_id,
         relative_path=relative_path,
         source_version=source_version,
@@ -105,7 +109,7 @@ def _build_batch(
         return build_code_projection_batch(
             source=source,
             cursor=cursor,
-            policy=_policy(),
+            policy=_policy(tenant_id),
             provenance=_provenance(),
             operation="tombstone",
             tombstone_reason="source_deleted",
@@ -148,7 +152,7 @@ def _build_batch(
             source_hash_sha256=raw_hash,
             chunk_key=f"symbol:{node.qualified_name}",
             chunk_kind="symbol",
-            chunker_version="ast-span-v1",
+            chunker_version="ast-span-v2",
             sanitized_content_hash_sha256=_sha256(
                 _SANITIZED_SENTINEL + node.node_id.encode()
             ),
@@ -166,7 +170,7 @@ def _build_batch(
     return build_code_projection_batch(
         source=source,
         cursor=cursor,
-        policy=_policy(),
+        policy=_policy(tenant_id),
         provenance=_provenance(),
         nodes=nodes,
         edges=edges,
@@ -204,6 +208,57 @@ def test_reordered_collections_produce_byte_identical_batches() -> None:
     assert reversed_inputs == forward
     assert reversed_inputs.batch_id == forward.batch_id
     assert encode_canonical_batch(reversed_inputs) == encode_canonical_batch(forward)
+
+
+def test_source_and_batch_identity_are_tenant_scoped() -> None:
+    tenant_alpha = _build_batch(tenant_id="tenant-alpha")
+    tenant_bravo = _build_batch(tenant_id="tenant-bravo")
+
+    assert tenant_alpha.source.repository_id == tenant_bravo.source.repository_id
+    assert tenant_alpha.source.relative_path == tenant_bravo.source.relative_path
+    assert tenant_alpha.source.tenant_id == "tenant-alpha"
+    assert tenant_bravo.source.tenant_id == "tenant-bravo"
+    assert tenant_alpha.source.source_id != tenant_bravo.source.source_id
+    assert tenant_alpha.batch_id != tenant_bravo.batch_id
+    assert set(tenant_alpha.manifest.node_ids).isdisjoint(
+        tenant_bravo.manifest.node_ids
+    )
+    assert set(tenant_alpha.manifest.edge_ids).isdisjoint(
+        tenant_bravo.manifest.edge_ids
+    )
+    assert set(tenant_alpha.manifest.document_ids).isdisjoint(
+        tenant_bravo.manifest.document_ids
+    )
+
+
+def test_source_id_derivation_requires_tenant_in_identity_material() -> None:
+    common = {
+        "repository_id": "omninode/omniintelligence",
+        "relative_path": "src/pkg/café.py",
+    }
+
+    first = derive_code_source_id(tenant_id="tenant-alpha", **common)
+    replay = derive_code_source_id(tenant_id="tenant-alpha", **common)
+    other_tenant = derive_code_source_id(tenant_id="tenant-bravo", **common)
+
+    assert first == replay
+    assert first.startswith("csrc_v2_")
+    assert first != other_tenant
+
+
+def test_decoder_rejects_valid_tenant_tamper_without_identity_rederivation() -> None:
+    batch = _build_batch(tenant_id="tenant-alpha")
+
+    def change_tenant(payload: dict[str, object]) -> None:
+        source = payload["source"]
+        assert isinstance(source, dict)
+        source["tenant_id"] = "tenant-bravo"
+
+    with pytest.raises(
+        ValueError,
+        match=r"policy tenant_id|canonical tenant and repository identity",
+    ):
+        decode_canonical_batch(_mutate_canonical_payload(batch, change_tenant))
 
 
 def test_exact_roundtrip_preserves_unicode_and_privacy_boundary() -> None:
@@ -271,9 +326,13 @@ def test_inline_content_fields_are_rejected_explicitly(forbidden_key: str) -> No
         if forbidden_key == "source_content":
             target = payload["source"]
         elif forbidden_key == "docstring":
-            target = payload["nodes"][0]
+            nodes = payload["nodes"]
+            assert isinstance(nodes, list)
+            target = nodes[0]
         else:
-            target = payload["semantic_documents"][0]
+            documents = payload["semantic_documents"]
+            assert isinstance(documents, list)
+            target = documents[0]
         assert isinstance(target, dict)
         target[forbidden_key] = "RAW_SECRET_SENTINEL"
 
@@ -304,7 +363,7 @@ def test_decoder_rejects_dangling_edge_endpoint() -> None:
         assert isinstance(edges, list)
         edge = edges[0]
         assert isinstance(edge, dict)
-        edge["target_node_id"] = f"cnode_v1_{'9' * 64}"
+        edge["target_node_id"] = f"cnode_v2_{'9' * 64}"
 
     with pytest.raises(ValueError, match="edge endpoint"):
         decode_canonical_batch(_mutate_canonical_payload(batch, dangle))
@@ -318,7 +377,7 @@ def test_decoder_rejects_dangling_document_anchor() -> None:
         assert isinstance(documents, list)
         document = documents[0]
         assert isinstance(document, dict)
-        document["anchor_node_id"] = f"cnode_v1_{'9' * 64}"
+        document["anchor_node_id"] = f"cnode_v2_{'9' * 64}"
 
     with pytest.raises(ValueError, match="document anchor"):
         decode_canonical_batch(_mutate_canonical_payload(batch, dangle))
@@ -334,7 +393,7 @@ def test_decoder_rejects_dangling_document_anchor() -> None:
             "record checksum",
         ),
         (
-            lambda payload: payload.update({"batch_id": f"cbatch_v1_{'9' * 64}"}),
+            lambda payload: payload.update({"batch_id": f"cbatch_v2_{'9' * 64}"}),
             "batch_id",
         ),
         (

@@ -13,6 +13,7 @@ from omniintelligence.code_projection.codec import serialize_code_projection_bat
 from omniintelligence.code_projection.extraction import (
     CodeProjectionExtractionError,
     project_source,
+    project_source_with_documents,
 )
 from omniintelligence.code_projection.models import (
     ModelCodeProjectionBatch,
@@ -21,6 +22,8 @@ from omniintelligence.code_projection.models import (
 )
 
 pytestmark = pytest.mark.unit
+
+_TENANT_ID = "omninode-dev"
 
 _CLASSIFICATION_CONFIG = {
     "scoring_weights": {
@@ -92,7 +95,10 @@ def _sha256(value: bytes) -> str:
 
 def _policy() -> ModelCodeProjectionPolicy:
     return ModelCodeProjectionPolicy(
-        scope_ref="repository:github.com/OmniNode-ai/omniintelligence",
+        tenant_id=_TENANT_ID,
+        scope_ref=(
+            f"tenant:{_TENANT_ID}:repository:github.com/OmniNode-ai/omniintelligence"
+        ),
         access_scope="repository",
         visibility="repository",
         redaction_state="not_required",
@@ -109,7 +115,7 @@ def _provenance() -> ModelCodeProjectionProvenance:
     return ModelCodeProjectionProvenance(
         producer="omniintelligence.code_projection.extraction",
         producer_version="1.0.0",
-        projection_builder_version="1.0.0",
+        projection_builder_version="2.0.0",
         extractor_name="contract-driven-source-extractor",
         extractor_version="1.0.0",
         extractor_config_hash_sha256=config_hash,
@@ -122,6 +128,7 @@ def _provenance() -> ModelCodeProjectionProvenance:
 def _project_python(raw_source: bytes) -> ModelCodeProjectionBatch:
     return project_source(
         raw_source=raw_source,
+        tenant_id=_TENANT_ID,
         repository_id="github.com/OmniNode-ai/omniintelligence",
         relative_path="src/example/writers.py",
         source_version="commit:0123456789abcdef",
@@ -218,6 +225,7 @@ export function makeWidget(): Widget {
 
     batch = project_source(
         raw_source=raw_source,
+        tenant_id=_TENANT_ID,
         repository_id="github.com/OmniNode-ai/omnidash",
         relative_path="src/features/widget.ts",
         source_version="commit:fedcba9876543210",
@@ -260,6 +268,7 @@ export const runHandler = async () => {
 
     batch = project_source(
         raw_source=raw_source,
+        tenant_id=_TENANT_ID,
         repository_id="github.com/OmniNode-ai/omnidash",
         relative_path="src/features/handler.js",
         source_version="commit:1234567890abcdef",
@@ -278,13 +287,63 @@ export const runHandler = async () => {
     assert len(batch.edges) == 3
 
 
-def test_empty_python_source_is_an_explicit_empty_snapshot() -> None:
+def test_empty_python_source_has_one_embeddable_source_document() -> None:
     batch = _project_python(b"")
 
     assert batch.operation == "snapshot"
     assert batch.nodes == ()
     assert batch.edges == ()
-    assert batch.semantic_documents == ()
+    assert len(batch.semantic_documents) == 1
+    assert batch.semantic_documents[0].chunk_kind == "source"
+
+
+def test_semantic_documents_resolve_to_deterministic_syntax_artifacts() -> None:
+    raw_source = (
+        b"def calculate_total(left: int, right: int) -> int:\n    return left + right\n"
+    )
+
+    first = project_source_with_documents(
+        raw_source=raw_source,
+        tenant_id=_TENANT_ID,
+        repository_id="github.com/OmniNode-ai/omniintelligence",
+        relative_path="src/example/calculator.py",
+        source_version="commit:0123456789abcdef",
+        language="python",
+        cursor_authority="git:omniintelligence",
+        cursor_sequence=7,
+        policy=_policy(),
+        provenance=_provenance(),
+        classification_config=_CLASSIFICATION_CONFIG,
+        quality_config={},
+    )
+    second = project_source_with_documents(
+        raw_source=raw_source,
+        tenant_id=_TENANT_ID,
+        repository_id="github.com/OmniNode-ai/omniintelligence",
+        relative_path="src/example/calculator.py",
+        source_version="commit:0123456789abcdef",
+        language="python",
+        cursor_authority="git:omniintelligence",
+        cursor_sequence=7,
+        policy=_policy(),
+        provenance=_provenance(),
+        classification_config=_CLASSIFICATION_CONFIG,
+        quality_config={},
+    )
+
+    assert first == second
+    assert first.batch.semantic_documents
+    artifacts_by_id = {
+        artifact.document_id: artifact.content for artifact in first.document_artifacts
+    }
+    assert set(artifacts_by_id) == {
+        document.document_id for document in first.batch.semantic_documents
+    }
+    for document in first.batch.semantic_documents:
+        content = artifacts_by_id[document.document_id]
+        assert _sha256(content) == document.sanitized_content_hash_sha256
+        assert len(content) == document.byte_count
+    assert any(b"calculate_total" in content for content in artifacts_by_id.values())
 
 
 def test_syntax_error_does_not_become_authoritative_empty_snapshot() -> None:
@@ -299,6 +358,7 @@ def test_non_python_requires_explicit_contract_config() -> None:
     ):
         project_source(
             raw_source=b"export interface Widget {}\n",
+            tenant_id=_TENANT_ID,
             repository_id="github.com/OmniNode-ai/omnidash",
             relative_path="src/widget.ts",
             source_version="commit:one",
@@ -314,6 +374,7 @@ def test_language_and_source_extension_must_agree() -> None:
     with pytest.raises(CodeProjectionExtractionError, match="does not match python"):
         project_source(
             raw_source=b"export interface Widget {}\n",
+            tenant_id=_TENANT_ID,
             repository_id="github.com/OmniNode-ai/omnidash",
             relative_path="src/widget.ts",
             source_version="commit:one",

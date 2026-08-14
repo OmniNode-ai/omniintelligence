@@ -11,6 +11,7 @@ point.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Mapping
 from typing import Any, Final, cast
@@ -34,10 +35,15 @@ from omniintelligence.code_projection.models import (
     ModelCodeProjectionNode,
     ModelCodeProjectionSpan,
 )
+from omniintelligence.code_projection.qdrant import (
+    CodeProjectionQdrantIntegrityError,
+    ModelCodeProjectionQdrantReadback,
+    ProtocolCodeProjectionQdrantStore,
+)
 
 _PROJECTION_METADATA_KEY: Final = "code_projection"
-_PROJECTION_EVIDENCE_MARKER: Final = "code_projection:v1"
-_EDGE_PAYLOAD_PREFIX: Final = "code_projection:edge_payload:v1:"
+_PROJECTION_EVIDENCE_MARKER: Final = "code_projection:v2"
+_EDGE_PAYLOAD_PREFIX: Final = "code_projection:edge_payload:v2:"
 
 
 class ProjectionReadbackIntegrityError(RuntimeError):
@@ -51,6 +57,7 @@ class _FrozenReport(BaseModel):
 class ModelProjectionApplyReport(_FrozenReport):
     """Counts from one complete Postgres plus Memgraph application."""
 
+    tenant_id: str
     source_id: str
     batch_id: str
     operation: str
@@ -59,11 +66,16 @@ class ModelProjectionApplyReport(_FrozenReport):
     postgres_nodes_deleted: int = Field(ge=0)
     graph_nodes_written: int = Field(ge=0)
     graph_edges_written: int = Field(ge=0)
+    qdrant_decision: str
+    qdrant_documents_embedded: int = Field(ge=0)
+    qdrant_points_upserted: int = Field(ge=0)
+    qdrant_points_deleted: int = Field(ge=0)
 
 
 class ModelProjectionNodeReadback(_FrozenReport):
     """One projection-owned node recovered from the durable read model."""
 
+    tenant_id: str
     batch_id: str
     node_id: str
     qualified_name: str
@@ -80,6 +92,7 @@ class ModelProjectionNodeReadback(_FrozenReport):
 class ModelProjectionEdgeReadback(_FrozenReport):
     """One projection-owned relationship recovered from the durable read model."""
 
+    tenant_id: str
     batch_id: str
     edge_id: str
     source_qualified_name: str
@@ -95,6 +108,7 @@ class ModelProjectionEdgeReadback(_FrozenReport):
 class ModelProjectionReadback(_FrozenReport):
     """Cross-store proof that one source projection is queryable."""
 
+    tenant_id: str
     source_id: str
     postgres_nodes: tuple[ModelProjectionNodeReadback, ...]
     postgres_edges: tuple[ModelProjectionEdgeReadback, ...]
@@ -106,6 +120,20 @@ class ModelProjectionReadback(_FrozenReport):
     graph_edge_ids: tuple[str, ...] = ()
     policy_payload_sha256: str
     provenance_payload_sha256: str
+    qdrant: ModelCodeProjectionQdrantReadback
+
+
+def _application_lock_key(*, tenant_id: str, source_id: str) -> int:
+    """Derive one stable signed advisory-lock key for a tenant/source pair."""
+
+    payload = canonical_json_bytes(
+        {
+            "domain": "omniintelligence.code-projection-apply.v2",
+            "source_id": source_id,
+            "tenant_id": tenant_id,
+        }
+    )
+    return int.from_bytes(hashlib.sha256(payload).digest()[:8], "big", signed=True)
 
 
 def _validated_batch(batch: ModelCodeProjectionBatch) -> ModelCodeProjectionBatch:
@@ -225,6 +253,7 @@ async def _upsert_postgres_node(
             "resolution_state": node.resolution_state,
             "source_id": batch.source.source_id,
             "storage_qualified_name": _storage_qualified_name(node),
+            "tenant_id": batch.source.tenant_id,
         }
     }
     row = await connection.fetchrow(
@@ -287,6 +316,7 @@ async def _upsert_postgres_node(
 async def _delete_projection_relationships(
     connection: asyncpg.Connection,
     *,
+    tenant_id: str,
     source_id: str,
 ) -> int:
     result = await connection.execute(
@@ -295,9 +325,11 @@ async def _delete_projection_relationships(
         USING code_entities AS source_entity
         WHERE relationship.source_entity_id = source_entity.id
           AND source_entity.enrichment_metadata #>> '{code_projection,source_id}' = $1
-          AND $2 = ANY(relationship.evidence)
+          AND source_entity.enrichment_metadata #>> '{code_projection,tenant_id}' = $2
+          AND $3 = ANY(relationship.evidence)
         """,
         source_id,
+        tenant_id,
         _PROJECTION_EVIDENCE_MARKER,
     )
     return int(result.rsplit(" ", maxsplit=1)[-1])
@@ -306,6 +338,7 @@ async def _delete_projection_relationships(
 async def _delete_stale_projection_nodes(
     connection: asyncpg.Connection,
     *,
+    tenant_id: str,
     source_id: str,
     current_storage_qualified_names: tuple[str, ...],
 ) -> int:
@@ -313,9 +346,11 @@ async def _delete_stale_projection_nodes(
         """
         DELETE FROM code_entities
         WHERE enrichment_metadata #>> '{code_projection,source_id}' = $1
-          AND NOT (qualified_name = ANY($2::text[]))
+          AND enrichment_metadata #>> '{code_projection,tenant_id}' = $2
+          AND NOT (qualified_name = ANY($3::text[]))
         """,
         source_id,
+        tenant_id,
         list(current_storage_qualified_names),
     )
     return int(result.rsplit(" ", maxsplit=1)[-1])
@@ -324,14 +359,17 @@ async def _delete_stale_projection_nodes(
 async def _delete_all_projection_nodes(
     connection: asyncpg.Connection,
     *,
+    tenant_id: str,
     source_id: str,
 ) -> int:
     result = await connection.execute(
         """
         DELETE FROM code_entities
         WHERE enrichment_metadata #>> '{code_projection,source_id}' = $1
+          AND enrichment_metadata #>> '{code_projection,tenant_id}' = $2
         """,
         source_id,
+        tenant_id,
     )
     return int(result.rsplit(" ", maxsplit=1)[-1])
 
@@ -385,16 +423,18 @@ async def _upsert_postgres_edge(
 
 async def _materialize_postgres(
     batch: ModelCodeProjectionBatch,
-    pool: asyncpg.Pool,
+    connection: asyncpg.Connection,
 ) -> tuple[int, int, int]:
-    async with pool.acquire() as connection, connection.transaction():
+    async with connection.transaction():
         await _delete_projection_relationships(
             connection,
+            tenant_id=batch.source.tenant_id,
             source_id=batch.source.source_id,
         )
         if batch.operation == "tombstone":
             deleted = await _delete_all_projection_nodes(
                 connection,
+                tenant_id=batch.source.tenant_id,
                 source_id=batch.source.source_id,
             )
             return 0, 0, deleted
@@ -409,6 +449,7 @@ async def _materialize_postgres(
 
         deleted = await _delete_stale_projection_nodes(
             connection,
+            tenant_id=batch.source.tenant_id,
             source_id=batch.source.source_id,
             current_storage_qualified_names=tuple(
                 _storage_qualified_name(node) for node in batch.nodes
@@ -439,13 +480,16 @@ async def _materialize_graph(
     driver: AsyncDriver,
 ) -> tuple[int, int]:
     source_id = batch.source.source_id
+    tenant_id = batch.source.tenant_id
     await _run_graph_query(
         driver,
         """
         MATCH ()-[relationship:CODE_PROJECTION_RELATIONSHIP]->()
-        WHERE relationship.projection_source_id = $source_id
+        WHERE relationship.tenant_id = $tenant_id
+          AND relationship.projection_source_id = $source_id
         DELETE relationship
         """,
+        tenant_id=tenant_id,
         source_id=source_id,
     )
     if batch.operation == "tombstone":
@@ -453,9 +497,11 @@ async def _materialize_graph(
             driver,
             """
             MATCH (node:CodeProjectionNode)
-            WHERE node.projection_source_id = $source_id
+            WHERE node.tenant_id = $tenant_id
+              AND node.projection_source_id = $source_id
             DETACH DELETE node
             """,
+            tenant_id=tenant_id,
             source_id=source_id,
         )
         return 0, 0
@@ -464,10 +510,12 @@ async def _materialize_graph(
         driver,
         """
         MATCH (node:CodeProjectionNode)
-        WHERE node.projection_source_id = $source_id
+        WHERE node.tenant_id = $tenant_id
+          AND node.projection_source_id = $source_id
           AND NOT node.node_id IN $node_ids
         DETACH DELETE node
         """,
+        tenant_id=tenant_id,
         source_id=source_id,
         node_ids=[node.node_id for node in batch.nodes],
     )
@@ -476,7 +524,8 @@ async def _materialize_graph(
             driver,
             """
             MERGE (node:CodeProjectionNode {node_id: $node_id})
-            SET node.projection_source_id = $source_id,
+            SET node.tenant_id = $tenant_id,
+                node.projection_source_id = $source_id,
                 node.batch_id = $batch_id,
                 node.repository_id = $repository_id,
                 node.relative_path = $relative_path,
@@ -490,6 +539,7 @@ async def _materialize_graph(
                 node.provenance_payload_sha256 = $provenance_payload_sha256
             """,
             node_id=node.node_id,
+            tenant_id=tenant_id,
             source_id=source_id,
             batch_id=batch.batch_id,
             repository_id=batch.source.repository_id,
@@ -515,6 +565,7 @@ async def _materialize_graph(
             MATCH (target:CodeProjectionNode {node_id: $target_node_id})
             MERGE (source)-[relationship:CODE_PROJECTION_RELATIONSHIP {edge_id: $edge_id}]->(target)
             SET relationship.projection_source_id = $projection_source_id,
+                relationship.tenant_id = $tenant_id,
                 relationship.batch_id = $batch_id,
                 relationship.relationship_kind = $relationship_kind,
                 relationship.trust_tier = $trust_tier,
@@ -525,6 +576,7 @@ async def _materialize_graph(
             source_node_id=edge.source_node_id,
             target_node_id=edge.target_node_id,
             edge_id=edge.edge_id,
+            tenant_id=tenant_id,
             projection_source_id=source_id,
             batch_id=batch.batch_id,
             relationship_kind=edge.relationship_kind,
@@ -541,19 +593,39 @@ async def apply_code_projection(
     *,
     postgres_pool: asyncpg.Pool,
     graph_driver: AsyncDriver,
+    qdrant_store: ProtocolCodeProjectionQdrantStore,
 ) -> ModelProjectionApplyReport:
-    """Apply one canonical source snapshot or tombstone to both lab stores."""
+    """Apply one canonical source snapshot or tombstone to all three stores."""
 
     canonical_batch = _validated_batch(batch)
-    pg_nodes, pg_edges, pg_deleted = await _materialize_postgres(
-        canonical_batch,
-        postgres_pool,
+    lock_key = _application_lock_key(
+        tenant_id=canonical_batch.source.tenant_id,
+        source_id=canonical_batch.source.source_id,
     )
-    graph_nodes, graph_edges = await _materialize_graph(
-        canonical_batch,
-        graph_driver,
-    )
+    async with postgres_pool.acquire() as connection:
+        await connection.execute("SELECT pg_advisory_lock($1::bigint)", lock_key)
+        try:
+            await qdrant_store.guard_replay(canonical_batch)
+            pg_nodes, pg_edges, pg_deleted = await _materialize_postgres(
+                canonical_batch,
+                connection,
+            )
+            graph_nodes, graph_edges = await _materialize_graph(
+                canonical_batch,
+                graph_driver,
+            )
+            qdrant = await qdrant_store.apply(canonical_batch)
+        finally:
+            unlocked = await connection.fetchval(
+                "SELECT pg_advisory_unlock($1::bigint)",
+                lock_key,
+            )
+            if unlocked is not True:
+                raise RuntimeError(
+                    "Postgres did not release the projection source lock"
+                )
     return ModelProjectionApplyReport(
+        tenant_id=canonical_batch.source.tenant_id,
         source_id=canonical_batch.source.source_id,
         batch_id=canonical_batch.batch_id,
         operation=canonical_batch.operation,
@@ -562,6 +634,10 @@ async def apply_code_projection(
         postgres_nodes_deleted=pg_deleted,
         graph_nodes_written=graph_nodes,
         graph_edges_written=graph_edges,
+        qdrant_decision=qdrant.decision,
+        qdrant_documents_embedded=qdrant.documents_embedded,
+        qdrant_points_upserted=qdrant.points_upserted,
+        qdrant_points_deleted=qdrant.points_deleted,
     )
 
 
@@ -629,19 +705,23 @@ async def read_code_projection(
     *,
     postgres_pool: asyncpg.Pool,
     graph_driver: AsyncDriver,
+    qdrant_store: ProtocolCodeProjectionQdrantStore,
 ) -> ModelProjectionReadback:
-    """Read the exact source-owned projection back from both live stores."""
+    """Read the exact source-owned projection back from all live stores."""
 
     canonical_batch = _validated_batch(batch)
+    tenant_id = canonical_batch.source.tenant_id
     source_id = canonical_batch.source.source_id
     node_rows = await postgres_pool.fetch(
         """
         SELECT entity_type, enrichment_metadata
         FROM code_entities
         WHERE enrichment_metadata #>> '{code_projection,source_id}' = $1
+          AND enrichment_metadata #>> '{code_projection,tenant_id}' = $2
         ORDER BY enrichment_metadata #>> '{code_projection,node_id}'
         """,
         source_id,
+        tenant_id,
     )
     nodes: list[ModelProjectionNodeReadback] = []
     postgres_policy_digests: list[str] = []
@@ -659,6 +739,7 @@ async def read_code_projection(
         )
         nodes.append(
             ModelProjectionNodeReadback(
+                tenant_id=_metadata_text(metadata, "tenant_id"),
                 batch_id=_metadata_text(metadata, "batch_id"),
                 node_id=_metadata_text(metadata, "node_id"),
                 qualified_name=_metadata_text(metadata, "qualified_name"),
@@ -684,10 +765,12 @@ async def read_code_projection(
         JOIN code_entities AS source_entity ON source_entity.id = relationship.source_entity_id
         JOIN code_entities AS target_entity ON target_entity.id = relationship.target_entity_id
         WHERE source_entity.enrichment_metadata #>> '{code_projection,source_id}' = $1
-          AND $2 = ANY(relationship.evidence)
+          AND source_entity.enrichment_metadata #>> '{code_projection,tenant_id}' = $2
+          AND $3 = ANY(relationship.evidence)
         ORDER BY relationship.evidence
         """,
         source_id,
+        tenant_id,
         _PROJECTION_EVIDENCE_MARKER,
     )
     edges: list[ModelProjectionEdgeReadback] = []
@@ -736,6 +819,7 @@ async def read_code_projection(
         target_metadata = _metadata_mapping(row["target_metadata"])
         edges.append(
             ModelProjectionEdgeReadback(
+                tenant_id=_metadata_text(source_metadata, "tenant_id"),
                 batch_id=edge_batch_id,
                 edge_id=edge_id,
                 source_qualified_name=_metadata_text(
@@ -760,8 +844,10 @@ async def read_code_projection(
             await session.run(
                 """
                 MATCH (node:CodeProjectionNode)
-                WHERE node.projection_source_id = $source_id
-                RETURN node.batch_id AS batch_id,
+                WHERE node.tenant_id = $tenant_id
+                  AND node.projection_source_id = $source_id
+                RETURN node.tenant_id AS tenant_id,
+                       node.batch_id AS batch_id,
                        node.node_id AS node_id,
                        node.qualified_name AS qualified_name,
                        node.entity_kind AS entity_kind,
@@ -771,6 +857,7 @@ async def read_code_projection(
                        node.provenance_payload_sha256 AS provenance_payload_sha256
                 ORDER BY node.node_id
                 """,
+                tenant_id=tenant_id,
                 source_id=source_id,
             )
         ).data()
@@ -778,8 +865,10 @@ async def read_code_projection(
             await session.run(
                 """
                 MATCH (source:CodeProjectionNode)-[relationship:CODE_PROJECTION_RELATIONSHIP]->(target:CodeProjectionNode)
-                WHERE relationship.projection_source_id = $source_id
-                RETURN relationship.batch_id AS batch_id,
+                WHERE relationship.tenant_id = $tenant_id
+                  AND relationship.projection_source_id = $source_id
+                RETURN relationship.tenant_id AS tenant_id,
+                       relationship.batch_id AS batch_id,
                        relationship.edge_id AS edge_id,
                        source.qualified_name AS source_qualified_name,
                        target.qualified_name AS target_qualified_name,
@@ -790,11 +879,13 @@ async def read_code_projection(
                        relationship.record_payload_json AS record_payload_json
                 ORDER BY relationship.edge_id
                 """,
+                tenant_id=tenant_id,
                 source_id=source_id,
             )
         ).data()
     graph_nodes = tuple(
         ModelProjectionNodeReadback(
+            tenant_id=str(row["tenant_id"]),
             batch_id=str(row["batch_id"]),
             node_id=str(row["node_id"]),
             qualified_name=str(row["qualified_name"]),
@@ -817,6 +908,7 @@ async def read_code_projection(
     )
     graph_edges = tuple(
         ModelProjectionEdgeReadback(
+            tenant_id=str(row["tenant_id"]),
             batch_id=str(row["batch_id"]),
             edge_id=str(row["edge_id"]),
             source_qualified_name=str(row["source_qualified_name"]),
@@ -856,7 +948,15 @@ async def read_code_projection(
             return ""
         return values.pop()
 
+    try:
+        qdrant_readback = await qdrant_store.readback(canonical_batch)
+    except CodeProjectionQdrantIntegrityError as exc:
+        raise ProjectionReadbackIntegrityError(
+            "Qdrant readback does not match the canonical batch"
+        ) from exc
+
     return ModelProjectionReadback(
+        tenant_id=tenant_id,
         source_id=source_id,
         postgres_nodes=tuple(nodes),
         postgres_edges=tuple(edges),
@@ -876,6 +976,7 @@ async def read_code_projection(
             graph_provenance_digests,
             empty_value=expected_provenance_digest,
         ),
+        qdrant=qdrant_readback,
     )
 
 
@@ -887,11 +988,34 @@ def assert_projection_readback(
 
     expected_node_ids = {node.node_id for node in batch.nodes}
     expected_edge_ids = {edge.edge_id for edge in batch.edges}
+    expected_document_ids = tuple(
+        document.document_id for document in batch.semantic_documents
+    )
+    if readback.tenant_id != batch.source.tenant_id:
+        msg = "readback tenant does not match the canonical batch"
+        raise ProjectionReadbackIntegrityError(msg)
     if readback.source_id != batch.source.source_id:
         msg = "readback source does not match the canonical batch"
         raise ProjectionReadbackIntegrityError(msg)
+    qdrant = readback.qdrant
+    if (
+        qdrant.tenant_id != batch.source.tenant_id
+        or qdrant.source_id != batch.source.source_id
+        or qdrant.batch_id != batch.batch_id
+        or qdrant.operation != batch.operation
+        or qdrant.document_ids != expected_document_ids
+        or qdrant.point_count != len(expected_document_ids)
+        or not qdrant.manifest_point_id
+        or qdrant.record_count != qdrant.point_count + 1
+        or len(qdrant.point_ids) != len(expected_document_ids)
+        or len(set(qdrant.point_ids)) != len(qdrant.point_ids)
+    ):
+        raise ProjectionReadbackIntegrityError(
+            "Qdrant readback does not match the canonical batch"
+        )
     expected_nodes = {
         node.node_id: (
+            batch.source.tenant_id,
             batch.batch_id,
             node.qualified_name,
             node.display_name,
@@ -907,6 +1031,7 @@ def assert_projection_readback(
     }
     postgres_nodes = {
         node.node_id: (
+            node.tenant_id,
             node.batch_id,
             node.qualified_name,
             node.display_name,
@@ -922,6 +1047,7 @@ def assert_projection_readback(
     }
     graph_nodes = {
         node.node_id: (
+            node.tenant_id,
             node.batch_id,
             node.qualified_name,
             node.display_name,
@@ -938,6 +1064,7 @@ def assert_projection_readback(
     node_names = {node.node_id: node.qualified_name for node in batch.nodes}
     expected_edges = {
         edge.edge_id: (
+            batch.source.tenant_id,
             batch.batch_id,
             node_names[edge.source_node_id],
             node_names[edge.target_node_id],
@@ -952,6 +1079,7 @@ def assert_projection_readback(
     }
     postgres_edges = {
         edge.edge_id: (
+            edge.tenant_id,
             edge.batch_id,
             edge.source_qualified_name,
             edge.target_qualified_name,
@@ -966,6 +1094,7 @@ def assert_projection_readback(
     }
     graph_edges = {
         edge.edge_id: (
+            edge.tenant_id,
             edge.batch_id,
             edge.source_qualified_name,
             edge.target_qualified_name,

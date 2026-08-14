@@ -19,6 +19,7 @@ from omniintelligence.code_projection._canonical import (
     decode_json_no_duplicates,
     normalize_relative_path,
     normalize_repository_id,
+    normalize_tenant_id,
     normalize_text,
     sha256_hex,
     stable_id,
@@ -51,17 +52,17 @@ from omniintelligence.code_projection.models import (
     ModelTombstoneReason,
 )
 
-_SOURCE_ID_DOMAIN = "omninode.code-projection.source.v1"
-_NODE_ID_DOMAIN = "omninode.code-projection.node.v1"
-_EDGE_ID_DOMAIN = "omninode.code-projection.edge.v1"
-_DOCUMENT_ID_DOMAIN = "omninode.code-projection.document.v1"
-_BATCH_ID_DOMAIN = "omninode.code-projection.batch.v1"
+_SOURCE_ID_DOMAIN = "omninode.code-projection.source.v2"
+_NODE_ID_DOMAIN = "omninode.code-projection.node.v2"
+_EDGE_ID_DOMAIN = "omninode.code-projection.edge.v2"
+_DOCUMENT_ID_DOMAIN = "omninode.code-projection.document.v2"
+_BATCH_ID_DOMAIN = "omninode.code-projection.batch.v2"
 
-_SOURCE_ID_PREFIX = "csrc_v1_"
-_NODE_ID_PREFIX = "cnode_v1_"
-_EDGE_ID_PREFIX = "cedge_v1_"
-_DOCUMENT_ID_PREFIX = "cdoc_v1_"
-_BATCH_ID_PREFIX = "cbatch_v1_"
+_SOURCE_ID_PREFIX = "csrc_v2_"
+_NODE_ID_PREFIX = "cnode_v2_"
+_EDGE_ID_PREFIX = "cedge_v2_"
+_DOCUMENT_ID_PREFIX = "cdoc_v2_"
+_BATCH_ID_PREFIX = "cbatch_v2_"
 
 type _SourceMediaType = Literal["text/x-python", "text/typescript", "text/javascript"]
 
@@ -71,7 +72,7 @@ _LANGUAGE_MEDIA_TYPES: dict[ModelSourceLanguage, _SourceMediaType] = {
     "javascript": "text/javascript",
 }
 
-# V1 has no field capable of carrying these values.  Checking the decoded key
+# V2 has no field capable of carrying these values.  Checking the decoded key
 # names before Pydantic validation makes the privacy failure explicit instead
 # of relying only on ``extra="forbid"`` diagnostics.
 _FORBIDDEN_INLINE_CONTENT_KEYS = frozenset(
@@ -93,9 +94,12 @@ def _artifact_ref(digest: str) -> str:
     return f"artifact://sha256/{digest}"
 
 
-def derive_code_source_id(*, repository_id: str, relative_path: str) -> str:
-    """Derive the stable source identity from canonical logical coordinates."""
+def derive_code_source_id(
+    *, tenant_id: str, repository_id: str, relative_path: str
+) -> str:
+    """Derive the tenant-scoped source identity from logical coordinates."""
 
+    canonical_tenant_id = normalize_tenant_id(tenant_id)
     canonical_repository_id = normalize_repository_id(repository_id)
     canonical_relative_path = normalize_relative_path(relative_path)
     return stable_id(
@@ -105,6 +109,7 @@ def derive_code_source_id(*, repository_id: str, relative_path: str) -> str:
             "identity_version": CODE_PROJECTION_IDENTITY_VERSION,
             "relative_path": canonical_relative_path,
             "repository_id": canonical_repository_id,
+            "tenant_id": canonical_tenant_id,
         },
     )
 
@@ -191,6 +196,7 @@ def _label_sort_key(
 
 def make_code_source(
     *,
+    tenant_id: str,
     repository_id: str,
     relative_path: str,
     source_version: str,
@@ -202,6 +208,7 @@ def make_code_source(
 ) -> ModelCodeProjectionSource:
     """Build one canonical logical source without accepting inline source bytes."""
 
+    canonical_tenant_id = normalize_tenant_id(tenant_id)
     canonical_repository_id = normalize_repository_id(repository_id)
     canonical_relative_path = normalize_relative_path(relative_path)
     canonical_source_version = normalize_text(source_version)
@@ -209,9 +216,11 @@ def make_code_source(
     resolved_media_type = media_type or _LANGUAGE_MEDIA_TYPES[language]
     return ModelCodeProjectionSource(
         source_id=derive_code_source_id(
+            tenant_id=canonical_tenant_id,
             repository_id=canonical_repository_id,
             relative_path=canonical_relative_path,
         ),
+        tenant_id=canonical_tenant_id,
         repository_id=canonical_repository_id,
         relative_path=canonical_relative_path,
         source_version=canonical_source_version,
@@ -451,11 +460,12 @@ def build_code_projection_batch(
 
 def _validate_stable_ids(batch: ModelCodeProjectionBatch) -> None:
     expected_source_id = derive_code_source_id(
+        tenant_id=batch.source.tenant_id,
         repository_id=batch.source.repository_id,
         relative_path=batch.source.relative_path,
     )
     if batch.source.source_id != expected_source_id:
-        msg = "source_id does not match canonical repository identity"
+        msg = "source_id does not match canonical tenant and repository identity"
         raise ValueError(msg)
 
     for node in batch.nodes:
@@ -551,7 +561,7 @@ def _reject_inline_content_keys(value: object, *, path: str = "$") -> None:
 
 
 def parse_code_projection_batch(payload: bytes | str) -> ModelCodeProjectionBatch:
-    """Parse only exact canonical v1 bytes and reject all integrity drift."""
+    """Parse only exact canonical v2 bytes and reject all integrity drift."""
 
     decoded = decode_json_no_duplicates(payload)
     _reject_inline_content_keys(decoded)

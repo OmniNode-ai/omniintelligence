@@ -179,6 +179,7 @@ def test_stage_writes_deterministic_objects_without_advancing_current(
     assert store.load_current_batch(batch.source.source_id) is None
     assert (
         store.find_current_batch(
+            tenant_id=batch.source.tenant_id,
             repository_id=batch.source.repository_id,
             relative_path=batch.source.relative_path,
         )
@@ -325,6 +326,7 @@ def test_mark_applied_supports_source_and_logical_identity_lookup(
     assert store.load_current_batch(batch.source.source_id) == batch
     assert (
         store.find_current_batch(
+            tenant_id=batch.source.tenant_id,
             repository_id=FIXTURE_REPOSITORY_ID,
             relative_path="src\\fixtures\\greeter.py",
         )
@@ -540,6 +542,7 @@ def test_tombstone_then_higher_sequence_recreate_remains_replayable(
     assert store.load_current_batch(snapshot.source.source_id) == recreate
     assert (
         store.find_current_batch(
+            tenant_id=snapshot.source.tenant_id,
             repository_id=snapshot.source.repository_id,
             relative_path=snapshot.source.relative_path,
         )

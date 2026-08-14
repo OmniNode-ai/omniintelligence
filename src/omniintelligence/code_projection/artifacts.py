@@ -29,6 +29,7 @@ from omniintelligence.code_projection._canonical import (
     decode_json_no_duplicates,
     normalize_relative_path,
     normalize_repository_id,
+    normalize_tenant_id,
     sha256_hex,
 )
 from omniintelligence.code_projection.codec import (
@@ -38,9 +39,9 @@ from omniintelligence.code_projection.codec import (
 )
 from omniintelligence.code_projection.models import ModelCodeProjectionBatch
 
-_STATE_FORMAT_VERSION = "1.0.0"
-_SOURCE_ID_PATTERN = re.compile(r"^csrc_v1_[0-9a-f]{64}$")
-_BATCH_ID_PATTERN = re.compile(r"^cbatch_v1_[0-9a-f]{64}$")
+_STATE_FORMAT_VERSION = "2.0.0"
+_SOURCE_ID_PATTERN = re.compile(r"^csrc_v2_[0-9a-f]{64}$")
+_BATCH_ID_PATTERN = re.compile(r"^cbatch_v2_[0-9a-f]{64}$")
 _SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 _ARTIFACT_REF_PREFIX = "artifact://sha256/"
 _STATE_KEYS = frozenset(
@@ -53,6 +54,7 @@ _STATE_KEYS = frozenset(
         "relative_path",
         "repository_id",
         "source_id",
+        "tenant_id",
     }
 )
 
@@ -95,6 +97,7 @@ class CurrentCodeProjection:
 @dataclass(frozen=True, slots=True)
 class _CurrentState:
     source_id: str
+    tenant_id: str
     repository_id: str
     relative_path: str
     batch_id: str
@@ -112,6 +115,7 @@ class _CurrentState:
             "relative_path": self.relative_path,
             "repository_id": self.repository_id,
             "source_id": self.source_id,
+            "tenant_id": self.tenant_id,
         }
 
 
@@ -290,6 +294,7 @@ def _parse_current_state(payload: bytes) -> _CurrentState:
         raise _integrity_error("current state format_version is unsupported")
 
     source_id = _require_wire_string(decoded, "source_id")
+    tenant_id = _require_wire_string(decoded, "tenant_id")
     batch_id = _require_wire_string(decoded, "batch_id")
     raw_digest = _require_wire_string(decoded, "raw_content_hash_sha256")
     batch_digest = _require_wire_string(decoded, "batch_content_hash_sha256")
@@ -299,6 +304,10 @@ def _parse_current_state(payload: bytes) -> _CurrentState:
 
     if _SOURCE_ID_PATTERN.fullmatch(source_id) is None:
         raise _integrity_error("current state source_id is invalid")
+    try:
+        normalize_tenant_id(tenant_id)
+    except ValueError as exc:
+        raise _integrity_error("current state tenant_id is invalid") from exc
     if _BATCH_ID_PATTERN.fullmatch(batch_id) is None:
         raise _integrity_error("current state batch_id is invalid")
     if _SHA256_PATTERN.fullmatch(raw_digest) is None:
@@ -314,6 +323,7 @@ def _parse_current_state(payload: bytes) -> _CurrentState:
 
     return _CurrentState(
         source_id=source_id,
+        tenant_id=tenant_id,
         repository_id=repository_id,
         relative_path=relative_path,
         batch_id=batch_id,
@@ -577,6 +587,7 @@ class CodeProjectionArtifactStore:
 
         state = _CurrentState(
             source_id=incoming.batch.source.source_id,
+            tenant_id=incoming.batch.source.tenant_id,
             repository_id=incoming.batch.source.repository_id,
             relative_path=incoming.batch.source.relative_path,
             batch_id=incoming.batch.batch_id,
@@ -631,6 +642,7 @@ class CodeProjectionArtifactStore:
 
         expected_state = _CurrentState(
             source_id=batch.source.source_id,
+            tenant_id=batch.source.tenant_id,
             repository_id=batch.source.repository_id,
             relative_path=batch.source.relative_path,
             batch_id=batch.batch_id,
@@ -674,11 +686,13 @@ class CodeProjectionArtifactStore:
     def find_current(
         self,
         *,
+        tenant_id: str,
         repository_id: str,
         relative_path: str,
     ) -> CurrentCodeProjection | None:
         """Find current state by canonical logical repository and relative path."""
 
+        canonical_tenant_id = normalize_tenant_id(tenant_id)
         canonical_repository_id = normalize_repository_id(repository_id)
         canonical_relative_path = normalize_relative_path(relative_path)
         state_root = self._root / "current" / "by-source"
@@ -698,7 +712,8 @@ class CodeProjectionArtifactStore:
                 continue
             source = current.batch.source
             if (
-                source.repository_id == canonical_repository_id
+                source.tenant_id == canonical_tenant_id
+                and source.repository_id == canonical_repository_id
                 and source.relative_path == canonical_relative_path
             ):
                 return current
@@ -707,12 +722,14 @@ class CodeProjectionArtifactStore:
     def find_current_batch(
         self,
         *,
+        tenant_id: str,
         repository_id: str,
         relative_path: str,
     ) -> ModelCodeProjectionBatch | None:
         """Find the canonical current batch by logical source identity."""
 
         current = self.find_current(
+            tenant_id=tenant_id,
             repository_id=repository_id,
             relative_path=relative_path,
         )

@@ -19,18 +19,19 @@ from pydantic import (
 from omniintelligence.code_projection._canonical import (
     normalize_relative_path,
     normalize_repository_id,
+    normalize_tenant_id,
     normalize_text,
 )
 
 CODE_PROJECTION_SCHEMA_ID: Final[Literal["com.omninode.code-projection-batch"]] = (
     "com.omninode.code-projection-batch"
 )
-CODE_PROJECTION_SCHEMA_VERSION: Final[Literal["1.0.0"]] = "1.0.0"
+CODE_PROJECTION_SCHEMA_VERSION: Final[Literal["2.0.0"]] = "2.0.0"
 CODE_PROJECTION_NAME: Final[Literal["code-intelligence"]] = "code-intelligence"
-CODE_PROJECTION_VERSION: Final[Literal["1.0.0"]] = "1.0.0"
-CODE_PROJECTION_REDUCER_VERSION: Final[Literal["1.0.0"]] = "1.0.0"
-CODE_PROJECTION_IDENTITY_VERSION: Final[Literal["1.0.0"]] = "1.0.0"
-CODE_PROJECTION_MANIFEST_VERSION: Final[Literal["1.0.0"]] = "1.0.0"
+CODE_PROJECTION_VERSION: Final[Literal["2.0.0"]] = "2.0.0"
+CODE_PROJECTION_REDUCER_VERSION: Final[Literal["2.0.0"]] = "2.0.0"
+CODE_PROJECTION_IDENTITY_VERSION: Final[Literal["2.0.0"]] = "2.0.0"
+CODE_PROJECTION_MANIFEST_VERSION: Final[Literal["2.0.0"]] = "2.0.0"
 
 type ModelOperation = Literal["snapshot", "tombstone"]
 type ModelTombstoneReason = Literal["source_deleted", "policy_revoked"]
@@ -72,11 +73,19 @@ type ModelChunkKind = Literal["symbol", "module", "source"]
 type ModelReplayDecision = Literal["noop", "replace", "stale", "conflict"]
 
 Sha256Hex = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]
-SourceId = Annotated[str, StringConstraints(pattern=r"^csrc_v1_[0-9a-f]{64}$")]
-NodeId = Annotated[str, StringConstraints(pattern=r"^cnode_v1_[0-9a-f]{64}$")]
-EdgeId = Annotated[str, StringConstraints(pattern=r"^cedge_v1_[0-9a-f]{64}$")]
-DocumentId = Annotated[str, StringConstraints(pattern=r"^cdoc_v1_[0-9a-f]{64}$")]
-BatchId = Annotated[str, StringConstraints(pattern=r"^cbatch_v1_[0-9a-f]{64}$")]
+TenantId = Annotated[
+    str,
+    StringConstraints(
+        min_length=3,
+        max_length=63,
+        pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$",
+    ),
+]
+SourceId = Annotated[str, StringConstraints(pattern=r"^csrc_v2_[0-9a-f]{64}$")]
+NodeId = Annotated[str, StringConstraints(pattern=r"^cnode_v2_[0-9a-f]{64}$")]
+EdgeId = Annotated[str, StringConstraints(pattern=r"^cedge_v2_[0-9a-f]{64}$")]
+DocumentId = Annotated[str, StringConstraints(pattern=r"^cdoc_v2_[0-9a-f]{64}$")]
+BatchId = Annotated[str, StringConstraints(pattern=r"^cbatch_v2_[0-9a-f]{64}$")]
 ArtifactRef = Annotated[
     str, StringConstraints(pattern=r"^artifact://sha256/[0-9a-f]{64}$")
 ]
@@ -117,6 +126,7 @@ class ModelCodeProjectionSource(_FrozenWireModel):
     """Logical, content-addressed source identity independent of checkout root."""
 
     source_id: SourceId
+    tenant_id: TenantId
     repository_id: BoundedText
     relative_path: Annotated[str, StringConstraints(min_length=1, max_length=1024)]
     source_version: BoundedVersion
@@ -138,6 +148,11 @@ class ModelCodeProjectionSource(_FrozenWireModel):
             msg = "repository_id must already be canonical"
             raise ValueError(msg)
         return value
+
+    @field_validator("tenant_id")
+    @classmethod
+    def _require_canonical_tenant_id(cls, value: str) -> str:
+        return normalize_tenant_id(value)
 
     @field_validator("relative_path")
     @classmethod
@@ -168,6 +183,7 @@ class ModelCodeProjectionSource(_FrozenWireModel):
 class ModelCodeProjectionPolicy(_FrozenWireModel):
     """Closed privacy and access envelope inherited by every record."""
 
+    tenant_id: TenantId
     scope_ref: BoundedText
     access_scope: ModelAccessScope
     visibility: ModelAccessVisibility
@@ -181,6 +197,11 @@ class ModelCodeProjectionPolicy(_FrozenWireModel):
     @classmethod
     def _require_canonical_policy_text(cls, value: str) -> str:
         return _require_canonical_text(value)
+
+    @field_validator("tenant_id")
+    @classmethod
+    def _require_canonical_policy_tenant(cls, value: str) -> str:
+        return normalize_tenant_id(value)
 
 
 class ModelCodeProjectionProvenance(_FrozenWireModel):
@@ -346,10 +367,10 @@ class ModelCodeProjectionDocument(_FrozenWireModel):
 class ModelCodeProjectionReplayManifest(_FrozenWireModel):
     """Exact source-owned identifiers and checksums needed for replay planning."""
 
-    manifest_version: Literal["1.0.0"] = CODE_PROJECTION_MANIFEST_VERSION
-    projection_version: Literal["1.0.0"] = CODE_PROJECTION_VERSION
-    reducer_version: Literal["1.0.0"] = CODE_PROJECTION_REDUCER_VERSION
-    identity_version: Literal["1.0.0"] = CODE_PROJECTION_IDENTITY_VERSION
+    manifest_version: Literal["2.0.0"] = CODE_PROJECTION_MANIFEST_VERSION
+    projection_version: Literal["2.0.0"] = CODE_PROJECTION_VERSION
+    reducer_version: Literal["2.0.0"] = CODE_PROJECTION_REDUCER_VERSION
+    identity_version: Literal["2.0.0"] = CODE_PROJECTION_IDENTITY_VERSION
     source_id: SourceId
     cursor: ModelCodeProjectionCursor
     operation: ModelOperation
@@ -384,16 +405,16 @@ class ModelCodeProjectionBatch(_FrozenWireModel):
         extra="forbid",
         strict=True,
         from_attributes=True,
-        json_schema_extra={"$id": "urn:omninode:code-projection:batch:v1"},
+        json_schema_extra={"$id": "urn:omninode:code-projection:batch:v2"},
     )
 
     kind: Literal["code_projection_batch"] = "code_projection_batch"
     schema_id: Literal["com.omninode.code-projection-batch"] = CODE_PROJECTION_SCHEMA_ID
-    schema_version: Literal["1.0.0"] = CODE_PROJECTION_SCHEMA_VERSION
+    schema_version: Literal["2.0.0"] = CODE_PROJECTION_SCHEMA_VERSION
     projection_name: Literal["code-intelligence"] = CODE_PROJECTION_NAME
-    projection_version: Literal["1.0.0"] = CODE_PROJECTION_VERSION
-    reducer_version: Literal["1.0.0"] = CODE_PROJECTION_REDUCER_VERSION
-    identity_version: Literal["1.0.0"] = CODE_PROJECTION_IDENTITY_VERSION
+    projection_version: Literal["2.0.0"] = CODE_PROJECTION_VERSION
+    reducer_version: Literal["2.0.0"] = CODE_PROJECTION_REDUCER_VERSION
+    identity_version: Literal["2.0.0"] = CODE_PROJECTION_IDENTITY_VERSION
     batch_id: BatchId
     operation: ModelOperation
     tombstone_reason: ModelTombstoneReason | None = None
@@ -410,6 +431,12 @@ class ModelCodeProjectionBatch(_FrozenWireModel):
     def _require_closed_source_snapshot(self) -> Self:
         if self.cursor.partition != self.source.source_id:
             msg = "batch cursor partition must equal source.source_id"
+            raise ValueError(msg)
+        if self.policy.tenant_id != self.source.tenant_id:
+            msg = "policy tenant_id must equal source tenant_id"
+            raise ValueError(msg)
+        if not self.policy.scope_ref.startswith(f"tenant:{self.source.tenant_id}:"):
+            msg = "policy scope_ref must begin with the source tenant scope"
             raise ValueError(msg)
         if self.operation == "snapshot" and self.tombstone_reason is not None:
             msg = "snapshot must not carry tombstone_reason"

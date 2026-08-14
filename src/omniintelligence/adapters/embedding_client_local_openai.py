@@ -342,12 +342,55 @@ class EmbeddingClientLocalOpenAI:
                 f"Expected {expected_count} embeddings, got {len(items)}"
             )
 
-        # Sort by index to ensure correct order
-        sorted_items = sorted(items, key=lambda x: x.get("index", 0))
+        indexed_items: list[tuple[int, dict[str, object]]] = []
+        indices: list[int] = []
+        for item in items:
+            if not isinstance(item, dict):
+                raise EmbeddingClientError(
+                    f"Invalid embedding item format: {type(item)}"
+                )
+
+            index = item.get("index")
+            if isinstance(index, bool) or not isinstance(index, int):
+                raise EmbeddingClientError(
+                    "Embedding item index must be an explicit integer, "
+                    f"got {type(index)}"
+                )
+            indexed_items.append((index, item))
+            indices.append(index)
+
+        if len(set(indices)) != len(indices):
+            raise EmbeddingClientError(
+                f"Embedding item indices must be unique, got {indices}"
+            )
+
+        expected_indices = list(range(expected_count))
+        if sorted(indices) != expected_indices:
+            raise EmbeddingClientError(
+                "Embedding item indices must be exactly "
+                f"{expected_indices}, got {sorted(indices)}"
+            )
+
+        response_model = data.get("model")
+        if not isinstance(response_model, str):
+            raise EmbeddingClientError(
+                "Embedding response must include an explicit string model name"
+            )
+        if response_model != self._model_name:
+            raise EmbeddingClientError(
+                "Embedding response model does not match requested model: "
+                f"expected {self._model_name!r}, got {response_model!r}"
+            )
+
+        # OpenAI-compatible servers may return items out of order. Only sort after
+        # proving the indices form a complete one-to-one mapping to the inputs.
+        sorted_items = [
+            item for _, item in sorted(indexed_items, key=lambda indexed: indexed[0])
+        ]
 
         embeddings: list[list[float]] = []
         for item in sorted_items:
-            if not isinstance(item, dict) or "embedding" not in item:
+            if "embedding" not in item:
                 raise EmbeddingClientError(
                     f"Invalid embedding item format: {type(item)}"
                 )

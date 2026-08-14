@@ -19,12 +19,14 @@ from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 from omniintelligence.code_projection._canonical import (
+    canonical_json_bytes,
     normalize_relative_path,
     normalize_text,
     sha256_hex,
 )
 from omniintelligence.code_projection.codec import (
     build_code_projection_batch,
+    make_code_chunk,
     make_code_edge,
     make_code_node,
     make_code_source,
@@ -32,11 +34,13 @@ from omniintelligence.code_projection.codec import (
 from omniintelligence.code_projection.models import (
     ModelCodeProjectionBatch,
     ModelCodeProjectionCursor,
+    ModelCodeProjectionDocument,
     ModelCodeProjectionEdge,
     ModelCodeProjectionLabel,
     ModelCodeProjectionNode,
     ModelCodeProjectionPolicy,
     ModelCodeProjectionProvenance,
+    ModelCodeProjectionSource,
     ModelCodeProjectionSpan,
     ModelEntityKind,
     ModelRelationshipKind,
@@ -76,6 +80,8 @@ _AST_EXTRACTOR_VERSION = "1.0.0"
 _REGEX_EXTRACTOR_VERSION = "1.0.0"
 _CLASSIFIER_VERSION = "1.0.0"
 _QUALITY_SCORER_VERSION = "1.0.0"
+_SEMANTIC_CHUNKER_VERSION = "syntax-aware-v2"
+_MAX_DOCUMENT_SOURCE_BYTES = 16_000
 
 _ENTITY_KIND_BY_EXTRACTED_TYPE: dict[str, ModelEntityKind] = {
     "class": "class",
@@ -120,6 +126,22 @@ class _ExtractedSource:
     entities: tuple[ModelCodeEntity, ...]
     relationships: tuple[ModelCodeRelationship, ...]
     semantic_result: SemanticAnalysisResult | None
+
+
+@dataclass(frozen=True, slots=True)
+class CodeProjectionDocumentArtifact:
+    """Exact content bytes addressed by one semantic document record."""
+
+    document_id: str
+    content: bytes
+
+
+@dataclass(frozen=True, slots=True)
+class ProjectedCodeSource:
+    """Canonical batch plus the content blobs needed to embed its documents."""
+
+    batch: ModelCodeProjectionBatch
+    document_artifacts: tuple[CodeProjectionDocumentArtifact, ...]
 
 
 def _basis_points(value: float, *, field_name: str) -> int:
@@ -663,9 +685,211 @@ def _build_edges(
     return tuple(edges.values())
 
 
-def project_source(
+def _split_oversized_line(line: str) -> tuple[str, ...]:
+    """Split one pathological source line without breaking UTF-8 code points."""
+
+    parts: list[str] = []
+    current: list[str] = []
+    current_bytes = 0
+    for character in line:
+        encoded_size = len(character.encode("utf-8"))
+        if current and current_bytes + encoded_size > _MAX_DOCUMENT_SOURCE_BYTES:
+            parts.append("".join(current))
+            current = []
+            current_bytes = 0
+        current.append(character)
+        current_bytes += encoded_size
+    if current or not parts:
+        parts.append("".join(current))
+    return tuple(parts)
+
+
+def _source_chunks(
+    source_text: str,
+    source_span: ModelCodeProjectionSpan,
+) -> tuple[tuple[ModelCodeProjectionSpan, str], ...]:
+    """Return deterministic line-aware excerpts bounded for the embedder."""
+
+    source_lines = source_text.splitlines(keepends=True)
+    selected_lines = source_lines[source_span.start_line - 1 : source_span.end_line]
+    chunks: list[tuple[ModelCodeProjectionSpan, str]] = []
+    current: list[str] = []
+    current_bytes = 0
+    current_start = source_span.start_line
+    current_end = current_start
+
+    def flush() -> None:
+        nonlocal current, current_bytes, current_start, current_end
+        if not current:
+            return
+        chunks.append(
+            (
+                ModelCodeProjectionSpan(
+                    start_line=current_start,
+                    end_line=current_end,
+                ),
+                "".join(current),
+            )
+        )
+        current = []
+        current_bytes = 0
+
+    for offset, line in enumerate(selected_lines):
+        line_number = source_span.start_line + offset
+        parts = (
+            _split_oversized_line(line)
+            if len(line.encode("utf-8")) > _MAX_DOCUMENT_SOURCE_BYTES
+            else (line,)
+        )
+        for part in parts:
+            part_bytes = len(part.encode("utf-8"))
+            if current and current_bytes + part_bytes > _MAX_DOCUMENT_SOURCE_BYTES:
+                flush()
+            if not current:
+                current_start = line_number
+            current.append(part)
+            current_end = line_number
+            current_bytes += part_bytes
+            if current_bytes == _MAX_DOCUMENT_SOURCE_BYTES:
+                flush()
+    flush()
+    return tuple(chunks)
+
+
+def _semantic_content(
+    *,
+    node: ModelCodeProjectionNode | None,
+    source: ModelCodeProjectionSource,
+    source_excerpt: str | None,
+    part_number: int,
+    part_count: int,
+) -> bytes:
+    """Create deterministic embedding input without transport metadata."""
+
+    labels = (
+        [
+            {
+                "namespace": label.namespace,
+                "value": label.value,
+            }
+            for label in node.labels
+        ]
+        if node is not None
+        else []
+    )
+    payload: dict[str, object] = {
+        "document_kind": "code-symbol" if node is not None else "code-source",
+        "entity_kind": node.entity_kind if node is not None else "module",
+        "language": source.language,
+        "labels": labels,
+        "part_count": part_count,
+        "part_number": part_number,
+        "qualified_name": (
+            node.qualified_name if node is not None else source.relative_path
+        ),
+        "relative_path": source.relative_path,
+        "repository_id": source.repository_id,
+    }
+    if source_excerpt is not None:
+        payload["source_excerpt"] = source_excerpt
+    return canonical_json_bytes(payload)
+
+
+def _document_chunk_key(
+    *,
+    node: ModelCodeProjectionNode | None,
+    relative_path: str,
+    part_number: int,
+) -> str:
+    identity = node.qualified_name if node is not None else relative_path
+    identity_hash = sha256_hex(identity.encode("utf-8"))[:24]
+    kind = "symbol" if node is not None else "source"
+    return f"{kind}:{identity_hash}:part:{part_number:04d}"
+
+
+def _build_semantic_documents(
+    *,
+    source_text: str,
+    source: ModelCodeProjectionSource,
+    nodes: Sequence[ModelCodeProjectionNode],
+) -> tuple[
+    tuple[ModelCodeProjectionDocument, ...],
+    tuple[CodeProjectionDocumentArtifact, ...],
+]:
+    """Build content-addressed syntax chunks and their exact artifact bytes."""
+
+    document_pairs: list[
+        tuple[ModelCodeProjectionDocument, CodeProjectionDocumentArtifact]
+    ] = []
+    declared_nodes = tuple(
+        node for node in nodes if node.resolution_state == "declared"
+    )
+    module_nodes = tuple(
+        node for node in declared_nodes if node.entity_kind == "module"
+    )
+    embeddable_nodes = tuple(
+        node for node in declared_nodes if node.entity_kind != "module"
+    )
+    targets: tuple[ModelCodeProjectionNode | None, ...] = (
+        module_nodes + embeddable_nodes if declared_nodes else (None,)
+    )
+
+    for node in targets:
+        excerpts: tuple[tuple[ModelCodeProjectionSpan | None, str | None], ...]
+        if (
+            node is not None
+            and node.entity_kind != "module"
+            and node.source_span is not None
+        ):
+            excerpts = _source_chunks(source_text, node.source_span)
+        else:
+            excerpts = ((None, None),)
+        part_count = len(excerpts)
+        for part_number, (part_span, source_excerpt) in enumerate(excerpts, start=1):
+            content = _semantic_content(
+                node=node,
+                source=source,
+                source_excerpt=source_excerpt,
+                part_number=part_number,
+                part_count=part_count,
+            )
+            content_hash = sha256_hex(content)
+            document = make_code_chunk(
+                source_id=source.source_id,
+                source_hash_sha256=source.raw_content_hash_sha256,
+                chunk_key=_document_chunk_key(
+                    node=node,
+                    relative_path=source.relative_path,
+                    part_number=part_number,
+                ),
+                chunk_kind="symbol" if node is not None else "source",
+                anchor_node_id=node.node_id if node is not None else None,
+                source_span=part_span,
+                chunker_version=_SEMANTIC_CHUNKER_VERSION,
+                sanitized_content_hash_sha256=content_hash,
+                byte_count=len(content),
+            )
+            document_pairs.append(
+                (
+                    document,
+                    CodeProjectionDocumentArtifact(
+                        document_id=document.document_id,
+                        content=content,
+                    ),
+                )
+            )
+
+    document_pairs.sort(key=lambda item: item[0].document_id)
+    return (
+        tuple(item[0] for item in document_pairs),
+        tuple(item[1] for item in document_pairs),
+    )
+
+
+def project_source_with_documents(
     *,
     raw_source: bytes,
+    tenant_id: str,
     repository_id: str,
     relative_path: str,
     source_version: str,
@@ -677,8 +901,8 @@ def project_source(
     classification_config: Mapping[str, Any] | None = None,
     quality_config: Mapping[str, Any] | None = None,
     language_extractor_config: Mapping[str, Any] | None = None,
-) -> ModelCodeProjectionBatch:
-    """Map exact source bytes into one closed deterministic projection batch.
+) -> ProjectedCodeSource:
+    """Map source bytes into a canonical batch and embeddable artifacts.
 
     The function performs no filesystem, storage, network, or model I/O.
     Configuration and authority envelopes are explicit inputs; runtime UUIDs,
@@ -697,6 +921,7 @@ def project_source(
 
     source_hash = sha256_hex(raw_source)
     source = make_code_source(
+        tenant_id=tenant_id,
         repository_id=repository_id,
         relative_path=canonical_path,
         source_version=source_version,
@@ -728,11 +953,21 @@ def project_source(
         )
 
     if not extracted.entities and not extracted.relationships:
-        return build_code_projection_batch(
+        documents, document_artifacts = _build_semantic_documents(
+            source_text=source_text,
+            source=source,
+            nodes=(),
+        )
+        batch = build_code_projection_batch(
             source=source,
             cursor=cursor,
             policy=policy,
             provenance=provenance,
+            semantic_documents=documents,
+        )
+        return ProjectedCodeSource(
+            batch=batch,
+            document_artifacts=document_artifacts,
         )
 
     module_qualified_name = _module_qualified_name(canonical_path)
@@ -783,14 +1018,65 @@ def project_source(
         source_artifact_ref=source.artifact_ref,
         nodes=nodes,
     )
-    return build_code_projection_batch(
+    documents, document_artifacts = _build_semantic_documents(
+        source_text=source_text,
+        source=source,
+        nodes=tuple(nodes.values()),
+    )
+    batch = build_code_projection_batch(
         source=source,
         cursor=cursor,
         policy=policy,
         provenance=provenance,
         nodes=tuple(nodes.values()),
         edges=edges,
+        semantic_documents=documents,
+    )
+    return ProjectedCodeSource(
+        batch=batch,
+        document_artifacts=document_artifacts,
     )
 
 
-__all__ = ["CodeProjectionExtractionError", "project_source"]
+def project_source(
+    *,
+    raw_source: bytes,
+    tenant_id: str,
+    repository_id: str,
+    relative_path: str,
+    source_version: str,
+    language: ModelSourceLanguage,
+    cursor_authority: str,
+    cursor_sequence: int,
+    policy: ModelCodeProjectionPolicy,
+    provenance: ModelCodeProjectionProvenance,
+    classification_config: Mapping[str, Any] | None = None,
+    quality_config: Mapping[str, Any] | None = None,
+    language_extractor_config: Mapping[str, Any] | None = None,
+) -> ModelCodeProjectionBatch:
+    """Return only the canonical batch for pure contract consumers."""
+
+    return project_source_with_documents(
+        raw_source=raw_source,
+        tenant_id=tenant_id,
+        repository_id=repository_id,
+        relative_path=relative_path,
+        source_version=source_version,
+        language=language,
+        cursor_authority=cursor_authority,
+        cursor_sequence=cursor_sequence,
+        policy=policy,
+        provenance=provenance,
+        classification_config=classification_config,
+        quality_config=quality_config,
+        language_extractor_config=language_extractor_config,
+    ).batch
+
+
+__all__ = [
+    "CodeProjectionDocumentArtifact",
+    "CodeProjectionExtractionError",
+    "ProjectedCodeSource",
+    "project_source",
+    "project_source_with_documents",
+]

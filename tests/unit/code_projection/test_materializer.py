@@ -21,15 +21,34 @@ from omniintelligence.code_projection.materializer import (
     ModelProjectionNodeReadback,
     ModelProjectionReadback,
     ProjectionReadbackIntegrityError,
+    _application_lock_key,
     _decoded_labels,
     _decoded_record_payload,
     _metadata_mapping,
     _storage_qualified_name,
     assert_projection_readback,
 )
+from omniintelligence.code_projection.qdrant import (
+    ModelCodeProjectionQdrantReadback,
+    derive_code_projection_manifest_point_id,
+    derive_code_projection_point_id,
+)
 from tests.unit.code_projection.fixture_vectors import build_fixture_batches
 
 pytestmark = pytest.mark.unit
+
+
+def test_application_lock_key_is_stable_and_tenant_scoped() -> None:
+    first = _application_lock_key(tenant_id="tenant-alpha", source_id="source-one")
+
+    assert first == _application_lock_key(
+        tenant_id="tenant-alpha",
+        source_id="source-one",
+    )
+    assert first != _application_lock_key(
+        tenant_id="tenant-bravo",
+        source_id="source-one",
+    )
 
 
 def _labels_digest(node: ModelCodeProjectionNode) -> str:
@@ -51,11 +70,22 @@ def _matching_readback() -> tuple[
     ModelProjectionReadback,
 ]:
     batch = build_fixture_batches()["python_a_seq1.json"]
+    point_ids = tuple(
+        derive_code_projection_point_id(
+            tenant_id=batch.source.tenant_id,
+            document_id=document.document_id,
+            embedding_model="text-embedding-qwen3",
+            embedding_model_version="lab-2026-08-14",
+        )
+        for document in batch.semantic_documents
+    )
     node_names = {node.node_id: node.qualified_name for node in batch.nodes}
     readback = ModelProjectionReadback(
+        tenant_id=batch.source.tenant_id,
         source_id=batch.source.source_id,
         postgres_nodes=tuple(
             ModelProjectionNodeReadback(
+                tenant_id=batch.source.tenant_id,
                 batch_id=batch.batch_id,
                 node_id=node.node_id,
                 qualified_name=node.qualified_name,
@@ -74,6 +104,7 @@ def _matching_readback() -> tuple[
         ),
         postgres_edges=tuple(
             ModelProjectionEdgeReadback(
+                tenant_id=batch.source.tenant_id,
                 batch_id=batch.batch_id,
                 edge_id=edge.edge_id,
                 source_qualified_name=node_names[edge.source_node_id],
@@ -89,6 +120,7 @@ def _matching_readback() -> tuple[
         ),
         graph_nodes=tuple(
             ModelProjectionNodeReadback(
+                tenant_id=batch.source.tenant_id,
                 batch_id=batch.batch_id,
                 node_id=node.node_id,
                 qualified_name=node.qualified_name,
@@ -107,6 +139,7 @@ def _matching_readback() -> tuple[
         ),
         graph_edges=tuple(
             ModelProjectionEdgeReadback(
+                tenant_id=batch.source.tenant_id,
                 batch_id=batch.batch_id,
                 edge_id=edge.edge_id,
                 source_qualified_name=node_names[edge.source_node_id],
@@ -126,6 +159,24 @@ def _matching_readback() -> tuple[
         graph_edge_ids=tuple(edge.edge_id for edge in batch.edges),
         policy_payload_sha256=_record_digest(batch.policy),
         provenance_payload_sha256=_record_digest(batch.provenance),
+        qdrant=ModelCodeProjectionQdrantReadback(
+            tenant_id=batch.source.tenant_id,
+            source_id=batch.source.source_id,
+            batch_id=batch.batch_id,
+            operation=batch.operation,
+            manifest_point_id=derive_code_projection_manifest_point_id(
+                tenant_id=batch.source.tenant_id,
+                source_id=batch.source.source_id,
+                embedding_model="text-embedding-qwen3",
+                embedding_model_version="lab-2026-08-14",
+            ),
+            point_ids=point_ids,
+            document_ids=tuple(
+                document.document_id for document in batch.semantic_documents
+            ),
+            point_count=len(point_ids),
+            record_count=len(point_ids) + 1,
+        ),
     )
     return batch, readback
 
@@ -210,6 +261,14 @@ def test_readback_rejects_a_receipt_for_the_wrong_source() -> None:
 
     with pytest.raises(RuntimeError, match="readback source"):
         assert_projection_readback(batch, wrong_source)
+
+
+def test_readback_rejects_a_receipt_for_the_wrong_tenant() -> None:
+    batch, readback = _matching_readback()
+    wrong_tenant = readback.model_copy(update={"tenant_id": "tenant-other"})
+
+    with pytest.raises(RuntimeError, match="readback tenant"):
+        assert_projection_readback(batch, wrong_tenant)
 
 
 @pytest.mark.parametrize(
