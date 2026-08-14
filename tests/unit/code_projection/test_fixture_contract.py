@@ -28,6 +28,10 @@ _REPOSITORY_ROOT = FIXTURE_ROOT.parents[3]
 _SCHEMA_PATH = FIXTURE_ROOT / "code_projection_batch_v1.schema.json"
 _SCHEMA_DIGEST_PATH = FIXTURE_ROOT / "code_projection_batch_v1.schema.sha256"
 _REPLAY_MANIFEST_PATH = FIXTURE_ROOT / "replay_manifest.json"
+_FROZEN_SCHEMA_SHA256 = "91183d15b1aa9c9c3c4190af880de1196fbdd696f355e2a9dcec8f37b3f81aa1"  # pragma: allowlist secret  # noqa: E501
+_AUTHORITY_BASE_COMMIT = (
+    "8c67665add2b611307a78a3f351e0fac18c5bad8"  # pragma: allowlist secret  # noqa: E501
+)
 
 
 def _sha256(value: bytes) -> str:
@@ -55,7 +59,7 @@ def test_checked_in_schema_and_digest_match_the_frozen_model() -> None:
     assert checked_in_schema == expected_schema
     assert filename == _SCHEMA_PATH.name
     assert digest == _sha256(checked_in_schema)
-    assert digest == "91183d15b1aa9c9c3c4190af880de1196fbdd696f355e2a9dcec8f37b3f81aa1"
+    assert digest == _FROZEN_SCHEMA_SHA256
 
 
 def test_checked_in_batches_are_exact_factory_outputs_and_roundtrip() -> None:
@@ -78,9 +82,7 @@ def test_replay_manifest_is_canonical_and_pins_every_artifact_hash() -> None:
 
     assert raw_manifest == canonical_json_bytes(manifest) + b"\n"
     assert manifest["ticket"] == "OMN-16061"
-    assert manifest["authority_base_commit"] == (
-        "8c67665add2b611307a78a3f351e0fac18c5bad8"
-    )
+    assert manifest["authority_base_commit"] == _AUTHORITY_BASE_COMMIT
     assert manifest["canonical_framing"] == (
         "utf-8+nfc+sorted-keys+compact-json+single-lf"
     )

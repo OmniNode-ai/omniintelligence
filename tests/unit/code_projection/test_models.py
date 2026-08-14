@@ -295,9 +295,7 @@ def test_empty_source_has_explicit_content_addressed_snapshot() -> None:
     )
 
     assert batch.operation == "snapshot"
-    assert batch.source.raw_content_hash_sha256 == (
-        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-    )
+    assert batch.source.raw_content_hash_sha256 == _EMPTY_SHA256
     assert batch.source.artifact_ref == _artifact_ref(_EMPTY_SHA256)
     assert batch.source.byte_count == 0
     assert batch.nodes == batch.edges == batch.semantic_documents == ()
