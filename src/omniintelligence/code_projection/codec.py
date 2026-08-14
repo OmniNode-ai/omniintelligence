@@ -18,6 +18,7 @@ from omniintelligence.code_projection._canonical import (
     canonical_json_bytes,
     decode_json_no_duplicates,
     normalize_relative_path,
+    normalize_repository_id,
     normalize_text,
     sha256_hex,
     stable_id,
@@ -197,7 +198,7 @@ def make_code_source(
 ) -> ModelCodeProjectionSource:
     """Build one canonical logical source without accepting inline source bytes."""
 
-    canonical_repository_id = normalize_text(repository_id)
+    canonical_repository_id = normalize_repository_id(repository_id)
     canonical_relative_path = normalize_relative_path(relative_path)
     canonical_source_version = normalize_text(source_version)
     resolved_artifact_ref = artifact_ref or _artifact_ref(raw_content_hash_sha256)

@@ -94,6 +94,7 @@ def test_replay_manifest_is_canonical_and_pins_every_artifact_hash() -> None:
     )
 
     hashed_entries = [manifest["schema"], manifest["transform_manifest"]]
+    declared_content_fixture_paths: set[str] = set()
     for collection_name in (
         "source_fixtures",
         "sanitized_artifacts",
@@ -102,6 +103,20 @@ def test_replay_manifest_is_canonical_and_pins_every_artifact_hash() -> None:
         collection = manifest[collection_name]
         assert isinstance(collection, list)
         hashed_entries.extend(collection)
+        if collection_name in {"source_fixtures", "sanitized_artifacts"}:
+            for raw_entry in collection:
+                assert isinstance(raw_entry, dict)
+                path = raw_entry["path"]
+                assert isinstance(path, str)
+                declared_content_fixture_paths.add(path)
+
+    actual_content_fixture_paths = {
+        path.relative_to(_REPOSITORY_ROOT).as_posix()
+        for directory_name in ("sources", "sanitized")
+        for path in (FIXTURE_ROOT / directory_name).rglob("*")
+        if path.is_file()
+    }
+    assert declared_content_fixture_paths == actual_content_fixture_paths
 
     for raw_entry in hashed_entries:
         assert isinstance(raw_entry, dict)

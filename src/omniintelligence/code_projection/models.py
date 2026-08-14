@@ -85,7 +85,12 @@ BoundedVersion = Annotated[str, StringConstraints(min_length=1, max_length=128)]
 
 
 class _FrozenWireModel(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
+    model_config = ConfigDict(
+        frozen=True,
+        extra="forbid",
+        strict=True,
+        from_attributes=True,
+    )
 
 
 def _require_canonical_text(value: str) -> str:
@@ -378,6 +383,7 @@ class ModelCodeProjectionBatch(_FrozenWireModel):
         frozen=True,
         extra="forbid",
         strict=True,
+        from_attributes=True,
         json_schema_extra={"$id": "urn:omninode:code-projection:batch:v1"},
     )
 
