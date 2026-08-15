@@ -49,6 +49,7 @@ _PAYLOAD_DIGEST_FIELD: Final = "payload_sha256"
 _VECTOR_DIGEST_FIELD: Final = "embedding_vector_sha256"
 _DOCUMENT_RECORD_KIND: Final = "semantic_document"
 _MANIFEST_RECORD_KIND: Final = "source_manifest"
+MAX_CODE_PROJECTION_SEARCH_DOCUMENT_BYTES: Final = 131_072
 _FILTERED_KEYWORD_FIELDS: Final = (
     "tenant_id",
     "source_id",
@@ -195,6 +196,7 @@ class ModelCodeProjectionSearchHit(_FrozenModel):
     source_id: str
     batch_id: str
     document_id: str
+    byte_count: int = Field(ge=0, le=MAX_CODE_PROJECTION_SEARCH_DOCUMENT_BYTES)
     content_ref: str
     sanitized_content_hash_sha256: str
     chunk_key: str
@@ -1498,6 +1500,7 @@ class CodeProjectionQdrantStore:
                 source_id=cast(str, payload["source_id"]),
                 batch_id=cast(str, payload["batch_id"]),
                 document_id=cast(str, payload["document_id"]),
+                byte_count=cast(int, payload["byte_count"]),
                 content_ref=cast(str, payload["content_ref"]),
                 sanitized_content_hash_sha256=cast(
                     str,
@@ -1641,11 +1644,24 @@ class CodeProjectionQdrantStore:
                 )
             content_ref = payload.get("content_ref")
             content_hash = payload.get("sanitized_content_hash_sha256")
+            byte_count = payload.get("byte_count")
             if not isinstance(content_ref, str) or not isinstance(content_hash, str):
                 raise CodeProjectionQdrantIntegrityError(
                     "Qdrant search hit has no content-addressed source"
                 )
+            if (
+                not isinstance(byte_count, int)
+                or isinstance(byte_count, bool)
+                or not 0 <= byte_count <= MAX_CODE_PROJECTION_SEARCH_DOCUMENT_BYTES
+            ):
+                raise CodeProjectionQdrantIntegrityError(
+                    "Qdrant search content exceeds the serving document ceiling"
+                )
             content = self._content_resolver(content_ref)
+            if len(content) != byte_count:
+                raise CodeProjectionQdrantIntegrityError(
+                    "Qdrant search content artifact byte count does not match"
+                )
             if sha256_hex(content) != content_hash:
                 raise CodeProjectionQdrantIntegrityError(
                     "Qdrant search content artifact digest does not match"
@@ -1686,6 +1702,7 @@ __all__ = [
     "ModelCodeProjectionQdrantReadback",
     "ModelCodeProjectionCurrentGeneration",
     "ModelCodeProjectionSearchHit",
+    "MAX_CODE_PROJECTION_SEARCH_DOCUMENT_BYTES",
     "ProtocolCodeProjectionContentResolver",
     "ProtocolCodeProjectionCurrentGenerationResolver",
     "ProtocolCodeProjectionEmbeddingClient",

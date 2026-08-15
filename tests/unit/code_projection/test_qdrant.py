@@ -22,6 +22,7 @@ from omniintelligence.code_projection.codec import (
 )
 from omniintelligence.code_projection.extraction import project_source_with_documents
 from omniintelligence.code_projection.qdrant import (
+    MAX_CODE_PROJECTION_SEARCH_DOCUMENT_BYTES,
     CodeProjectionQdrantIntegrityError,
     CodeProjectionQdrantStore,
     ModelCodeProjectionCurrentGeneration,
@@ -115,10 +116,14 @@ def _artifact_bytes() -> dict[str, bytes]:
 def _store(
     client: _IndexedMemoryClient,
     embedding_client: _DeterministicEmbeddingClient,
+    *,
+    content_reads: list[str] | None = None,
 ) -> CodeProjectionQdrantStore:
     artifacts = _artifact_bytes()
 
     def resolve(content_ref: str) -> bytes:
+        if content_reads is not None:
+            content_reads.append(content_ref)
         try:
             return artifacts[content_ref]
         except KeyError as exc:
@@ -513,6 +518,65 @@ async def test_search_rejects_qdrant_generation_before_global_pointer_promotion(
                 query_text="Greeter",
                 tenant_id=batches["python_a_seq1.json"].source.tenant_id,
             )
+    finally:
+        await client.close()
+
+
+async def test_search_rejects_oversized_document_before_artifact_read() -> None:
+    client = _IndexedMemoryClient()
+    embedding_client = _DeterministicEmbeddingClient()
+    content_reads: list[str] = []
+    store = _store(client, embedding_client, content_reads=content_reads)
+    batch = build_fixture_batches()["python_a_seq1.json"]
+    try:
+        await store.apply(batch)
+        content_reads.clear()
+        records, _ = await client.scroll(
+            collection_name=store.config.collection_name,
+            scroll_filter=qmodels.Filter(
+                must=[
+                    qmodels.FieldCondition(
+                        key="record_kind",
+                        match=qmodels.MatchValue(value="semantic_document"),
+                    )
+                ]
+            ),
+            with_payload=True,
+            with_vectors=True,
+        )
+        assert len(records) == 1
+        record = records[0]
+        payload = cast(dict[str, Any], record.payload).copy()
+        payload["byte_count"] = MAX_CODE_PROJECTION_SEARCH_DOCUMENT_BYTES + 1
+        payload.pop("payload_sha256", None)
+        payload["payload_sha256"] = hashlib.sha256(
+            canonical_json_bytes(payload)
+        ).hexdigest()
+        vectors = record.vector
+        assert isinstance(vectors, dict)
+        vector = cast(list[float], vectors[store.config.vector_name])
+        await client.upsert(
+            collection_name=store.config.collection_name,
+            points=[
+                qmodels.PointStruct(
+                    id=record.id,
+                    vector={store.config.vector_name: vector},
+                    payload=payload,
+                )
+            ],
+            wait=True,
+        )
+
+        with pytest.raises(
+            CodeProjectionQdrantIntegrityError,
+            match="serving document ceiling",
+        ):
+            await store.search(
+                query_text="Greeter",
+                tenant_id=batch.source.tenant_id,
+                repository_id=batch.source.repository_id,
+            )
+        assert content_reads == []
     finally:
         await client.close()
 
