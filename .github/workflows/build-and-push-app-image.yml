@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 OmniNode Team
+#
+# Mirrors build-and-push-migrate-image.yml exactly (same steps, same AWS auth
+# path), but for the application image (deployment/docker/Dockerfile ->
+# ECR repo "omniintelligence", not "omniintelligence-migrate"), and triggered
+# on dev rather than main: onex-dev deploys from dev
+# (k8s/onex-dev/omniintelligence/deployment.yaml's image is set via
+# `kustomize edit set image` at deploy time from a dev-built digest), and the
+# migrate workflow's main-only trigger does not cover that path. Fixes the
+# gap that left the code-projection ingest Job (OMN-15922,
+# omninode_infra/k8s/onex-dev/projection/job-template.yaml) with no real
+# digest to pin -- deployment/docker/Dockerfile already does `COPY src/
+# src/`, so any image built from a commit at/after d94b7679 (OMN-16068)
+# contains src/omniintelligence/code_projection with no Dockerfile change
+# needed.
+name: Build and push app image to ECR
+on:
+  push:
+    branches: [dev]
+    paths:
+      - 'deployment/docker/Dockerfile'
+      - 'src/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/build-and-push-app-image.yml'
+  workflow_dispatch:
+concurrency:
+  group: build-app-${{ github.ref }}
+  cancel-in-progress: false
+permissions:
+  id-token: write
+  contents: read
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+  ECR_REPOSITORY: omniintelligence
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/omninode-github-actions-role
+          role-session-name: gha-build-app-omniintelligence
+          aws-region: ${{ env.AWS_REGION }}
+      - run: aws sts get-caller-identity
+      - uses: aws-actions/amazon-ecr-login@v2
+      - name: Build and push
+        env:
+          IMAGE_URI: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          docker build -f deployment/docker/Dockerfile -t "${IMAGE_URI}:${COMMIT_SHA}" -t "${IMAGE_URI}:dev-latest" .
+          docker push "${IMAGE_URI}:${COMMIT_SHA}"
+          docker push "${IMAGE_URI}:dev-latest"
