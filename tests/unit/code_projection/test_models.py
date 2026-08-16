@@ -28,12 +28,13 @@ from omniintelligence.code_projection.models import (
 
 pytestmark = pytest.mark.unit
 
-_SOURCE_ID = f"csrc_v1_{'1' * 64}"
-_NODE_ID_A = f"cnode_v1_{'1' * 64}"
-_NODE_ID_B = f"cnode_v1_{'2' * 64}"
-_EDGE_ID = f"cedge_v1_{'3' * 64}"
-_DOCUMENT_ID = f"cdoc_v1_{'4' * 64}"
-_BATCH_ID = f"cbatch_v1_{'5' * 64}"
+_TENANT_ID = "omninode-labs"
+_SOURCE_ID = f"csrc_v2_{'1' * 64}"
+_NODE_ID_A = f"cnode_v2_{'1' * 64}"
+_NODE_ID_B = f"cnode_v2_{'2' * 64}"
+_EDGE_ID = f"cedge_v2_{'3' * 64}"
+_DOCUMENT_ID = f"cdoc_v2_{'4' * 64}"
+_BATCH_ID = f"cbatch_v2_{'5' * 64}"
 _EMPTY_SHA256 = hashlib.sha256(b"").hexdigest()
 
 
@@ -48,6 +49,7 @@ def _artifact_ref(digest: str) -> str:
 def _source(*, raw_hash: str, byte_count: int) -> ModelCodeProjectionSource:
     return ModelCodeProjectionSource(
         source_id=_SOURCE_ID,
+        tenant_id=_TENANT_ID,
         repository_id="omninode/omniintelligence",
         relative_path="src/pkg/café.py",
         source_version="commit:0123456789abcdef",
@@ -82,31 +84,32 @@ def test_cursor_authority_must_be_nonempty_canonical_text(authority: str) -> Non
 
 def _policy() -> ModelCodeProjectionPolicy:
     return ModelCodeProjectionPolicy(
-        scope_ref="repository:omninode/omniintelligence",
+        tenant_id=_TENANT_ID,
+        scope_ref=f"tenant:{_TENANT_ID}:repository:omninode/omniintelligence",
         access_scope="repository",
         visibility="repository",
         redaction_state="sanitized",
         trust_tier="verified_source",
         retention_class="source_controlled",
-        policy_version="policy-v1",
-        metadata_allowlist_version="allowlist-v1",
+        policy_version="policy-v2",
+        metadata_allowlist_version="allowlist-v2",
     )
 
 
 def _provenance() -> ModelCodeProjectionProvenance:
-    config_hash = _sha256(b"extractor-config-v1")
-    manifest_hash = _sha256(b"transform-manifest-v1")
+    config_hash = _sha256(b"extractor-config-v2")
+    manifest_hash = _sha256(b"transform-manifest-v2")
     return ModelCodeProjectionProvenance(
         producer="omniintelligence.code_projection",
-        producer_version="1.0.0",
-        projection_builder_version="1.0.0",
+        producer_version="2.0.0",
+        projection_builder_version="2.0.0",
         extractor_name="python-ast",
-        extractor_version="1.0.0",
+        extractor_version="2.0.0",
         extractor_config_hash_sha256=config_hash,
         transform_manifest_ref=_artifact_ref(manifest_hash),
         transform_manifest_hash_sha256=manifest_hash,
-        labeler_version="deterministic-labeler-v1",
-        chunker_version="ast-span-v1",
+        labeler_version="deterministic-labeler-v2",
+        chunker_version="ast-span-v2",
     )
 
 
@@ -116,7 +119,7 @@ def _nodes() -> tuple[ModelCodeProjectionNode, ModelCodeProjectionNode]:
         value="class",
         confidence_basis_points=10_000,
         producer="python-ast",
-        producer_version="1.0.0",
+        producer_version="2.0.0",
     )
     declared = ModelCodeProjectionNode(
         node_id=_NODE_ID_A,
@@ -166,7 +169,7 @@ def _document(*, source_hash: str) -> ModelCodeProjectionDocument:
         chunk_kind="symbol",
         anchor_node_id=_NODE_ID_A,
         source_span=ModelCodeProjectionSpan(start_line=1, end_line=3),
-        chunker_version="ast-span-v1",
+        chunker_version="ast-span-v2",
         content_ref=_artifact_ref(sanitized_hash),
         sanitized_content_hash_sha256=sanitized_hash,
         byte_count=len(b"sanitized semantic projection"),
@@ -186,7 +189,7 @@ def _batch_with_secret_source() -> tuple[ModelCodeProjectionBatch, bytes]:
         operation="snapshot",
         source_hash_sha256=raw_hash,
         batch_id=_BATCH_ID,
-        record_checksum_sha256=_sha256(b"record-set-v1"),
+        record_checksum_sha256=_sha256(b"record-set-v2"),
         node_ids=tuple(node.node_id for node in nodes),
         edge_ids=(edge.edge_id,),
         document_ids=(document.document_id,),
@@ -229,7 +232,7 @@ def _label_payload(confidence: object) -> dict[str, object]:
         "value": "class",
         "confidence_basis_points": confidence,
         "producer": "python-ast",
-        "producer_version": "1.0.0",
+        "producer_version": "2.0.0",
     }
 
 
@@ -298,7 +301,9 @@ def test_empty_source_has_explicit_content_addressed_snapshot() -> None:
     assert batch.source.raw_content_hash_sha256 == _EMPTY_SHA256
     assert batch.source.artifact_ref == _artifact_ref(_EMPTY_SHA256)
     assert batch.source.byte_count == 0
-    assert batch.nodes == batch.edges == batch.semantic_documents == ()
+    assert batch.nodes == ()
+    assert batch.edges == ()
+    assert batch.semantic_documents == ()
 
 
 def test_authoritative_batch_contains_references_not_inline_sensitive_text() -> None:
@@ -323,6 +328,18 @@ def test_authoritative_batch_contains_references_not_inline_sensitive_text() -> 
     )
 
 
+def test_batch_rejects_policy_from_another_tenant() -> None:
+    batch, _ = _batch_with_secret_source()
+    payload = batch.model_dump(mode="python")
+    policy = payload["policy"]
+    assert isinstance(policy, dict)
+    policy["tenant_id"] = "tenant-other"
+    policy["scope_ref"] = "tenant:tenant-other:repository:omninode/omniintelligence"
+
+    with pytest.raises(ValidationError, match="policy tenant_id"):
+        ModelCodeProjectionBatch.model_validate(payload)
+
+
 @pytest.mark.parametrize(
     "relative_path",
     [
@@ -342,6 +359,35 @@ def test_source_model_requires_precanonicalized_relative_path(
         ModelCodeProjectionSource.model_validate(payload)
 
 
+@pytest.mark.parametrize(
+    "tenant_id",
+    [
+        "aa",
+        "a" * 64,
+        "Omninode",
+        "omninode_labs",
+        "-omninode",
+        "omninode-",
+        "omninode--labs",
+        "omninode labs",
+    ],
+)
+def test_source_model_rejects_noncanonical_tenant_slug(tenant_id: str) -> None:
+    payload = _source(raw_hash=_EMPTY_SHA256, byte_count=0).model_dump(mode="json")
+    payload["tenant_id"] = tenant_id
+
+    with pytest.raises(ValidationError, match="tenant_id"):
+        ModelCodeProjectionSource.model_validate(payload)
+
+
+@pytest.mark.parametrize("tenant_id", ["abc", "tenant-42", "9-labs"])
+def test_source_model_accepts_canonical_tenant_slug(tenant_id: str) -> None:
+    payload = _source(raw_hash=_EMPTY_SHA256, byte_count=0).model_dump(mode="json")
+    payload["tenant_id"] = tenant_id
+
+    assert ModelCodeProjectionSource.model_validate(payload).tenant_id == tenant_id
+
+
 @pytest.mark.parametrize("collection_name", ["nodes", "edges", "semantic_documents"])
 def test_batch_rejects_duplicate_stable_ids(collection_name: str) -> None:
     batch, _ = _batch_with_secret_source()
@@ -358,7 +404,7 @@ def test_batch_rejects_dangling_edge_endpoint() -> None:
     batch, _ = _batch_with_secret_source()
     payload = batch.model_dump()
     edge = batch.edges[0].model_dump()
-    edge["target_node_id"] = f"cnode_v1_{'9' * 64}"
+    edge["target_node_id"] = f"cnode_v2_{'9' * 64}"
     payload["edges"] = (ModelCodeProjectionEdge.model_validate(edge),)
 
     with pytest.raises(ValidationError, match="edge endpoint"):
@@ -369,7 +415,7 @@ def test_batch_rejects_dangling_document_anchor() -> None:
     batch, _ = _batch_with_secret_source()
     payload = batch.model_dump()
     document = batch.semantic_documents[0].model_dump()
-    document["anchor_node_id"] = f"cnode_v1_{'9' * 64}"
+    document["anchor_node_id"] = f"cnode_v2_{'9' * 64}"
     payload["semantic_documents"] = (
         ModelCodeProjectionDocument.model_validate(document),
     )
@@ -385,7 +431,7 @@ def test_batch_rejects_dangling_document_anchor() -> None:
         ({"edge_ids": ()}, "manifest edge_ids"),
         ({"document_ids": ()}, "manifest document_ids"),
         ({"source_hash_sha256": "9" * 64}, "manifest source hash"),
-        ({"batch_id": f"cbatch_v1_{'9' * 64}"}, "manifest batch_id"),
+        ({"batch_id": f"cbatch_v2_{'9' * 64}"}, "manifest batch_id"),
     ],
 )
 def test_batch_rejects_manifest_drift(

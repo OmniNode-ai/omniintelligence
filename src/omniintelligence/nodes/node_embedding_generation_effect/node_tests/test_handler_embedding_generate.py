@@ -600,7 +600,7 @@ class TestEmbeddingClientLocalOpenAI:
             base_url="http://localhost:8100",
             embedding_dimension=3,
         )
-        client = EmbeddingClientLocalOpenAI(config)
+        client = EmbeddingClientLocalOpenAI(config, model_name="test-model")
 
         response = {
             "data": [
@@ -619,7 +619,7 @@ class TestEmbeddingClientLocalOpenAI:
             base_url="http://localhost:8100",
             embedding_dimension=2,
         )
-        client = EmbeddingClientLocalOpenAI(config)
+        client = EmbeddingClientLocalOpenAI(config, model_name="test-model")
 
         response = {
             "data": [
@@ -635,6 +635,92 @@ class TestEmbeddingClientLocalOpenAI:
         # Should be sorted by index
         assert result[0] == [0.1, 0.2]
         assert result[1] == [0.3, 0.4]
+
+    @pytest.mark.parametrize("index", [None, "0", 0.0, True])
+    def test_parse_openai_response_rejects_non_integer_index(
+        self,
+        index: object,
+    ) -> None:
+        config = ModelEmbeddingClientConfig(
+            base_url="http://localhost:8100",
+            embedding_dimension=2,
+        )
+        client = EmbeddingClientLocalOpenAI(config, model_name="test-model")
+        response = {
+            "data": [{"embedding": [0.1, 0.2], "index": index}],
+            "model": "test-model",
+        }
+
+        with pytest.raises(
+            EmbeddingClientError,
+            match="index must be an explicit integer",
+        ):
+            client._parse_openai_response(response, expected_count=1)
+
+    def test_parse_openai_response_rejects_duplicate_indices(self) -> None:
+        config = ModelEmbeddingClientConfig(
+            base_url="http://localhost:8100",
+            embedding_dimension=2,
+        )
+        client = EmbeddingClientLocalOpenAI(config, model_name="test-model")
+        response = {
+            "data": [
+                {"embedding": [0.1, 0.2], "index": 0},
+                {"embedding": [0.3, 0.4], "index": 0},
+            ],
+            "model": "test-model",
+        }
+
+        with pytest.raises(EmbeddingClientError, match="indices must be unique"):
+            client._parse_openai_response(response, expected_count=2)
+
+    @pytest.mark.parametrize("indices", [[0, 2], [-1, 0]])
+    def test_parse_openai_response_rejects_non_contiguous_indices(
+        self,
+        indices: list[int],
+    ) -> None:
+        config = ModelEmbeddingClientConfig(
+            base_url="http://localhost:8100",
+            embedding_dimension=2,
+        )
+        client = EmbeddingClientLocalOpenAI(config, model_name="test-model")
+        response = {
+            "data": [
+                {"embedding": [0.1, 0.2], "index": indices[0]},
+                {"embedding": [0.3, 0.4], "index": indices[1]},
+            ],
+            "model": "test-model",
+        }
+
+        with pytest.raises(EmbeddingClientError, match="must be exactly"):
+            client._parse_openai_response(response, expected_count=2)
+
+    def test_parse_openai_response_rejects_missing_model(self) -> None:
+        config = ModelEmbeddingClientConfig(
+            base_url="http://localhost:8100",
+            embedding_dimension=2,
+        )
+        client = EmbeddingClientLocalOpenAI(config, model_name="test-model")
+        response = {"data": [{"embedding": [0.1, 0.2], "index": 0}]}
+
+        with pytest.raises(EmbeddingClientError, match="explicit string model name"):
+            client._parse_openai_response(response, expected_count=1)
+
+    def test_parse_openai_response_rejects_different_model(self) -> None:
+        config = ModelEmbeddingClientConfig(
+            base_url="http://localhost:8100",
+            embedding_dimension=2,
+        )
+        client = EmbeddingClientLocalOpenAI(config, model_name="requested-model")
+        response = {
+            "data": [{"embedding": [0.1, 0.2], "index": 0}],
+            "model": "different-model",
+        }
+
+        with pytest.raises(
+            EmbeddingClientError, match="does not match requested model"
+        ):
+            client._parse_openai_response(response, expected_count=1)
 
     def test_parse_openai_response_invalid_format(self) -> None:
         config = ModelEmbeddingClientConfig(base_url="http://localhost:8100")

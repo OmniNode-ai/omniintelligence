@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
 
-"""Builders for the checked-in OMN-16061 v1 replay vectors."""
+"""Builders for the checked-in OMN-16061 v2 replay vectors."""
 
 from __future__ import annotations
 
@@ -21,11 +21,15 @@ from omniintelligence.code_projection import (
     make_code_node,
     make_code_source,
 )
-from omniintelligence.code_projection.models import ModelSourceLanguage
+from omniintelligence.code_projection.models import (
+    ModelSourceLanguage,
+    ModelTombstoneReason,
+)
 
-FIXTURE_ROOT = Path(__file__).resolve().parents[2] / "fixtures/code_projection/v1"
+FIXTURE_ROOT = Path(__file__).resolve().parents[2] / "fixtures/code_projection/v2"
+FIXTURE_TENANT_ID = "omninode-fixtures"
 FIXTURE_REPOSITORY_ID = "github.com/OmniNode-ai/code-projection-fixtures"
-FIXTURE_CURSOR_AUTHORITY = "omninode.fixture-ledger.v1"
+FIXTURE_CURSOR_AUTHORITY = "omninode.fixture-ledger.v2"
 
 
 def fixture_bytes(relative_path: str) -> bytes:
@@ -44,14 +48,18 @@ def _artifact_ref(value: bytes) -> str:
 
 def _policy() -> ModelCodeProjectionPolicy:
     return ModelCodeProjectionPolicy(
-        scope_ref="repository:github.com/OmniNode-ai/code-projection-fixtures",
+        tenant_id=FIXTURE_TENANT_ID,
+        scope_ref=(
+            "tenant:omninode-fixtures:repository:"
+            "github.com/OmniNode-ai/code-projection-fixtures"
+        ),
         access_scope="repository",
         visibility="repository",
         redaction_state="sanitized",
         trust_tier="verified_source",
         retention_class="source_controlled",
-        policy_version="fixture-policy-v1",
-        metadata_allowlist_version="code-projection-metadata-v1",
+        policy_version="fixture-policy-v2",
+        metadata_allowlist_version="code-projection-metadata-v2",
     )
 
 
@@ -59,15 +67,15 @@ def _provenance() -> ModelCodeProjectionProvenance:
     transform_manifest = fixture_bytes("transform_manifest.json")
     return ModelCodeProjectionProvenance(
         producer="omniintelligence.code_projection.fixture_vectors",
-        producer_version="1.0.0",
-        projection_builder_version="1.0.0",
+        producer_version="2.0.0",
+        projection_builder_version="2.0.0",
         extractor_name="curated-fixture-mapper",
-        extractor_version="1.0.0",
-        extractor_config_hash_sha256=_sha256(b"curated-fixture-mapper-config-v1"),
+        extractor_version="2.0.0",
+        extractor_config_hash_sha256=_sha256(b"curated-fixture-mapper-config-v2"),
         transform_manifest_ref=_artifact_ref(transform_manifest),
         transform_manifest_hash_sha256=_sha256(transform_manifest),
         labeler_version=None,
-        chunker_version="fixture-chunker-v1",
+        chunker_version="fixture-chunker-v2",
     )
 
 
@@ -81,6 +89,7 @@ def _source(
     raw_source = fixture_bytes(physical_path)
     return (
         make_code_source(
+            tenant_id=FIXTURE_TENANT_ID,
             repository_id=FIXTURE_REPOSITORY_ID,
             relative_path=logical_path,
             source_version=source_revision,
@@ -178,7 +187,7 @@ def _python_snapshot(
         chunk_kind="symbol",
         anchor_node_id=greeter.node_id,
         source_span=greeter.source_span,
-        chunker_version="fixture-chunker-v1",
+        chunker_version="fixture-chunker-v2",
         sanitized_content_hash_sha256=_sha256(sanitized),
         byte_count=len(sanitized),
     )
@@ -234,7 +243,7 @@ def _typescript_snapshot() -> ModelCodeProjectionBatch:
         chunk_kind="symbol",
         anchor_node_id=widget.node_id,
         source_span=widget.source_span,
-        chunker_version="fixture-chunker-v1",
+        chunker_version="fixture-chunker-v2",
         sanitized_content_hash_sha256=_sha256(sanitized),
         byte_count=len(sanitized),
     )
@@ -264,32 +273,27 @@ def _empty_snapshot() -> ModelCodeProjectionBatch:
     )
 
 
-def _tombstone(*, reason: str, sequence: int) -> ModelCodeProjectionBatch:
+def _tombstone(
+    *, reason: ModelTombstoneReason, sequence: int
+) -> ModelCodeProjectionBatch:
     source, _ = _source(
         physical_path="sources/greeter.py.fixture",
         logical_path="src/fixtures/greeter.py",
         source_revision=f"fixture-{reason}-{sequence}",
         language="python",
     )
-    if reason == "source_deleted":
-        tombstone_reason = "source_deleted"
-    elif reason == "policy_revoked":
-        tombstone_reason = "policy_revoked"
-    else:
-        msg = f"unsupported fixture tombstone reason: {reason}"
-        raise ValueError(msg)
     return build_code_projection_batch(
         source=source,
         cursor=_cursor(source, sequence=sequence),
         policy=_policy(),
         provenance=_provenance(),
         operation="tombstone",
-        tombstone_reason=tombstone_reason,
+        tombstone_reason=reason,
     )
 
 
 def build_fixture_batches() -> dict[str, ModelCodeProjectionBatch]:
-    """Return every v1 batch in deterministic fixture-manifest order."""
+    """Return every v2 batch in deterministic fixture-manifest order."""
 
     return {
         "empty_python_seq1.json": _empty_snapshot(),

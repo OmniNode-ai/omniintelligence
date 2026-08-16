@@ -41,6 +41,7 @@ def _factory_ids(relative_path: str) -> tuple[str, str, str, str, str]:
     empty_hash = hashlib.sha256(b"").hexdigest()
     sanitized_hash = hashlib.sha256(b"sanitized").hexdigest()
     source = make_code_source(
+        tenant_id="omninode-dev",
         repository_id="omninode/omniintelligence",
         relative_path=relative_path,
         source_version="commit:abc",
@@ -94,11 +95,11 @@ def test_factory_ids_are_literal_stable_and_checkout_root_independent() -> None:
     posix_relative = posix_full.relative_to(posix_root).as_posix()
     windows_relative = str(windows_full.relative_to(windows_root))
     expected = (
-        "csrc_v1_8fb612471ba11c03b937ab6076a838feef70cab1b7f8129f7772c930db917143",
-        "cnode_v1_23a9f073ac6c521b93477be6beb49011029ed6006cc6db16bfea4e3a899a4a94",
-        "cnode_v1_1b6dee178ff5b4b739460eaed2a9277dec1d6eaef0d91af738109c78f32754bb",
-        "cedge_v1_f219bcaa6140b4f57006c22651d814f695089f91acc36db26b6a4a7d3efdaa61",
-        "cdoc_v1_252a7e3d4b4c3efade9520909a4c37110b0a14e547eca52bd7e1159442061cab",
+        "csrc_v2_b519ae38b82c688dc3f58ef6049a02a3c20141d90254ba2441ffcfa8c55ab47b",
+        "cnode_v2_554167b34d1094527e6d058d54e882e4b952b5a51c060383193feccdfa5f1436",
+        "cnode_v2_87e5422af7b867fafffcbbc976a7402da76ce12e6cd2ca6e7cff5caae716f195",
+        "cedge_v2_ccd5ad2690c2d55d1bc0c3f16e4d3ec0d814c39db7b43da19b83884f87f7e903",
+        "cdoc_v2_a01732c5ac2b121d611bdc23e2fc825f9cf5ec487d119c9bc2bbad02a154015d",
     )
 
     assert _factory_ids(posix_relative) == expected

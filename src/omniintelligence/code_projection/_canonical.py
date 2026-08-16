@@ -16,6 +16,7 @@ type JsonScalar = None | bool | int | str
 type JsonValue = JsonScalar | list[JsonValue] | dict[str, JsonValue]
 
 _SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
+_TENANT_ID_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 _WINDOWS_DRIVE_PATTERN = re.compile(r"^[A-Za-z]:")
 
 
@@ -27,6 +28,23 @@ def normalize_text(value: str) -> str:
     """Return the NFC-normalized representation used by canonical artifacts."""
 
     return unicodedata.normalize("NFC", value)
+
+
+def normalize_tenant_id(value: str) -> str:
+    """Validate the canonical tenant slug used in projection identity."""
+
+    normalized = normalize_text(value)
+    if (
+        normalized != value
+        or not 3 <= len(normalized) <= 63
+        or _TENANT_ID_PATTERN.fullmatch(normalized) is None
+    ):
+        msg = (
+            "tenant_id must be a 3-63 character lowercase slug containing "
+            "letters or digits separated by single hyphens"
+        )
+        raise ValueError(msg)
+    return normalized
 
 
 def normalize_repository_id(value: str) -> str:

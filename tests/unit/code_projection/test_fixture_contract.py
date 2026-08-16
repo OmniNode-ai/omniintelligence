@@ -19,18 +19,19 @@ from omniintelligence.code_projection import (
 from omniintelligence.code_projection._canonical import canonical_json_bytes
 from tests.unit.code_projection.fixture_vectors import (
     FIXTURE_ROOT,
+    FIXTURE_TENANT_ID,
     build_fixture_batches,
 )
 
 pytestmark = pytest.mark.unit
 
 _REPOSITORY_ROOT = FIXTURE_ROOT.parents[3]
-_SCHEMA_PATH = FIXTURE_ROOT / "code_projection_batch_v1.schema.json"
-_SCHEMA_DIGEST_PATH = FIXTURE_ROOT / "code_projection_batch_v1.schema.sha256"
+_SCHEMA_PATH = FIXTURE_ROOT / "code_projection_batch_v2.schema.json"
+_SCHEMA_DIGEST_PATH = FIXTURE_ROOT / "code_projection_batch_v2.schema.sha256"
 _REPLAY_MANIFEST_PATH = FIXTURE_ROOT / "replay_manifest.json"
-_FROZEN_SCHEMA_SHA256 = "91183d15b1aa9c9c3c4190af880de1196fbdd696f355e2a9dcec8f37b3f81aa1"  # pragma: allowlist secret  # noqa: E501
+_FROZEN_SCHEMA_SHA256 = "3aa5a86478ba9e8a1442e5f26fde25adf869f8b8747f438c4268088aecb31ef6"  # pragma: allowlist secret  # noqa: E501
 _AUTHORITY_BASE_COMMIT = (
-    "8c67665add2b611307a78a3f351e0fac18c5bad8"  # pragma: allowlist secret  # noqa: E501
+    "a4fa224a87cca950f3995bd7e618b075cf46d42b"  # pragma: allowlist secret  # noqa: E501
 )
 
 
@@ -74,6 +75,7 @@ def test_checked_in_batches_are_exact_factory_outputs_and_roundtrip() -> None:
         assert not checked_in.endswith(b"\n\n")
         assert checked_in == serialize_code_projection_batch(batch)
         assert parse_code_projection_batch(checked_in) == batch
+        assert batch.source.tenant_id == FIXTURE_TENANT_ID
 
 
 def test_replay_manifest_is_canonical_and_pins_every_artifact_hash() -> None:
@@ -82,7 +84,12 @@ def test_replay_manifest_is_canonical_and_pins_every_artifact_hash() -> None:
 
     assert raw_manifest == canonical_json_bytes(manifest) + b"\n"
     assert manifest["ticket"] == "OMN-16061"
+    assert manifest["tenant_id"] == FIXTURE_TENANT_ID
     assert manifest["authority_base_commit"] == _AUTHORITY_BASE_COMMIT
+    assert manifest["schema_version"] == "2.0.0"
+    assert manifest["identity_version"] == "2.0.0"
+    assert manifest["projection_version"] == "2.0.0"
+    assert manifest["reducer_version"] == "2.0.0"
     assert manifest["canonical_framing"] == (
         "utf-8+nfc+sorted-keys+compact-json+single-lf"
     )
@@ -103,6 +110,10 @@ def test_replay_manifest_is_canonical_and_pins_every_artifact_hash() -> None:
         collection = manifest[collection_name]
         assert isinstance(collection, list)
         hashed_entries.extend(collection)
+        if collection_name == "batch_fixtures":
+            for raw_entry in collection:
+                assert isinstance(raw_entry, dict)
+                assert raw_entry["tenant_id"] == FIXTURE_TENANT_ID
         if collection_name in {"source_fixtures", "sanitized_artifacts"}:
             for raw_entry in collection:
                 assert isinstance(raw_entry, dict)
@@ -182,4 +193,6 @@ def test_empty_source_is_a_snapshot_not_a_deletion() -> None:
     assert empty.tombstone_reason is None
     assert empty.source.byte_count == 0
     assert empty.source.raw_content_hash_sha256 == hashlib.sha256(b"").hexdigest()
-    assert empty.nodes == empty.edges == empty.semantic_documents == ()
+    assert empty.nodes == ()
+    assert empty.edges == ()
+    assert empty.semantic_documents == ()
