@@ -1,0 +1,3 @@
+interface Widget {
+  readonly id: string;
+}

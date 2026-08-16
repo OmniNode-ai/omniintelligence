@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""RAW_PYTHON_FIXTURE_BODY_V1: source bytes stay outside the projection batch."""
+
+
+class Greeter:
+    """Return deterministic greetings."""
+
+    def greet(self, name: str) -> str:
+        return f"hello {name}"
+
+
+def build_greeter() -> Greeter:
+    return Greeter()
