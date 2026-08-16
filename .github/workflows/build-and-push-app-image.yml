@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 OmniNode Team
 #
-# Mirrors build-and-push-migrate-image.yml exactly (same steps, same AWS auth
-# path), but for the application image (deployment/docker/Dockerfile ->
-# ECR repo "omniintelligence", not "omniintelligence-migrate"), and triggered
-# on dev rather than main: onex-dev deploys from dev
+# Mirrors build-and-push-migrate-image.yml's AWS-auth steps, but for the
+# application image (deployment/docker/Dockerfile -> ECR repo
+# "omniintelligence", not "omniintelligence-migrate"), and triggered on dev
+# rather than main: onex-dev deploys from dev
 # (k8s/onex-dev/omniintelligence/deployment.yaml's image is set via
 # `kustomize edit set image` at deploy time from a dev-built digest), and the
 # migrate workflow's main-only trigger does not cover that path. Fixes the
@@ -14,6 +14,19 @@
 # src/`, so any image built from a commit at/after d94b7679 (OMN-16068)
 # contains src/omniintelligence/code_projection with no Dockerfile change
 # needed.
+#
+# r2 (OMN-15922 repair round, D2 fix): deployment/docker/Dockerfile is
+# multi-stage (base/reducer/orchestrator/compute/effect/api/dev) and the
+# "mirrors migrate exactly" framing above does NOT extend to the build
+# invocation -- Dockerfile.migrate is single-stage, so it never needed
+# --target; this one does. An untargeted `docker build` here selects the
+# LAST stage (`dev`), which installs pytest and sets `CMD ["pytest", ...]`
+# with no server ENTRYPOINT -- that image was one push away from replacing
+# the running omniintelligence Deployment (k8s/onex-dev + onex-prod, which
+# expect an HTTP server on :8053 answering GET /health) with a test runner
+# that would crash-loop on start. `--target api` below pins the build to the
+# stage added for this purpose; the CMD/ENTRYPOINT guard step is
+# defense-in-depth in case --target regresses in a future edit.
 name: Build and push app image to ECR
 on:
   push:
@@ -48,11 +61,36 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
       - run: aws sts get-caller-identity
       - uses: aws-actions/amazon-ecr-login@v2
-      - name: Build and push
+      - name: Build (api target)
         env:
           IMAGE_URI: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}
           COMMIT_SHA: ${{ github.sha }}
         run: |
-          docker build -f deployment/docker/Dockerfile -t "${IMAGE_URI}:${COMMIT_SHA}" -t "${IMAGE_URI}:dev-latest" .
+          docker build -f deployment/docker/Dockerfile --target api \
+            -t "${IMAGE_URI}:${COMMIT_SHA}" -t "${IMAGE_URI}:dev-latest" .
+      - name: Guard -- refuse to publish a non-serving image (OMN-15922 D2)
+        env:
+          IMAGE_URI: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          entrypoint="$(docker inspect --format '{{json .Config.Entrypoint}}' "${IMAGE_URI}:${COMMIT_SHA}")"
+          cmd="$(docker inspect --format '{{json .Config.Cmd}}' "${IMAGE_URI}:${COMMIT_SHA}")"
+          echo "Entrypoint: ${entrypoint}"
+          echo "Cmd: ${cmd}"
+          # Cheap, mechanism-level guard: this repo's dev/test stage is the
+          # only stage that ever invokes pytest, and it is never the correct
+          # thing to run behind the omniintelligence Deployment's :8053
+          # readinessProbe. Catches a regressed/removed --target above before
+          # any push happens, independent of trusting the --target flag alone.
+          if printf '%s%s' "${entrypoint}" "${cmd}" | grep -qi 'pytest'; then
+            echo "::error::Built image's CMD/ENTRYPOINT invokes pytest -- refusing to push a test-stage image to the app ECR repo (${ECR_REPOSITORY}). Check the --target flag on the build step above."
+            exit 1
+          fi
+      - name: Push
+        env:
+          IMAGE_URI: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
           docker push "${IMAGE_URI}:${COMMIT_SHA}"
           docker push "${IMAGE_URI}:dev-latest"
