@@ -18,7 +18,7 @@ resolution-markers = [
 
 [manifest]
 overrides = [
-    { name = "omnibase-core", git = "https://github.com/OmniNode-ai/omnibase_core.git?rev=a2562165d7ab1358efb87df8ef8757064eef5ce7" },
+    { name = "omnibase-core", specifier = ">=0.46.3,<0.47.0" },
     { name = "omnibase-infra", git = "https://github.com/OmniNode-ai/omnibase_infra.git?rev=ead076af5762be7777a42d52e3ed8668f2d0fa0d" },
     { name = "omnibase-spi", specifier = ">=0.23.1,<0.24.0" },
     { name = "ruff", specifier = "==0.15.8" },
@@ -2773,7 +2773,7 @@ wheels = [
 [[package]]
 name = "omnibase-core"
 version = "0.46.8"
-source = { git = "https://github.com/OmniNode-ai/omnibase_core.git?rev=a2562165d7ab1358efb87df8ef8757064eef5ce7#a2562165d7ab1358efb87df8ef8757064eef5ce7" }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "blake3" },
     { name = "click" },
@@ -2788,6 +2788,10 @@ dependencies = [
     { name = "ruamel-yaml" },
     { name = "tree-sitter" },
     { name = "tree-sitter-python" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5b/0e/0ebf9e63def1f27fffc521ad8a2b49fb8d424f19d13c3319947603fcb3c9/omnibase_core-0.46.8.tar.gz", hash = "sha256:2151f37eef3ea40c2d66205bc76357d375ecfdc7fb3ffbc7762640147bdb365b", size = 9613131, upload-time = "2026-08-01T07:45:41.33Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/27/d3/ac0a9e291f002a09a714ffb4e9d95e8da3647e8665fd7e4e5fe99bf590ee/omnibase_core-0.46.8-py3-none-any.whl", hash = "sha256:63be9e7e9f15b41cb1c392b7dc76f5dc1cdd929711850cd512cf8494f0606699", size = 6667486, upload-time = "2026-08-01T00:02:16.598Z" },
 ]
 
 [[package]]
@@ -3022,7 +3026,7 @@ requires-dist = [
     { name = "confluent-kafka", specifier = ">=2.12.0,<3.0.0" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "numpy", specifier = ">=1.26.0" },
-    { name = "omnibase-core", git = "https://github.com/OmniNode-ai/omnibase_core.git?rev=a2562165d7ab1358efb87df8ef8757064eef5ce7" },
+    { name = "omnibase-core", specifier = ">=0.46.3,<0.47.0" },
     { name = "omnibase-infra", git = "https://github.com/OmniNode-ai/omnibase_infra.git?rev=ead076af5762be7777a42d52e3ed8668f2d0fa0d" },
     { name = "omnimarket", git = "https://github.com/OmniNode-ai/omnimarket.git?rev=54fa07dd0d46e7ba719a201a950626a041ad6433" },
     { name = "pydantic", specifier = ">=2.12.5,<3.0.0" },
@@ -3048,7 +3052,7 @@ all = [
     { name = "markdown", specifier = ">=3.8" },
     { name = "mypy", specifier = ">=1.17.0" },
     { name = "neo4j", specifier = ">=5.28.2" },
-    { name = "omnibase-core", git = "https://github.com/OmniNode-ai/omnibase_core.git?rev=a2562165d7ab1358efb87df8ef8757064eef5ce7" },
+    { name = "omnibase-core", specifier = ">=0.46.3,<0.47.0" },
     { name = "omnibase-infra", git = "https://github.com/OmniNode-ai/omnibase_infra.git?rev=ead076af5762be7777a42d52e3ed8668f2d0fa0d" },
     { name = "omnibase-spi", specifier = ">=0.23.1,<0.24.0" },
     { name = "omnimarket", git = "https://github.com/OmniNode-ai/omnimarket.git?rev=54fa07dd0d46e7ba719a201a950626a041ad6433" },
@@ -3091,7 +3095,7 @@ core = [
     { name = "logfire", specifier = ">=0.30.0" },
     { name = "markdown", specifier = ">=3.8" },
     { name = "neo4j", specifier = ">=5.28.2" },
-    { name = "omnibase-core", git = "https://github.com/OmniNode-ai/omnibase_core.git?rev=a2562165d7ab1358efb87df8ef8757064eef5ce7" },
+    { name = "omnibase-core", specifier = ">=0.46.3,<0.47.0" },
     { name = "omnibase-infra", git = "https://github.com/OmniNode-ai/omnibase_infra.git?rev=ead076af5762be7777a42d52e3ed8668f2d0fa0d" },
     { name = "omnibase-spi", specifier = ">=0.23.1,<0.24.0" },
     { name = "omnimarket", git = "https://github.com/OmniNode-ai/omnimarket.git?rev=54fa07dd0d46e7ba719a201a950626a041ad6433" },
