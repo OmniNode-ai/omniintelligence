@@ -151,7 +151,7 @@ jobs:
 
       - name: Dispatch plugin-release to omnibase_infra
         if: steps.token_check.outputs.has_token == 'true'
-        uses: peter-evans/repository-dispatch@v4
+        uses: peter-evans/repository-dispatch@28959ce8df70de7be546dd1250a005dd32156697 # v4.0.1
         with:
           token: ${{ steps.app-token.outputs.token }}
           repository: OmniNode-ai/omnibase_infra
