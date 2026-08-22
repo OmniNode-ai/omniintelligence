@@ -240,11 +240,19 @@ all = [
 onex-change-control = { git = "https://github.com/OmniNode-ai/onex_change_control.git", rev = "dd2620d18001495b8d0f493b421b38399e9aab4b" } # pragma: allowlist secret  # OMN-15129: was 4877d3c2 (2026-05-04), conflicted with nested pin from bumped omnimarket rev; aligned to the SHA omnimarket@54fa07dd already nests
 # Release v0.24.0: pin to release tags
 omnimarket = { git = "https://github.com/OmniNode-ai/omnimarket.git", rev = "54fa07dd0d46e7ba719a201a950626a041ad6433" } # pragma: allowlist secret  # OMN-15129: was tag v0.4.0 (nested compat pin git-tag v0.5.0 conflicted with omnibase-infra requiring compat==0.5.6); this rev (2026-07-10, earliest available) resolves compat==0.5.6 from PyPI (OMN-13878), matching # raw-override-ok: OMN-15145 pin is 217+ commits behind omnimarket dev as of the OMN-15144 staleness gate landing; refresh tracked in OMN-15145 (requires re-verifying nested compat/core resolution, out of scope for the gate PR itself)
-omnibase-infra = { git = "https://github.com/OmniNode-ai/omnibase_infra.git", rev = "ead076af5762be7777a42d52e3ed8668f2d0fa0d" } # pragma: allowlist secret  # raw-override-ok: OMN-15145 coupled infra/core/compat refresh is tracked with the stale omnimarket pin
 # omnibase-core git-rev override removed under OMN-16287 (2026-08-20): the OMN-14758
 # omnibase_infra override this comment cited was deleted 2026-08-01 (OMN-14628), and
 # PyPI now has releases past the pinned unreleased rev — resolves from the declared
 # range (>=0.46.3,<0.47.0) in [project.dependencies] instead.
+# omnibase-infra git-rev override removed under OMN-15604 (2026-08-21): pinned rev
+# ead076af5762be7777a42d52e3ed8668f2d0fa0d (v0.38.4-era, 2026-07-25) IS an ancestor
+# of released v0.38.9 (`git merge-base --is-ancestor ead076af v0.38.9` = true) and is
+# 346 files behind it — the override was blocking PyPI 0.38.9 for no live reason; the
+# OMN-15145 "coupled infra/core/compat refresh" this cited is resolved by removing the
+# override, not by keeping it. Resolves from the declared range (>=0.38.4,<0.39.0) in
+# [project.dependencies] instead. This is also the concrete case OMN-15604 AC4 flags:
+# a git-source override makes any omnibase-infra release-cascade bump a structural
+# no-op until the override is removed by hand.
 
 [tool.ruff]
 target-version = "py312"
