@@ -19,7 +19,7 @@ resolution-markers = [
 [manifest]
 overrides = [
     { name = "omnibase-core", specifier = ">=0.46.3,<0.47.0" },
-    { name = "omnibase-infra", git = "https://github.com/OmniNode-ai/omnibase_infra.git?rev=ead076af5762be7777a42d52e3ed8668f2d0fa0d" },
+    { name = "omnibase-infra", specifier = ">=0.38.4,<0.39.0" },
     { name = "omnibase-spi", specifier = ">=0.23.1,<0.24.0" },
     { name = "ruff", specifier = "==0.15.8" },
 ]
@@ -2796,8 +2796,8 @@ wheels = [
 
 [[package]]
 name = "omnibase-infra"
-version = "0.38.4"
-source = { git = "https://github.com/OmniNode-ai/omnibase_infra.git?rev=ead076af5762be7777a42d52e3ed8668f2d0fa0d#ead076af5762be7777a42d52e3ed8668f2d0fa0d" }
+version = "0.38.9"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "a2a-sdk" },
     { name = "aiofiles" },
@@ -2850,6 +2850,10 @@ dependencies = [
     { name = "textual" },
     { name = "uvicorn" },
     { name = "watchdog" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/be/3e/a82e87415dae4fa92e26f505fc03031c39907aae5ec7a1ea7dbb9c8de5d2/omnibase_infra-0.38.9.tar.gz", hash = "sha256:2d8f0a16f9ecb854fd62e285bbae0b0ca2699ecf1e6d86f5320f95e0b35270b2", size = 12049328, upload-time = "2026-08-22T01:08:20.32Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/90/6f/70aeadbd161e123a99ae3d56c8a71edbf9d62682b10f7671a94e55ee3876/omnibase_infra-0.38.9-py3-none-any.whl", hash = "sha256:452052e06a2b18411be8f6ebca403441e8c6d164b61ce202e365231984e91d25", size = 5948584, upload-time = "2026-08-22T01:08:07.969Z" },
 ]
 
 [[package]]
@@ -3027,7 +3031,7 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "numpy", specifier = ">=1.26.0" },
     { name = "omnibase-core", specifier = ">=0.46.3,<0.47.0" },
-    { name = "omnibase-infra", git = "https://github.com/OmniNode-ai/omnibase_infra.git?rev=ead076af5762be7777a42d52e3ed8668f2d0fa0d" },
+    { name = "omnibase-infra", specifier = ">=0.38.4,<0.39.0" },
     { name = "omnimarket", git = "https://github.com/OmniNode-ai/omnimarket.git?rev=54fa07dd0d46e7ba719a201a950626a041ad6433" },
     { name = "pydantic", specifier = ">=2.12.5,<3.0.0" },
     { name = "pydantic-settings", specifier = ">=2.7.0,<3.0.0" },
@@ -3053,7 +3057,7 @@ all = [
     { name = "mypy", specifier = ">=1.17.0" },
     { name = "neo4j", specifier = ">=5.28.2" },
     { name = "omnibase-core", specifier = ">=0.46.3,<0.47.0" },
-    { name = "omnibase-infra", git = "https://github.com/OmniNode-ai/omnibase_infra.git?rev=ead076af5762be7777a42d52e3ed8668f2d0fa0d" },
+    { name = "omnibase-infra", specifier = ">=0.38.4,<0.39.0" },
     { name = "omnibase-spi", specifier = ">=0.23.1,<0.24.0" },
     { name = "omnimarket", git = "https://github.com/OmniNode-ai/omnimarket.git?rev=54fa07dd0d46e7ba719a201a950626a041ad6433" },
     { name = "onex-change-control", git = "https://github.com/OmniNode-ai/onex_change_control.git?rev=dd2620d18001495b8d0f493b421b38399e9aab4b" },
@@ -3096,7 +3100,7 @@ core = [
     { name = "markdown", specifier = ">=3.8" },
     { name = "neo4j", specifier = ">=5.28.2" },
     { name = "omnibase-core", specifier = ">=0.46.3,<0.47.0" },
-    { name = "omnibase-infra", git = "https://github.com/OmniNode-ai/omnibase_infra.git?rev=ead076af5762be7777a42d52e3ed8668f2d0fa0d" },
+    { name = "omnibase-infra", specifier = ">=0.38.4,<0.39.0" },
     { name = "omnibase-spi", specifier = ">=0.23.1,<0.24.0" },
     { name = "omnimarket", git = "https://github.com/OmniNode-ai/omnimarket.git?rev=54fa07dd0d46e7ba719a201a950626a041ad6433" },
     { name = "openai", specifier = ">=1.71.0" },
@@ -5118,11 +5122,11 @@ wheels = [
 
 [[package]]
 name = "sqlparse"
-version = "0.5.5"
+version = "0.6.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/90/76/437d71068094df0726366574cf3432a4ed754217b436eb7429415cf2d480/sqlparse-0.5.5.tar.gz", hash = "sha256:e20d4a9b0b8585fdf63b10d30066c7c94c5d7a7ec47c889a2d83a3caa93ff28e", size = 120815, upload-time = "2025-12-19T07:17:45.073Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/5f/d3/3f06a1006f2261d1342aefb3c71eed02f5d4ca5bdbecd86ebc12ad38306e/sqlparse-0.6.0.tar.gz", hash = "sha256:113c35c75365ab9cc9c7231d68c6428fb11c085fc8e9eb1ad659b7ddbf6cd2b9", size = 178477, upload-time = "2026-08-13T19:16:06.396Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/49/4b/359f28a903c13438ef59ebeee215fb25da53066db67b305c125f1c6d2a25/sqlparse-0.5.5-py3-none-any.whl", hash = "sha256:12a08b3bf3eec877c519589833aed092e2444e68240a3577e8e26148acc7b1ba", size = 46138, upload-time = "2025-12-19T07:17:46.573Z" },
+    { url = "https://files.pythonhosted.org/packages/d9/50/f00935da0ec7cbf325f8dc4f772ae46fbc7b672dd62876e73f0a94adda57/sqlparse-0.6.0-py3-none-any.whl", hash = "sha256:b861c0288ce2fa56209a9a6412d2e066ac664b3873b89c26c9d8415e8e32996f", size = 50070, upload-time = "2026-08-13T19:16:04.062Z" },
 ]
 
 [[package]]
