@@ -52,10 +52,14 @@ def test_load_registry_preserves_endpoint_config_fields() -> None:
 
     deepseek = contract.models[MODEL_DEEPSEEK_R1]
     assert deepseek.env_var == "LLM_DEEPSEEK_R1_URL"
-    assert deepseek.default_url == "http://192.168.86.201:8001"
+    # OMN-16407 residual (2026-08-23): repointed 8001 -> 8000 after the RTX
+    # 4090 this key targeted was physically removed for RMA; api_model_id
+    # now matches the live-served SGLang id on :8000 (same endpoint
+    # qwen3-review / qwen3-review-b use).
+    assert deepseek.default_url == "http://192.168.86.201:8000"
     assert deepseek.kind == "reasoning"
     assert deepseek.timeout_seconds == 300.0
-    assert deepseek.api_model_id == "Corianas/DeepSeek-R1-Distill-Qwen-14B-AWQ"
+    assert deepseek.api_model_id == "qwen3.8"
 
     codex = contract.models["codex"]
     assert codex.env_var == "CODEX_BINARY"

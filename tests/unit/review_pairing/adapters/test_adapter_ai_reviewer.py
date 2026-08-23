@@ -442,6 +442,12 @@ class TestModelRegistry:
         assert config.kind == "reasoning"
         assert config.timeout_seconds == 300.0
 
+    def test_deepseek_r1_enable_thinking_false(self) -> None:
+        """OMN-16407 residual: repointed to the same SGLang :8000 endpoint
+        as qwen3-review/qwen3-review-b, which requires enable_thinking:false
+        to avoid the truncated-preamble bug (OMN-14176)."""
+        assert MODEL_REGISTRY["deepseek-r1"].enable_thinking is False
+
     def test_qwen3_coder_config(self) -> None:
         config = MODEL_REGISTRY["qwen3-coder"]
         assert config.env_var == "LLM_CODER_URL"
@@ -505,22 +511,27 @@ class TestModelRegistry:
 
         with patch.dict("os.environ", {}, clear=True):
             url = _resolve_model_url("deepseek-r1")
-        assert url == "http://192.168.86.201:8001"
+        assert url == "http://192.168.86.201:8000"
 
     def test_deepseek_r1_default_model_id(self) -> None:
-        """Assert deepseek-r1 resolves correct live model ID (OMN-8654)."""
+        """Assert deepseek-r1 resolves the live model ID (OMN-8654; repointed
+        OMN-16407 residual 2026-08-23 after the RTX 4090 backend was
+        physically removed for RMA -- now the same SGLang :8000 id
+        qwen3-review/qwen3-review-b serve)."""
         config = MODEL_REGISTRY["deepseek-r1"]
-        assert config.api_model_id == "Corianas/DeepSeek-R1-Distill-Qwen-14B-AWQ"
+        assert config.api_model_id == "qwen3.8"
 
-    def test_deepseek_r1_default_url_is_201_8001(self) -> None:
-        """Assert deepseek-r1 default URL points to .201:8001 (OMN-8654)."""
+    def test_deepseek_r1_default_url_is_201_8000(self) -> None:
+        """Assert deepseek-r1 default URL points to .201:8000 (OMN-8654;
+        repointed OMN-16407 residual 2026-08-23 -- :8001's RTX 4090 was
+        physically removed for RMA)."""
         from omniintelligence.review_pairing.adapters.adapter_ai_reviewer import (
             _resolve_model_url,
         )
 
         with patch.dict("os.environ", {}, clear=True):
             url = _resolve_model_url("deepseek-r1")
-        assert url == "http://192.168.86.201:8001"
+        assert url == "http://192.168.86.201:8000"
 
     def test_unknown_model_raises(self) -> None:
         from omniintelligence.review_pairing.adapters.adapter_ai_reviewer import (
