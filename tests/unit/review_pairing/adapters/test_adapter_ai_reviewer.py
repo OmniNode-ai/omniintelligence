@@ -462,10 +462,14 @@ class TestModelRegistry:
     def test_qwen3_review_b_enable_thinking_false(self) -> None:
         assert MODEL_REGISTRY["qwen3-review-b"].enable_thinking is False
 
-    def test_qwen3_review_b_timeout_raised(self) -> None:
-        """OMN-15115: raised 600 -> 1200 to match real measured throughput
-        (~4.3-4.6 tok/s, not the ~9 tok/s assumed by the OMN-14176 600s value)."""
-        assert MODEL_REGISTRY["qwen3-review-b"].timeout_seconds == 1200.0
+    def test_qwen3_review_b_timeout_lowered_after_gpu1_rma(self) -> None:
+        """OMN-16407: lowered 1200 -> 300 after the RTX 4090 qwen3-review-b
+        targeted was physically removed for RMA and it was repointed to the
+        SGLang :8000 endpoint, live-measured this session at ~131 tok/s
+        (a 37,230-prompt-token / 3,694-completion-token real review payload
+        completed in 34.7s wall-clock, finish_reason=stop). 300s keeps
+        ~8.6x margin over that measured worst case."""
+        assert MODEL_REGISTRY["qwen3-review-b"].timeout_seconds == 300.0
 
     def test_qwen3_review_b_max_retries_lowered(self) -> None:
         """OMN-15115: lowered default(3) -> 1 -- retrying a systematically-slow
