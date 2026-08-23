@@ -40,12 +40,25 @@ api_fallback_keys:
   - "codex"
 
 models:
+  # deepseek-r1 — REPOINTED (OMN-16407 residual, 2026-08-23) from the now-
+  # physically-removed RTX 4090 (.201:8001, GPU1 sent for RMA at the
+  # 2026-08-23 ~13:00Z reboot) to the same SGLang endpoint qwen3-review /
+  # qwen3-review-b use (.201:8000, "qwen3.8" / Qwen3.8-27B NVFP4). This key
+  # is both default_model_key and a member of local_model_keys below, so
+  # deletion is NOT safe: model_registry_loader._validate_cross_refs raises
+  # ModelRegistryLoadError (hard import-time failure) if default_model_key
+  # names a key absent from `models`. enable_thinking:false carried over
+  # from the identical qwen3-review-b migration (OMN-14176): without it, a
+  # thinking-model response against this endpoint can consume the whole
+  # max_tokens budget on a <think> preamble and defeat naive
+  # strip-think-tags parsing.
   deepseek-r1:
     env_var: "LLM_DEEPSEEK_R1_URL"
-    default_url: "http://192.168.86.201:8001"  # onex-allow-internal-ip
+    default_url: "http://192.168.86.201:8000"  # onex-allow-internal-ip
     kind: "reasoning"
     timeout_seconds: 300.0
-    api_model_id: "Corianas/DeepSeek-R1-Distill-Qwen-14B-AWQ"
+    api_model_id: "qwen3.8"
+    enable_thinking: false
 
   # qwen3-review — live .201:8000 endpoint. UPDATED (OMN-16407, 2026-08-23):
   # .201 was rebooted ~13:00Z 2026-08-23 and GPU1 (the RTX 4090 that served
