@@ -1193,6 +1193,65 @@ jobs:
             --allowlist .onex_ratchets/noncanonical_class_allowlist.yaml \
             src/omniintelligence
 
+  occ-companion-merged:
+    name: OCC Companion Merged Gate (OMN-15214)
+    # OMN-16443 (port of the OMN-15214 canary, omnibase_infra #2486, and the
+    # OMN-15221 omniclaude fold-in): makes the 2026-07-26 OCC hygiene-sweep
+    # trigger state — an OPEN onex_change_control evidence companion whose
+    # product PR already MERGED — unreachable via the merge path on this repo.
+    # Live-incident-motivated: omniintelligence#838 merged 2026-08-24T02:02:37Z
+    # while its own companion onex_change_control#6966 did not merge until
+    # 2026-08-24T02:26:38Z — 24 minutes AFTER the product PR. The evidence
+    # turned out fine post-hoc, but no gate existed to catch the ordering
+    # violation. The durable fix is ordering: the companion must MERGE BEFORE
+    # the product PR can. This job polls the PR's live Evidence-Source (live
+    # body, not event payload — occ-autobind PATCHes it in after PR open) and
+    # greens ONLY when the cited OCC companion PR is MERGED or the cited OCC
+    # commit SHA is an ancestor of onex_change_control dev/main. A companion
+    # CLOSED without merging fails immediately (that IS the incident state).
+    #
+    # Wired into `ci-summary`'s needs: + a strict success-only check below —
+    # deliberately NOT a new top-level required context: a context that does
+    # not report on every PR shape wedges merges indefinitely under branch
+    # protection, and occ-autobind itself is network-flaky. Unconditional (no
+    # needs/if) so ci-summary always WAITS for it and a skip/cancel fails
+    # closed; internal event scoping no-ops on push/workflow_dispatch (mirrors
+    # occ-preflight). GitHub-hosted + pure gh API polling: zero self-hosted/LAN
+    # dependency, and the poll window absorbs autobind mint + companion
+    # auto-merge latency instead of converting them into instant reds.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: read
+    env:
+      GH_REPO: ${{ github.repository }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      MERGE_GROUP_HEAD_REF: ${{ github.event.merge_group.head_ref }}
+      # Poll window (seconds) — bounded well under ci-summary's own deadline so
+      # this gate reaches a terminal state first; PENDING converts to FAIL.
+      DEADLINE_SECONDS: "1500"
+      POLL_INTERVAL_SECONDS: "30"
+    steps:
+      - name: Checkout (gate script)
+        uses: actions/checkout@v7
+      # Mint a short-lived onexbot-occ-writer App installation token and
+      # export it as GH_TOKEN — job-level `env:` is resolved before any step
+      # runs, so it cannot reference a step output directly. `|| github.token`
+      # fallback kept for resilience. Same app already used by this repo's
+      # sibling-lock-refresh.yml.
+      - name: Mint onexbot-occ-writer app token
+        id: app-token
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
+        with:
+          app-id: ${{ secrets.ONEXBOT_OCC_APP_ID }}
+          private-key: ${{ secrets.ONEXBOT_OCC_PRIVATE_KEY }}
+          owner: OmniNode-ai
+      - name: Export GH_TOKEN
+        run: echo "GH_TOKEN=${{ steps.app-token.outputs.token || github.token }}" >> "$GITHUB_ENV"
+      - name: Require cited OCC evidence to be merged/durable before product merge
+        run: python3 scripts/ci/check_occ_companion_merged.py
+
   ci-summary:
     name: CI Summary
     # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
@@ -1203,7 +1262,7 @@ jobs:
         && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
         || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
-    needs: [changes, quality-gate, lint, type-check, test-unit, compliance, no-noncanonical-lifecycle-classes, detect-secrets]
+    needs: [changes, quality-gate, lint, type-check, test-unit, compliance, no-noncanonical-lifecycle-classes, detect-secrets, occ-companion-merged]
     if: always()
 
     steps:
@@ -1214,6 +1273,16 @@ jobs:
           # in needs: so this job WAITS for it (no race).
           if [[ "${{ needs.no-noncanonical-lifecycle-classes.result }}" != "success" ]]; then
             echo "::error::no-noncanonical-lifecycle-classes ratchet did not pass (result: ${{ needs.no-noncanonical-lifecycle-classes.result }}) - fail-closed (OMN-14350)"
+            exit 1
+          fi
+
+          # OMN-15214/OMN-16443: strict fail-closed gate on cited OCC evidence
+          # durability - only 'success' passes; skipped/cancelled/failure ALL
+          # block. It is in needs: so this job WAITS for it (no race). Prevents
+          # the merge-order violation that let omniintelligence#838 merge 24
+          # minutes before its companion onex_change_control#6966.
+          if [[ "${{ needs.occ-companion-merged.result }}" != "success" ]]; then
+            echo "::error::occ-companion-merged gate did not pass (result: ${{ needs.occ-companion-merged.result }}) - fail-closed (OMN-15214/OMN-16443)"
             exit 1
           fi
 
