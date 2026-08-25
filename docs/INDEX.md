@@ -61,7 +61,7 @@ Intelligence platform for the ONEX ecosystem: pattern learning, code analysis, e
 
 ## Runbooks
 
-No current operational runbooks. For runtime startup, see the `PluginIntelligence` bootstrap section in [CLAUDE.md](../CLAUDE.md#runtime-module) and the [ONEX Four-Node Architecture](architecture/ONEX_FOUR_NODE_ARCHITECTURE.md#pluginintelligence-node-discovery-and-wiring) doc.
+No current operational runbooks. For runtime startup, see the `PluginIntelligence` bootstrap section in [CLAUDE.md](../CLAUDE.md#runtime-module) and the [ONEX Four-Node Architecture](https://github.com/OmniNode-ai/knowledge-base/blob/main/architecture/omniintelligence-four-node-architecture.md#pluginintelligence-node-discovery-and-wiring) doc (migrated to the knowledge base).
 
 ---
 
