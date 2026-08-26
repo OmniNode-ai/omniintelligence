@@ -267,7 +267,7 @@ def run_contract_linter(verbose: bool = False) -> ValidationResult:
     cmd = [
         sys.executable,
         "-m",
-        "omniintelligence.tools.contract_linter",
+        "omniintelligence.validators.contract_linter",
         *[str(f) for f in contract_files],
     ]
 
@@ -280,11 +280,18 @@ def run_contract_linter(verbose: bool = False) -> ValidationResult:
         )
         elapsed = time.monotonic() - start_time
         passed = result.returncode == 0
-        message = (
-            f"Validated {len(contract_files)} contracts in {elapsed:.2f}s"
-            if passed
-            else f"Contract validation failed (exit code: {result.returncode})"
-        )
+        if passed:
+            message = f"Validated {len(contract_files)} contracts in {elapsed:.2f}s"
+        else:
+            message = f"Contract validation failed (exit code: {result.returncode})"
+            stderr_bytes = result.stderr
+            stderr_text = (
+                stderr_bytes.decode(errors="replace")
+                if isinstance(stderr_bytes, bytes)
+                else (stderr_bytes or "")
+            ).strip()
+            if stderr_text:
+                message = f"{message}: {stderr_text}"
     except subprocess.TimeoutExpired:
         passed = False
         message = "Contract linter timed out after 300 seconds"
