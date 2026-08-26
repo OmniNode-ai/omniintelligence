@@ -1,5 +1,15 @@
 # OmniIntelligence Docker Deployment
 
+> **Stub-mode disclosure:** `deployment/docker/entrypoint-node.sh` currently launches every
+> node container via `python -m omniintelligence.runtime.stub_launcher` — a minimal
+> health-check-only HTTP server, not a running ONEX node. Real business logic executes only
+> when the `omnibase_infra` `RuntimeHostProcess` imports the node's handler classes directly
+> (see "Runtime Container Integration" below); it is not yet wired to drive these containers.
+> The steps below stand up containers that report healthy but do not process traffic — do not
+> treat a green `docker compose ps` here as proof the node is doing real work. The stub is
+> removed once `RuntimeHostProcess` integration lands (see `src/omniintelligence/runtime/stub_launcher.py`
+> module docstring).
+
 ## Service Ownership
 
 **omniintelligence is a pure application service — it owns zero data stores.**

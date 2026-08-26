@@ -2,7 +2,7 @@
 
 Intelligence, pattern learning, code analysis, and evaluation as first-class ONEX (OmniNode eXecution) nodes.
 
-[![CI](https://github.com/OmniNode-ai/omniintelligence/actions/workflows/test.yml/badge.svg)](https://github.com/OmniNode-ai/omniintelligence/actions/workflows/test.yml)
+[![CI](https://github.com/OmniNode-ai/omniintelligence/actions/workflows/ci.yml/badge.svg)](https://github.com/OmniNode-ai/omniintelligence/actions/workflows/ci.yml)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -10,7 +10,7 @@ Intelligence, pattern learning, code analysis, and evaluation as first-class ONE
 
 ## What this repo is
 
-OmniIntelligence is the intelligence platform for the ONEX ecosystem. It provides pattern learning, code quality analysis, evaluation, intent classification, document analysis, CI failure tracking, bloom evaluation, and Claude Code hook processing as 59 first-class ONEX nodes. All nodes follow the ONEX Four-Node Architecture (Effect / Compute / Reducer / Orchestrator) and delegate all business logic to handler modules.
+OmniIntelligence is the intelligence platform for the ONEX ecosystem. It provides pattern learning, code quality analysis, evaluation, intent classification, document analysis, CI failure tracking, bloom evaluation, and Claude Code hook processing as 60 first-class ONEX nodes. All nodes follow the ONEX Four-Node Architecture (Effect / Compute / Reducer / Orchestrator) and delegate all business logic to handler modules.
 
 ---
 
@@ -121,7 +121,7 @@ OmniIntelligence is built on the ONEX Four-Node Architecture. Nodes are thin she
 - Pattern promotion/demotion → lifecycle transition → audit trail
 - Quality assessment command → scoring compute → quality-assessment-completed → omnidash
 
-**Dash integration boundary:** omnidash never queries this repo's database directly. All data flows via Kafka topics projected into `omnidash_analytics`. See [docs/reference/DASH_INTEGRATION_TRUTH_BOUNDARY.md](docs/reference/DASH_INTEGRATION_TRUTH_BOUNDARY.md) for the live/dead/gap status of each topic.
+**Dash integration boundary (architectural rule):** omnidash must never query this repo's database directly — the intended path is Kafka topics projected into `omnidash_analytics`. This repo's producer side is verified live; the omnidash-side consumer wiring is not — see [docs/reference/DASH_INTEGRATION_TRUTH_BOUNDARY.md](docs/reference/DASH_INTEGRATION_TRUTH_BOUNDARY.md) for what is currently confirmed vs. stale.
 
 For topology diagrams and full pipeline details see [docs/architecture/ONEX_FOUR_NODE_ARCHITECTURE.md](docs/architecture/ONEX_FOUR_NODE_ARCHITECTURE.md).
 

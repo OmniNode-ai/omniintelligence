@@ -81,13 +81,17 @@ Tracks orchestrator workflow executions.
 
 ## Migrations
 
-Migrations are SQL files in the `migrations/` directory, numbered sequentially.
+Migrations are SQL files in the `migrations/` directory, numbered sequentially (currently
+`000_extensions.sql` through `028_agent_actions_retention.sql`, 27 files). This list is
+intentionally not duplicated here — it grows with every schema change and a hand-typed
+enumeration goes stale immediately. Run `ls deployment/database/migrations/*.sql` for the
+current set, or `python scripts/migration/apply_migrations.py --status` for applied vs. pending.
 
-### Available Migrations
-
-1. **001_create_fsm_state_table.sql**: Create fsm_state table with indexes and triggers
-2. **002_create_fsm_state_history.sql**: Create history table with automatic recording
-3. **003_create_workflow_executions.sql**: Create workflow execution tracking
+The first three establish the FSM/workflow tables documented above
+(`001_create_fsm_state_table.sql`, `002_create_fsm_state_history.sql`,
+`003_create_workflow_executions.sql`); later migrations add pattern learning, routing
+feedback, plan-reviewer, and debug-intelligence tables not covered in this file's table
+reference above.
 
 ### Applying Migrations
 

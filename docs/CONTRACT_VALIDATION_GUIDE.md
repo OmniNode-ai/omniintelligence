@@ -220,13 +220,13 @@ io_operations:
 ### Validate Single Contract
 
 ```bash
-python -m omniintelligence.tools.contract_linter path/to/contract.yaml
+python -m omniintelligence.validators.contract_linter path/to/contract.yaml
 ```
 
 ### Validate Multiple Contracts
 
 ```bash
-python -m omniintelligence.tools.contract_linter contracts/*.yaml
+python -m omniintelligence.validators.contract_linter contracts/*.yaml
 ```
 
 ### Verbose Output
@@ -234,7 +234,7 @@ python -m omniintelligence.tools.contract_linter contracts/*.yaml
 Show detailed error messages with field paths:
 
 ```bash
-python -m omniintelligence.tools.contract_linter path/to/contract.yaml --verbose
+python -m omniintelligence.validators.contract_linter path/to/contract.yaml --verbose
 ```
 
 Example output:
@@ -250,7 +250,7 @@ Summary: 0/1 contracts passed
 ### JSON Output for CI/CD
 
 ```bash
-python -m omniintelligence.tools.contract_linter path/to/contract.yaml --json
+python -m omniintelligence.validators.contract_linter path/to/contract.yaml --json
 ```
 
 Example output:
@@ -291,10 +291,10 @@ Example output:
 
 ```bash
 # Exit with error if validation fails
-python -m omniintelligence.tools.contract_linter contracts/*.yaml || exit 1
+python -m omniintelligence.validators.contract_linter contracts/*.yaml || exit 1
 
 # Conditional handling
-if python -m omniintelligence.tools.contract_linter contracts/*.yaml; then
+if python -m omniintelligence.validators.contract_linter contracts/*.yaml; then
   echo "All contracts valid"
 else
   echo "Contract validation failed"

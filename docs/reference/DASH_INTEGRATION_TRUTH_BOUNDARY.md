@@ -3,17 +3,48 @@
 # Dash Integration Truth Boundary
 
 **Owner:** omniintelligence (producer) / omnidash (consumer)
-**Last verified:** 2026-04-29
+**Last verified:** 2026-08-26
+**Status:** Producer side (this repo) re-verified live and accurate. Consumer side (omnidash) is
+**STALE — do not treat as current truth.** See "Consumer-Side Status" below.
 **Source:** `omni_home/docs/plans/2026-04-09-omniintelligence-wiring-gaps.md`
-**Verification commands:**
-- Producer truth: `grep -rn 'publish_topics' src/omniintelligence/nodes/*/contract.yaml`
-- Consumer truth (omnidash): `grep -rn 'SUFFIX_INTELLIGENCE' omnidash/shared/topics.ts`
+
+---
+
+## Consumer-Side Status (read this first)
+
+This document's original "Topic Truth Matrix" cited specific omnidash files and exported
+constants as the live consumer-side truth: `omnidash/shared/topics.ts`, `SUFFIX_INTELLIGENCE_*`
+constants, `omnidash/server/consumers/read-model/omniintelligence-projections.ts`, and a
+`read-model-consumer.ts`. Re-verified against the live `omnidash` tree (`origin/dev`,
+2026-08-26):
+
+- `omnidash/shared/topics.ts` does not exist. The nearest file is `omnidash/shared/types/topics.ts`.
+- No `SUFFIX_INTELLIGENCE_*` constant exists anywhere in the `omnidash` tree
+  (`grep -rn SUFFIX_INTELLIGENCE omnidash` returns nothing).
+- `omniintelligence-projections.ts` does not exist anywhere in the tree.
+- `read-model-consumer.ts` does not exist anywhere in the tree.
+- `omnidash` has no `server/consumers` directory at all — the read-model-consumer
+  architecture this doc describes is not present in the current `omnidash` codebase.
+- `PatternSummarySchema` (cited below under "Field Alias Issue") does not exist anywhere
+  in `omnidash` either.
+
+This is not a rename — a full-tree grep found no trace of the described integration surface.
+`omnidash` has moved to a different architecture since this doc was last verified
+(2026-04-29; see `omni_home/CLAUDE.md` repository registry, which now describes `omnidash` as a
+"Composable widget dashboard (Vite + React, services-led architecture)"). Whether omniintelligence
+events reach omnidash today, and by what mechanism, is **unknown from this repo alone** and cannot
+be established without an omnidash-side audit.
+
+**Follow-up filed:** OMN-16577 — determine, from the omnidash side, whether/how omniintelligence
+Kafka events are currently consumed by omnidash's current architecture, and either restore a
+truth-boundary doc on the omnidash side or update this document's consumer-side claims to match.
 
 ---
 
 ## Boundary Rule
 
-**omnidash never queries omniintelligence's database directly.** All data flows via Kafka:
+**omnidash never queries omniintelligence's database directly.** All data is intended to flow via
+Kafka:
 
 ```
 omniintelligence (producer)
@@ -23,122 +54,59 @@ omniintelligence (producer)
                 omnidash API / dashboard
 ```
 
-omnidash owns the `omnidash_analytics` read-model. omniintelligence owns the source events. The boundary is the Kafka topic — omniintelligence never writes to `omnidash_analytics`, and omnidash never reads from omniintelligence's PostgreSQL.
+This is the architectural intent as of the 2026-04-09 wiring-gaps audit: omnidash owns the
+`omnidash_analytics` read-model, omniintelligence owns the source events, and the boundary is the
+Kafka topic. Whether this remains the live implementation on the omnidash side is exactly the
+question the consumer-side audit above needs to answer.
 
 ---
 
-## Architecture Diagram
+## Producer-Side Truth (omniintelligence) — re-verified live 2026-08-26
 
-```
-omniintelligence (producer / owning service)
-  NodePatternFeedbackEffect  ──────────────► onex.cmd.omniintelligence.quality-assessment.v1
-                                                     (Gap 4: no publisher yet)
-                                                             |
-  NodeIntelligenceOrchestrator  ◄── triggers ─────────────-+
-        NodeQualityScoringCompute (pure compute, called internally)
-              publishes: onex.evt.omniintelligence.quality-assessment-completed.v1
+The following topics are confirmed live by grepping this repo's node contracts
+(`grep -rn 'publish_topics' -A5 src/omniintelligence/nodes/*/contract.yaml`):
 
-  NodeBloomEvalOrchestrator  ─────────────► onex.evt.omniintelligence.bloom-eval-completed.v1
-  NodeRoutingFeedbackEffect  ─────────────► onex.evt.omniintelligence.routing-feedback-processed.v1
-  (no producer for: pattern-scored / pattern-discovered / session-outcome evt)
+| Topic | Producer | Verified |
+|-------|----------|----------|
+| `onex.evt.omniintelligence.bloom-eval-completed.v1` | `node_bloom_eval_orchestrator` | `contract.yaml` `publish_topics` |
+| `onex.evt.omniintelligence.intent-classified.v1` | `node_claude_hook_event_effect`, `node_cursor_hook_event_effect` | `contract.yaml` `publish_topics` |
+| `onex.evt.omniintelligence.routing-feedback-processed.v1` | `node_routing_feedback_effect` | `contract.yaml` `publish_topics` |
+| `onex.cmd.omniintelligence.quality-assessment.v1` | `node_pattern_feedback_effect` | `contract.yaml` `publish_topics` — **now shipped, see Gap 4 below** |
+| `onex.evt.omniintelligence.pattern-scored.v1` | `node_pattern_feedback_effect` | `contract.yaml` `publish_topics` |
+| `onex.evt.omniclaude.routing-feedback.v1` | consumed (not produced) by `node_routing_feedback_effect`, cross-repo from omniclaude | `contract.yaml` `subscribe_topics` |
 
-omnidash (consumer / read-model)
-  read-model-consumer.ts  projects Kafka events into omnidash_analytics
-  shared/topics.ts        export constants must match real producers
-```
+No producer exists in this repo for `pattern-discovered` or `session-outcome` (evt); those remain
+consumer-side-only claims that the omnidash audit above needs to confirm as dead or resolve.
 
 ---
 
-## Topic Truth Matrix
+## Quality Score Pipeline — Gap 4 (RESOLVED, was open as of 2026-04-29)
 
-### Live and Wired
+The original text of this section described a missing publisher:
 
-| Topic | omniintelligence producer | omnidash consumer | Status |
-|-------|--------------------------|-------------------|--------|
-| `onex.evt.omniintelligence.quality-assessment-completed.v1` | `NodeIntelligenceOrchestrator` | `omniintelligence-projections.ts` (`SUFFIX_INTELLIGENCE_QUALITY_ASSESSMENT_COMPLETED`) | Active — verify topic is in omnidash `topics.yaml` |
-| `onex.evt.omniintelligence.routing-feedback-processed.v1` | `NodeRoutingFeedbackEffect` | `omniintelligence-projections.ts:1312` (`SUFFIX_INTELLIGENCE_ROUTING_FEEDBACK_PROCESSED`) | Active — verify `routing_feedback_events` migration and READ_MODEL_TOPICS |
-| `onex.evt.omniintelligence.intent-classified.v1` | `NodeClaudeHookEventEffect` | omnimemory (not omnidash) | Internal to intelligence-to-memory pipeline; no omnidash projection needed |
+> `NodePatternFeedbackEffect` writes rolling-window metrics to `learned_patterns` DB but does not
+> publish the quality-assessment command, so `NodeIntelligenceOrchestrator` never triggers scoring.
 
-### Gap: No omnidash Consumer
+**Live re-verification (2026-08-26): this is fixed.** `OMN-8144` shipped the publish —
+`src/omniintelligence/nodes/node_pattern_feedback_effect/handlers/handler_session_outcome.py`
+step 6b ("Emit quality-assessment commands for each updated pattern (OMN-8144)") now calls
+`producer.publish(...)` for `onex.cmd.omniintelligence.quality-assessment.v1` after the DB write,
+and the contract's `publish_topics` declares it. (This mirrors the same fix already recorded for
+`EVENT_SURFACE.md`'s Gap-4 label — see OMN-16309 closeout — but that fix did not touch this file,
+which still had its own stale copy of the same claim until now.)
 
-| Topic | omniintelligence producer | omnidash constant | Gap |
-|-------|--------------------------|-------------------|-----|
-| `onex.evt.omniintelligence.bloom-eval-completed.v1` | `NodeBloomEvalOrchestrator` | `SUFFIX_INTELLIGENCE_EVAL_COMPLETED` points to `eval-completed.v1` (wrong suffix) | Gap 2: no consumer in `omniintelligence-projections.ts`; `bloom_eval_results` table does not exist |
+Whether the omnidash-side projection handler that was supposed to consume
+`onex.evt.omniintelligence.quality-assessment-completed.v1` and populate
+`omnidash_analytics.pattern_learning_artifacts.quality_score` exists today is covered by the
+Consumer-Side Status section above — not re-asserted here.
 
-### Gap: No omniintelligence Producer
+---
 
-| Topic | omnidash constant | Status | Action |
-|-------|-------------------|--------|--------|
-| `onex.evt.omniintelligence.pattern-scored.v1` | `SUFFIX_INTELLIGENCE_PATTERN_SCORED` (topics.ts:332) | Dead constant | Prune from omnidash unless a producer ticket exists |
-| `onex.evt.omniintelligence.pattern-discovered.v1` | `SUFFIX_INTELLIGENCE_PATTERN_DISCOVERED` (topics.ts:333) | Dead constant | Prune from omnidash unless a producer ticket exists |
-| `onex.evt.omniintelligence.session-outcome.v1` | `SUFFIX_INTELLIGENCE_SESSION_OUTCOME_EVT` (topics.ts:330) | Dead constant | Prune from omnidash; no producer exists |
-
-### Naming Mismatch
-
-| Intended topic | omnidash constant | Actual produced topic | Action |
-|----------------|-------------------|-----------------------|--------|
-| bloom eval results | `SUFFIX_INTELLIGENCE_EVAL_COMPLETED` → `onex.evt.omniintelligence.eval-completed.v1` | `onex.evt.omniintelligence.bloom-eval-completed.v1` | Update omnidash constant to `bloom-eval-completed.v1` and add projection handler |
-
-### Omnidash Dead Constants (no omniintelligence involvement)
-
-| Topic | omnidash constant | Status | Notes |
-|-------|-------------------|--------|-------|
-| `onex.cmd.omniintelligence.session-outcome.v1` | `SUFFIX_INTELLIGENCE_SESSION_OUTCOME_CMD` (topics.ts:328) | Dead constant on omnidash side | This command IS consumed by `NodePatternFeedbackEffect` here, but omnidash subscribing makes no sense — prune from omnidash |
-
-### Legacy / Deprecated
+## Legacy / Deprecated
 
 | Topic | Status | Notes |
 |-------|--------|-------|
-| `routing.feedback` (bare topic, no `onex.*` prefix) | Drain pending | Legacy bare topic from before `onex.*` naming standard. `NodeRoutingFeedbackEffect` now subscribes to `onex.evt.omniclaude.routing-feedback.v1`. Verify no producer remains on the bare topic. |
-
----
-
-## Quality Score Pipeline — Gap 4
-
-The primary data gap blocking non-null quality scores on the omnidash `/patterns` dashboard:
-
-```
-NodePatternFeedbackEffect  ──X──►  onex.cmd.omniintelligence.quality-assessment.v1
-                                          (NO PUBLISHER — Gap 4)
-                                                   |
-                                                   v (if published)
-                                   NodeIntelligenceOrchestrator
-                                          |
-                                          v
-                                   NodeQualityScoringCompute
-                                          |
-                                          v
-                         onex.evt.omniintelligence.quality-assessment-completed.v1
-                                          |
-                                          v
-                                   omnidash projection handler
-                                          |
-                                          v
-                                   omnidash_analytics.pattern_learning_artifacts.quality_score
-```
-
-**Root cause:** `NodePatternFeedbackEffect.handler_session_outcome.py` writes rolling-window metrics to `learned_patterns` DB but does not publish the quality-assessment command. Without that publish, `NodeIntelligenceOrchestrator` never triggers scoring, and quality scores remain NULL.
-
-**Fix location:** `src/omniintelligence/nodes/node_pattern_feedback_effect/handlers/handler_session_outcome.py` — add publish of `onex.cmd.omniintelligence.quality-assessment.v1` after successful DB write. Contract `publish_topics` must be updated to declare this.
-
-**Tracking:** See wiring-gaps plan Task 3 for implementation steps.
-
----
-
-## PatternSummarySchema Field Alias Issue
-
-omnidash `shared/event-schemas.ts` `PatternSummarySchema` accepts three aliases per field:
-
-- `id | pattern_id | patternId`
-- `quality_score | composite_score | compositeScore`
-
-This triple-alias pattern masks serialization drift. Resolution path:
-
-1. Confirm what field names `NodePatternProjectionEffect` actually serializes (expected: snake_case)
-2. If snake_case only: remove camelCase aliases from omnidash
-3. If camelCase: update omniintelligence first, then remove aliases in a follow-on omnidash PR
-
-Breaking-change risk: tracked in wiring-gaps plan Task 8.
+| `routing.feedback` (bare topic, no `onex.*` prefix) | Drain pending, unverified on the consumer side | `node_routing_feedback_effect` now subscribes to `onex.evt.omniclaude.routing-feedback.v1` (confirmed live, contract.yaml `subscribe_topics`). Whether any producer remains on the bare legacy topic was not re-verified this pass. |
 
 ---
 
@@ -146,24 +114,23 @@ Breaking-change risk: tracked in wiring-gaps plan Task 8.
 
 | Document | Status | Notes |
 |----------|--------|-------|
-| This page (`DASH_INTEGRATION_TRUTH_BOUNDARY.md`) | **Stable reference** — update when topic wiring changes | Extracted from wiring-gaps plan 2026-04-09 |
+| This page (`DASH_INTEGRATION_TRUTH_BOUNDARY.md`) | **Producer side: stable / re-verified 2026-08-26. Consumer side: STALE, unverifiable from this repo — see Consumer-Side Status.** | Extracted from wiring-gaps plan 2026-04-09; consumer-side content not re-verifiable after omnidash's architecture changed |
 | `omni_home/docs/plans/2026-04-09-omniintelligence-wiring-gaps.md` | Historical context — implementation plan | Not active architecture; task list for gap-closing work |
 
 ---
 
 ## Verification
 
-To verify producer truth for any topic:
+To verify producer truth for any topic (still accurate):
 
 ```bash
 # Check if omniintelligence produces a topic
 grep -rn 'bloom-eval-completed' src/omniintelligence/nodes/
 grep -rn 'publish_topics' src/omniintelligence/nodes/node_bloom_eval_orchestrator/contract.yaml
-
-# Check if omnidash has a consumer constant
-grep -rn 'SUFFIX_INTELLIGENCE' omnidash/shared/topics.ts
-
-# Check if omnidash has a projection handler
-grep -rn 'bloom-eval-completed\|SUFFIX_INTELLIGENCE_BLOOM' \
-  omnidash/server/consumers/read-model/omniintelligence-projections.ts
 ```
+
+To check consumer-side truth, the commands this doc previously listed
+(`grep -rn 'SUFFIX_INTELLIGENCE' omnidash/shared/topics.ts`, and equivalents for
+`omniintelligence-projections.ts`) all return nothing against the live `omnidash` tree — that is
+the finding documented above, not a command to re-run expecting a different result until the
+omnidash-side follow-up lands.
