@@ -29,10 +29,10 @@ uv run pre-commit run --all-files
 
 ## Pull Request Process
 
-1. Branch from `main`
+1. Branch from `dev`
 2. Write tests first
 3. Ensure `pre-commit run --all-files` passes
-4. Open a PR against `main`
+4. Open a PR against `dev`
 
 ## Commit Messages
 

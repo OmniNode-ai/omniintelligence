@@ -25,7 +25,7 @@ Intelligence platform for the ONEX ecosystem: pattern learning, code analysis, e
 |--------------|----------|
 | Understand what this repo owns | [README.md](../README.md#what-this-repo-owns) |
 | Run tests or install locally | [README.md](../README.md#common-workflows) |
-| See all 59 nodes | [docs/reference/NODE_INVENTORY.md](reference/NODE_INVENTORY.md) |
+| See all 60 nodes | [docs/reference/NODE_INVENTORY.md](reference/NODE_INVENTORY.md) |
 | Understand node types and architecture | [docs/architecture/ONEX_FOUR_NODE_ARCHITECTURE.md](architecture/ONEX_FOUR_NODE_ARCHITECTURE.md) |
 | Understand Kafka topics produced/consumed | [docs/reference/EVENT_SURFACE.md](reference/EVENT_SURFACE.md) |
 | Understand which events reach omnidash | [docs/reference/DASH_INTEGRATION_TRUTH_BOUNDARY.md](reference/DASH_INTEGRATION_TRUTH_BOUNDARY.md) |
@@ -51,9 +51,9 @@ Intelligence platform for the ONEX ecosystem: pattern learning, code analysis, e
 
 | Document | Description | Status |
 |----------|-------------|--------|
-| [Node Inventory](reference/NODE_INVENTORY.md) | Full list of 59 ONEX nodes declared in `pyproject.toml [project.entry-points."onex.nodes"]` | Active |
+| [Node Inventory](reference/NODE_INVENTORY.md) | Full list of 60 ONEX nodes declared in `pyproject.toml [project.entry-points."onex.nodes"]` | Active |
 | [Event Surface](reference/EVENT_SURFACE.md) | All produced, consumed, dashboard-visible, internal, and deprecated Kafka topics | Active |
-| [Dash Integration Truth Boundary](reference/DASH_INTEGRATION_TRUTH_BOUNDARY.md) | Which topics are live in omnidash vs. dead constants, gaps, and deprecated | Active |
+| [Dash Integration Truth Boundary](reference/DASH_INTEGRATION_TRUTH_BOUNDARY.md) | Producer-side (this repo) topics, re-verified; consumer-side (omnidash) claims are stale — omnidash-side audit needed | Producer: Active. Consumer: Stale |
 | [Contract Validation Guide](CONTRACT_VALIDATION_GUIDE.md) | How to create and validate ONEX contract YAML files | Active |
 | [Naming Conventions](conventions/NAMING_CONVENTIONS.md) | Node, handler, model, and file naming standards | Active |
 
@@ -122,4 +122,4 @@ Dated plans and migration context are in `omni_home/docs/plans/`. They are not p
 | [Node State Policy](NODE_STATE_POLICY.md) | Active | Node state and lifecycle policy |
 | [Node Inventory](reference/NODE_INVENTORY.md) | Active | Sourced from `pyproject.toml` — verified against code 2026-06-21 |
 | [Event Surface](reference/EVENT_SURFACE.md) | Active | Sourced from contract YAML files (single topic source of truth) — updated 2026-07-26 |
-| [Dash Integration Truth Boundary](reference/DASH_INTEGRATION_TRUTH_BOUNDARY.md) | Active | Sourced from wiring-gaps plan — updated 2026-04-29 |
+| [Dash Integration Truth Boundary](reference/DASH_INTEGRATION_TRUTH_BOUNDARY.md) | Producer: Active. Consumer: Stale | Sourced from wiring-gaps plan — producer side re-verified 2026-08-26; consumer side (omnidash) unverifiable, see doc |

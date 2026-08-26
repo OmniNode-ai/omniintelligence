@@ -305,45 +305,13 @@ workflow_coordination:
 
 ## Current Node Inventory
 
-**Total Nodes**: 18
+**Total Nodes**: 60 (24 compute / 31 effect / 2 reducer / 2 orchestrator + 1 audit), counted from
+`pyproject.toml [project.entry-points."onex.nodes"]`.
 
-### Orchestrators (2)
-
-| Node | Directory | Purpose |
-|------|-----------|---------|
-| `NodeIntelligenceOrchestrator` | `node_intelligence_orchestrator` | Main workflow coordination (contract-driven) |
-| `NodePatternAssemblerOrchestrator` | `node_pattern_assembler_orchestrator` | Pattern assembly from execution traces |
-
-### Reducer (1)
-
-| Node | Directory | Purpose |
-|------|-----------|---------|
-| `NodeIntelligenceReducer` | `node_intelligence_reducer` | Unified FSM handler (ingestion, pattern_learning, quality_assessment) |
-
-### Compute Nodes (8)
-
-| Node | Directory | Purpose |
-|------|-----------|---------|
-| `NodeQualityScoringCompute` | `node_quality_scoring_compute` | Code quality scoring with ONEX compliance |
-| `NodeSemanticAnalysisCompute` | `node_semantic_analysis_compute` | Semantic code analysis |
-| `NodePatternExtractionCompute` | `node_pattern_extraction_compute` | Extract patterns from code |
-| `NodePatternLearningCompute` | `node_pattern_learning_compute` | ML pattern learning pipeline |
-| `NodePatternMatchingCompute` | `node_pattern_matching_compute` | Match patterns against code |
-| `NodeIntentClassifierCompute` | `node_intent_classifier_compute` | User prompt intent classification |
-| `NodeExecutionTraceParserCompute` | `node_execution_trace_parser_compute` | Parse execution traces |
-| `NodeSuccessCriteriaMatcherCompute` | `node_success_criteria_matcher_compute` | Match success criteria |
-
-### Effect Nodes (7)
-
-| Node | Directory | Purpose | Has `node.py` |
-|------|-----------|---------|---------------|
-| `NodeClaudeHookEventEffect` | `node_claude_hook_event_effect` | Process Claude Code hook events | Yes |
-| `NodePatternStorageEffect` | `node_pattern_storage_effect` | Persist patterns to PostgreSQL | Yes |
-| `NodePatternPromotionEffect` | `node_pattern_promotion_effect` | Promote patterns (provisional → validated) | Yes |
-| `NodePatternDemotionEffect` | `node_pattern_demotion_effect` | Demote patterns (validated → deprecated) | Yes |
-| `NodePatternFeedbackEffect` | `node_pattern_feedback_effect` | Record session outcomes and metrics | Yes |
-| `NodePatternLifecycleEffect` | `node_pattern_lifecycle_effect` | Atomic lifecycle transitions with audit trail | Yes |
-| `NodePatternLearningEffect` | `node_pattern_learning_effect` | Pattern extraction pipeline (contract-only node) | No |
+This section previously hardcoded a per-node table; that table drifted to 18 stale entries against
+a live count of 60 and was deleted rather than re-typed by hand, since the same drift will recur.
+For the current per-node list, see [Node Inventory](reference/NODE_INVENTORY.md) — the canonical,
+generated source of truth for node names, directories, and types.
 
 ---
 

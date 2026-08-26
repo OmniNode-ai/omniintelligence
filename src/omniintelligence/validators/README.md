@@ -425,14 +425,14 @@ This ensures the linter validates against the same rules as the ONEX runtime.
 The contract linter has comprehensive unit tests:
 
 ```bash
-# Run all tests
-pytest tests/unit/tools/test_contract_linter.py -v
+# Run all contract-linter tests (split across focused files)
+pytest tests/unit/tools/test_contract_linter_*.py -v
 
-# Run specific test
-pytest tests/unit/tools/test_contract_linter.py::test_validate_compute_contract -v
+# Run one test file
+pytest tests/unit/tools/test_contract_linter_cli.py -v
 
 # Run with coverage
-pytest tests/unit/tools/test_contract_linter.py --cov=src/omniintelligence/tools --cov-report=html
+pytest tests/unit/tools/test_contract_linter_*.py --cov=src/omniintelligence/validators --cov-report=html
 ```
 
 ### Test Coverage
@@ -548,10 +548,10 @@ class ModelContractValidationError:
 ## Related Documentation
 
 - [CLAUDE.md](../../../CLAUDE.md) - Project development guide
-- [omnibase_core validation](https://github.com/your-org/omnibase_core) - Core validation infrastructure
-- [ONEX Architecture Specification](https://docs.example.com/onex) - ONEX architecture patterns
+- [omnibase_core](https://github.com/OmniNode-ai/omnibase_core) - Core validation infrastructure (`ProtocolContractValidator`, contract Pydantic models)
+- [Contract Validation Guide](../../../docs/CONTRACT_VALIDATION_GUIDE.md) - ONEX contract validation reference
 - [Contributing Guide](../../../CONTRIBUTING.md) - How to develop ONEX nodes
 
 ## License
 
-Apache 2.0 - See [LICENSE](../../../LICENSE) for details.
+MIT - See [LICENSE](../../../LICENSE) for details.
