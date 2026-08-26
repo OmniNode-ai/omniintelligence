@@ -7,6 +7,7 @@ node_version:
   patch: 0
 name: "node_ci_fingerprint_compute"
 version: "1.0.0"
+contract_version: {major: 1, minor: 0, patch: 0}
 node_type: "COMPUTE_GENERIC"
 description: |
   Pure compute node that extracts a stable fingerprint from CI failure output.

@@ -21,6 +21,7 @@
 # =============================================================================
 name: "node_routing_feedback_effect"
 version: "1.2.1"
+contract_version: {major: 1, minor: 0, patch: 0}
 contract_name: "node_routing_feedback_effect"
 node_name: "node_routing_feedback_effect"
 node_version:

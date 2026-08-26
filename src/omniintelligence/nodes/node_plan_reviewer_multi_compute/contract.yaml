@@ -8,6 +8,7 @@
 # =============================================================================
 name: "node_plan_reviewer_multi_compute"
 version: "1.0.0"
+contract_version: {major: 1, minor: 0, patch: 0}
 node_version: {major: 1, minor: 0, patch: 0}
 node_type: "COMPUTE_GENERIC"
 

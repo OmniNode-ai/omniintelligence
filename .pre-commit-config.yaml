@@ -532,10 +532,17 @@ repos:
       # --------------------------------------------------------------------------
       # Contract Linter - ONEX contract YAML validation
       # Validates: Node contracts against canonical Pydantic models
-      # Scope: Main contracts (*_contract.yaml) and FSM files (fsm_*.yaml)
-      #        in versioned node directories (e.g., nodes/foo/v1_0_0/contracts/)
-      # Note: Excludes subcontracts/ and workflows/ subdirectories
-      # Future-proof: Pattern ready for when nodes/ directory is created
+      # Scope: the live flat layout, nodes/<node_dir>/contract.yaml (OMN-16585).
+      # A prior pattern targeted a versioned nodes/<name>/vX_Y_Z/contracts/*.yaml
+      # layout that was never adopted -- it matched 0 of 67 live contract.yaml
+      # files (dead gate since inception; see OMN-16585). [^/]+ (not node_.*) is
+      # used deliberately: one live node directory (nodes/audit/, housing
+      # node_context_audit_aggregator_compute) does not follow the node_*
+      # naming convention, so a node_.* pattern would silently re-exclude it --
+      # the same gap this ticket exists to close. This is broader than the
+      # sibling onex-validate-runtime-profiles hook above
+      # (^src/omniintelligence/nodes/node_.*/contract\.yaml$), which still has
+      # that gap; not in this ticket's scope to fix.
       # --------------------------------------------------------------------------
       - id: contract-linter
         name: contract linter
@@ -544,11 +551,9 @@ repos:
         pass_filenames: true
         # Pattern breakdown:
         # - ^src/omniintelligence/nodes/ : Base nodes directory
-        # - [^/]+/                        : Node name (e.g., intelligence_reducer/)
-        # - v\d+(_\d+)*/ or v[^/]+/       : Version dir (e.g., v1_0_0/, v2_0_0/)
-        # - contracts/                    : Contracts subdirectory
-        # - (.*_contract\.yaml|fsm_.*\.yaml) : Main contracts or FSM files
-        files: ^src/omniintelligence/nodes/[^/]+/v\d+(_\d+)*/contracts/(.*_contract\.yaml|fsm_.*\.yaml)$
+        # - [^/]+/                        : Node directory (any name -- see comment above)
+        # - contract\.yaml$              : The single flat contract file per node
+        files: ^src/omniintelligence/nodes/[^/]+/contract\.yaml$
 
       # NOTE(OMN-13283): the local 'io-audit' and 'validate-no-transport-imports'
       # hooks were consolidated into the omnibase_core remote hooks 'node-purity'

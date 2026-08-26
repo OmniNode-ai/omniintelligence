@@ -16,6 +16,7 @@ node_version:
   patch: 0
 name: "node_intelligence_orchestrator"
 version: "1.1.0"
+contract_version: {major: 1, minor: 0, patch: 0}
 node_type: "ORCHESTRATOR_GENERIC"
 description: >-
   Unified orchestrator for all intelligence operations using Llama Index workflows. Handles document ingestion,
