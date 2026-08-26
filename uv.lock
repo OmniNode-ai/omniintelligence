@@ -2796,7 +2796,7 @@ wheels = [
 
 [[package]]
 name = "omnibase-infra"
-version = "0.38.9"
+version = "0.38.10"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "a2a-sdk" },
@@ -2851,9 +2851,9 @@ dependencies = [
     { name = "uvicorn" },
     { name = "watchdog" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/be/3e/a82e87415dae4fa92e26f505fc03031c39907aae5ec7a1ea7dbb9c8de5d2/omnibase_infra-0.38.9.tar.gz", hash = "sha256:2d8f0a16f9ecb854fd62e285bbae0b0ca2699ecf1e6d86f5320f95e0b35270b2", size = 12049328, upload-time = "2026-08-22T01:08:20.32Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/2e/ea/35107c3afc238835f6feb75d759e652893add85950f5905a084c957c766c/omnibase_infra-0.38.10.tar.gz", hash = "sha256:ee5d1d22b1abe02a7e3fc377ec7311aaf28e7b5b2ebbd4bf855766106f92c41e", size = 12381538, upload-time = "2026-08-26T01:42:55.343Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/90/6f/70aeadbd161e123a99ae3d56c8a71edbf9d62682b10f7671a94e55ee3876/omnibase_infra-0.38.9-py3-none-any.whl", hash = "sha256:452052e06a2b18411be8f6ebca403441e8c6d164b61ce202e365231984e91d25", size = 5948584, upload-time = "2026-08-22T01:08:07.969Z" },
+    { url = "https://files.pythonhosted.org/packages/d8/63/ab38f06d00c08df3b27df3d2d5ec871c4f0cb6fcbfe441e38b826a197d54/omnibase_infra-0.38.10-py3-none-any.whl", hash = "sha256:3b59634504a551669622f10852e31aaf78fe4d786a086969a96403cc07782a46", size = 5992569, upload-time = "2026-08-26T01:42:49.078Z" },
 ]
 
 [[package]]
