@@ -10,6 +10,7 @@ node_version:
   patch: 0
 name: "node_intent_classifier_compute"
 version: "1.0.0"
+contract_version: {major: 1, minor: 0, patch: 0}
 node_type: "COMPUTE_GENERIC"
 description: >-
   Compute node for classifying user intents from code patterns and execution traces. Maps observed behavior

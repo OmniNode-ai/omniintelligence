@@ -25,6 +25,7 @@
 # =============================================================================
 name: "node_enforcement_feedback_effect"
 version: "1.0.0"
+contract_version: {major: 1, minor: 0, patch: 0}
 contract_name: "node_enforcement_feedback_effect"
 node_name: "node_enforcement_feedback_effect"
 node_version:

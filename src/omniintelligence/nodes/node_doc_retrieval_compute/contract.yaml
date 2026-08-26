@@ -15,6 +15,7 @@
 # Contract identifiers
 name: "node_doc_retrieval_compute"
 version: "1.0.0"
+contract_version: {major: 1, minor: 0, patch: 0}
 contract_name: "doc_retrieval_compute"
 node_name: "doc_retrieval_compute"
 node_version:

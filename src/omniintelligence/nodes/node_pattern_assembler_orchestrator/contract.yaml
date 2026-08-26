@@ -10,6 +10,7 @@ node_version:
   patch: 0
 name: "node_pattern_assembler_orchestrator"
 version: "1.0.0"
+contract_version: {major: 1, minor: 0, patch: 0}
 node_type: "ORCHESTRATOR_GENERIC"
 description: >-
   Orchestrator node for assembling patterns from extracted components. Coordinates trace parsing, keyword
