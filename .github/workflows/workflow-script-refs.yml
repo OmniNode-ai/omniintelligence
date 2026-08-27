@@ -1,0 +1,81 @@
+# Workflow Script Reference Gate (OMN-16664)
+#
+# WHY THIS IS ITS OWN WORKFLOW RATHER THAN A LINE IN THE EXISTING TEST JOB:
+# the defect this gate catches is a file that is missing, and the existing
+# pytest jobs in this org are path-scoped or change-selected -- a gate that
+# only runs when someone happens to touch the right tree is exactly the
+# opt-in verification Operating Rule #5 says never gets adopted. This job is
+# unconditional: no `paths:` filter, no `if:`, so it can be (and is meant to
+# be) added to `required_status_checks` on dev.
+#
+# WHAT IT ASSERTS: every `scripts/**` path that a `run:` step in
+# .github/workflows/ executes from the repository root exists in the tree.
+#
+# ROOT CAUSE (OMN-16664): the OMN-15017 fan-out copied call-occ-autobind.yml
+# and call-occ-companion-effect.yml into this repo without carrying
+# scripts/ci/occ_manual_replay_precheck.py, which both of them run. Every
+# manual OCC replay dispatched here died at `[Errno 2] No such file or
+# directory` before the precheck could decide anything -- the sanctioned
+# recovery path for a missed mint was a dead end, discovered only when
+# somebody needed it mid-incident (omnibase_compat run 33001337186).
+#
+# The gate's logic, its unit tests, and the reasons for its two deliberate
+# blind spots all live in tests/ci/test_workflow_script_refs_exist.py.
+name: Workflow Script Reference Gate
+
+on:
+  pull_request:
+  merge_group:
+
+permissions:
+  contents: read
+
+jobs:
+  workflow-script-refs:
+    name: Workflow Script Reference Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      # Installed explicitly rather than via the repo's dependency manager:
+      # this gate must stay runnable in a repo with no Python project (the
+      # omnidash case) and must not go red because an unrelated dependency
+      # resolution broke.
+      - name: Install gate dependencies
+        run: python -m pip install --disable-pip-version-check --quiet pytest pyyaml
+
+      # pytest, not the module's CLI, so the extractor's own unit tests run
+      # here too. A silently-non-matching extractor would pass every
+      # existence assertion while asserting nothing -- the same vacuous-green
+      # shape as the bug.
+      #
+      # This gate deliberately runs in a bare environment carrying only pytest
+      # and pyyaml, so it is detached from the repo's own pytest wiring on two
+      # axes -- both of which were observed failing it for reasons unrelated to
+      # workflow script paths, and a gate that goes red for unrelated reasons
+      # is a gate that gets switched off:
+      #
+      #   --noconftest   these repos' tests/conftest.py imports the full
+      #                  dependency tree (omnibase_core and friends), which is
+      #                  not installed here. ModuleNotFoundError, exit 4.
+      #   -c /dev/null   pyproject's [tool.pytest.ini_options] combines
+      #                  --strict-config with plugin-provided keys such as
+      #                  asyncio_default_fixture_loop_scope; without
+      #                  pytest-asyncio installed that is a hard config error
+      #                  and zero tests run while collection still reports 12.
+      #
+      # The module resolves its repo root from __file__, not from pytest's
+      # rootdir, so detaching the config does not change what it checks. It
+      # needs no fixtures beyond pytest's builtin tmp_path.
+      - name: Assert every workflow-referenced repo-local script exists
+        run: >-
+          python -m pytest tests/ci/test_workflow_script_refs_exist.py
+          -q --noconftest -p no:cacheprovider -c /dev/null

@@ -729,6 +729,27 @@ repos:
           - --baseline
           - architecture-handshakes/validator-requirements-baseline.yaml
 
+  # ---------------------------------------------------------------------------
+  # OMN-16664: a workflow may not execute a repo-local script that is absent.
+  #
+  # The OMN-15017 fan-out copied call-occ-autobind.yml and
+  # call-occ-companion-effect.yml here without carrying
+  # scripts/ci/occ_manual_replay_precheck.py, which both of them run, so every
+  # manual OCC replay dispatched in this repo died at [Errno 2] before the
+  # precheck could decide anything. Local parity for the "Workflow Script
+  # Reference Gate" CI job: without this hook the break commits with every
+  # local hook green and is caught only after push (root CLAUDE.md Rule #5).
+  # ---------------------------------------------------------------------------
+  - repo: local
+    hooks:
+      - id: workflow-script-refs
+        name: Workflow-referenced repo-local scripts exist (OMN-16664)
+        entry: uv run python tests/ci/test_workflow_script_refs_exist.py
+        language: system
+        pass_filenames: false
+        files: ^(\.github/workflows/.*\.ya?ml|scripts/.*)$
+        stages: [pre-commit]
+
 default_stages: [pre-commit]
 
 # ============================================================================
