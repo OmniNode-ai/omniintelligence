@@ -56,5 +56,26 @@ jobs:
       # here too. A silently-non-matching extractor would pass every
       # existence assertion while asserting nothing -- the same vacuous-green
       # shape as the bug.
+      #
+      # This gate deliberately runs in a bare environment carrying only pytest
+      # and pyyaml, so it is detached from the repo's own pytest wiring on two
+      # axes -- both of which were observed failing it for reasons unrelated to
+      # workflow script paths, and a gate that goes red for unrelated reasons
+      # is a gate that gets switched off:
+      #
+      #   --noconftest   these repos' tests/conftest.py imports the full
+      #                  dependency tree (omnibase_core and friends), which is
+      #                  not installed here. ModuleNotFoundError, exit 4.
+      #   -c /dev/null   pyproject's [tool.pytest.ini_options] combines
+      #                  --strict-config with plugin-provided keys such as
+      #                  asyncio_default_fixture_loop_scope; without
+      #                  pytest-asyncio installed that is a hard config error
+      #                  and zero tests run while collection still reports 12.
+      #
+      # The module resolves its repo root from __file__, not from pytest's
+      # rootdir, so detaching the config does not change what it checks. It
+      # needs no fixtures beyond pytest's builtin tmp_path.
       - name: Assert every workflow-referenced repo-local script exists
-        run: python -m pytest tests/ci/test_workflow_script_refs_exist.py -q
+        run: >-
+          python -m pytest tests/ci/test_workflow_script_refs_exist.py
+          -q --noconftest -p no:cacheprovider -c /dev/null
