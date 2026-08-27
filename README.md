@@ -1,3 +1,11 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/omninode-inline-white.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/brand/omninode-inline-full-color.svg">
+    <img alt="omninode" src="docs/assets/brand/omninode-inline-full-color.svg" width="420">
+  </picture>
+</p>
+
 # omniintelligence
 
 Intelligence, pattern learning, code analysis, and evaluation as first-class ONEX (OmniNode eXecution) nodes.
