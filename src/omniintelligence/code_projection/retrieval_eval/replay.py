@@ -139,7 +139,7 @@ REPLAY_LANES: Mapping[str, ModelReplayLane] = {
     "typescript_snapshot": ModelReplayLane(
         lane_id="typescript_snapshot",
         batch_names=("typescript_seq1.json",),
-        description="The widget partition alone, for language/partition scoping.",
+        description="The widget document survives greeter-partition mutations.",
     ),
 }
 
