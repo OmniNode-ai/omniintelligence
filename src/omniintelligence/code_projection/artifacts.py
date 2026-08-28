@@ -21,6 +21,7 @@ import tempfile
 import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -333,6 +334,16 @@ def _parse_current_state(payload: bytes) -> _CurrentState:
     )
 
 
+#: Request-scoped memo for `load_current`, keyed by store root then source id.
+#:
+#: A ContextVar rather than an instance attribute so the scope follows the
+#: asyncio task or thread that opened it. The store is shared and long-lived;
+#: concurrent requests must not see each other's memo, and PR 3 of OMN-16764
+#: resolves candidates concurrently within one request.
+_CURRENT_MEMO: ContextVar[dict[Path, dict[str, CurrentCodeProjection | None]] | None]
+_CURRENT_MEMO = ContextVar("code_projection_current_memo", default=None)
+
+
 class CodeProjectionArtifactStore:
     """Filesystem store with immutable objects and explicit current promotion."""
 
@@ -572,6 +583,11 @@ class CodeProjectionArtifactStore:
             )
 
         incoming = self._load_staged(staged)
+        # Drop any memo entry first: this is the write path, and a cached
+        # projection would make the replay decision against stale truth. The
+        # public method is used deliberately -- it is the seam callers and
+        # tests patch to observe promotion.
+        self._invalidate_current(staged.source_id)
         current = self.load_current(staged.source_id)
         if current is not None:
             replay = plan_code_projection_replay(
@@ -599,6 +615,9 @@ class CodeProjectionArtifactStore:
         _atomic_replace(
             incoming.state_path, canonical_json_bytes(state.to_wire()) + b"\n"
         )
+        # Invalidate again so an enclosing read scope cannot serve the
+        # pre-promotion projection either here or after this returns.
+        self._invalidate_current(staged.source_id)
         promoted = self.load_current(staged.source_id)
         if (
             promoted is None
@@ -606,11 +625,70 @@ class CodeProjectionArtifactStore:
             raise _integrity_error("current state disappeared after atomic promotion")
         return promoted
 
+    @contextmanager
+    def memoized_current(self) -> Iterator[None]:
+        """Memoize `load_current` for the duration of a read-only scope.
+
+        Serving one context pack calls `load_current` once per candidate plus
+        once per source inside search's current-generation check, and each call
+        re-reads and re-verifies every semantic document in the whole batch.
+        Candidates sharing a source therefore pay the full cost repeatedly.
+
+        Deliberately opt-in. `mark_applied` reads current state immediately
+        after replacing it, so an always-on cache would hand the write path its
+        own stale value. Callers that mutate state must not wrap themselves in
+        this scope, and `mark_applied` bypasses and invalidates the memo even if
+        they do.
+
+        Nesting reuses the active memo rather than resetting it.
+        """
+
+        if _CURRENT_MEMO.get() is not None:
+            yield
+            return
+        token = _CURRENT_MEMO.set({})
+        try:
+            yield
+        finally:
+            _CURRENT_MEMO.reset(token)
+
+    def _memo(self) -> dict[str, CurrentCodeProjection | None] | None:
+        """Return this store's memo for the active scope, or None outside one."""
+
+        memos = _CURRENT_MEMO.get()
+        if memos is None:
+            return None
+        return memos.setdefault(self._root, {})
+
+    def _invalidate_current(self, source_id: str) -> None:
+        """Drop any memoized projection for ``source_id`` in the active scope."""
+
+        memo = self._memo()
+        if memo is not None:
+            memo.pop(source_id, None)
+
     def load_current(self, source_id: str) -> CurrentCodeProjection | None:
-        """Load and fully validate current state for one stable source ID."""
+        """Load and fully validate current state for one stable source ID.
+
+        Inside `memoized_current()` the result is served from the scope's memo
+        on repeat calls; outside one, every call does the full read-and-verify.
+        """
 
         if _SOURCE_ID_PATTERN.fullmatch(source_id) is None:
             raise ValueError("source_id must be a canonical code source ID")
+
+        memo = self._memo()
+        if memo is not None and source_id in memo:
+            return memo[source_id]
+
+        current = self._load_current_uncached(source_id)
+        if memo is not None:
+            memo[source_id] = current
+        return current
+
+    def _load_current_uncached(self, source_id: str) -> CurrentCodeProjection | None:
+        """Read and fully validate current state, never consulting the memo."""
+
         state_path = self._state_path(source_id)
         try:
             state_bytes = self._read_store_file(
