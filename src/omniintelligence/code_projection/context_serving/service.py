@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import math
+from collections.abc import Mapping
 from decimal import ROUND_HALF_EVEN, Decimal
 
 from omniintelligence.code_projection._canonical import canonical_json_bytes, sha256_hex
@@ -38,6 +39,12 @@ from omniintelligence.code_projection.context_serving.protocols import (
 )
 from omniintelligence.code_projection.qdrant import ModelCodeProjectionSearchHit
 from omniintelligence.utils.util_token_counter import count_tokens
+
+# Upper bound on artifact resolutions in flight at once. Resolution is disk
+# reads plus SHA-256 verification against a store that is deliberately not
+# shared-state-free, so this stays modest: enough to hide per-call latency,
+# not enough to turn one request into a thundering herd (OMN-16764).
+RESOLVE_CONCURRENCY = 8
 
 
 class TiktokenCodeContextTokenCounter:
@@ -108,8 +115,15 @@ def _render_generation_context(
     authorization_profile_id: str,
     authorization_profile_payload_sha256: str,
     selection_policy_version: str,
-    items: tuple[ModelCodeContextItem, ...],
+    item_payloads: tuple[Mapping[str, object], ...],
 ) -> str:
+    """Render the generation context from already-serialised item payloads.
+
+    Payloads rather than models on purpose. This is called once per candidate
+    inside the selection loop; taking models made each call re-serialise every
+    already-selected item, so selecting n items cost n(n+1)/2 dumps (OMN-16764).
+    """
+
     payload = {
         "kind": "omninode_code_context",
         "schema_version": CODE_CONTEXT_SCHEMA_VERSION,
@@ -124,7 +138,7 @@ def _render_generation_context(
         "projection_repository_id": request.projection_repository_id,
         "policy_scope_ref": request.policy_scope_ref,
         "tenant_id": request.tenant_id,
-        "items": [item.model_dump(mode="json") for item in items],
+        "items": list(item_payloads),
     }
     return canonical_json_bytes(payload).decode("utf-8")
 
@@ -231,6 +245,49 @@ class CodeContextProcessor:
         self._artifact_resolver = artifact_resolver
         self._token_counter = TiktokenCodeContextTokenCounter()
 
+    async def _resolve_candidates(
+        self,
+        *,
+        request: ModelCodeContextRequest,
+        ranked: tuple[tuple[int, ModelCodeProjectionSearchHit], ...],
+    ) -> dict[str, ModelAuthorizedCodeContextCandidate | Exception]:
+        """Resolve a wave of eligible candidates concurrently, keyed by point id.
+
+        Outcomes are *captured* rather than raised. Selection remains sequential
+        and may never reach a given candidate; today an unreached candidate is
+        never resolved, so a fault inside it cannot fail the request. Raising
+        here would quietly change that, so the caller re-raises a captured
+        exception only once it actually reaches that candidate.
+
+        `Exception` and not `BaseException`: `asyncio.CancelledError` must keep
+        propagating, or the enclosing request timeout could no longer cancel us.
+        """
+
+        semaphore = asyncio.Semaphore(RESOLVE_CONCURRENCY)
+
+        async def resolve_one(
+            score_basis_points: int,
+            hit: ModelCodeProjectionSearchHit,
+        ) -> tuple[str, ModelAuthorizedCodeContextCandidate | Exception]:
+            async with semaphore:
+                try:
+                    candidate = await self._artifact_resolver.resolve(
+                        request=request,
+                        hit=hit,
+                        score_basis_points=score_basis_points,
+                    )
+                except Exception as exc:  # noqa: BLE001 - surfaced by the caller
+                    return hit.point_id, exc
+                return hit.point_id, candidate
+
+        # `_ranked_hits` has already rejected duplicate point ids, so keying the
+        # outcomes by point id cannot collide.
+        return dict(
+            await asyncio.gather(
+                *(resolve_one(score, hit) for score, hit in ranked),
+            )
+        )
+
     async def process(self, request_payload: bytes) -> bytes:
         """Return a canonical bounded context response for exact request bytes."""
 
@@ -261,7 +318,36 @@ class CodeContextProcessor:
                     )
 
                 ranked = _ranked_hits(hits, request=request)
+                # Resolution dominates per-candidate cost and each call is
+                # independent, so it is hoisted out of the selection loop and
+                # run concurrently. Selection stays sequential: it depends on
+                # the accumulated item list and the running context budget.
+                #
+                # Only the two state-independent rejections can be applied
+                # ahead of the loop; `max_items` cannot, because which
+                # candidates the selector reaches depends on how many earlier
+                # ones the budget rejected.
+                eligible = tuple(
+                    (score_basis_points, hit)
+                    for score_basis_points, hit in ranked
+                    if score_basis_points >= request.min_score_basis_points
+                    and hit.byte_count <= request.max_context_bytes
+                )
+                # Resolved in waves of `max_items` rather than all at once, so
+                # a request asking for 5 items out of 100 candidates does not
+                # perform 100 artifact reads. With no budget rejections -- the
+                # common case -- this is exactly one wave, the same number of
+                # resolutions the sequential version performed.
+                wave_size = max(request.max_items, 1)
+                resolved: dict[
+                    str, ModelAuthorizedCodeContextCandidate | Exception
+                ] = {}
+                resolve_cursor = 0
+
                 selected: list[ModelCodeContextItem] = []
+                # Each item's canonical payload, built once when the item is
+                # built and reused by every subsequent render.
+                selected_payloads: list[Mapping[str, object]] = []
                 truncated = False
                 for score_basis_points, hit in ranked:
                     if score_basis_points < request.min_score_basis_points:
@@ -273,15 +359,21 @@ class CodeContextProcessor:
                     if hit.byte_count > request.max_context_bytes:
                         truncated = True
                         continue
-                    try:
-                        candidate = await self._artifact_resolver.resolve(
-                            request=request,
-                            hit=hit,
-                            score_basis_points=score_basis_points,
+                    if hit.point_id not in resolved:
+                        wave = eligible[resolve_cursor : resolve_cursor + wave_size]
+                        resolve_cursor += len(wave)
+                        resolved.update(
+                            await self._resolve_candidates(request=request, ranked=wave)
                         )
-                    except CodeContextCandidateBudgetError:
+                    outcome = resolved[hit.point_id]
+                    if isinstance(outcome, CodeContextCandidateBudgetError):
                         truncated = True
                         continue
+                    if isinstance(outcome, Exception):
+                        # Reached by the selector, so it fails the request --
+                        # exactly as it would have when resolved inline.
+                        raise outcome
+                    candidate = outcome
                     _require_candidate_matches_request(
                         request=request,
                         hit=hit,
@@ -293,7 +385,8 @@ class CodeContextProcessor:
                         rank=len(selected) + 1,
                         token_counter=self._token_counter,
                     )
-                    proposed_items = (*selected, proposed)
+                    proposed_payload = proposed.model_dump(mode="json")
+                    proposed_payloads = (*selected_payloads, proposed_payload)
                     proposed_context = _render_generation_context(
                         request=request,
                         request_payload_sha256=request_payload_sha256,
@@ -307,7 +400,7 @@ class CodeContextProcessor:
                         selection_policy_version=(
                             self._artifact_resolver.selection_policy_version
                         ),
-                        items=proposed_items,
+                        item_payloads=proposed_payloads,
                     )
                     if (
                         len(proposed_context.encode("utf-8"))
@@ -318,6 +411,7 @@ class CodeContextProcessor:
                         truncated = True
                         continue
                     selected.append(proposed)
+                    selected_payloads.append(proposed_payload)
         except TimeoutError as exc:
             raise CodeContextTimeoutError(
                 "code-context request exceeded its hard timeout"
@@ -333,7 +427,7 @@ class CodeContextProcessor:
                 self._artifact_resolver.authorization_profile_payload_sha256
             ),
             selection_policy_version=(self._artifact_resolver.selection_policy_version),
-            items=items,
+            item_payloads=tuple(selected_payloads),
         )
         generation_bytes = generation_text.encode("utf-8")
         generation_tokens = self._token_counter.count(generation_text)
