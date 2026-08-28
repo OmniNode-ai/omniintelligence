@@ -92,7 +92,14 @@ async def _run(args: argparse.Namespace) -> bytes:
                 search=search,
                 artifact_resolver=resolver,
             )
-            return await processor.process(request_payload)
+            # One request is one read-only scope. Both paths that load current
+            # state -- the resolver, once per candidate, and search's
+            # current-generation check, once per source -- go through this same
+            # store, so opening the scope here covers both. Serving a pack
+            # otherwise re-reads and re-verifies every semantic document in a
+            # batch once per candidate drawn from it (OMN-16764).
+            with artifact_store.memoized_current():
+                return await processor.process(request_payload)
     except CodeContextError:
         raise
     except Exception as exc:
