@@ -36,6 +36,7 @@ from omniintelligence.code_projection.codec import (
 from omniintelligence.code_projection.models import (
     ModelCodeProjectionBatch,
     ModelCodeProjectionDocument,
+    ModelTombstoneReason,
 )
 from omniintelligence.code_projection.qdrant import (
     CodeProjectionQdrantStore,
@@ -259,11 +260,30 @@ class ReplayGenerationResolver:
         self._generations: dict[
             tuple[str, str], ModelCodeProjectionCurrentGeneration
         ] = {}
+        self._tombstone_reasons: dict[tuple[str, str], ModelTombstoneReason] = {}
+
+    def tombstone_reason(
+        self, tenant_id: str, source_id: str
+    ) -> ModelTombstoneReason | None:
+        """Return why the source was tombstoned, or ``None`` if it is live.
+
+        Tracked by this harness rather than read back from the index.
+        ``ModelCodeProjectionCurrentGeneration`` carries ``operation`` but no
+        reason, so ``policy_revoked`` and ``source_deleted`` are
+        indistinguishable at the retrieval layer today.  R3 therefore earns its
+        independence from its own replay lane, not from reason propagation.
+        """
+
+        return self._tombstone_reasons.get((tenant_id, source_id))
 
     def promote(self, batch: ModelCodeProjectionBatch) -> None:
         """Record ``batch`` as the current generation for its source."""
 
         key = (batch.source.tenant_id, batch.source.source_id)
+        if batch.tombstone_reason is None:
+            self._tombstone_reasons.pop(key, None)
+        else:
+            self._tombstone_reasons[key] = batch.tombstone_reason
         self._generations[key] = ModelCodeProjectionCurrentGeneration(
             tenant_id=batch.source.tenant_id,
             source_id=batch.source.source_id,
@@ -321,6 +341,11 @@ class ReplayState:
         """Return the promoted generation for ``source_id`` at this state."""
 
         return self._resolver(self._tenant_id, source_id)
+
+    def current_tombstone_reason(self, source_id: str) -> ModelTombstoneReason | None:
+        """Return why ``source_id`` was tombstoned at this state, if it was."""
+
+        return self._resolver.tombstone_reason(self._tenant_id, source_id)
 
     async def search(
         self,
