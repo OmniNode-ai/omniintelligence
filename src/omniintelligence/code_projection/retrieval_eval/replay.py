@@ -23,6 +23,7 @@ import warnings
 from collections.abc import AsyncIterator, Mapping, Sequence
 from contextlib import asynccontextmanager
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -233,9 +234,14 @@ class DeterministicEmbedder:
     metrics computed on top of it are reported as degenerate rather than gated.
     """
 
+    def __init__(self) -> None:
+        self.elapsed_ms = 0.0
+        self.call_count = 0
+
     async def get_embeddings_batch(self, texts: list[str]) -> list[list[float]]:
         """Return one stable pseudo-embedding per input, preserving order."""
 
+        started = perf_counter()
         vectors: list[list[float]] = []
         for text in texts:
             digest = hashlib.sha256(text.encode("utf-8")).digest()
@@ -245,7 +251,23 @@ class DeterministicEmbedder:
                     for index in range(_EMBEDDING_DIMENSION)
                 ]
             )
+        self.elapsed_ms += (perf_counter() - started) * 1000.0
+        self.call_count += 1
         return vectors
+
+
+class ModelStageLatencySample(_FrozenModel):
+    """Per-stage timings for one search.
+
+    Only the embed call is separable from outside ``search()``.  Vector search,
+    policy/provenance checks and pack assembly all happen inside that single
+    call and are not individually instrumented, so they are reported together as
+    ``unseparated_remainder_ms`` rather than split by guesswork.
+    """
+
+    embed_ms: float = Field(ge=0.0)
+    total_ms: float = Field(ge=0.0)
+    unseparated_remainder_ms: float = Field(ge=0.0)
 
 
 class ReplayGenerationResolver:
@@ -315,13 +337,22 @@ class ReplayState:
         *,
         store: CodeProjectionQdrantStore,
         resolver: ReplayGenerationResolver,
+        embedder: DeterministicEmbedder,
         tenant_id: str,
         repository_id: str,
     ) -> None:
         self._store = store
         self._resolver = resolver
+        self._embedder = embedder
         self._tenant_id = tenant_id
         self._repository_id = repository_id
+        self._stage_samples: list[ModelStageLatencySample] = []
+
+    @property
+    def stage_samples(self) -> tuple[ModelStageLatencySample, ...]:
+        """Return one per-stage latency sample for each search run here."""
+
+        return tuple(self._stage_samples)
 
     @property
     def tenant_id(self) -> str:
@@ -356,7 +387,9 @@ class ReplayState:
     ) -> tuple[ModelCodeProjectionSearchHit, ...]:
         """Run a tenant-scoped search against this replay state."""
 
-        return await self._store.search(
+        embed_before = self._embedder.elapsed_ms
+        started = perf_counter()
+        hits = await self._store.search(
             query_text=query_text,
             tenant_id=self._tenant_id,
             repository_id=(
@@ -364,6 +397,16 @@ class ReplayState:
             ),
             limit=limit,
         )
+        total_ms = (perf_counter() - started) * 1000.0
+        embed_ms = self._embedder.elapsed_ms - embed_before
+        self._stage_samples.append(
+            ModelStageLatencySample(
+                embed_ms=embed_ms,
+                total_ms=total_ms,
+                unseparated_remainder_ms=max(total_ms - embed_ms, 0.0),
+            )
+        )
+        return hits
 
 
 def load_replay_corpus(fixture_root: Path | None = None) -> ModelReplayCorpus:
@@ -414,10 +457,11 @@ async def open_replay_state(
             raise FileNotFoundError(content_ref) from exc
 
     client = IndexedMemoryQdrant()
+    embedder = DeterministicEmbedder()
     try:
         store = CodeProjectionQdrantStore(
             client=client,
-            embedding_client=DeterministicEmbedder(),
+            embedding_client=embedder,
             content_resolver=resolve_content,
             current_generation_resolver=resolver,
             config=ModelCodeProjectionQdrantConfig(
@@ -434,6 +478,7 @@ async def open_replay_state(
         yield ReplayState(
             store=store,
             resolver=resolver,
+            embedder=embedder,
             tenant_id=tenant_id,
             repository_id=repository_id,
         )
@@ -449,6 +494,7 @@ __all__ = [
     "DeterministicEmbedder",
     "IndexedMemoryQdrant",
     "ModelReplayCorpus",
+    "ModelStageLatencySample",
     "ModelReplayLane",
     "ReplayGenerationResolver",
     "ReplayState",

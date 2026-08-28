@@ -1,0 +1,229 @@
+{
+  "golden_set_version": "v1",
+  "ticket": "OMN-16522",
+  "corpus_manifest_id": "omninode.code-projection-fixtures.v2",
+  "judged_by": "lakshman",
+  "sizing_note": "10 rows: the hard ceiling from the published corpus, not a chosen number. 6 positives (2 retrievable documents x 3 genuinely distinct intents - identity, structure, kind-or-language; a 4th phrasing would paraphrase one of those three) plus 4 non-redundant negatives. Volume comes from parameterizing each row over replay state, which yields 31 (query, replay-state) assertions from these 10 rows.",
+  "queries": [
+    {
+      "query_id": "greeter-identity",
+      "query_text": "where is the Greeter class defined",
+      "intent": "identity",
+      "polarity": "positive",
+      "expectations": [
+        {
+          "lane_id": "a_to_b_to_a",
+          "expected_document_ids": [
+            "cdoc_v2_104dcf17ac88db801220aeb44987f1665521a735bbfa74fddf62d71b475dc3ac"
+          ]
+        },
+        {
+          "lane_id": "a_to_b",
+          "expected_document_ids": [
+            "cdoc_v2_8b4850e621eca8e3779190d5bdabcd97079953b609dbef3bd1d81f761b33a353"
+          ]
+        },
+        { "lane_id": "source_tombstone", "expected_document_ids": [] },
+        { "lane_id": "policy_tombstone", "expected_document_ids": [] }
+      ]
+    },
+    {
+      "query_id": "greeter-structure",
+      "query_text": "what does the greet method return",
+      "intent": "structure",
+      "polarity": "positive",
+      "expectations": [
+        {
+          "lane_id": "a_to_b_to_a",
+          "expected_document_ids": [
+            "cdoc_v2_104dcf17ac88db801220aeb44987f1665521a735bbfa74fddf62d71b475dc3ac"
+          ]
+        },
+        {
+          "lane_id": "a_to_b",
+          "expected_document_ids": [
+            "cdoc_v2_8b4850e621eca8e3779190d5bdabcd97079953b609dbef3bd1d81f761b33a353"
+          ]
+        },
+        { "lane_id": "source_tombstone", "expected_document_ids": [] },
+        { "lane_id": "policy_tombstone", "expected_document_ids": [] }
+      ]
+    },
+    {
+      "query_id": "greeter-kind",
+      "query_text": "which Python class produces greetings",
+      "intent": "kind_or_language",
+      "polarity": "positive",
+      "expectations": [
+        {
+          "lane_id": "a_to_b_to_a",
+          "expected_document_ids": [
+            "cdoc_v2_104dcf17ac88db801220aeb44987f1665521a735bbfa74fddf62d71b475dc3ac"
+          ]
+        },
+        {
+          "lane_id": "a_to_b",
+          "expected_document_ids": [
+            "cdoc_v2_8b4850e621eca8e3779190d5bdabcd97079953b609dbef3bd1d81f761b33a353"
+          ]
+        },
+        { "lane_id": "source_tombstone", "expected_document_ids": [] },
+        { "lane_id": "policy_tombstone", "expected_document_ids": [] }
+      ]
+    },
+    {
+      "query_id": "widget-identity",
+      "query_text": "where is the Widget interface defined",
+      "intent": "identity",
+      "polarity": "positive",
+      "expectations": [
+        {
+          "lane_id": "a_to_b_to_a",
+          "expected_document_ids": [
+            "cdoc_v2_538c157b3705527c8fccd80c47ecb9ad086be2cf63b179f9615e0ba30c7679da"
+          ]
+        },
+        {
+          "lane_id": "a_to_b",
+          "expected_document_ids": [
+            "cdoc_v2_538c157b3705527c8fccd80c47ecb9ad086be2cf63b179f9615e0ba30c7679da"
+          ]
+        },
+        {
+          "lane_id": "source_tombstone",
+          "expected_document_ids": [
+            "cdoc_v2_538c157b3705527c8fccd80c47ecb9ad086be2cf63b179f9615e0ba30c7679da"
+          ]
+        },
+        {
+          "lane_id": "policy_tombstone",
+          "expected_document_ids": [
+            "cdoc_v2_538c157b3705527c8fccd80c47ecb9ad086be2cf63b179f9615e0ba30c7679da"
+          ]
+        },
+        {
+          "lane_id": "typescript_snapshot",
+          "expected_document_ids": [
+            "cdoc_v2_538c157b3705527c8fccd80c47ecb9ad086be2cf63b179f9615e0ba30c7679da"
+          ]
+        }
+      ]
+    },
+    {
+      "query_id": "widget-structure",
+      "query_text": "what fields does the Widget interface declare",
+      "intent": "structure",
+      "polarity": "positive",
+      "expectations": [
+        {
+          "lane_id": "a_to_b_to_a",
+          "expected_document_ids": [
+            "cdoc_v2_538c157b3705527c8fccd80c47ecb9ad086be2cf63b179f9615e0ba30c7679da"
+          ]
+        },
+        {
+          "lane_id": "a_to_b",
+          "expected_document_ids": [
+            "cdoc_v2_538c157b3705527c8fccd80c47ecb9ad086be2cf63b179f9615e0ba30c7679da"
+          ]
+        },
+        {
+          "lane_id": "source_tombstone",
+          "expected_document_ids": [
+            "cdoc_v2_538c157b3705527c8fccd80c47ecb9ad086be2cf63b179f9615e0ba30c7679da"
+          ]
+        },
+        {
+          "lane_id": "policy_tombstone",
+          "expected_document_ids": [
+            "cdoc_v2_538c157b3705527c8fccd80c47ecb9ad086be2cf63b179f9615e0ba30c7679da"
+          ]
+        },
+        {
+          "lane_id": "typescript_snapshot",
+          "expected_document_ids": [
+            "cdoc_v2_538c157b3705527c8fccd80c47ecb9ad086be2cf63b179f9615e0ba30c7679da"
+          ]
+        }
+      ]
+    },
+    {
+      "query_id": "widget-kind",
+      "query_text": "which TypeScript interface models a widget",
+      "intent": "kind_or_language",
+      "polarity": "positive",
+      "expectations": [
+        {
+          "lane_id": "a_to_b_to_a",
+          "expected_document_ids": [
+            "cdoc_v2_538c157b3705527c8fccd80c47ecb9ad086be2cf63b179f9615e0ba30c7679da"
+          ]
+        },
+        {
+          "lane_id": "a_to_b",
+          "expected_document_ids": [
+            "cdoc_v2_538c157b3705527c8fccd80c47ecb9ad086be2cf63b179f9615e0ba30c7679da"
+          ]
+        },
+        {
+          "lane_id": "source_tombstone",
+          "expected_document_ids": [
+            "cdoc_v2_538c157b3705527c8fccd80c47ecb9ad086be2cf63b179f9615e0ba30c7679da"
+          ]
+        },
+        {
+          "lane_id": "policy_tombstone",
+          "expected_document_ids": [
+            "cdoc_v2_538c157b3705527c8fccd80c47ecb9ad086be2cf63b179f9615e0ba30c7679da"
+          ]
+        },
+        {
+          "lane_id": "typescript_snapshot",
+          "expected_document_ids": [
+            "cdoc_v2_538c157b3705527c8fccd80c47ecb9ad086be2cf63b179f9615e0ba30c7679da"
+          ]
+        }
+      ]
+    },
+    {
+      "query_id": "negative-external-symbol",
+      "query_text": "where is the builtins str type defined",
+      "intent": "external_symbol",
+      "polarity": "negative",
+      "rationale": "builtins.str is a real graph node and edge target with no semantic document and a null source span. Nothing in the corpus is a relevant answer.",
+      "expectations": [
+        { "lane_id": "external_symbol", "expected_document_ids": [] }
+      ]
+    },
+    {
+      "query_id": "negative-cross-language-scoping",
+      "query_text": "what fields does the Widget interface declare",
+      "intent": "cross_language",
+      "polarity": "negative",
+      "rationale": "Asked against a replay state carrying only the python partition. The TypeScript document does not exist at this state, so no result is relevant.",
+      "expectations": [
+        { "lane_id": "external_symbol", "expected_document_ids": [] }
+      ]
+    },
+    {
+      "query_id": "negative-empty-partition",
+      "query_text": "what is defined in the empty module",
+      "intent": "empty_partition",
+      "polarity": "negative",
+      "rationale": "A successfully applied zero-document snapshot. Correct behaviour is an empty result, not a failure and not a deletion.",
+      "expectations": [
+        { "lane_id": "empty_snapshot", "expected_document_ids": [] }
+      ]
+    },
+    {
+      "query_id": "negative-absent-symbol",
+      "query_text": "where is the PaymentProcessor class defined",
+      "intent": "absent_symbol",
+      "polarity": "negative",
+      "rationale": "A plausible developer question about a symbol that exists nowhere in the corpus.",
+      "expectations": [
+        { "lane_id": "a_to_b_to_a", "expected_document_ids": [] }
+      ]
+    }
+  ]
+}

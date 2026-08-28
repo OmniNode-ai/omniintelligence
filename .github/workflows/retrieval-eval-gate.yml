@@ -1,0 +1,110 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+#
+# OMN-16522: retrieval-quality benchmark gate.
+#
+# This is a gate, not an opt-in script. Detection tooling that is not wired as
+# a gate gets ignored, so the six replay-scenario assertions run on every PR
+# that touches retrieval code.
+#
+# What gates here and what does not:
+#   - GATES: the R1-R6 replay-scenario assertions. Each has a deterministic
+#     wrong answer -- a stale generation served after a->b->a, a document
+#     surviving a tombstone, an external symbol materializing as a chunk, a
+#     partition-scoped mutation leaking across partitions.
+#   - REPORTED, NEVER GATING: recall@k, MRR and top-rank accuracy. The published
+#     corpus exposes at most two current-generation documents at any replay
+#     state, so recall@5 and recall@10 are pinned at 1.00 by construction and
+#     recall@1 is a coin flip. A threshold on any of them would be a threshold
+#     on nothing. They arm automatically at N >= 20 distinct chunk keys AND
+#     Q >= 30 labeled queries, evaluated at runtime with no code change.
+#
+# The whole job runs offline: no Postgres, Memgraph or Qdrant service, no
+# network, no model calls. It runs the same way here as on a laptop.
+name: Retrieval Eval Gate
+
+on:
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - 'src/omniintelligence/code_projection/**'
+      - 'tests/unit/code_projection/**'
+      - 'tests/fixtures/code_projection/**'
+      - '.github/workflows/retrieval-eval-gate.yml'
+  merge_group:
+  workflow_dispatch:
+
+concurrency:
+  group: retrieval-eval-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12"
+  UV_VERSION: "0.5.14"
+  CACHE_VERSION: "0.1.0"
+
+jobs:
+  retrieval-eval:
+    name: Retrieval Eval Gate
+    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
+    runs-on: >-
+      ${{
+        github.event_name != 'pull_request'
+        && github.event_name != 'merge_group'
+        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+      }}
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Cache uv dependencies
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/uv
+          key: >-
+            uv-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
+            ${{ hashFiles('**/uv.lock') }}-
+            ${{ env.CACHE_VERSION }}
+          restore-keys: |
+            uv-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('**/uv.lock') }}-
+            uv-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      # Named-scenario evidence: this step's log shows each of R1-R6 executing
+      # with its verdict, and exits non-zero if any scenario fails.
+      - name: Run replay-scenario gate
+        run: uv run python -m omniintelligence.code_projection.retrieval_eval
+
+      - name: Run harness and replay-gate tests
+        run: |
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 uv run --no-sync pytest \
+            -p pytest_asyncio.plugin \
+            tests/unit/code_projection -q
+
+      # A drift here is either a real retrieval regression or a deliberate
+      # re-baseline. Failing loudly is what keeps the two distinguishable.
+      - name: Verify committed baseline scorecard is unchanged
+        run: |
+          uv run python -m omniintelligence.code_projection.retrieval_eval --write
+          git diff --exit-code -- \
+            src/omniintelligence/code_projection/retrieval_eval/baselines/baseline_scorecard.json
