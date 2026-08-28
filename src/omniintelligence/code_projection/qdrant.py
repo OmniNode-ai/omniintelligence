@@ -17,7 +17,7 @@ import struct
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Annotated, Final, Literal, Protocol, cast
+from typing import Annotated, Final, Literal, Protocol, cast, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 from qdrant_client import AsyncQdrantClient
@@ -81,6 +81,7 @@ class CodeProjectionQdrantIntegrityError(RuntimeError):
     """Qdrant cannot prove the configured projection state exactly."""
 
 
+@runtime_checkable
 class ProtocolCodeProjectionEmbeddingClient(Protocol):
     """Minimum real-model embedding surface required by this materializer."""
 
