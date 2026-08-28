@@ -27,6 +27,10 @@ on:
   pull_request:
     branches: [main, dev]
     paths:
+      # A Qdrant, Pydantic or pytest bump can change harness behaviour
+      # without touching a single source file, so the lockfile gates too.
+      - 'pyproject.toml'
+      - 'uv.lock'
       - 'src/omniintelligence/code_projection/**'
       - 'tests/unit/code_projection/**'
       - 'tests/fixtures/code_projection/**'

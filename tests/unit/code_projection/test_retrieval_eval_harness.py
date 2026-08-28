@@ -12,6 +12,9 @@ from __future__ import annotations
 
 import pytest
 
+from omniintelligence.code_projection.qdrant import (
+    ProtocolCodeProjectionEmbeddingClient,
+)
 from omniintelligence.code_projection.retrieval_eval.baselines import (
     BASELINE_SCORECARD_PATH,
     GOLDEN_QUERY_SET_PATH,
@@ -31,6 +34,11 @@ from omniintelligence.code_projection.retrieval_eval.metrics import (
     reciprocal_rank,
     resolve_metric_status,
     summarize_metrics,
+)
+from omniintelligence.code_projection.retrieval_eval.replay import (
+    DeterministicEmbedder,
+    ProtocolTimedEmbedder,
+    load_replay_corpus,
 )
 from omniintelligence.code_projection.retrieval_eval.runner import run_eval
 from omniintelligence.code_projection.retrieval_eval.scorecard import UNKNOWN
@@ -75,20 +83,34 @@ async def test_golden_set_is_within_the_honest_ceiling() -> None:
             assert expectation.lane_id
 
 
-async def test_golden_set_expected_documents_still_exist_in_the_corpus() -> None:
-    """A judged label naming a document the corpus no longer carries is stale."""
+def test_golden_set_expected_documents_still_exist_in_the_corpus() -> None:
+    """A judged label naming a document the corpus no longer carries is stale.
 
-    result = await run_eval()
+    Asserted as a subset of the corpus's real document ids: checking only that
+    labels exist would stay green after a document is renamed or removed, which
+    is precisely the drift this guards against.
+    """
+
     golden = load_golden_query_set()
-    known = {
+    corpus = load_replay_corpus()
+
+    judged = {
         document_id
         for query in golden.queries
         for expectation in query.expectations
         for document_id in expectation.expected_document_ids
     }
-    assert known, "the golden set must judge at least one document relevant"
-    # Every judged document belongs to one of the corpus's chunk keys.
-    assert result.scorecard.distinct_chunk_keys
+    corpus_document_ids = {
+        document.document_id
+        for batch in corpus.batches.values()
+        for document in batch.semantic_documents
+    }
+
+    assert judged, "the golden set must judge at least one document relevant"
+    assert judged <= corpus_document_ids, (
+        f"golden set judges documents absent from the corpus: "
+        f"{sorted(judged - corpus_document_ids)}"
+    )
 
 
 async def test_ranking_metrics_are_reported_but_never_gating() -> None:
@@ -228,3 +250,13 @@ def test_golden_set_path_points_at_the_committed_artifact() -> None:
 
     assert GOLDEN_QUERY_SET_PATH.is_file()
     assert DEFAULT_GOLDEN_SET_PATH == GOLDEN_QUERY_SET_PATH
+
+
+def test_harness_embedder_conforms_to_the_injected_io_protocols() -> None:
+    """The offline embedder satisfies the contract the store injects against."""
+
+    embedder = DeterministicEmbedder()
+
+    assert isinstance(embedder, ProtocolCodeProjectionEmbeddingClient)
+    assert isinstance(embedder, ProtocolTimedEmbedder)
+    assert embedder.elapsed_ms == 0.0

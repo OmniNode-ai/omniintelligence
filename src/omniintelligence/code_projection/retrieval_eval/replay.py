@@ -24,7 +24,7 @@ from collections.abc import AsyncIterator, Mapping, Sequence
 from contextlib import asynccontextmanager
 from pathlib import Path
 from time import perf_counter
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, Field
 from qdrant_client import AsyncQdrantClient
@@ -44,6 +44,7 @@ from omniintelligence.code_projection.qdrant import (
     ModelCodeProjectionCurrentGeneration,
     ModelCodeProjectionQdrantConfig,
     ModelCodeProjectionSearchHit,
+    ProtocolCodeProjectionEmbeddingClient,
 )
 
 #: Repository-relative location of the frozen OMN-16061 v2 replay vectors.
@@ -226,6 +227,20 @@ class IndexedMemoryQdrant(AsyncQdrantClient):
         return info.model_copy(update={"payload_schema": indexes})
 
 
+@runtime_checkable
+class ProtocolTimedEmbedder(ProtocolCodeProjectionEmbeddingClient, Protocol):
+    """The embedding contract plus the cumulative timing the harness reads.
+
+    Aggregates ``ProtocolCodeProjectionEmbeddingClient`` rather than restating
+    it: the store already injects against that contract, and this adds only the
+    elapsed-time accessor the per-stage latency report needs.
+    """
+
+    @property
+    def elapsed_ms(self) -> float:
+        """Return cumulative milliseconds spent embedding."""
+
+
 class DeterministicEmbedder:
     """Offline stand-in embedding function: a stable hash projection.
 
@@ -235,8 +250,14 @@ class DeterministicEmbedder:
     """
 
     def __init__(self) -> None:
-        self.elapsed_ms = 0.0
+        self._elapsed_ms = 0.0
         self.call_count = 0
+
+    @property
+    def elapsed_ms(self) -> float:
+        """Return cumulative milliseconds spent embedding."""
+
+        return self._elapsed_ms
 
     async def get_embeddings_batch(self, texts: list[str]) -> list[list[float]]:
         """Return one stable pseudo-embedding per input, preserving order."""
@@ -251,7 +272,7 @@ class DeterministicEmbedder:
                     for index in range(_EMBEDDING_DIMENSION)
                 ]
             )
-        self.elapsed_ms += (perf_counter() - started) * 1000.0
+        self._elapsed_ms += (perf_counter() - started) * 1000.0
         self.call_count += 1
         return vectors
 
@@ -337,7 +358,7 @@ class ReplayState:
         *,
         store: CodeProjectionQdrantStore,
         resolver: ReplayGenerationResolver,
-        embedder: DeterministicEmbedder,
+        embedder: ProtocolTimedEmbedder,
         tenant_id: str,
         repository_id: str,
     ) -> None:
@@ -495,6 +516,7 @@ __all__ = [
     "IndexedMemoryQdrant",
     "ModelReplayCorpus",
     "ModelStageLatencySample",
+    "ProtocolTimedEmbedder",
     "ModelReplayLane",
     "ReplayGenerationResolver",
     "ReplayState",

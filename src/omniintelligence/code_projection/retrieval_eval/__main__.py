@@ -45,13 +45,24 @@ async def _main(*, write: bool) -> int:
         "(excluded from the scorecard digest)\n"
     )
 
-    if write:
-        BASELINE_SCORECARD_PATH.write_bytes(payload)
-        sys.stdout.write(f"wrote {BASELINE_SCORECARD_PATH}\n")
-    else:
-        sys.stdout.write(payload.decode("utf-8"))
+    passed = all(s.passed for s in result.scorecard.scenarios)
 
-    return 0 if all(s.passed for s in result.scorecard.scenarios) else 1
+    if not write:
+        sys.stdout.write(payload.decode("utf-8"))
+        return 0 if passed else 1
+
+    # Refuse to re-baseline off a failing run. Writing here would replace the
+    # reference with a scorecard recording failed scenarios, which silently
+    # destroys the very thing future runs are compared against.
+    if not passed:
+        sys.stderr.write(
+            "refusing to write the baseline: one or more scenarios failed\n"
+        )
+        return 1
+
+    BASELINE_SCORECARD_PATH.write_bytes(payload)
+    sys.stdout.write(f"wrote {BASELINE_SCORECARD_PATH}\n")
+    return 0
 
 
 def main() -> int:
