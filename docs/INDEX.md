@@ -54,6 +54,8 @@ Intelligence platform for the ONEX ecosystem: pattern learning, code analysis, e
 | [Node Inventory](reference/NODE_INVENTORY.md) | Full list of 60 ONEX nodes declared in `pyproject.toml [project.entry-points."onex.nodes"]` | Active |
 | [Event Surface](reference/EVENT_SURFACE.md) | All produced, consumed, dashboard-visible, internal, and deprecated Kafka topics | Active |
 | [Dash Integration Truth Boundary](reference/DASH_INTEGRATION_TRUTH_BOUNDARY.md) | Producer-side (this repo) topics, re-verified; consumer-side (omnidash) claims are stale — omnidash-side audit needed | Producer: Active. Consumer: Stale |
+| [Context Serving Latency — Timings](reference/CONTEXT_SERVING_LATENCY_TIMINGS.md) | Measured stage-level breakdown of the code-context serving request (OMN-16764), with the ranked optimization list and what each one actually saves | Active — pre-optimization baseline, measured 2026-08-28 |
+| [Context Serving Latency — Provenance](reference/CONTEXT_SERVING_LATENCY_PROVENANCE.md) | Environment, corpus, versions and reproduction steps for the timings above | Active |
 | [Contract Validation Guide](CONTRACT_VALIDATION_GUIDE.md) | How to create and validate ONEX contract YAML files | Active |
 | [Naming Conventions](conventions/NAMING_CONVENTIONS.md) | Node, handler, model, and file naming standards | Active |
 
