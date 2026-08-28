@@ -35,7 +35,7 @@ async def _main(*, write: bool) -> int:
     metrics = result.scorecard.metrics
     sys.stdout.write(
         f"metric_status={metrics.metric_status} "
-        f"N={metrics.observed_distinct_documents} "
+        f"N={metrics.observed_distinct_chunk_keys} "
         f"Q={metrics.observed_labeled_queries}\n"
     )
     sys.stdout.write(

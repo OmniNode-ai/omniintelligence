@@ -196,11 +196,11 @@
       ]
     },
     {
-      "query_id": "negative-cross-language-scoping",
+      "query_id": "negative-absent-at-state",
       "query_text": "what fields does the Widget interface declare",
-      "intent": "cross_language",
+      "intent": "absent_at_state",
       "polarity": "negative",
-      "rationale": "Asked against a replay state carrying only the python partition. The TypeScript document does not exist at this state, so no result is relevant.",
+      "rationale": "Asked at a replay state that carries only the python partition, so the widget document was never indexed there and nothing is relevant. This establishes absence-by-nonexistence, NOT language or partition scoping: a scoping assertion needs a state where both partitions are live and a filter to hold them apart, which search() cannot express today (it scopes on tenant, repository and record_kind only, and both fixture partitions share a repository).",
       "expectations": [
         { "lane_id": "external_symbol", "expected_document_ids": [] }
       ]

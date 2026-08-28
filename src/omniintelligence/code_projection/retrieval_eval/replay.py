@@ -164,13 +164,27 @@ class ModelReplayCorpus(_FrozenModel):
         return documents[0]
 
     def distinct_chunk_keys(self) -> frozenset[str]:
-        """Return every chunk key appearing anywhere in the corpus."""
+        """Return every chunk key appearing anywhere in the corpus.
+
+        Corpus-wide, so this counts superseded revisions and tombstoned
+        partitions too.  It is NOT the N the arming rule wants -- see
+        ``ReplayState.current_chunk_keys`` for the current-generation set.
+        """
 
         return frozenset(
             document.chunk_key
             for batch in self.batches.values()
             for document in batch.semantic_documents
         )
+
+    def chunk_key_by_document_id(self) -> Mapping[str, str]:
+        """Return the chunk key each document id belongs to."""
+
+        return {
+            document.document_id: document.chunk_key
+            for batch in self.batches.values()
+            for document in batch.semantic_documents
+        }
 
 
 class IndexedMemoryQdrant(AsyncQdrantClient):
@@ -340,6 +354,21 @@ class ReplayGenerationResolver:
             ),
         )
 
+    def live_document_ids(self, tenant_id: str) -> frozenset[str]:
+        """Return document ids visible at this state for ``tenant_id``.
+
+        Tombstoned generations contribute nothing: their documents are gone
+        from the index, which is exactly why they must not be counted toward
+        the arming rule's N.
+        """
+
+        return frozenset(
+            document_id
+            for (generation_tenant, _), generation in self._generations.items()
+            if generation_tenant == tenant_id and generation.operation == "snapshot"
+            for document_id in generation.document_ids
+        )
+
     def __call__(
         self,
         tenant_id: str,
@@ -359,12 +388,14 @@ class ReplayState:
         store: CodeProjectionQdrantStore,
         resolver: ReplayGenerationResolver,
         embedder: ProtocolTimedEmbedder,
+        chunk_key_by_document_id: Mapping[str, str],
         tenant_id: str,
         repository_id: str,
     ) -> None:
         self._store = store
         self._resolver = resolver
         self._embedder = embedder
+        self._chunk_key_by_document_id = chunk_key_by_document_id
         self._tenant_id = tenant_id
         self._repository_id = repository_id
         self._stage_samples: list[ModelStageLatencySample] = []
@@ -393,6 +424,23 @@ class ReplayState:
         """Return the promoted generation for ``source_id`` at this state."""
 
         return self._resolver(self._tenant_id, source_id)
+
+    def current_chunk_keys(self) -> frozenset[str]:
+        """Return the chunk keys rankable at this replay state.
+
+        This is the N the arming rule is specified against -- current
+        generation only, so superseded revisions and tombstoned partitions are
+        excluded.  Counting them would arm the ranking metrics against a corpus
+        that is not actually rankable, which is the failure the rule exists to
+        prevent.
+        """
+
+        live = self._resolver.live_document_ids(self._tenant_id)
+        return frozenset(
+            chunk_key
+            for document_id, chunk_key in self._chunk_key_by_document_id.items()
+            if document_id in live
+        )
 
     def current_tombstone_reason(self, source_id: str) -> ModelTombstoneReason | None:
         """Return why ``source_id`` was tombstoned at this state, if it was."""
@@ -500,6 +548,7 @@ async def open_replay_state(
             store=store,
             resolver=resolver,
             embedder=embedder,
+            chunk_key_by_document_id=corpus.chunk_key_by_document_id(),
             tenant_id=tenant_id,
             repository_id=repository_id,
         )

@@ -206,8 +206,16 @@ async def test_r5_external_symbols_are_graph_nodes_but_never_retrievable() -> No
 async def test_r6_partition_scoping_holds_across_every_greeter_mutation() -> None:
     """R6: the widget survives every greeter-partition mutation.
 
-    The stated wrong answer is the greeter tombstones removing the widget
-    document -- a partition-scoped mutation leaking across partitions.
+    R6 names two wrong answers and only one is assertable here.  This asserts
+    the greeter tombstones not removing the widget document -- a partition-scoped
+    mutation leaking across partitions.
+
+    The other conjunct, "a python-scoped query returns the widget", is *not*
+    asserted and cannot be through this surface: ``search()`` filters on tenant,
+    repository and record_kind, there is no language parameter, and a replay
+    lane must sit inside one repository so both fixture partitions share a
+    ``repository_id``.  It is unassertable rather than unasserted, recorded so
+    half a gate does not read as a whole one.
     """
 
     corpus = load_replay_corpus()
@@ -266,3 +274,32 @@ async def test_r7_identical_content_at_a_higher_cursor_changes_nothing() -> None
     # The pointer did advance, even though the retrievable set did not.
     assert late_generation is not None
     assert late_generation.batch_id == third.batch_id
+
+
+async def test_current_chunk_keys_excludes_tombstoned_and_superseded_keys() -> None:
+    """N must come from the current generation, not from the whole corpus.
+
+    Corpus-wide counting is wrong in the unsafe direction: it counts superseded
+    revisions and tombstoned partitions as rankable, so a corpus whose keys are
+    mostly tombstoned in the scored lanes would arm the ranking metrics against
+    a corpus that cannot actually rank. Inert on this fixture set -- which is
+    exactly why it needs a test rather than a reader's trust.
+    """
+
+    corpus = load_replay_corpus()
+    assert corpus.distinct_chunk_keys() == {GREETER_CHUNK_KEY, WIDGET_CHUNK_KEY}
+
+    async with open_replay_state(corpus, REPLAY_LANES["a_to_b_to_a"]) as state:
+        both_live = state.current_chunk_keys()
+    async with open_replay_state(corpus, REPLAY_LANES["source_tombstone"]) as state:
+        after_source_tombstone = state.current_chunk_keys()
+    async with open_replay_state(corpus, REPLAY_LANES["policy_tombstone"]) as state:
+        after_policy_tombstone = state.current_chunk_keys()
+    async with open_replay_state(corpus, REPLAY_LANES["empty_snapshot"]) as state:
+        empty_only = state.current_chunk_keys()
+
+    assert both_live == {GREETER_CHUNK_KEY, WIDGET_CHUNK_KEY}
+    # Both tombstones drop the greeter key while the corpus-wide count stays 2.
+    assert after_source_tombstone == {WIDGET_CHUNK_KEY}
+    assert after_policy_tombstone == {WIDGET_CHUNK_KEY}
+    assert empty_only == frozenset()

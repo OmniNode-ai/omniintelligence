@@ -63,6 +63,31 @@ class ModelGoldenQuery(_FrozenModel):
     expectations: tuple[ModelGoldenExpectation, ...] = Field(min_length=1)
 
     @model_validator(mode="after")
+    def _negative_rows_expect_nothing(self) -> ModelGoldenQuery:
+        """A negative row must expect no relevant document at every state.
+
+        The scoring path branches on emptiness, not on ``polarity``, so without
+        this the field is decorative: a row could claim to be negative while
+        carrying expectations and nothing would object.  The converse is not
+        asserted -- a positive row is allowed to expect nothing at a state where
+        its document has been tombstoned, which is most of the parameterization.
+        """
+
+        if self.polarity == "negative":
+            populated = [
+                expectation.lane_id
+                for expectation in self.expectations
+                if expectation.expected_document_ids
+            ]
+            if populated:
+                message = (
+                    f"{self.query_id} is polarity=negative but expects documents "
+                    f"at: {sorted(populated)}"
+                )
+                raise ValueError(message)
+        return self
+
+    @model_validator(mode="after")
     def _reject_duplicate_lanes(self) -> ModelGoldenQuery:
         lane_ids = [expectation.lane_id for expectation in self.expectations]
         if len(set(lane_ids)) != len(lane_ids):

@@ -110,7 +110,7 @@ def negative_row_is_clean(ranked_document_ids: Sequence[str]) -> bool:
 
 def resolve_metric_status(
     *,
-    distinct_documents: int,
+    distinct_chunk_keys: int,
     labeled_queries: int,
 ) -> MetricStatus:
     """Return whether ranking metrics gate at this corpus and query-set size.
@@ -122,34 +122,34 @@ def resolve_metric_status(
     """
 
     if (
-        distinct_documents >= ARMING_MINIMUM_DISTINCT_DOCUMENTS
+        distinct_chunk_keys >= ARMING_MINIMUM_DISTINCT_DOCUMENTS
         and labeled_queries >= ARMING_MINIMUM_LABELED_QUERIES
     ):
         return "armed"
     return "degenerate"
 
 
-def chance_floor_recall_at_k(distinct_documents: int, k: int) -> float:
+def chance_floor_recall_at_k(distinct_chunk_keys: int, k: int) -> float:
     """Return the score a random ranker earns, for one relevant document."""
 
-    if distinct_documents < 1:
-        message = "distinct_documents must be at least 1"
+    if distinct_chunk_keys < 1:
+        message = "distinct_chunk_keys must be at least 1"
         raise ValueError(message)
-    return min(1.0, k / distinct_documents)
+    return min(1.0, k / distinct_chunk_keys)
 
 
-def chance_floor_mrr(distinct_documents: int) -> float:
+def chance_floor_mrr(distinct_chunk_keys: int) -> float:
     """Return random-ranker MRR: the harmonic number ``H_N`` divided by ``N``.
 
     At N = 2 this is ``(1 + 1/2) / 2 = 0.75``, which is why MRR's floor is not
     the 0.50 that ``recall@1`` shows.
     """
 
-    if distinct_documents < 1:
-        message = "distinct_documents must be at least 1"
+    if distinct_chunk_keys < 1:
+        message = "distinct_chunk_keys must be at least 1"
         raise ValueError(message)
-    harmonic = sum(1.0 / rank for rank in range(1, distinct_documents + 1))
-    return harmonic / distinct_documents
+    harmonic = sum(1.0 / rank for rank in range(1, distinct_chunk_keys + 1))
+    return harmonic / distinct_chunk_keys
 
 
 class ModelRankingMetrics(_FrozenModel):
@@ -163,10 +163,23 @@ class ModelRankingMetrics(_FrozenModel):
 
     metric_status: MetricStatus
     status_reason: str
-    observed_distinct_documents: int = Field(ge=0)
+    observed_distinct_chunk_keys: int = Field(ge=0)
     observed_labeled_queries: int = Field(ge=0)
-    scored_positive_rows: int = Field(ge=0)
-    scored_negative_rows: int = Field(ge=0)
+    scored_positive_rows: int = Field(
+        ge=0,
+        description=(
+            "(query, replay-state) pairs whose judged set is non-empty. NOT the "
+            "count of positive-polarity rows."
+        ),
+    )
+    scored_negative_rows: int = Field(
+        ge=0,
+        description=(
+            "(query, replay-state) pairs whose judged set is empty. NOT the "
+            "count of negative-polarity rows: most are positive-polarity rows "
+            "evaluated at post-tombstone states where their document is gone."
+        ),
+    )
     recall_at_1_basis_points: int | None = Field(default=None, ge=0, le=10_000)
     recall_at_5_basis_points: int | None = Field(default=None, ge=0, le=10_000)
     recall_at_10_basis_points: int | None = Field(default=None, ge=0, le=10_000)
@@ -189,18 +202,18 @@ def summarize_metrics(
     *,
     positive_rows: list[tuple[Sequence[str], frozenset[str]]],
     negative_rows: list[Sequence[str]],
-    distinct_documents: int,
+    distinct_chunk_keys: int,
     labeled_queries: int,
 ) -> ModelRankingMetrics:
     """Aggregate per-row metrics and attach the arming decision."""
 
     status = resolve_metric_status(
-        distinct_documents=distinct_documents,
+        distinct_chunk_keys=distinct_chunk_keys,
         labeled_queries=labeled_queries,
     )
     if status == "armed":
         reason = (
-            f"N={distinct_documents} distinct documents and Q={labeled_queries} "
+            f"N={distinct_chunk_keys} distinct documents and Q={labeled_queries} "
             "labeled queries both clear the arming thresholds "
             f"(N>={ARMING_MINIMUM_DISTINCT_DOCUMENTS}, "
             f"Q>={ARMING_MINIMUM_LABELED_QUERIES}); ranking metrics gate."
@@ -209,7 +222,7 @@ def summarize_metrics(
         reason = (
             f"below {ARMING_MINIMUM_DISTINCT_DOCUMENTS} distinct rankable documents "
             f"or {ARMING_MINIMUM_LABELED_QUERIES} labeled queries "
-            f"(observed N={distinct_documents}, Q={labeled_queries}), these values "
+            f"(observed N={distinct_chunk_keys}, Q={labeled_queries}), these values "
             "are pinned by construction and carry no information about retrieval "
             "quality."
         )
@@ -234,7 +247,7 @@ def summarize_metrics(
     return ModelRankingMetrics(
         metric_status=status,
         status_reason=reason,
-        observed_distinct_documents=distinct_documents,
+        observed_distinct_chunk_keys=distinct_chunk_keys,
         observed_labeled_queries=labeled_queries,
         scored_positive_rows=len(positive_rows),
         scored_negative_rows=len(negative_rows),
@@ -245,10 +258,10 @@ def summarize_metrics(
         top_rank_accuracy_basis_points=_mean_basis_points(top_ranks),
         negative_row_precision_basis_points=_mean_basis_points(clean),
         chance_floor_recall_at_1_basis_points=round(
-            chance_floor_recall_at_k(max(distinct_documents, 1), 1) * 10_000
+            chance_floor_recall_at_k(max(distinct_chunk_keys, 1), 1) * 10_000
         ),
         chance_floor_mrr_basis_points=round(
-            chance_floor_mrr(max(distinct_documents, 1)) * 10_000
+            chance_floor_mrr(max(distinct_chunk_keys, 1)) * 10_000
         ),
     )
 

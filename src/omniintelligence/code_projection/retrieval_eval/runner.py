@@ -15,6 +15,7 @@ from collections.abc import Sequence
 
 from pydantic import BaseModel, ConfigDict
 
+from omniintelligence.code_projection.qdrant import ModelCodeProjectionQdrantConfig
 from omniintelligence.code_projection.retrieval_eval.golden import (
     ModelGoldenQuerySet,
     load_golden_query_set,
@@ -44,6 +45,10 @@ CORPUS_MANIFEST_ID = "omninode.code-projection-fixtures.v2"
 GREETER_CHUNK_KEY = "symbol:fixtures.greeter.Greeter"
 WIDGET_CHUNK_KEY = "symbol:fixtures.widget.Widget"
 _SEARCH_LIMIT = 100
+
+#: Kept identical to the golden set's negative-external-symbol row so the
+#: scenario and the scored row exercise the same string.
+_EXTERNAL_SYMBOL_QUERY = "where is the builtins str type defined"
 
 
 class _FrozenModel(BaseModel):
@@ -174,7 +179,7 @@ async def _run_scenarios(
     # R5 -- external symbols are graph nodes, never retrievable documents.
     external_node_id = external_nodes[0].node_id if external_nodes else None
     async with open_replay_state(corpus, REPLAY_LANES["external_symbol"]) as state:
-        hits = await state.search("builtins str type", limit=100)
+        hits = await state.search(_EXTERNAL_SYMBOL_QUERY, limit=100)
         samples.extend(state.stage_samples)
     materialized = [hit for hit in hits if hit.anchor_node_id == external_node_id]
     outcomes.append(
@@ -187,6 +192,17 @@ async def _run_scenarios(
     )
 
     # R6 -- partition scoping holds across every greeter mutation.
+    #
+    # HONEST GAP: R6 names two wrong answers and only one is assertable here.
+    # (b) "the greeter tombstones remove the widget document" is asserted below.
+    # (a) "a python-scoped query returns the widget" is NOT, and cannot be
+    # through this surface: search() takes tenant_id / repository_id / limit /
+    # score_threshold and filters on tenant, repository and record_kind -- there
+    # is no language parameter, and a replay lane is required to sit inside one
+    # repository, so both fixture partitions share a repository_id and the
+    # existing knob cannot separate them either. Conjunct (a) is unassertable
+    # rather than unasserted; recorded here so half a gate does not read as a
+    # whole one.
     widget_document = corpus.sole_document("typescript_seq1.json")
     survived: list[str] = []
     for lane_id in ("a_to_b", "a_to_b_to_a", "source_tombstone", "policy_tombstone"):
@@ -209,7 +225,10 @@ async def _run_scenarios(
             "R6",
             "typescript_snapshot",
             passed=len(survived) == 4,
-            detail=f"widget survived greeter mutations in lanes: {sorted(survived)}",
+            detail=(
+                f"widget survived greeter mutations in lanes: {sorted(survived)}; "
+                "language/partition-scope conjunct is unassertable via search()"
+            ),
         )
     )
 
@@ -220,11 +239,26 @@ async def _score_golden_set(
     corpus: ModelReplayCorpus,
     golden: ModelGoldenQuerySet,
     samples: list[ModelStageLatencySample],
-) -> tuple[list[tuple[Sequence[str], frozenset[str]]], list[Sequence[str]]]:
-    """Evaluate every ``(query, replay-state)`` pair the golden set declares."""
+) -> tuple[list[tuple[Sequence[str], frozenset[str]]], list[Sequence[str]], int]:
+    """Evaluate every ``(query, replay-state)`` pair the golden set declares.
+
+    Also returns N: the smallest number of current-generation chunk keys across
+    the states that actually contribute a ranking metric.  The minimum is the
+    safe choice -- the arming decision has to hold at the worst state it will
+    gate, and a state where most partitions are tombstoned is exactly where a
+    corpus-wide count would arm the metrics against a corpus that is not
+    rankable.
+
+    Restricted to lanes carrying at least one positive row, because ranking
+    metrics are computed only from those.  Taking the minimum over *every*
+    scored lane instead would pin N at zero forever: the empty-partition lane
+    exists to assert emptiness and always contributes zero live chunk keys, so
+    the arming rule could never fire however large the corpus grew.
+    """
 
     positive_rows: list[tuple[Sequence[str], frozenset[str]]] = []
     negative_rows: list[Sequence[str]] = []
+    live_chunk_key_counts: list[int] = []
 
     by_lane: dict[str, list[tuple[str, tuple[str, ...]]]] = {}
     for query in golden.queries:
@@ -235,16 +269,20 @@ async def _score_golden_set(
 
     for lane_id in sorted(by_lane):
         async with open_replay_state(corpus, REPLAY_LANES[lane_id]) as state:
+            lane_scored_a_positive = False
             for query_text, expected in by_lane[lane_id]:
                 hits = await state.search(query_text, limit=_SEARCH_LIMIT)
                 ranked = [hit.document_id for hit in hits]
                 if expected:
                     positive_rows.append((ranked, frozenset(expected)))
+                    lane_scored_a_positive = True
                 else:
                     negative_rows.append(ranked)
+            if lane_scored_a_positive:
+                live_chunk_key_counts.append(len(state.current_chunk_keys()))
             samples.extend(state.stage_samples)
 
-    return (positive_rows, negative_rows)
+    return (positive_rows, negative_rows, min(live_chunk_key_counts, default=0))
 
 
 def _embedding_key() -> ModelEmbeddingCompatibilityKey:
@@ -256,14 +294,20 @@ def _embedding_key() -> ModelEmbeddingCompatibilityKey:
     explicitly unknown rather than invented.
     """
 
+    # Sourced from the store contract, not restated. The key exists to catch
+    # silent drift, so hardcoding a component the code can read defeats it.
+    config = ModelCodeProjectionQdrantConfig(
+        embedding_model=HARNESS_EMBEDDING_MODEL,
+        embedding_model_version=HARNESS_EMBEDDING_MODEL_VERSION,
+    )
     return ModelEmbeddingCompatibilityKey(
-        model_name=HARNESS_EMBEDDING_MODEL,
+        model_name=config.embedding_model,
         model_artifact_digest=UNKNOWN,
-        model_revision=HARNESS_EMBEDDING_MODEL_VERSION,
+        model_revision=config.embedding_model_version,
         tokenizer_preprocessing_version=UNKNOWN,
         normalization=UNKNOWN,
-        distance_metric="Dot",
-        dimension=1024,
+        distance_metric=config.distance,
+        dimension=config.embedding_dimension,
     )
 
 
@@ -279,15 +323,18 @@ async def run_eval(
     samples: list[ModelStageLatencySample] = []
 
     scenarios = await _run_scenarios(resolved_corpus, samples)
-    positive_rows, negative_rows = await _score_golden_set(
+    positive_rows, negative_rows, live_chunk_keys = await _score_golden_set(
         resolved_corpus, resolved_golden, samples
     )
 
+    # Reported for context; NOT the arming input. Corpus-wide keys include
+    # superseded revisions and tombstoned partitions, so arming on them would
+    # gate against a corpus that is not actually rankable.
     chunk_keys = tuple(sorted(resolved_corpus.distinct_chunk_keys()))
     metrics = summarize_metrics(
         positive_rows=positive_rows,
         negative_rows=negative_rows,
-        distinct_documents=len(chunk_keys),
+        distinct_chunk_keys=live_chunk_keys,
         labeled_queries=resolved_golden.labeled_query_count,
     )
     key = _embedding_key()

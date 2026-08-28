@@ -11,6 +11,7 @@ corpus size -- see ``test_ranking_metrics_are_reported_but_never_gating``.
 from __future__ import annotations
 
 import pytest
+from pydantic import ValidationError
 
 from omniintelligence.code_projection.qdrant import (
     ProtocolCodeProjectionEmbeddingClient,
@@ -23,6 +24,7 @@ from omniintelligence.code_projection.retrieval_eval.golden import (
     DEFAULT_GOLDEN_SET_PATH,
     GOLDEN_SET_MAXIMUM_ROWS,
     GOLDEN_SET_MINIMUM_ROWS,
+    ModelGoldenQuery,
     load_golden_query_set,
 )
 from omniintelligence.code_projection.retrieval_eval.metrics import (
@@ -119,7 +121,6 @@ async def test_ranking_metrics_are_reported_but_never_gating() -> None:
     metrics = (await run_eval()).scorecard.metrics
 
     assert metrics.metric_status == "degenerate"
-    assert metrics.observed_distinct_documents == 2
     assert metrics.observed_labeled_queries == 10
     assert "carry no information" in metrics.status_reason
     # Computed, not skipped -- the wiring and the baseline exist from day one.
@@ -128,9 +129,14 @@ async def test_ranking_metrics_are_reported_but_never_gating() -> None:
     # Pinned by construction: k >= N for both, so neither can express a failure.
     assert metrics.recall_at_5_basis_points == 10_000
     assert metrics.recall_at_10_basis_points == 10_000
-    # MRR's chance floor is H_2/2 = 0.75, not the 0.50 that recall@1 shows.
-    assert metrics.chance_floor_mrr_basis_points == 7_500
-    assert metrics.chance_floor_recall_at_1_basis_points == 5_000
+
+    # N is the worst state that carries a ranking metric, not the corpus-wide
+    # key count. The post-tombstone lanes leave only the widget live, so N = 1
+    # and every metric is pinned at 1.00 there -- not even a coin flip. Sourcing
+    # N corpus-wide would report 2 and understate the floors.
+    assert metrics.observed_distinct_chunk_keys == 1
+    assert metrics.chance_floor_recall_at_1_basis_points == 10_000
+    assert metrics.chance_floor_mrr_basis_points == 10_000
 
 
 def test_arming_rule_flips_on_a_synthetic_corpus_that_clears_both_thresholds() -> None:
@@ -139,7 +145,7 @@ def test_arming_rule_flips_on_a_synthetic_corpus_that_clears_both_thresholds() -
     armed = summarize_metrics(
         positive_rows=[(["doc-1"], frozenset({"doc-1"}))],
         negative_rows=[],
-        distinct_documents=ARMING_MINIMUM_DISTINCT_DOCUMENTS,
+        distinct_chunk_keys=ARMING_MINIMUM_DISTINCT_DOCUMENTS,
         labeled_queries=ARMING_MINIMUM_LABELED_QUERIES,
     )
     assert armed.metric_status == "armed"
@@ -153,18 +159,18 @@ def test_arming_rule_flips_on_a_synthetic_corpus_that_clears_both_thresholds() -
 def test_arming_rule_does_not_flip_at_the_current_corpus_size() -> None:
     """AC4 companion: N = 2 stays degenerate however many queries are labeled."""
 
-    assert resolve_metric_status(distinct_documents=2, labeled_queries=10) == (
+    assert resolve_metric_status(distinct_chunk_keys=2, labeled_queries=10) == (
         "degenerate"
     )
     # Either threshold alone is insufficient: N fixes the chance floor, Q fixes
     # the confidence interval, and a threshold needs both to be readable.
-    assert resolve_metric_status(distinct_documents=2, labeled_queries=500) == (
+    assert resolve_metric_status(distinct_chunk_keys=2, labeled_queries=500) == (
         "degenerate"
     )
-    assert resolve_metric_status(distinct_documents=500, labeled_queries=10) == (
+    assert resolve_metric_status(distinct_chunk_keys=500, labeled_queries=10) == (
         "degenerate"
     )
-    assert resolve_metric_status(distinct_documents=20, labeled_queries=30) == "armed"
+    assert resolve_metric_status(distinct_chunk_keys=20, labeled_queries=30) == "armed"
 
 
 def test_metric_arithmetic_matches_the_documented_chance_floors() -> None:
@@ -260,3 +266,39 @@ def test_harness_embedder_conforms_to_the_injected_io_protocols() -> None:
     assert isinstance(embedder, ProtocolCodeProjectionEmbeddingClient)
     assert isinstance(embedder, ProtocolTimedEmbedder)
     assert embedder.elapsed_ms == 0.0
+
+
+def test_negative_polarity_rows_may_not_carry_expectations() -> None:
+    """`polarity` is load-bearing, not decorative.
+
+    The scoring path branches on emptiness, so without this validator a row
+    could claim to be negative while expecting documents and nothing would
+    object. The converse is deliberately not asserted: a positive row expecting
+    nothing at a post-tombstone state is most of the parameterization.
+    """
+
+    with pytest.raises(ValidationError, match="polarity=negative but expects"):
+        ModelGoldenQuery.model_validate(
+            {
+                "query_id": "bad-negative",
+                "query_text": "where is the Greeter class defined",
+                "intent": "identity",
+                "polarity": "negative",
+                "expectations": [
+                    {"lane_id": "a_to_b_to_a", "expected_document_ids": ["cdoc_x"]}
+                ],
+            }
+        )
+
+    # A positive row expecting nothing at a tombstoned state stays valid.
+    ModelGoldenQuery.model_validate(
+        {
+            "query_id": "fine-positive",
+            "query_text": "where is the Greeter class defined",
+            "intent": "identity",
+            "polarity": "positive",
+            "expectations": [
+                {"lane_id": "source_tombstone", "expected_document_ids": []}
+            ],
+        }
+    )
