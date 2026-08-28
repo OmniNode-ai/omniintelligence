@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import math
+from collections.abc import Mapping
 from decimal import ROUND_HALF_EVEN, Decimal
 
 from omniintelligence.code_projection._canonical import canonical_json_bytes, sha256_hex
@@ -108,8 +109,15 @@ def _render_generation_context(
     authorization_profile_id: str,
     authorization_profile_payload_sha256: str,
     selection_policy_version: str,
-    items: tuple[ModelCodeContextItem, ...],
+    item_payloads: tuple[Mapping[str, object], ...],
 ) -> str:
+    """Render the generation context from already-serialised item payloads.
+
+    Payloads rather than models on purpose. This is called once per candidate
+    inside the selection loop; taking models made each call re-serialise every
+    already-selected item, so selecting n items cost n(n+1)/2 dumps (OMN-16764).
+    """
+
     payload = {
         "kind": "omninode_code_context",
         "schema_version": CODE_CONTEXT_SCHEMA_VERSION,
@@ -124,7 +132,7 @@ def _render_generation_context(
         "projection_repository_id": request.projection_repository_id,
         "policy_scope_ref": request.policy_scope_ref,
         "tenant_id": request.tenant_id,
-        "items": [item.model_dump(mode="json") for item in items],
+        "items": list(item_payloads),
     }
     return canonical_json_bytes(payload).decode("utf-8")
 
@@ -262,6 +270,9 @@ class CodeContextProcessor:
 
                 ranked = _ranked_hits(hits, request=request)
                 selected: list[ModelCodeContextItem] = []
+                # Each item's canonical payload, built once when the item is
+                # built and reused by every subsequent render.
+                selected_payloads: list[Mapping[str, object]] = []
                 truncated = False
                 for score_basis_points, hit in ranked:
                     if score_basis_points < request.min_score_basis_points:
@@ -293,7 +304,8 @@ class CodeContextProcessor:
                         rank=len(selected) + 1,
                         token_counter=self._token_counter,
                     )
-                    proposed_items = (*selected, proposed)
+                    proposed_payload = proposed.model_dump(mode="json")
+                    proposed_payloads = (*selected_payloads, proposed_payload)
                     proposed_context = _render_generation_context(
                         request=request,
                         request_payload_sha256=request_payload_sha256,
@@ -307,7 +319,7 @@ class CodeContextProcessor:
                         selection_policy_version=(
                             self._artifact_resolver.selection_policy_version
                         ),
-                        items=proposed_items,
+                        item_payloads=proposed_payloads,
                     )
                     if (
                         len(proposed_context.encode("utf-8"))
@@ -318,6 +330,7 @@ class CodeContextProcessor:
                         truncated = True
                         continue
                     selected.append(proposed)
+                    selected_payloads.append(proposed_payload)
         except TimeoutError as exc:
             raise CodeContextTimeoutError(
                 "code-context request exceeded its hard timeout"
@@ -333,7 +346,7 @@ class CodeContextProcessor:
                 self._artifact_resolver.authorization_profile_payload_sha256
             ),
             selection_policy_version=(self._artifact_resolver.selection_policy_version),
-            items=items,
+            item_payloads=tuple(selected_payloads),
         )
         generation_bytes = generation_text.encode("utf-8")
         generation_tokens = self._token_counter.count(generation_text)
