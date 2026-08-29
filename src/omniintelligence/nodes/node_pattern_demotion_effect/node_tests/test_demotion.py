@@ -2507,20 +2507,25 @@ class TestCalculateHoursSincePromotion:
         assert hours >= 0.0
 
     def test_handles_naive_datetime(self) -> None:
-        """Handles naive datetime without crashing.
+        """A naive datetime is interpreted as UTC and yields the real elapsed hours.
 
-        When a naive datetime is passed (without tzinfo), the function assumes UTC
-        and processes it without raising an exception. The exact hour calculation
-        may vary by timezone offset, so we just verify it returns a positive value.
+        OMN-16899: this previously built the input from ``datetime.now()`` -- a
+        naive *local* wall-clock -- which violates the function's own contract
+        that a naive datetime is UTC. Under a positive UTC offset that names a
+        future instant, which the intentional non-negative clamp renders as 0.0,
+        so the assertion had been weakened to ``>= 0.0``: a tautology that could
+        never fail and hid the fixture defect rather than the function.
+
+        Building the naive value from ``datetime.now(UTC)`` makes the input
+        contract-valid and the elapsed hours exact in every timezone, so this
+        can assert the real number.
         """
-        # Naive datetime without tzinfo - create by subtracting from naive now()
-        # then manually add UTC to make it behave like the handler does
-        naive_time = datetime.now() - timedelta(hours=12)
+        # Naive datetime without tzinfo, naming a UTC instant 12 hours ago.
+        naive_time = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=12)
+        assert naive_time.tzinfo is None
         hours = calculate_hours_since_promotion(naive_time)
         assert hours is not None
-        # The function adds UTC to naive datetimes and compares to datetime.now(UTC)
-        # Result depends on local timezone offset, so just verify it's non-negative
-        assert hours >= 0.0
+        assert abs(hours - 12.0) < 0.1
 
 
 # =============================================================================

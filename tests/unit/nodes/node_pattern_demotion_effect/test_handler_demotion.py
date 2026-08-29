@@ -451,15 +451,45 @@ class TestCalculateHoursSincePromotion:
     def test_handles_naive_datetime(self) -> None:
         """Naive datetime handling is tested as a defensive measure.
 
-        Production code should always use timezone-aware datetimes, but the
-        handler gracefully handles naive datetimes by treating them as UTC.
-        This prevents crashes if a naive datetime reaches the handler from
-        an upstream caller that omits timezone info.
+        Production code should always use timezone-aware datetimes -- the only
+        production source of ``promoted_at`` is ``SQL_FETCH_VALIDATED_PATTERNS``
+        reading ``learned_patterns.promoted_at``, declared TIMESTAMPTZ in
+        migration 005, which asyncpg always returns as tz-aware. The naive
+        branch exists only so an upstream caller that omits tzinfo cannot crash
+        the handler.
+
+        The contract for that branch is "a naive datetime is UTC" -- so the
+        input here must be a naive *UTC* instant, not a naive local wall-clock
+        (OMN-16899). ``datetime.now()`` returns local wall-clock: under a
+        positive UTC offset it names an instant in the future once reinterpreted
+        as UTC, which the intentional non-negative clamp renders as 0.0h. That
+        made this test pass under UTC / America/New_York and fail under, e.g.,
+        Asia/Kolkata. Build the naive value from ``datetime.now(UTC)`` so the
+        assertion holds in every timezone.
         """
-        promoted_at = datetime.now() - timedelta(hours=2)
+        promoted_at = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=2)
+        assert promoted_at.tzinfo is None
         hours = calculate_hours_since_promotion(promoted_at)
         assert hours is not None
         assert hours >= 1.9
+
+    def test_naive_utc_input_matches_aware_utc_input(self) -> None:
+        """A naive datetime is interpreted as exactly its UTC-aware counterpart.
+
+        Pins the "naive means UTC" contract directly rather than inferring it
+        from an elapsed-hours threshold, and is timezone-invariant by
+        construction: both inputs name the same instant, so the two results must
+        agree regardless of the ambient TZ (OMN-16899).
+        """
+        aware = datetime.now(UTC) - timedelta(hours=3)
+        naive = aware.replace(tzinfo=None)
+
+        hours_aware = calculate_hours_since_promotion(aware)
+        hours_naive = calculate_hours_since_promotion(naive)
+
+        assert hours_aware is not None
+        assert hours_naive is not None
+        assert abs(hours_aware - hours_naive) < 0.01
 
 
 # =============================================================================
