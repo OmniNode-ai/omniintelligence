@@ -41,10 +41,13 @@ tree. Statically, from parsed YAML — no network, no GitHub token, no runner.
   should not exist here. Demanding it locally would be a false positive that
   gets the gate disabled, which is worse than the gap.
 * **Every step after a foreign checkout into the workspace root.**
-  `cr-thread-gate.yml` opens with `actions/checkout` of
-  `OmniNode-ai/omniclaude` with no `path:`, so the workspace root holds
-  *omniclaude's* tree and the later `bash scripts/check-unresolved-threads.sh`
-  is a claim about that repo, not this one. Detected as
+  A job that opens with `actions/checkout` of another repo and no `path:`
+  leaves the workspace root holding *that* repo's tree, so every later
+  `scripts/...` path in the job is a claim about the foreign repo, not this
+  one. No workflow in this tree currently has that shape (the former live
+  instance, `cr-thread-gate.yml`, was deleted in OMN-16933); the exclusion is
+  retained because the shape is reachable and silently mis-flagging it would
+  get the gate disabled. Detected as
   `uses: actions/checkout` carrying an explicit `repository:` and no non-root
   `path:` — a self-checkout omits `repository:`, which is what separates the
   two.
@@ -112,9 +115,10 @@ def _is_foreign_root_checkout(step: dict[str, Any]) -> str | None:
     A self-checkout omits `repository:`. A step that names one AND does not
     redirect it with a non-root `path:` replaces the workspace root with
     another repo's tree, after which no `scripts/...` path in that job is a
-    claim about this repo. `cr-thread-gate.yml` is the live instance:
-    `OmniNode-ai/omniclaude` sparse-checked-out at root so the job can run
-    `scripts/check-unresolved-threads.sh`, which is omniclaude's file.
+    claim about this repo. No workflow in this tree currently has that shape;
+    the former live instance was `cr-thread-gate.yml`, which sparse-checked-out
+    `OmniNode-ai/omniclaude` at root to run `scripts/check-unresolved-threads.sh`
+    (deleted in OMN-16933). Covered synthetically below.
     """
     uses = step.get("uses")
     if not isinstance(uses, str) or not uses.split("@", 1)[0].endswith(
@@ -417,11 +421,12 @@ jobs:
 
 
 def test_extractor_skips_a_job_after_a_foreign_root_checkout(tmp_path: Path) -> None:
-    """The live `cr-thread-gate.yml` shape must not produce a false positive.
+    """A foreign-root-checkout job must not produce a false positive.
 
-    That job checks omniclaude out AT THE WORKSPACE ROOT and then runs
-    `scripts/check-unresolved-threads.sh` — omniclaude's file, present at
-    runtime, absent from this tree by design.
+    The job checks another repo out AT THE WORKSPACE ROOT and then runs a
+    script from it — a file present at runtime and absent from this tree by
+    design. Modelled on the former `cr-thread-gate.yml` shape (deleted in
+    OMN-16933); kept synthetic so the guard survives that deletion.
     """
     _write_workflow(
         tmp_path,
