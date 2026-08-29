@@ -54,6 +54,15 @@ the ingest policy `scope_ref` so the ingest CLI and the context-serving authoriz
 agree. See TIMINGS.md §7. The context-serving code path itself is **completely unmodified** —
 no file under `context_serving/`, `artifacts.py`, or `qdrant.py` was touched.
 
+> **Resolved by OMN-16898 (2026-08-28).** The defect that forced the local patch is fixed on
+> `dev`: the ingest CLI now derives the policy scope through the shared
+> `derive_repository_policy_scope_ref` and accepts `--repository-instance-id`
+> (default `canonical`), so a projection it emits is admitted by the shipped serving grant
+> without modification. Reproducing this measurement no longer requires a throwaway checkout.
+> Note that the CLI now also requires `--tenant-id` to be a canonical UUID, since the serving
+> contract types every tenant as one; the slug tenants it previously accepted could never be
+> served. The numbers in this document predate that fix and are retained as recorded.
+
 ## Runtime dependencies
 
 | Component | Endpoint | Version / identity |

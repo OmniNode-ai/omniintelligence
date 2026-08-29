@@ -11,6 +11,7 @@ import hashlib
 import json
 import os
 import sys
+import uuid
 from collections.abc import AsyncIterator, Callable, Mapping, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -42,6 +43,10 @@ from omniintelligence.code_projection.codec import (
     build_code_projection_batch,
     derive_code_source_id,
     plan_code_projection_replay,
+)
+from omniintelligence.code_projection.context_serving import (
+    derive_projection_repository_id,
+    derive_repository_policy_scope_ref,
 )
 from omniintelligence.code_projection.extraction import (
     ProjectedCodeSource,
@@ -76,6 +81,7 @@ from omniintelligence.nodes.node_embedding_generation_effect.models.model_embedd
 _CURSOR_AUTHORITY = "omniintelligence.code-projection.dev-lab.v2"
 _PRODUCER_VERSION = "2.0.0"
 _LAB_REPOSITORY_PREFIX = "lab/"
+_DEFAULT_REPOSITORY_INSTANCE_ID = "canonical"
 _DEFAULT_QDRANT_COLLECTION = "code_semantic_v2"
 _DEFAULT_EMBEDDING_MODEL = "text-embedding-qwen3"
 _DEFAULT_EMBEDDING_MODEL_VERSION = "qwen3-embedding-0.6b-lab-2026-08-14"
@@ -137,10 +143,25 @@ def _load_extraction_configuration() -> _ExtractionConfiguration:
     )
 
 
-def _policy(tenant_id: str, repository_id: str) -> ModelCodeProjectionPolicy:
+def _policy(
+    tenant_id: str,
+    repository_id: str,
+    repository_instance_id: str,
+) -> ModelCodeProjectionPolicy:
+    """Build the policy envelope the shipped serving grant admits verbatim.
+
+    The scope must come from the shared deriver rather than a local format
+    string: ``ModelCodeContextAuthorizationGrant`` rejects any scope that does
+    not end in ``:instance:{repository_instance_id}`` (OMN-16898).
+    """
+
     return ModelCodeProjectionPolicy(
         tenant_id=tenant_id,
-        scope_ref=f"tenant:{tenant_id}:repository:{repository_id}",
+        scope_ref=derive_repository_policy_scope_ref(
+            tenant_id=tenant_id,
+            repository_id=repository_id,
+            repository_instance_id=repository_instance_id,
+        ),
         access_scope="repository",
         visibility="repository",
         redaction_state="not_required",
@@ -289,9 +310,44 @@ def _require_lab_repository_id(repository_id: str) -> str:
 
 
 def _require_tenant_id(tenant_id: str) -> str:
-    """Validate the explicit tenant boundary shared by every projection store."""
+    """Validate the explicit tenant boundary shared by every projection store.
 
-    return normalize_tenant_id(tenant_id)
+    The serving contract types every tenant as a canonical UUID, so a slug
+    tenant that ``normalize_tenant_id`` alone would accept can never be served.
+    Reject it here rather than materialize an unservable projection
+    (OMN-16898).
+    """
+
+    normalized = normalize_tenant_id(tenant_id)
+    try:
+        parsed = uuid.UUID(normalized)
+    except ValueError as exc:
+        msg = (
+            "tenant_id must be a canonical lowercase UUID so the projection is "
+            "servable by the code-context serving path"
+        )
+        raise ValueError(msg) from exc
+    if str(parsed) != normalized:
+        msg = "tenant_id must be a canonical lowercase UUID"
+        raise ValueError(msg)
+    return normalized
+
+
+def _require_projection_repository_id(
+    repository_id: str,
+    repository_instance_id: str,
+) -> str:
+    """Resolve the storage identity the serving resolver matches candidates on.
+
+    ``resolver.py`` compares both the search hit and the stored source against
+    ``request.projection_repository_id``, so the checkout instance has to be
+    folded into the stored ``source.repository_id`` — not just the policy scope.
+    """
+
+    return derive_projection_repository_id(
+        repository_id=repository_id,
+        repository_instance_id=repository_instance_id,
+    )
 
 
 def _next_sequence(
@@ -314,6 +370,8 @@ def _build_snapshot(
     raw_source: bytes,
     tenant_id: str,
     repository_id: str,
+    repository_instance_id: str,
+    projection_repository_id: str,
     relative_path: str,
     current: ModelCodeProjectionBatch | None,
     configuration: _ExtractionConfiguration,
@@ -325,13 +383,13 @@ def _build_snapshot(
         return project_source_with_documents(
             raw_source=raw_source,
             tenant_id=tenant_id,
-            repository_id=repository_id,
+            repository_id=projection_repository_id,
             relative_path=relative_path,
             source_version=f"sha256:{source_hash}",
             language=_language(relative_path),
             cursor_authority=_CURSOR_AUTHORITY,
             cursor_sequence=cursor_sequence,
-            policy=_policy(tenant_id, repository_id),
+            policy=_policy(tenant_id, repository_id, repository_instance_id),
             provenance=_provenance(configuration),
             classification_config=configuration.classification,
             quality_config=configuration.quality,
@@ -628,6 +686,11 @@ def _result_payload(
 async def _ingest(args: argparse.Namespace) -> dict[str, object]:
     tenant_id = _require_tenant_id(str(args.tenant_id))
     repository_id = _require_lab_repository_id(str(args.repository_id))
+    repository_instance_id = str(args.repository_instance_id)
+    projection_repository_id = _require_projection_repository_id(
+        repository_id,
+        repository_instance_id,
+    )
     source_path, relative_path = _resolve_source_path(
         Path(str(args.root)),
         str(args.path),
@@ -635,7 +698,7 @@ async def _ingest(args: argparse.Namespace) -> dict[str, object]:
     store = CodeProjectionArtifactStore(Path(str(args.artifact_root)))
     source_id = derive_code_source_id(
         tenant_id=tenant_id,
-        repository_id=repository_id,
+        repository_id=projection_repository_id,
         relative_path=relative_path,
     )
     with store.source_lock(source_id):
@@ -658,6 +721,8 @@ async def _ingest(args: argparse.Namespace) -> dict[str, object]:
             raw_source=raw_source,
             tenant_id=tenant_id,
             repository_id=repository_id,
+            repository_instance_id=repository_instance_id,
+            projection_repository_id=projection_repository_id,
             relative_path=relative_path,
             current=current,
             configuration=configuration,
@@ -710,14 +775,18 @@ def _store_and_identity(
 ]:
     tenant_id = _require_tenant_id(str(args.tenant_id))
     repository_id = _require_lab_repository_id(str(args.repository_id))
+    projection_repository_id = _require_projection_repository_id(
+        repository_id,
+        str(args.repository_instance_id),
+    )
     relative_path = normalize_relative_path(str(args.path))
     store = CodeProjectionArtifactStore(Path(str(args.artifact_root)))
     source_id = derive_code_source_id(
         tenant_id=tenant_id,
-        repository_id=repository_id,
+        repository_id=projection_repository_id,
         relative_path=relative_path,
     )
-    return store, tenant_id, repository_id, relative_path, source_id
+    return store, tenant_id, projection_repository_id, relative_path, source_id
 
 
 def _load_current(
@@ -858,6 +927,15 @@ def _parser() -> argparse.ArgumentParser:
         child = subparsers.add_parser(command)
         child.add_argument("--tenant-id", required=True)
         child.add_argument("--repository-id", required=True)
+        child.add_argument(
+            "--repository-instance-id",
+            default=_DEFAULT_REPOSITORY_INSTANCE_ID,
+            help=(
+                "checkout instance this projection belongs to; folded into the "
+                "policy scope and the stored projection repository identity "
+                f"(default: {_DEFAULT_REPOSITORY_INSTANCE_ID})"
+            ),
+        )
         child.add_argument("--path", required=True)
         child.add_argument("--artifact-root", required=True)
         if command == "ingest":
@@ -868,7 +946,13 @@ def _parser() -> argparse.ArgumentParser:
     search.add_argument("--tenant-id", required=True)
     search.add_argument("--query", required=True)
     search.add_argument("--artifact-root", required=True)
-    search.add_argument("--repository-id")
+    search.add_argument(
+        "--repository-id",
+        help=(
+            "exact stored projection repository identity to filter on; for a "
+            "non-canonical checkout pass the '<repository>/instances/<id>' form"
+        ),
+    )
     search.add_argument("--limit", type=int, default=10)
     search.add_argument("--score-threshold", type=float)
     return parser
