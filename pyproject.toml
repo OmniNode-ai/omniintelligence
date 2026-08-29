@@ -27,7 +27,7 @@ keywords = ["omninode", "intelligence", "intent", "routing", "onex", "llm"]
 # Versions aligned with [dependency-groups].core for consistency
 dependencies = [
     "httpx>=0.28.1",
-    "omnibase-core>=0.46.3,<0.47.0",
+    "omnibase-core>=0.47.0,<0.48.0",
     "pyyaml>=6.0",
     "pydantic>=2.12.5,<3.0.0",
     "pydantic-settings>=2.7.0,<3.0.0",
@@ -164,7 +164,7 @@ core = [
     # ONEX private ecosystem dependencies (NOT on public PyPI)
     # Installed via editable installs from sibling repos or private registry.
     # Version bounds match Poetry caret syntax above.
-    "omnibase-core>=0.46.3,<0.47.0",
+    "omnibase-core>=0.47.0,<0.48.0",
     "omnibase-spi>=0.23.1,<0.24.0",
     "omnibase-infra>=0.38.4,<0.39.0",
     "omnimarket>=0.4.0",
@@ -471,7 +471,7 @@ markers = [
 [tool.uv]
 # Override transitive pins so our direct pins win.
 override-dependencies = [
-    "omnibase-core>=0.46.3,<0.47.0",
+    "omnibase-core>=0.47.0,<0.48.0",
     "omnibase-spi>=0.23.1,<0.24.0",
     "omnibase-infra>=0.38.4,<0.39.0",
     # OMN-15129: freeze ruff at the pre-existing dev-HEAD version. The unrelated
