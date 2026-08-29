@@ -25,6 +25,13 @@ from omniintelligence.code_projection.codec import (
     derive_code_source_id as canonical_derive_code_source_id,
 )
 from omniintelligence.code_projection.codec import plan_code_projection_replay
+from omniintelligence.code_projection.context_serving import (
+    ModelCodeContextAuthorizationGrant,
+    ModelCodeContextEmbeddingContract,
+    ModelCodeContextRepositoryScope,
+    derive_projection_repository_id,
+    derive_repository_policy_scope_ref,
+)
 from omniintelligence.code_projection.materializer import (
     ModelProjectionApplyReport,
     ModelProjectionEdgeReadback,
@@ -50,7 +57,8 @@ from tests.unit.code_projection.fixture_vectors import build_fixture_batches
 pytestmark = pytest.mark.unit
 
 _LAB_REPOSITORY_ID = "lab/omn-16061/cli-proof"
-_TENANT_ID = "omninode-dev"
+_TENANT_ID = "12345678-1234-4234-8234-123456789abc"
+_REPOSITORY_INSTANCE_ID = "canonical"
 _RELATIVE_PATH = "src/sample.py"
 _SOURCE_A = b'''"""Small executable projection fixture."""\n\n\nclass Greeter:\n    def greet(self, name: str) -> str:\n        return name\n'''
 _SOURCE_B = _SOURCE_A + b"\n\ndef build_greeter() -> Greeter:\n    return Greeter()\n"
@@ -265,6 +273,146 @@ def _invoke_success(
     payload = json.loads(captured.out)
     assert isinstance(payload, dict)
     return cast(dict[str, Any], payload)
+
+
+def _admitting_grant(
+    *,
+    repository_instance_id: str,
+    policy_scope_ref: str,
+    policy_version: str,
+    retention_class: Any,
+) -> ModelCodeContextAuthorizationGrant:
+    """Build the shipped serving grant that must admit a CLI-emitted projection."""
+
+    return ModelCodeContextAuthorizationGrant(
+        principal_id="operator:cli-proof",
+        tenant_id=_TENANT_ID,
+        repository_scopes=(
+            ModelCodeContextRepositoryScope(
+                repository_id=_LAB_REPOSITORY_ID,
+                repository_instance_id=repository_instance_id,
+                projection_repository_id=derive_projection_repository_id(
+                    repository_id=_LAB_REPOSITORY_ID,
+                    repository_instance_id=repository_instance_id,
+                ),
+                policy_scope_ref=policy_scope_ref,
+            ),
+        ),
+        allowed_policy_versions=(policy_version,),
+        allowed_retention_classes=(retention_class,),
+        allowed_embedding_contracts=(
+            ModelCodeContextEmbeddingContract(
+                model="text-embedding-qwen3",
+                version="qwen3-embedding-0.6b-lab-2026-08-14",
+            ),
+        ),
+        maximum_items=5,
+        maximum_context_bytes=32_000,
+        maximum_context_tokens=10_000,
+    )
+
+
+def test_ingest_cli_projection_is_admissible_by_serving_authorization(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A projection the operator CLI emits must be servable by the shipped path.
+
+    OMN-16898: the CLI hand-formatted ``tenant:{t}:repository:{r}`` while the
+    serving contract requires the ``derive_repository_policy_scope_ref`` shape
+    ending in ``:instance:{i}``. The grant validator rejected the CLI output
+    with "repository policy scope does not match its tenant and instance".
+    """
+
+    source_root = tmp_path / "repository"
+    artifact_root = tmp_path / "artifacts"
+    _write_source(source_root)
+    monkeypatch.setattr(cli, "_apply_and_verify", _fake_apply_and_verify)
+
+    _invoke_success(_ingest_argv(source_root, artifact_root), capsys)
+
+    batch = CodeProjectionArtifactStore(artifact_root).find_current_batch(
+        tenant_id=_TENANT_ID,
+        repository_id=_LAB_REPOSITORY_ID,
+        relative_path=_RELATIVE_PATH,
+    )
+    assert batch is not None
+
+    expected_scope_ref = derive_repository_policy_scope_ref(
+        tenant_id=_TENANT_ID,
+        repository_id=_LAB_REPOSITORY_ID,
+        repository_instance_id=_REPOSITORY_INSTANCE_ID,
+    )
+    assert batch.policy.scope_ref == expected_scope_ref
+
+    grant = _admitting_grant(
+        repository_instance_id=_REPOSITORY_INSTANCE_ID,
+        policy_scope_ref=batch.policy.scope_ref,
+        policy_version=batch.policy.policy_version,
+        retention_class=batch.policy.retention_class,
+    )
+    assert grant.repository_scopes[0].policy_scope_ref == batch.policy.scope_ref
+
+
+def test_ingest_cli_namespaces_a_non_canonical_repository_instance(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """An explicit checkout instance namespaces storage and the policy scope."""
+
+    instance_id = "worktree/omn-16898"
+    source_root = tmp_path / "repository"
+    artifact_root = tmp_path / "artifacts"
+    _write_source(source_root)
+    monkeypatch.setattr(cli, "_apply_and_verify", _fake_apply_and_verify)
+
+    _invoke_success(
+        [
+            *_ingest_argv(source_root, artifact_root),
+            "--repository-instance-id",
+            instance_id,
+        ],
+        capsys,
+    )
+
+    projection_repository_id = derive_projection_repository_id(
+        repository_id=_LAB_REPOSITORY_ID,
+        repository_instance_id=instance_id,
+    )
+    assert projection_repository_id == f"{_LAB_REPOSITORY_ID}/instances/{instance_id}"
+
+    batch = CodeProjectionArtifactStore(artifact_root).find_current_batch(
+        tenant_id=_TENANT_ID,
+        repository_id=projection_repository_id,
+        relative_path=_RELATIVE_PATH,
+    )
+    assert batch is not None
+    assert batch.source.repository_id == projection_repository_id
+    assert batch.policy.scope_ref == derive_repository_policy_scope_ref(
+        tenant_id=_TENANT_ID,
+        repository_id=_LAB_REPOSITORY_ID,
+        repository_instance_id=instance_id,
+    )
+
+
+def test_ingest_cli_rejects_a_tenant_that_serving_can_never_admit(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A non-UUID tenant cannot be served, so the CLI must refuse it up front."""
+
+    source_root = tmp_path / "repository"
+    artifact_root = tmp_path / "artifacts"
+    _write_source(source_root)
+
+    argv = _ingest_argv(source_root, artifact_root)
+    argv[argv.index("--tenant-id") + 1] = "omninode-dev"
+
+    assert cli.main(argv) == 1
+    captured = capsys.readouterr()
+    assert "tenant_id" in captured.err
 
 
 def test_ingest_cli_executes_real_extraction_and_noops_identical_replay(
