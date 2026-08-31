@@ -328,8 +328,75 @@ class TestMain:
             )
 
         assert code == 0
-        mock_fallback.assert_called_once_with(1907, "OmniNode-ai/omnimarket")
+        mock_fallback.assert_called_once_with(
+            1907,
+            "OmniNode-ai/omnimarket",
+            "exceeded GitHub's unified diff size limit.",
+        )
         assert mock_llm.call_args.args[0] == "--- large.py ---\n@@ patch @@"
+
+    def test_oversized_served_diff_is_bounded_before_dispatch(self) -> None:
+        """A diff GitHub happily serves must still be bounded for the model.
+
+        OMN-17293 regression. GitHub's diff-size limit and the reviewer
+        endpoint's context window are different limits; only the former was
+        checked. omnimarket#2240 cleared GitHub at 793,705 chars and was then
+        rejected by the endpoint with HTTP 400 in ~1-3s, producing a `degraded`
+        verdict that no re-run could ever clear.
+        """
+        oversized_diff = (
+            "diff --git a/uv.lock b/uv.lock\n" + ("+" + "x" * 199 + "\n") * 5_000
+        )
+        assert len(oversized_diff) > _MAX_FALLBACK_REVIEW_CHARS
+
+        completed = subprocess.CompletedProcess(
+            args=["gh", "pr", "diff"],
+            returncode=0,
+            stdout=oversized_diff,
+            stderr="",
+        )
+
+        with (
+            patch(
+                "omniintelligence.review_pairing.cli_review.subprocess.run",
+                return_value=completed,
+            ),
+            patch(
+                "omniintelligence.review_pairing.cli_review._fetch_pr_files_fallback",
+                return_value="--- bounded.py ---\n@@ patch @@",
+            ) as mock_fallback,
+            patch(
+                "omniintelligence.review_pairing.cli_review.select_models_with_fallback",
+                return_value=(["deepseek-r1", "qwen3-coder"], []),
+            ),
+            patch(
+                "omniintelligence.review_pairing.cli_review.llm_async_parse_raw",
+                new_callable=AsyncMock,
+                return_value=_success_result("deepseek-r1"),
+            ) as mock_llm,
+        ):
+            code = main(
+                [
+                    "--pr",
+                    "2240",
+                    "--repo",
+                    "OmniNode-ai/omnimarket",
+                    "--model",
+                    "deepseek-r1",
+                    "--model",
+                    "qwen3-coder",
+                ]
+            )
+
+        assert code == 0
+        # The raw oversized diff must never reach the model.
+        assert mock_llm.call_args.args[0] == "--- bounded.py ---\n@@ patch @@"
+        assert mock_fallback.call_count == 1
+        pr_arg, repo_arg, reason_arg = mock_fallback.call_args.args
+        assert (pr_arg, repo_arg) == (2240, "OmniNode-ai/omnimarket")
+        # The preamble must name the real trigger, not GitHub's limit.
+        assert "hostile-reviewer input budget" in reason_arg
+        assert "GitHub" not in reason_arg
 
     def test_pr_files_fallback_bounds_review_target(self) -> None:
         huge_patch = "@@\n" + "\n".join(f"+line {i}" for i in range(30_000))
@@ -355,7 +422,9 @@ class TestMain:
             "omniintelligence.review_pairing.cli_review.subprocess.run",
             return_value=completed,
         ):
-            review_target = _fetch_pr_files_fallback(1907, "OmniNode-ai/omnimarket")
+            review_target = _fetch_pr_files_fallback(
+                1907, "OmniNode-ai/omnimarket", "test reason."
+            )
 
         assert len(review_target) <= _MAX_FALLBACK_REVIEW_CHARS
         assert f"max_patch_chars_per_file={_MAX_FALLBACK_PATCH_CHARS}" in review_target
