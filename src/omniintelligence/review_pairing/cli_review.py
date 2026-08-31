@@ -307,8 +307,18 @@ def _append_bounded_chunk(chunks: list[str], chunk: str, max_chars: int) -> bool
     return False
 
 
-def _fetch_pr_files_fallback(pr_number: int, repo: str) -> str:
-    """Fetch PR file patches when GitHub refuses the unified diff endpoint."""
+def _fetch_pr_files_fallback(pr_number: int, repo: str, reason: str) -> str:
+    """Build a size-bounded review target from the pull request files API.
+
+    Args:
+        pr_number: Pull request number.
+        repo: ``owner/name`` slug.
+        reason: Why the unified diff was not usable directly. Rendered into the
+            review target's preamble, so it must describe the ACTUAL trigger --
+            either GitHub refusing the diff endpoint, or the diff exceeding the
+            reviewer's own input budget (OMN-17293). Stating the wrong one
+            misleads the reviewer model about what it is looking at.
+    """
     result = subprocess.run(
         [
             "gh",
@@ -330,7 +340,7 @@ def _fetch_pr_files_fallback(pr_number: int, repo: str) -> str:
         int(file_info.get("deletions") or 0) for file_info in file_dicts
     )
     chunks: list[str] = [
-        f"PR #{pr_number} in {repo} exceeded GitHub's unified diff size limit.",
+        f"PR #{pr_number} in {repo}: {reason}",
         "Fallback review target built from the pull request files API with an explicit input budget.",
         f"Budget: max_review_chars={_MAX_FALLBACK_REVIEW_CHARS}, max_patch_chars_per_file={_MAX_FALLBACK_PATCH_CHARS}.",
         f"Files changed: {len(file_dicts)}. Totals: +{total_additions}/-{total_deletions}.",
@@ -412,6 +422,41 @@ def main(argv: list[str] | None = None) -> int:
                 timeout=30,
             )
             review_content = gh_result.stdout
+            # OMN-17293: GitHub served the diff, but "GitHub will serve it" and
+            # "the reviewer model will accept it" are different limits, and only
+            # the former was ever checked. An oversized diff is rejected by the
+            # endpoint at request-validation time with HTTP 400
+            # (ONEX_CORE_007_INVALID_INPUT) in ~1-3s, every model fails
+            # identically, and the verdict resolves to `degraded` -- which reads
+            # as transient GPU contention but is fully deterministic, so the
+            # re-run the gate advertises can never clear it. Observed on
+            # omnimarket#2240: a 793,705-char diff (99.6% of it one generated
+            # uv.lock) against a live `max_model_len` of 122,880 tokens.
+            # Bound it here through the same budgeted builder the
+            # GitHub-refused path already uses.
+            if len(review_content) > _MAX_FALLBACK_REVIEW_CHARS:
+                oversize_reason = (
+                    f"unified diff is {len(review_content)} chars, over the "
+                    f"{_MAX_FALLBACK_REVIEW_CHARS}-char hostile-reviewer input budget."
+                )
+                try:
+                    review_content = _fetch_pr_files_fallback(
+                        args.pr, args.repo, oversize_reason
+                    )
+                except (
+                    subprocess.CalledProcessError,
+                    subprocess.TimeoutExpired,
+                ) as exc:
+                    print(
+                        f"Error: {oversize_reason} Files API fallback failed: {exc}",
+                        file=sys.stderr,
+                    )
+                    return 1
+                print(
+                    f"WARNING: {oversize_reason} Using bounded pull request "
+                    "files API review target.",
+                    file=sys.stderr,
+                )
         except FileNotFoundError:
             print("Error: gh CLI not found", file=sys.stderr)
             return 1
@@ -421,7 +466,11 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"Error: gh pr diff failed: {stderr}", file=sys.stderr)
                 return 1
             try:
-                review_content = _fetch_pr_files_fallback(args.pr, args.repo)
+                review_content = _fetch_pr_files_fallback(
+                    args.pr,
+                    args.repo,
+                    "exceeded GitHub's unified diff size limit.",
+                )
             except subprocess.CalledProcessError as fallback_exc:
                 print(
                     "Error: gh pr diff exceeded GitHub's size limit and "

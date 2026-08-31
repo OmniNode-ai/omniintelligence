@@ -684,12 +684,22 @@ async def async_parse_raw(
             result_count=len(findings),
         )
     except Exception as exc:
-        logger.warning("Review failed for model '%s': %s", model, exc)
+        # OMN-17293: the infra LLM transport builds request-rejection errors with
+        # `response_body=<snippet>`, but str(exc) drops it -- so a 400 that the
+        # endpoint explained ("input is longer than max_model_len", etc.) reached
+        # the CI log as a bare "Request rejected (400)". That missing sentence is
+        # why an oversized-payload defect read as generic GPU contention. Append
+        # the body when the exception carries one.
+        response_body = getattr(exc, "response_body", None)
+        detail = (
+            f"{exc} :: response_body={response_body}" if response_body else str(exc)
+        )
+        logger.warning("Review failed for model '%s': %s", model, detail)
         return ModelExternalReviewResult(
             model=model,
             prompt_version=PROMPT_VERSION,
             success=False,
-            error=str(exc),
+            error=detail,
         )
 
 
