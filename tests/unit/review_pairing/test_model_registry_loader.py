@@ -44,7 +44,50 @@ def test_load_registry_returns_contract_with_expected_keys() -> None:
         MODEL_QWEN3_14B,
         "qwen3-next",
         "codex",
+        "glm-review",
     }
+
+
+def test_glm_review_entry_pins_coding_plan_surface() -> None:
+    """glm-review (OMN-17492) rides the z.ai GLM Coding Plan.
+
+    Mirrors omnimarket's test_glm_coding_plan_endpoint_omn6790: the Coding
+    Plan is served ONLY at /api/coding/paas/v4 -- the pay-as-you-go surface
+    (/api/paas/v4) answers a Coding-Plan key with 429 code 1113, which reads
+    as billing but means WRONG ENDPOINT (OMN-6790, rediscovered three times).
+    This pin fails closed on any drift off the coding surface.
+    """
+    contract = load_registry()
+    glm = contract.models["glm-review"]
+
+    assert glm.default_url.startswith("https://api.z.ai/api/coding/paas/v4"), (
+        "glm-review must target the z.ai Coding Plan surface "
+        "/api/coding/paas/v4 (OMN-6790); the pay-as-you-go surface refuses "
+        "Coding-Plan keys with 429 code 1113."
+    )
+    # COMPLETE chat-completions URL: call_model uses it verbatim instead of
+    # appending /v1/chat/completions (which would 404 on z.ai).
+    assert glm.default_url.endswith("/chat/completions")
+    assert glm.api_model_id == "glm-5.3-flash"
+    assert glm.api_key_env == "LLM_GLM_API_KEY"  # pragma: allowlist secret
+    assert glm.kind == "code_review"
+    # Cloud reviewer: never TCP-probed as a LAN endpoint, never part of the
+    # local-reachability fallback -- its independence from the .201 GPU is
+    # the point (OMN-16481).
+    assert "glm-review" not in contract.local_model_keys
+    assert "glm-review" not in contract.api_fallback_keys
+
+
+def test_local_models_declare_no_api_key_env() -> None:
+    """api_key_env is additive: every pre-OMN-17492 entry must be unaffected."""
+    contract = load_registry()
+    for key, config in contract.models.items():
+        if key == "glm-review":
+            continue
+        assert config.api_key_env is None, (
+            f"{key} unexpectedly declares api_key_env; only authenticated "
+            "cloud reviewers set it."
+        )
 
 
 def test_load_registry_preserves_endpoint_config_fields() -> None:

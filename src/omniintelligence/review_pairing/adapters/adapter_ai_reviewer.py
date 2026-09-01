@@ -361,6 +361,22 @@ async def call_model(
     )
     handler = HandlerLlmOpenaiCompatible(transport)
 
+    # OMN-17492: authenticated cloud endpoints (e.g. the z.ai GLM Coding
+    # Plan) declare api_key_env in the registry. The key is read from the
+    # environment at call time and passed as a Bearer token; it is NEVER
+    # stored in the registry. Fail closed per-model: a missing/empty key
+    # fails THIS model's review (surfaced as a normal per-model failure by
+    # async_parse_raw) without taking down the rest of the roster.
+    api_key: str | None = None
+    if config.api_key_env is not None:
+        api_key = os.environ.get(config.api_key_env, "").strip() or None
+        if api_key is None:
+            raise ValueError(
+                f"Model '{model_key}' requires the {config.api_key_env} "
+                "environment variable for Bearer auth, but it is unset or "
+                "empty (fail-closed; the key is never committed or defaulted)."
+            )
+
     # OMN-15115: max_retries is an OPTIONAL per-model registry override.
     # ``None`` means "no override" -- omit the kwarg entirely so
     # ModelLlmInferenceRequest applies its own default (3), which mirrors the
@@ -374,6 +390,7 @@ async def call_model(
     request = ModelLlmInferenceRequest(
         base_url=base_url,
         endpoint_url=endpoint_url,
+        api_key=api_key,
         operation_type=EnumLlmOperationType.CHAT_COMPLETION,
         model=config.api_model_id or model_key,
         messages=({"role": "user", "content": user_prompt},),
@@ -399,9 +416,19 @@ async def call_model(
         # enable_thinking: false in the registry; confirmed live on both
         # vLLM (5090) and llama.cpp (4090) that the toggle suppresses the
         # preamble entirely at generation time.
-        extra_body={
-            "chat_template_kwargs": {"enable_thinking": config.enable_thinking}
-        },
+        #
+        # OMN-17492: the toggle's WIRE SHAPE differs by endpoint class.
+        # Local Qwen backends read chat_template_kwargs.enable_thinking;
+        # the z.ai GLM API reads a top-level ``thinking: {"type": ...}``
+        # object and has no chat_template_kwargs surface. Authenticated
+        # cloud entries (api_key_env set) therefore get the GLM shape,
+        # local entries keep the Qwen shape -- one declarative field, two
+        # provider spellings.
+        extra_body=(
+            {"thinking": {"type": "enabled" if config.enable_thinking else "disabled"}}
+            if config.api_key_env is not None
+            else {"chat_template_kwargs": {"enable_thinking": config.enable_thinking}}
+        ),
     )
 
     response = await handler.handle(request)

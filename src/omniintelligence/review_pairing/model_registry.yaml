@@ -129,6 +129,44 @@ models:
     enable_thinking: false
     max_retries: 1
 
+  # glm-review — authenticated CLOUD reviewer on the z.ai GLM Coding Plan
+  # (OMN-17492). Deliberately NOT in local_model_keys: it is not TCP-probed
+  # as a LAN endpoint and never participates in the local-reachability
+  # fallback — it passes through select_models_with_fallback as a non-local
+  # key, so it still runs when every local model is down (that independence
+  # is the point: OMN-16481 flagged that qwen3-review and qwen3-review-b
+  # both resolve to the ONE remaining GPU, and OMN-17193 sub-row 2 wants the
+  # reviewer leg on an independent, funded quota domain).
+  #
+  # Endpoint authority is the OMN-6790 contract
+  # (omnimarket bifrost_delegation.yaml backend cloud-glm): the Coding-Plan
+  # surface /api/coding/paas/v4 — NEVER /api/paas/v4, which answers a
+  # Coding-Plan key with 429 code 1113 ("Insufficient balance") that reads
+  # as billing but means WRONG ENDPOINT. default_url is the COMPLETE
+  # chat-completions URL (ends in /chat/completions), which call_model uses
+  # verbatim instead of appending /v1/chat/completions.
+  # tests/unit/review_pairing/test_model_registry_loader.py pins the
+  # coding-plan prefix, mirroring test_glm_coding_plan_endpoint_omn6790.py.
+  #
+  # api_key_env: the Bearer key env var (GitHub Actions secret in CI, from
+  # the platform secret store). Fail-closed per-model when unset — the rest
+  # of the roster still reviews. api_model_id glm-5.3-flash = the cheapest
+  # id served on the plan (live probe 2026-08-30, OMN-6790).
+  # enable_thinking false ⇒ the z.ai wire shape thinking:{type: disabled}
+  # (call_model maps the shared declarative toggle to the GLM spelling).
+  # timeout 300s x (1 + max_retries 1) keeps the roster's sequential
+  # worst-case within the 35-minute hostile-review job ceiling (see
+  # retry_budget.py).
+  glm-review:
+    env_var: "LLM_GLM_REVIEW_URL"
+    default_url: "https://api.z.ai/api/coding/paas/v4/chat/completions"
+    kind: "code_review"
+    timeout_seconds: 300.0
+    api_model_id: "glm-5.3-flash"
+    enable_thinking: false
+    max_retries: 1
+    api_key_env: "LLM_GLM_API_KEY"  # pragma: allowlist secret
+
   qwen3-coder:
     env_var: "LLM_CODER_URL"
     default_url: ""

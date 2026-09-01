@@ -775,3 +775,130 @@ class TestCallModelThinkingSuppression:
                 )
 
         assert result == "[]"
+
+
+class TestCallModelCloudBearerAuth:
+    """OMN-17492: authenticated cloud reviewers (api_key_env in the registry).
+
+    glm-review rides the z.ai GLM Coding Plan through the SAME
+    HandlerLlmOpenaiCompatible path as the local models; the only deltas are
+    a Bearer key read from the declared env var (fail-closed per-model), the
+    COMPLETE endpoint URL used verbatim, and the GLM spelling of the
+    thinking toggle. The key VALUE never appears in the registry or in any
+    error message.
+    """
+
+    @pytest.mark.asyncio
+    async def test_glm_review_threads_bearer_key_and_glm_wire_shape(self) -> None:
+        from omniintelligence.review_pairing.adapters import adapter_ai_reviewer
+
+        with patch.dict(
+            "os.environ",
+            {
+                "LOCAL_LLM_SHARED_SECRET": "x",  # pragma: allowlist secret
+                "LLM_GLM_API_KEY": "test-glm-key",  # pragma: allowlist secret
+            },
+            clear=False,
+        ):
+            with patch(
+                "omnibase_infra.nodes.node_llm_inference_effect.handlers.handler_llm_openai_compatible.HandlerLlmOpenaiCompatible"
+            ) as handler_cls:
+                handler_inst = AsyncMock()
+                handler_inst.handle.return_value = AsyncMock(generated_text="[]")
+                handler_cls.return_value = handler_inst
+                await adapter_ai_reviewer.call_model(
+                    "sys", "usr", model_key="glm-review"
+                )
+
+            request = handler_inst.handle.call_args[0][0]
+            assert request.api_key == "test-glm-key"  # pragma: allowlist secret
+            # Registry URL is COMPLETE (ends /chat/completions) and must be
+            # used verbatim -- appending /v1/chat/completions would 404.
+            assert (
+                request.endpoint_url
+                == "https://api.z.ai/api/coding/paas/v4/chat/completions"
+            )
+            assert request.model == "glm-5.3-flash"
+            # GLM wire shape for the declarative enable_thinking:false --
+            # z.ai has no chat_template_kwargs surface.
+            assert request.extra_body == {"thinking": {"type": "disabled"}}
+
+    @pytest.mark.asyncio
+    async def test_glm_review_fails_closed_when_key_missing(self) -> None:
+        from omniintelligence.review_pairing.adapters import adapter_ai_reviewer
+
+        with patch.dict(
+            "os.environ",
+            {"LOCAL_LLM_SHARED_SECRET": "x"},  # pragma: allowlist secret
+            clear=True,
+        ):
+            with patch(
+                "omnibase_infra.nodes.node_llm_inference_effect.handlers.handler_llm_openai_compatible.HandlerLlmOpenaiCompatible"
+            ) as handler_cls:
+                handler_inst = AsyncMock()
+                handler_cls.return_value = handler_inst
+                with pytest.raises(ValueError, match="LLM_GLM_API_KEY"):
+                    await adapter_ai_reviewer.call_model(
+                        "sys", "usr", model_key="glm-review"
+                    )
+                handler_inst.handle.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_glm_review_fails_closed_when_key_empty(self) -> None:
+        """Whitespace-only key is as absent as no key at all."""
+        from omniintelligence.review_pairing.adapters import adapter_ai_reviewer
+
+        with patch.dict(
+            "os.environ",
+            {
+                "LOCAL_LLM_SHARED_SECRET": "x",  # pragma: allowlist secret
+                "LLM_GLM_API_KEY": "   ",
+            },
+            clear=True,
+        ):
+            with pytest.raises(ValueError, match="LLM_GLM_API_KEY"):
+                await adapter_ai_reviewer.call_model(
+                    "sys", "usr", model_key="glm-review"
+                )
+
+    @pytest.mark.asyncio
+    async def test_glm_review_missing_key_error_never_leaks_a_value(self) -> None:
+        """The fail-closed error names the ENV VAR, never any value."""
+        from omniintelligence.review_pairing.adapters import adapter_ai_reviewer
+
+        with patch.dict(
+            "os.environ",
+            {"LOCAL_LLM_SHARED_SECRET": "sekrit-local"},  # pragma: allowlist secret
+            clear=True,
+        ):
+            with pytest.raises(ValueError) as exc_info:
+                await adapter_ai_reviewer.call_model(
+                    "sys", "usr", model_key="glm-review"
+                )
+        assert "sekrit-local" not in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_local_model_sends_no_api_key(self) -> None:
+        """Pre-OMN-17492 entries are unaffected: no Bearer key on local calls."""
+        from omniintelligence.review_pairing.adapters import adapter_ai_reviewer
+
+        with patch.dict(
+            "os.environ",
+            {
+                "LOCAL_LLM_SHARED_SECRET": "x",  # pragma: allowlist secret
+                "LLM_CODER_URL": "http://x:1",
+            },
+            clear=False,
+        ):
+            with patch(
+                "omnibase_infra.nodes.node_llm_inference_effect.handlers.handler_llm_openai_compatible.HandlerLlmOpenaiCompatible"
+            ) as handler_cls:
+                handler_inst = AsyncMock()
+                handler_inst.handle.return_value = AsyncMock(generated_text="[]")
+                handler_cls.return_value = handler_inst
+                await adapter_ai_reviewer.call_model(
+                    "sys", "usr", model_key="qwen3-coder"
+                )
+
+            request = handler_inst.handle.call_args[0][0]
+            assert request.api_key is None
