@@ -165,7 +165,7 @@ models:
     api_model_id: "glm-5.3-flash"
     enable_thinking: false
     max_retries: 1
-    api_key_env: "LLM_GLM_API_KEY"
+    api_key_env: "LLM_GLM_API_KEY"  # pragma: allowlist secret
 
   qwen3-coder:
     env_var: "LLM_CODER_URL"

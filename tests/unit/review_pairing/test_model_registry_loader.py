@@ -69,7 +69,7 @@ def test_glm_review_entry_pins_coding_plan_surface() -> None:
     # appending /v1/chat/completions (which would 404 on z.ai).
     assert glm.default_url.endswith("/chat/completions")
     assert glm.api_model_id == "glm-5.3-flash"
-    assert glm.api_key_env == "LLM_GLM_API_KEY"
+    assert glm.api_key_env == "LLM_GLM_API_KEY"  # pragma: allowlist secret
     assert glm.kind == "code_review"
     # Cloud reviewer: never TCP-probed as a LAN endpoint, never part of the
     # local-reachability fallback -- its independence from the .201 GPU is
