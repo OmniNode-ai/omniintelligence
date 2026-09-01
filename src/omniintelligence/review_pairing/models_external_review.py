@@ -71,6 +71,20 @@ class ModelEndpointConfig(BaseModel, frozen=True):
             "Additive: existing entries that don't set it are unaffected."
         ),
     )
+    api_key_env: str | None = Field(
+        default=None,
+        description=(
+            "Optional environment variable holding a Bearer API key for "
+            "authenticated cloud endpoints (OMN-17492, e.g. the z.ai GLM "
+            "Coding Plan). None (default) means an unauthenticated local "
+            "endpoint -- existing entries are unaffected. When set, "
+            "call_model reads the key from this env var at call time and "
+            "fails that model's review (fail-closed) if it is unset or "
+            "empty; the key VALUE never lives in the registry. The infra "
+            "transport additionally requires the endpoint host to appear in "
+            "LLM_CLOUD_ENDPOINT_HOST_ALLOWLIST over HTTPS."
+        ),
+    )
 
 
 class ModelExternalReviewResult(BaseModel, frozen=True):
