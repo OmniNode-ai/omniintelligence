@@ -22,6 +22,7 @@ use structured fallbacks to prevent NACK loops:
 Related:
     - Bus audit project: daemon emits flat dicts, reshape bridges the gap
     - OMN-2423: Fix dispatch_handlers reshape crash — NACK loop on omniclaude hook events
+    - OMN-17481: typed PermanentDispatchFailureError — the marker that survives engine sanitization
 """
 
 from __future__ import annotations
@@ -38,6 +39,7 @@ if TYPE_CHECKING:
 # upheld without requiring a full dispatch-engine integration test.
 from omniintelligence.runtime.dispatch_handlers import (
     _MAX_DIAGNOSTIC_KEYS,
+    PermanentDispatchFailureError,
     _diagnostic_key_summary,
     _is_permanent_dispatch_failure,
     _is_tool_content_payload,
@@ -45,6 +47,7 @@ from omniintelligence.runtime.dispatch_handlers import (
     _reshape_daemon_hook_payload_v1,
     _reshape_tool_content_to_hook_event,
     create_claude_hook_dispatch_handler,
+    create_cursor_hook_dispatch_handler,
 )
 
 # =============================================================================
@@ -1215,6 +1218,168 @@ class TestIsPermanentDispatchFailure:
         assert not _is_permanent_dispatch_failure(
             "KafkaConnectionError: Broker not available"
         )
+
+    # --- OMN-17481: cursor-hook-event string markers (secondary) ---
+
+    def test_cursor_parse_failure_marker_is_permanent(self) -> None:
+        """'Failed to parse payload as ModelCursorHookEvent' is classified as permanent."""
+        assert _is_permanent_dispatch_failure(
+            "Dispatcher 'intelligence-cursor-hook-handler' failed: ValueError: "
+            "Failed to parse payload as ModelCursorHookEvent: 1 validation error"
+        )
+
+    def test_cursor_unexpected_payload_type_marker_is_permanent(self) -> None:
+        """'Unexpected payload type ... for cursor-hook-event' is classified as permanent."""
+        assert _is_permanent_dispatch_failure(
+            "Unexpected payload type NoneType for cursor-hook-event "
+            "(correlation_id=12345678-1234-1234-1234-123456789abc)"
+        )
+
+    # --- OMN-17481: the typed marker is what survives engine sanitization ---
+
+    def test_permanent_dispatch_failure_error_is_a_value_error(self) -> None:
+        """Subclassing ValueError keeps every existing except/raises path intact."""
+        assert issubclass(PermanentDispatchFailureError, ValueError)
+
+    def test_redacted_plain_value_error_is_transient(self) -> None:
+        """A redacted plain ValueError carries no marker -> transient (NACK).
+
+        This is exactly what the engine produced for every malformed hook event
+        before OMN-17481: the sanitizer blocklist contains 'session_id', every
+        hook parse message mentions it, and only the type name survives.  A
+        plain ValueError therefore had no way to be classified permanent.
+        """
+        assert not _is_permanent_dispatch_failure(
+            "Dispatcher 'intelligence-cursor-hook-handler' failed: ValueError: "
+            "[REDACTED - potentially sensitive data]"
+        )
+
+    @pytest.mark.parametrize(
+        "handler_name",
+        [
+            "session-outcome",
+            "pattern-lifecycle-transition",
+            "pattern-storage",
+            "compliance-evaluate",
+        ],
+    )
+    def test_other_handlers_unexpected_payload_type_is_transient(
+        self, handler_name: str
+    ) -> None:
+        """Non-parse ValueErrors from other handlers stay transient (NACK + retry)."""
+        assert not _is_permanent_dispatch_failure(
+            f"Dispatcher 'intelligence-{handler_name}-handler' failed: ValueError: "
+            f"Unexpected payload type NoneType for {handler_name} "
+            "(correlation_id=12345678-1234-1234-1234-123456789abc)"
+        )
+
+    @pytest.mark.asyncio
+    async def test_real_cursor_parse_error_survives_engine_sanitization(self) -> None:
+        """The REAL cursor parse error, sanitized exactly like the engine does, is permanent.
+
+        Canonical body missing session_id -> Pydantic names 'session_id' in the
+        error text -> sanitize_error_message redacts the text -> only the type
+        name survives -> still classified permanent.
+        """
+        from unittest.mock import AsyncMock, MagicMock
+        from uuid import UUID
+
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import ModelEffectContext
+        from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
+        from omnibase_infra.utils import sanitize_error_message
+
+        mock_classifier = MagicMock()
+        mock_classifier.compute = AsyncMock()
+        test_correlation_id = UUID("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
+
+        handler = create_cursor_hook_dispatch_handler(
+            intent_classifier=mock_classifier,
+            correlation_id=test_correlation_id,
+        )
+        payload_missing_session_id: dict[str, Any] = {
+            "event_type": "UserPromptSubmit",
+            "correlation_id": str(test_correlation_id),
+            "timestamp_utc": "2026-08-31T12:00:00+00:00",
+            "payload": {"prompt": "hola"},
+        }
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload=payload_missing_session_id,
+            correlation_id=test_correlation_id,
+            metadata=ModelEnvelopeMetadata(tags={"message_category": "command"}),
+        )
+        context = ModelEffectContext(
+            correlation_id=test_correlation_id,
+            envelope_id=UUID("00000000-0000-0000-0000-000000000011"),
+        )
+
+        with pytest.raises(PermanentDispatchFailureError) as exc_info:
+            await handler(envelope, context)
+
+        assert "Failed to parse payload as ModelCursorHookEvent" in str(exc_info.value)
+
+        # Exactly what MessageDispatchEngine stores in result.error_message.
+        engine_error_message = (
+            f"Dispatcher 'intelligence-cursor-hook-handler' failed: "
+            f"{sanitize_error_message(exc_info.value)}"
+        )
+        assert PermanentDispatchFailureError.__name__ in engine_error_message
+        assert _is_permanent_dispatch_failure(engine_error_message)
+
+    @pytest.mark.asyncio
+    async def test_real_claude_parse_error_survives_engine_sanitization(self) -> None:
+        """The OMN-2423 case (daemon body without event_type) is permanent on the live path.
+
+        The reshape ValueError is re-raised as PermanentDispatchFailureError with
+        its text preserved; the key summary names session_id, so the engine
+        redacts the text and only the type name survives.
+        """
+        from unittest.mock import AsyncMock, MagicMock
+        from uuid import UUID
+
+        from omnibase_core.models.core.model_envelope_metadata import (
+            ModelEnvelopeMetadata,
+        )
+        from omnibase_core.models.effect.model_effect_context import ModelEffectContext
+        from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
+        from omnibase_infra.utils import sanitize_error_message
+
+        mock_classifier = MagicMock()
+        mock_classifier.compute = AsyncMock()
+        test_correlation_id = UUID("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
+
+        handler = create_claude_hook_dispatch_handler(
+            intent_classifier=mock_classifier,
+            correlation_id=test_correlation_id,
+        )
+        daemon_payload_missing_event_type: dict[str, Any] = {
+            "session_id": "claude-session-001",
+            "emitted_at": "2026-02-20T12:00:00+00:00",
+            "prompt_preview": "hola",
+        }
+        envelope: ModelEventEnvelope[object] = ModelEventEnvelope(
+            payload=daemon_payload_missing_event_type,
+            correlation_id=test_correlation_id,
+            metadata=ModelEnvelopeMetadata(tags={"message_category": "command"}),
+        )
+        context = ModelEffectContext(
+            correlation_id=test_correlation_id,
+            envelope_id=UUID("00000000-0000-0000-0000-000000000012"),
+        )
+
+        with pytest.raises(PermanentDispatchFailureError) as exc_info:
+            await handler(envelope, context)
+
+        assert "Daemon payload missing required key 'event_type'" in str(exc_info.value)
+
+        engine_error_message = (
+            f"Dispatcher 'intelligence-claude-hook-handler' failed: "
+            f"{sanitize_error_message(exc_info.value)}"
+        )
+        assert PermanentDispatchFailureError.__name__ in engine_error_message
+        assert _is_permanent_dispatch_failure(engine_error_message)
 
 
 # =============================================================================

@@ -269,22 +269,57 @@ def _diagnostic_key_summary(raw: dict[str, Any]) -> str:
     return f"(keys={diagnostic_keys})"
 
 
-# Sentinel strings raised by reshape/parse failure paths in
-# create_claude_hook_dispatch_handler.  Used by _is_permanent_dispatch_failure
-# to classify a dispatch result error as a permanent (structural) failure that
-# should be ACK'd rather than NACK'd.  Must match substrings of the
-# raise ValueError(msg) message string, which propagates through the dispatch
-# engine into result.error_message.
+class PermanentDispatchFailureError(ValueError):
+    """Structural parse/reshape failure that will never succeed on retry.
+
+    Raised by the hook-event bridge handlers (claude-hook-event,
+    cursor-hook-event) when a payload cannot be parsed into its event model.
+    ``create_dispatch_callback`` ACKs (discards) messages that fail this way
+    instead of NACKing them into an infinite redelivery loop (OMN-2423,
+    OMN-17481).
+
+    Why a dedicated type: ``MessageDispatchEngine`` runs every handler
+    exception through ``omnibase_infra.utils.sanitize_error_message`` before it
+    reaches ``ModelDispatchResult.error_message``.  That sanitizer replaces the
+    WHOLE message with ``[REDACTED - potentially sensitive data]`` when it
+    contains any blocklisted substring -- and ``session_id``, which every hook
+    payload names, is on the blocklist.  Only the exception type name survives
+    (``"Dispatcher '<id>' failed: <TypeName>: [REDACTED ...]"``), so the
+    ACK/NACK gate classifies on the type name, not on message text.
+
+    Subclasses ``ValueError`` so existing ``except ValueError`` paths and tests
+    keep working unchanged.
+    """
+
+
+# Markers matched (as substrings) against ModelDispatchResult.error_message by
+# _is_permanent_dispatch_failure to classify a failed dispatch as permanent
+# (ACK + discard) rather than transient (NACK + retry).
 #
-# "for claude-hook-event" is intentionally specific to the claude-hook handler.
-# Other handlers (session-outcome, pattern-lifecycle-transition, pattern-storage,
-# compliance-evaluate) also raise ValueError("Unexpected payload type ... for
-# <handler-name> ...") but those are NOT permanent failures -- the dispatch
-# engine should NACK them so they can be retried.
+# Primary marker: the PermanentDispatchFailureError type name.  It is the only
+# part of a handler exception guaranteed to survive the dispatch engine's error
+# sanitization (see the class docstring), so it is what actually fires on the
+# live path.
+#
+# Secondary markers: message substrings raised by the claude-hook-event and
+# cursor-hook-event parse/reshape paths.  They only match when the message
+# escapes the sanitizer blocklist (e.g. a payload that never mentions
+# session_id); they are kept as defense in depth and as documentation of the
+# two handlers whose parse ValueErrors are permanent.
+#
+# "for claude-hook-event" / "for cursor-hook-event" are intentionally specific
+# to those two handlers.  Other handlers (session-outcome,
+# pattern-lifecycle-transition, pattern-storage, compliance-evaluate) also raise
+# ValueError("Unexpected payload type ... for <handler-name> ...") but those are
+# NOT permanent failures -- the dispatch engine should NACK them so they can be
+# retried.
 _PERMANENT_FAILURE_MARKERS: tuple[str, ...] = (
+    PermanentDispatchFailureError.__name__,
     "Permanent reshape failure",
     "Failed to parse payload as ModelClaudeCodeHookEvent",
     "for claude-hook-event",
+    "Failed to parse payload as ModelCursorHookEvent",
+    "for cursor-hook-event",
     "Daemon payload missing required key 'event_type'",
 )
 """Substrings in dispatch result error messages that indicate a permanent failure.
@@ -293,8 +328,12 @@ A permanent failure is one that will not be resolved by retrying the message.
 Structural reshape errors (missing required routing fields, wrong payload type)
 fall into this category.  Transient failures (DB errors, network issues) do not.
 
+The first entry is the ``PermanentDispatchFailureError`` type name -- the only
+marker that survives ``sanitize_error_message`` redaction in the dispatch
+engine.  The string markers are secondary (see the comment above).
+
 Used by ``create_dispatch_callback`` to decide whether to ACK or NACK a failed
-message (GAP-9, OMN-2423).
+message (GAP-9, OMN-2423, OMN-17481).
 """
 
 
@@ -309,7 +348,10 @@ def _is_permanent_dispatch_failure(error_msg: str) -> bool:
         error_msg: The ``error_message`` from a failed ``ModelDispatchResult``.
 
     Returns:
-        True if any ``_PERMANENT_FAILURE_MARKERS`` substring is present.
+        True if any ``_PERMANENT_FAILURE_MARKERS`` substring is present.  On
+        the live path only the ``PermanentDispatchFailureError`` type name is
+        guaranteed to be there (the engine redacts message text); the string
+        markers match only unredacted messages.
     """
     return any(marker in error_msg for marker in _PERMANENT_FAILURE_MARKERS)
 
@@ -800,11 +842,13 @@ def create_claude_hook_dispatch_handler(
                         if isinstance(payload, dict)
                         else f"(payload_type={type(payload).__name__})",
                     )
-                    raise ValueError(msg) from e
+                    raise PermanentDispatchFailureError(msg) from e
                 # Reshape validation errors (from _reshape_daemon_hook_payload_v1)
                 # already carry structured diagnostic context.  Log full raw
-                # payload at ERROR level (sanitized) before re-raising so the
-                # dispatch layer can discard-and-log (ACK) instead of NACKing.
+                # payload at ERROR level (sanitized), then re-raise as the typed
+                # permanent error so the dispatch layer can discard-and-log (ACK)
+                # instead of NACKing -- the message text itself is redacted by
+                # the engine (OMN-17481).
                 sanitized_err = get_log_sanitizer().sanitize(str(e))
                 logger.error(
                     "Permanent reshape failure for claude-hook-event, message will be "
@@ -815,7 +859,7 @@ def create_claude_hook_dispatch_handler(
                     if isinstance(payload, dict)
                     else f"(payload_type={type(payload).__name__})",
                 )
-                raise
+                raise PermanentDispatchFailureError(str(e)) from e
             except Exception as e:
                 sanitized_exc = get_log_sanitizer().sanitize(str(e))
                 msg = (
@@ -830,7 +874,7 @@ def create_claude_hook_dispatch_handler(
                     if isinstance(payload, dict)
                     else f"(payload_type={type(payload).__name__})",
                 )
-                raise ValueError(msg) from e
+                raise PermanentDispatchFailureError(msg) from e
         else:
             msg = (
                 f"Unexpected payload type {type(payload).__name__} "
@@ -841,7 +885,7 @@ def create_claude_hook_dispatch_handler(
                 "discarded to prevent NACK loop: %s",
                 msg,
             )
-            raise ValueError(msg)
+            raise PermanentDispatchFailureError(msg)
 
         logger.info(
             "Dispatching claude-hook-event via MessageDispatchEngine "
@@ -956,7 +1000,7 @@ def create_cursor_hook_dispatch_handler(
                     if isinstance(payload, dict)
                     else f"(payload_type={type(payload).__name__})",
                 )
-                raise ValueError(msg) from e
+                raise PermanentDispatchFailureError(msg) from e
             except Exception as e:
                 sanitized_exc = get_log_sanitizer().sanitize(str(e))
                 msg = (
@@ -968,7 +1012,7 @@ def create_cursor_hook_dispatch_handler(
                     "message will be discarded to prevent NACK loop: %s",
                     msg,
                 )
-                raise ValueError(msg) from e
+                raise PermanentDispatchFailureError(msg) from e
         else:
             msg = (
                 f"Unexpected payload type {type(payload).__name__} "
@@ -979,7 +1023,7 @@ def create_cursor_hook_dispatch_handler(
                 "discarded to prevent NACK loop: %s",
                 msg,
             )
-            raise ValueError(msg)
+            raise PermanentDispatchFailureError(msg)
 
         logger.info(
             "Dispatching cursor-hook-event via MessageDispatchEngine "
@@ -2730,8 +2774,10 @@ def create_intelligence_dispatch_engine(
         intent_classifier: REQUIRED intent classifier.
         kafka_producer: Optional Kafka publisher (graceful degradation).
         publish_topics: Optional mapping of handler name to publish topic.
-            Keys: "claude_hook", "lifecycle", "pattern_storage",
-            "pattern_learning", "compliance_evaluate", "pattern_projection".
+            Keys: "claude_hook", "cursor_hook", "code_entities_extracted",
+            "compliance_evaluate", "lifecycle", "pattern_learning",
+            "pattern_projection", "pattern_storage" (the keys of
+            contract_topics._DISPATCH_KEY_TO_PACKAGE).
             Values: full topic strings from contract event_bus.publish_topics.
             Note: crawl scheduler handlers (crawl-requested, document-indexed)
             do not use publish_topics — the crawl-tick topic is embedded in
@@ -2798,6 +2844,11 @@ def create_intelligence_dispatch_engine(
     )
 
     # --- Handler 1b: cursor-hook-event (peer of claude-hook) ---
+    # publish_topic: "cursor_hook" is the key wired by contract_topics.py from
+    # node_cursor_hook_event_effect/contract.yaml.  The "claude_hook" fallback is
+    # defense in depth only -- dead since OMN-13802 registered the cursor node --
+    # and both resolve to the same B1 topic today (asserted in
+    # tests/unit/runtime/test_contract_topics.py).
     cursor_hook_handler = create_cursor_hook_dispatch_handler(
         intent_classifier=intent_classifier,
         kafka_producer=kafka_producer,
@@ -4225,6 +4276,7 @@ __all__ = [
     "DISPATCH_ALIAS_PATTERN_STORED",
     "DISPATCH_ALIAS_SESSION_OUTCOME",
     "DISPATCH_ALIAS_TOOL_CONTENT",
+    "PermanentDispatchFailureError",
     "create_bloom_eval_run_dispatch_handler",
     "create_ci_failure_tracker_dispatch_handler",
     "create_ci_fingerprint_dispatch_handler",

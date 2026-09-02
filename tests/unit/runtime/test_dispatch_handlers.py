@@ -18,6 +18,7 @@ Related:
     - OMN-2091: Wire real dependencies into dispatch handlers (Phase 2)
     - OMN-2339: Add node_compliance_evaluate_effect (6 handlers, 8 routes)
     - OMN-2430: NodeCrawlSchedulerEffect adds 2 handlers, 2 routes (8 handlers, 10 routes); NodeWatchdogEffect has no Kafka subscribe topics and adds no dispatch routes
+    - OMN-17481: hook-event parse failures ACK on the real dispatch path (cursor + claude)
 """
 
 from __future__ import annotations
@@ -44,6 +45,7 @@ from omniintelligence.runtime.contract_topics import (
 from omniintelligence.runtime.dispatch_handlers import (
     DISPATCH_ALIAS_CLAUDE_HOOK,
     DISPATCH_ALIAS_COMPLIANCE_EVALUATE,
+    DISPATCH_ALIAS_CURSOR_HOOK,
     DISPATCH_ALIAS_PATTERN_DISCOVERED,
     DISPATCH_ALIAS_PATTERN_LEARNED,
     DISPATCH_ALIAS_PATTERN_LEARNING_CMD,
@@ -2530,6 +2532,198 @@ class TestCreateDispatchCallback:
         )
         assert not msg._nacked, (
             "Message must NOT be NACKed on permanent failure (prevents infinite retry)"
+        )
+
+
+# =============================================================================
+# Tests: OMN-17481 — permanent-failure ACK on the REAL dispatch path
+# =============================================================================
+
+
+class TestPermanentFailureAckRealPath:
+    """Malformed hook events must be ACKed (discarded), never NACK-looped.
+
+    ``TestCreateDispatchCallback.test_callback_acks_on_permanent_failure``
+    patches ``engine.dispatch`` with a hand-written error string.  The live
+    ``MessageDispatchEngine`` runs handler exceptions through
+    ``omnibase_infra.utils.sanitize_error_message``, which redacts any message
+    mentioning e.g. ``session_id`` down to
+    ``"Dispatcher '<id>' failed: <TypeName>: [REDACTED - potentially sensitive data]"``.
+    String markers therefore never fired on the live path and every malformed
+    hook event NACK-looped -- cursor AND claude (OMN-17481).
+
+    These tests drive the real engine and the real bridge handlers with no
+    mocks on the dispatch path, and assert on ack/nack -- the only observable
+    that matters.
+    """
+
+    @staticmethod
+    def _valid_cursor_payload() -> dict[str, Any]:
+        return {
+            "event_type": "UserPromptSubmit",
+            "session_id": "cursor-session-001",
+            "correlation_id": "12345678-1234-1234-1234-123456789abc",
+            "timestamp_utc": "2026-08-31T12:00:00+00:00",
+            "payload": {"prompt": "hola"},
+        }
+
+    @staticmethod
+    def _valid_claude_payload() -> dict[str, Any]:
+        return {
+            "event_type": "UserPromptSubmit",
+            "session_id": "claude-session-001",
+            "correlation_id": "12345678-1234-1234-1234-123456789abc",
+            "timestamp_utc": "2026-08-31T12:00:00+00:00",
+            "payload": {"prompt": "hola"},
+        }
+
+    @staticmethod
+    async def _dispatch_real(
+        *,
+        dispatch_topic: str,
+        body: dict[str, Any],
+        mock_repository: MagicMock,
+        mock_idempotency_store: MagicMock,
+        mock_intent_classifier: MagicMock,
+    ) -> _MockEventMessage:
+        """Run one Kafka body through the real engine + callback; return the msg."""
+        engine = create_intelligence_dispatch_engine(
+            repository=mock_repository,
+            idempotency_store=mock_idempotency_store,
+            intent_classifier=mock_intent_classifier,
+        )
+        callback = create_dispatch_callback(
+            engine=engine,
+            dispatch_topic=dispatch_topic,
+        )
+        msg = _MockEventMessage(value=json.dumps(body).encode("utf-8"))
+        await callback(msg)
+        return msg
+
+    @pytest.mark.asyncio
+    async def test_cursor_envelope_wrapped_payload_is_acked(
+        self,
+        mock_repository: MagicMock,
+        mock_idempotency_store: MagicMock,
+        mock_intent_classifier: MagicMock,
+    ) -> None:
+        """(a) The Kafka body is a serialized ModelEventEnvelope, not a flat hook event.
+
+        The bridge handler then sees envelope keys (payload, metadata, ...) and
+        ModelCursorHookEvent(**payload) fails with ~20 validation errors.
+        Before OMN-17481 this NACKed forever.
+        """
+        from omnibase_core.models.events.model_event_envelope import ModelEventEnvelope
+
+        wrapped_body = ModelEventEnvelope(
+            payload=self._valid_cursor_payload(),
+            correlation_id=uuid4(),
+            event_type=DISPATCH_ALIAS_CURSOR_HOOK,
+        ).model_dump(mode="json")
+
+        msg = await self._dispatch_real(
+            dispatch_topic=DISPATCH_ALIAS_CURSOR_HOOK,
+            body=wrapped_body,
+            mock_repository=mock_repository,
+            mock_idempotency_store=mock_idempotency_store,
+            mock_intent_classifier=mock_intent_classifier,
+        )
+
+        assert msg._acked, (
+            "envelope-wrapped cursor body must be ACKed (permanent parse failure)"
+        )
+        assert not msg._nacked, (
+            "envelope-wrapped cursor body must NOT be NACKed (redelivery loop)"
+        )
+
+    @pytest.mark.asyncio
+    async def test_cursor_payload_missing_required_key_is_acked(
+        self,
+        mock_repository: MagicMock,
+        mock_idempotency_store: MagicMock,
+        mock_intent_classifier: MagicMock,
+    ) -> None:
+        """(b) Canonical cursor body missing the required session_id.
+
+        Pydantic reports "session_id Field required"; the engine's sanitizer
+        redacts the whole message because it mentions session_id.  Before
+        OMN-17481 this NACKed forever.
+        """
+        body = self._valid_cursor_payload()
+        del body["session_id"]
+
+        msg = await self._dispatch_real(
+            dispatch_topic=DISPATCH_ALIAS_CURSOR_HOOK,
+            body=body,
+            mock_repository=mock_repository,
+            mock_idempotency_store=mock_idempotency_store,
+            mock_intent_classifier=mock_intent_classifier,
+        )
+
+        assert msg._acked, (
+            "cursor body missing session_id must be ACKed (permanent parse failure)"
+        )
+        assert not msg._nacked, (
+            "cursor body missing session_id must NOT be NACKed (redelivery loop)"
+        )
+
+    @pytest.mark.asyncio
+    async def test_claude_daemon_payload_missing_event_type_is_acked(
+        self,
+        mock_repository: MagicMock,
+        mock_idempotency_store: MagicMock,
+        mock_intent_classifier: MagicMock,
+    ) -> None:
+        """The OMN-2423 case itself: flat daemon body without event_type.
+
+        _reshape_daemon_hook_payload_v1 raises "Daemon payload missing required
+        key 'event_type' (keys=['session_id', ...])".  That marker never reached
+        the callback: the key summary mentions session_id, so the engine
+        redacted the message.  Before OMN-17481 this NACKed forever.
+        """
+        body: dict[str, Any] = {
+            "session_id": "claude-session-001",
+            "emitted_at": "2026-08-31T12:00:00+00:00",
+            "prompt_preview": "hola",
+        }
+
+        msg = await self._dispatch_real(
+            dispatch_topic=DISPATCH_ALIAS_CLAUDE_HOOK,
+            body=body,
+            mock_repository=mock_repository,
+            mock_idempotency_store=mock_idempotency_store,
+            mock_intent_classifier=mock_intent_classifier,
+        )
+
+        assert msg._acked, "claude daemon body missing event_type must be ACKed"
+        assert not msg._nacked, (
+            "claude daemon body missing event_type must NOT be NACKed"
+        )
+
+    @pytest.mark.asyncio
+    async def test_claude_payload_missing_required_key_is_acked(
+        self,
+        mock_repository: MagicMock,
+        mock_idempotency_store: MagicMock,
+        mock_intent_classifier: MagicMock,
+    ) -> None:
+        """Canonical claude body missing the required session_id (peer of the cursor case)."""
+        body = self._valid_claude_payload()
+        del body["session_id"]
+
+        msg = await self._dispatch_real(
+            dispatch_topic=DISPATCH_ALIAS_CLAUDE_HOOK,
+            body=body,
+            mock_repository=mock_repository,
+            mock_idempotency_store=mock_idempotency_store,
+            mock_intent_classifier=mock_intent_classifier,
+        )
+
+        assert msg._acked, (
+            "claude body missing session_id must be ACKed (permanent parse failure)"
+        )
+        assert not msg._nacked, (
+            "claude body missing session_id must NOT be NACKed (redelivery loop)"
         )
 
 

@@ -484,7 +484,7 @@ ON CONFLICT (id) DO NOTHING;
 
 Column semantics:
     id            — UUID primary key, generated per event
-    session_id    — TEXT: Claude Code session identifier (not a UUID column)
+    session_id    — UUID: Claude Code session identifier (UUID column per migration 019)
     action_type   — TEXT: event type string (e.g. "tool_use", "tool_use_failure")
     tool_name     — TEXT: name of the tool invoked (e.g. "Bash", "Read", "Write")
     file_path     — TEXT: first file path from tool input, if applicable; may be NULL

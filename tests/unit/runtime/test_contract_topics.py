@@ -295,6 +295,26 @@ class TestCollectPublishTopicsForDispatch:
         result = collect_publish_topics_for_dispatch()
         assert "claude_hook" in result
 
+    def test_contains_cursor_hook_key(self) -> None:
+        """Must contain a wired 'cursor_hook' key (B1 formal closure, OMN-17481).
+
+        contract_topics maps cursor_hook -> node_cursor_hook_event_effect and
+        resolves the value from that node's contract publish_topics.
+        """
+        result = collect_publish_topics_for_dispatch()
+        assert "cursor_hook" in result
+        assert result["cursor_hook"] is not None
+
+    def test_cursor_hook_publish_topic_equals_claude_hook(self) -> None:
+        """B1: cursor and claude hooks publish to the SAME topic (OMN-14749).
+
+        agent_source is the sole downstream discriminator; both contracts list
+        intent-classified.v1 as their first publish topic.  If they ever
+        diverge this test is the alarm -- do not weaken it.
+        """
+        result = collect_publish_topics_for_dispatch()
+        assert result["cursor_hook"] == result["claude_hook"]
+
     def test_contains_lifecycle_key(self) -> None:
         """Must contain 'lifecycle' key for transition events."""
         result = collect_publish_topics_for_dispatch()
