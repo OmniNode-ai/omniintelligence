@@ -89,7 +89,7 @@ Additional pytest markers (`slow`, `performance`, `drift`, `smoke`, `forecast`):
 
 ### Node Inventory
 
-All nodes are registered in `pyproject.toml [project.entry-points."onex.nodes"]` — that section is the source of truth for the count and the list. Curated inventory with per-node purpose: [docs/reference/NODE_INVENTORY.md](docs/reference/NODE_INVENTORY.md) (must be updated in the same PR when a node is added or removed).
+All nodes are registered in `pyproject.toml [project.entry-points."onex.nodes"]` — that section is the source of truth for the count and the list. Curated inventory with per-node purpose: [Node Inventory](https://github.com/OmniNode-ai/knowledge-base/blob/main/reference/omniintelligence-node-inventory.md) (must be updated in the same PR when a node is added or removed).
 
 ---
 
@@ -185,7 +185,7 @@ Downstream: `omnimemory` consumes `onex.evt.omniintelligence.intent-classified.v
 
 **Topic naming**: `onex.{kind}.{producer}.{event-name}.v{version}` — `kind=cmd` for commands/inputs, `kind=evt` for events/outputs.
 
-**Source of truth for all topics**: [docs/reference/EVENT_SURFACE.md](docs/reference/EVENT_SURFACE.md) — generated from the contract YAML files; do not maintain topic lists here. Programmatic collection: `runtime/contract_topics.py` (`collect_subscribe_topics_from_contracts()`, `collect_publish_topics_for_dispatch()`).
+**Source of truth for all topics**: [Event Surface](https://github.com/OmniNode-ai/knowledge-base/blob/main/reference/omniintelligence-event-surface.md) — generated from the contract YAML files; do not maintain topic lists here. Programmatic collection: `runtime/contract_topics.py` (`collect_subscribe_topics_from_contracts()`, `collect_publish_topics_for_dispatch()`).
 
 **DLQ pattern**: All effect nodes route failed messages to `{topic}.dlq` with the original envelope, error message, timestamp, retry count, and secrets sanitized via `LogSanitizer`.
 
@@ -308,5 +308,5 @@ tests/
 ```
 
 - Mock protocol dependencies with plain classes and assert conformance: `assert isinstance(MockPatternStore(), ProtocolPatternStore)`.
-- Topic lists for test setup: [docs/reference/EVENT_SURFACE.md](docs/reference/EVENT_SURFACE.md).
+- Topic lists for test setup: [Event Surface](https://github.com/OmniNode-ai/knowledge-base/blob/main/reference/omniintelligence-event-surface.md).
 - TODO comments require a ticket: `# TODO(OMN-123): ...` — never a bare `# TODO`.

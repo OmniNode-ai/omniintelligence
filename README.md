@@ -45,7 +45,7 @@ OmniIntelligence is the intelligence platform for the ONEX ecosystem. It provide
 - Claude Code hook event processing (`UserPromptSubmit`, `Stop`, and others)
 - REST API for pattern query by enforcement nodes (`GET /api/v1/patterns`)
 
-For the full node list see [docs/reference/NODE_INVENTORY.md](docs/reference/NODE_INVENTORY.md).
+For the full node list see [Node Inventory](https://github.com/OmniNode-ai/knowledge-base/blob/main/reference/omniintelligence-node-inventory.md).
 
 ---
 
@@ -129,9 +129,9 @@ OmniIntelligence is built on the ONEX Four-Node Architecture. Nodes are thin she
 - Pattern promotion/demotion → lifecycle transition → audit trail
 - Quality assessment command → scoring compute → quality-assessment-completed → omnidash
 
-**Dash integration boundary (architectural rule):** omnidash must never query this repo's database directly — the intended path is Kafka topics projected into `omnidash_analytics`. This repo's producer side is verified live; the omnidash-side consumer wiring is not — see [docs/reference/DASH_INTEGRATION_TRUTH_BOUNDARY.md](docs/reference/DASH_INTEGRATION_TRUTH_BOUNDARY.md) for what is currently confirmed vs. stale.
+**Dash integration boundary (architectural rule):** omnidash must never query this repo's database directly — the intended path is Kafka topics projected into `omnidash_analytics`. This repo's producer side is verified live; the omnidash-side consumer wiring is not (tracked on OMN-16577).
 
-For topology diagrams and full pipeline details see [docs/architecture/ONEX_FOUR_NODE_ARCHITECTURE.md](docs/architecture/ONEX_FOUR_NODE_ARCHITECTURE.md).
+For topology diagrams and full pipeline details see [ONEX Four-Node Architecture](https://github.com/OmniNode-ai/knowledge-base/blob/main/architecture/omniintelligence-four-node-architecture.md).
 
 ---
 
@@ -139,13 +139,10 @@ For topology diagrams and full pipeline details see [docs/architecture/ONEX_FOUR
 
 | Document | Purpose |
 |----------|---------|
-| [docs/INDEX.md](docs/INDEX.md) | Canonical docs entrypoint |
-| [docs/architecture/ONEX_FOUR_NODE_ARCHITECTURE.md](docs/architecture/ONEX_FOUR_NODE_ARCHITECTURE.md) | Node topology, data flow, pipeline diagrams |
-| [docs/reference/NODE_INVENTORY.md](docs/reference/NODE_INVENTORY.md) | Full node inventory sourced from `pyproject.toml` |
-| [docs/reference/EVENT_SURFACE.md](docs/reference/EVENT_SURFACE.md) | Produced, consumed, dashboard-visible, and deprecated topics |
-| [docs/reference/DASH_INTEGRATION_TRUTH_BOUNDARY.md](docs/reference/DASH_INTEGRATION_TRUTH_BOUNDARY.md) | Omnidash integration truth boundary |
+| [ONEX Four-Node Architecture](https://github.com/OmniNode-ai/knowledge-base/blob/main/architecture/omniintelligence-four-node-architecture.md) | Node topology, data flow, pipeline diagrams |
+| [Node Inventory](https://github.com/OmniNode-ai/knowledge-base/blob/main/reference/omniintelligence-node-inventory.md) | Full node inventory sourced from `pyproject.toml` |
+| [Event Surface](https://github.com/OmniNode-ai/knowledge-base/blob/main/reference/omniintelligence-event-surface.md) | Produced, consumed, dashboard-visible, and deprecated topics |
 | [CLAUDE.md](CLAUDE.md) | Developer context, invariants, quick reference |
-| [AGENT.md](AGENT.md) | LLM navigation guide |
 
 ---
 
