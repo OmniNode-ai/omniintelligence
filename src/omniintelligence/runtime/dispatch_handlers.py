@@ -2730,8 +2730,10 @@ def create_intelligence_dispatch_engine(
         intent_classifier: REQUIRED intent classifier.
         kafka_producer: Optional Kafka publisher (graceful degradation).
         publish_topics: Optional mapping of handler name to publish topic.
-            Keys: "claude_hook", "lifecycle", "pattern_storage",
-            "pattern_learning", "compliance_evaluate", "pattern_projection".
+            Keys: "claude_hook", "cursor_hook", "code_entities_extracted",
+            "compliance_evaluate", "lifecycle", "pattern_learning",
+            "pattern_projection", "pattern_storage" (the keys of
+            contract_topics._DISPATCH_KEY_TO_PACKAGE).
             Values: full topic strings from contract event_bus.publish_topics.
             Note: crawl scheduler handlers (crawl-requested, document-indexed)
             do not use publish_topics — the crawl-tick topic is embedded in
@@ -2798,6 +2800,11 @@ def create_intelligence_dispatch_engine(
     )
 
     # --- Handler 1b: cursor-hook-event (peer of claude-hook) ---
+    # publish_topic: "cursor_hook" is the key wired by contract_topics.py from
+    # node_cursor_hook_event_effect/contract.yaml.  The "claude_hook" fallback is
+    # defense in depth only -- dead since OMN-13802 registered the cursor node --
+    # and both resolve to the same B1 topic today (asserted in
+    # tests/unit/runtime/test_contract_topics.py).
     cursor_hook_handler = create_cursor_hook_dispatch_handler(
         intent_classifier=intent_classifier,
         kafka_producer=kafka_producer,
