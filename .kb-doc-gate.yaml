@@ -32,7 +32,13 @@ mode: strict
 #   .github/CODE_OF_CONDUCT.md            root by OMN-16612; GitHub reads both
 #   .github/PULL_REQUEST_TEMPLATE.md      from .github/ as well)
 #   .github/ISSUE_TEMPLATE/*.md
-#   tests/fixtures/code_projection/v2/README.md -> `**/tests/**/fixtures/**`
+#
+# The validator's DEFAULT_ALLOWED also blankets `**/tests/**/fixtures/**`, but the
+# operator ruling narrows that: fixture markdown is allowed only when a test reads
+# it as data. This repo has no such file. `tests/fixtures/code_projection/v2/README.md`
+# was the one candidate and no test opened it, so OMN-16612 moved its content to
+# knowledge-base-internal `reference/omniintelligence-code-projection-v2-replay-vectors.md`
+# and deleted it. Do not re-add fixture prose here; the fixture DATA files stay.
 allowed:
   # Review-pairing persona prompts. These are executable agent configuration,
   # not prose: `src/omniintelligence/review_pairing/persona_loader.py` reads

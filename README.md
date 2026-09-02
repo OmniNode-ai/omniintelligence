@@ -153,6 +153,7 @@ narrative files that stay here.
 | [Naming conventions](https://github.com/OmniNode-ai/knowledge-base-internal/blob/main/reference/omniintelligence-naming-conventions.md) | Node, model, handler, and topic naming rules |
 | [Node state policy](https://github.com/OmniNode-ai/knowledge-base-internal/blob/main/reference/omniintelligence-node-state-policy.md) | What state a node may hold, and where it lives |
 | [Review-pairing topics](https://github.com/OmniNode-ai/knowledge-base-internal/blob/main/reference/omniintelligence-review-pairing-topics.md) | Topics emitted and consumed by the review-pairing subsystem |
+| [Code projection v2 replay vectors](https://github.com/OmniNode-ai/knowledge-base-internal/blob/main/reference/omniintelligence-code-projection-v2-replay-vectors.md) | What the frozen `tests/fixtures/code_projection/v2/` corpus asserts |
 
 **[knowledge-base](https://github.com/OmniNode-ai/knowledge-base)** (public) — platform architecture:
 
