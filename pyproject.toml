@@ -56,7 +56,7 @@ analysis = [
 [project.urls]
 Homepage = "https://github.com/OmniNode-ai/omniintelligence"
 Repository = "https://github.com/OmniNode-ai/omniintelligence"
-Documentation = "https://github.com/OmniNode-ai/omniintelligence/tree/main/docs"
+Documentation = "https://github.com/OmniNode-ai/knowledge-base"
 Issues = "https://github.com/OmniNode-ai/omniintelligence/issues"
 Changelog = "https://github.com/OmniNode-ai/omniintelligence/blob/main/CHANGELOG.md"
 

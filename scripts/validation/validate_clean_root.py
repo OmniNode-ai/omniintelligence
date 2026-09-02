@@ -63,12 +63,13 @@ ALLOWED_ROOT_FILES: frozenset[str] = frozenset(
         "LICENSE.md",
         "LICENSE.txt",
         "CHANGELOG.md",
-        "CONTRIBUTING.md",
-        "CODE_OF_CONDUCT.md",
+        # SECURITY.md stays at the root only because GitHub reads it there.
+        # CONTRIBUTING.md and CODE_OF_CONDUCT.md were relocated to .github/ by
+        # OMN-16612 (GitHub reads them from there too) and AGENT.md was folded
+        # into CLAUDE.md, so none of the three is a legal root file any more.
         "SECURITY.md",
         # ONEX-specific
         "CLAUDE.md",
-        "AGENT.md",
         # Environment
         ".env",
         ".env.example",
@@ -97,6 +98,8 @@ ALLOWED_ROOT_FILES: frozenset[str] = frozenset(
         ".python-version",
         # ONEX cross-repo policy
         ".cross-repo-policy.yaml",
+        # KB doc gate config (OMN-16612/OMN-17172)
+        ".kb-doc-gate.yaml",
     }
 )
 

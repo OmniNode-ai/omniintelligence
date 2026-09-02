@@ -376,8 +376,16 @@ repos:
         # Per-hook exclusion (Tier 2) - see "EXCLUSION PATTERN STRATEGY" section above
         # Workflows excluded: YAML syntax conflicts (${{ }}, multiline strings, run:)
         # uv.lock excluded: Not YAML but yamlfmt processes all file types
+        # .kb-doc-gate.yaml excluded (OMN-16612): the kb-doc-gate validator
+        #   (omniclaude/scripts/kb_doc_gate.py, load_config) parses a deliberately
+        #   restricted stdlib-only YAML subset that accepts only comments, "mode:",
+        #   and an "allowed:" "- " list. The "---" document-start marker this
+        #   repo's .yamlfmt inserts (include_document_start: true) is an
+        #   unrecognized line there and makes the gate exit 2 (config error, which
+        #   is never read as a pass). The caller workflow pins an immutable
+        #   omniclaude SHA, so the parser cannot be widened from this repo.
         # Global exclusions (_legacy/, migration_sources/) applied automatically
-        exclude: ^(\.github/workflows/|uv\.lock$)
+        exclude: ^(\.github/workflows/|uv\.lock$|\.kb-doc-gate\.yaml$)
 
   # ============================================================================
   # FILE HYGIENE - Essential file formatting (standard across ecosystem)

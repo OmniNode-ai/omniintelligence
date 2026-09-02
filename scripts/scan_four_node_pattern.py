@@ -90,7 +90,9 @@ REPOS = [
 
 
 def main() -> None:
-    omni_home = Path(os.environ.get("OMNI_HOME", str(Path(__file__).resolve().parents[2])))
+    omni_home = Path(
+        os.environ.get("OMNI_HOME", str(Path(__file__).resolve().parents[2]))
+    )
 
     if not omni_home.is_dir():
         print(f"ERROR: OMNI_HOME={omni_home} does not exist", file=sys.stderr)

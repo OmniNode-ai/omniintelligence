@@ -25,7 +25,9 @@ Migration from Legacy (omniarchon):
     - ModelSearchResult / ModelPatternMatch: Typed models for search results
       and pattern matches, replacing untyped dict-based representations.
 
-    For complete migration guidance, see MIGRATION.md in this directory.
+    The field-by-field mapping above is the migration guidance. The separate
+    MIGRATION.md note that used to sit in this directory was removed by
+    OMN-16612 — it restated these same mappings.
 """
 
 from omniintelligence.models.events import (

@@ -45,7 +45,7 @@ OmniIntelligence is the intelligence platform for the ONEX ecosystem. It provide
 - Claude Code hook event processing (`UserPromptSubmit`, `Stop`, and others)
 - REST API for pattern query by enforcement nodes (`GET /api/v1/patterns`)
 
-For the full node list see [docs/reference/NODE_INVENTORY.md](docs/reference/NODE_INVENTORY.md).
+For the full node list see [Node Inventory](https://github.com/OmniNode-ai/knowledge-base/blob/main/reference/omniintelligence-node-inventory.md).
 
 ---
 
@@ -129,50 +129,48 @@ OmniIntelligence is built on the ONEX Four-Node Architecture. Nodes are thin she
 - Pattern promotion/demotion → lifecycle transition → audit trail
 - Quality assessment command → scoring compute → quality-assessment-completed → omnidash
 
-**Dash integration boundary (architectural rule):** omnidash must never query this repo's database directly — the intended path is Kafka topics projected into `omnidash_analytics`. This repo's producer side is verified live; the omnidash-side consumer wiring is not — see [docs/reference/DASH_INTEGRATION_TRUTH_BOUNDARY.md](docs/reference/DASH_INTEGRATION_TRUTH_BOUNDARY.md) for what is currently confirmed vs. stale.
+**Dash integration boundary (architectural rule):** omnidash must never query this repo's database directly — the intended path is Kafka topics projected into `omnidash_analytics`. This repo's producer side is verified live; the omnidash-side consumer wiring is not (tracked on OMN-16577).
 
-For topology diagrams and full pipeline details see [docs/architecture/ONEX_FOUR_NODE_ARCHITECTURE.md](docs/architecture/ONEX_FOUR_NODE_ARCHITECTURE.md).
-
----
-
-## Documentation map
-
-| Document | Purpose |
-|----------|---------|
-| [docs/INDEX.md](docs/INDEX.md) | Canonical docs entrypoint |
-| [docs/architecture/ONEX_FOUR_NODE_ARCHITECTURE.md](docs/architecture/ONEX_FOUR_NODE_ARCHITECTURE.md) | Node topology, data flow, pipeline diagrams |
-| [docs/reference/NODE_INVENTORY.md](docs/reference/NODE_INVENTORY.md) | Full node inventory sourced from `pyproject.toml` |
-| [docs/reference/EVENT_SURFACE.md](docs/reference/EVENT_SURFACE.md) | Produced, consumed, dashboard-visible, and deprecated topics |
-| [docs/reference/DASH_INTEGRATION_TRUTH_BOUNDARY.md](docs/reference/DASH_INTEGRATION_TRUTH_BOUNDARY.md) | Omnidash integration truth boundary |
-| [CLAUDE.md](CLAUDE.md) | Developer context, invariants, quick reference |
-| [AGENT.md](AGENT.md) | LLM navigation guide |
+For topology diagrams and full pipeline details see [ONEX Four-Node Architecture](https://github.com/OmniNode-ai/knowledge-base/blob/main/architecture/omniintelligence-four-node-architecture.md).
 
 ---
 
-## Development and test commands
+## Documentation
 
-```bash
-# Install (all groups including dev)
-uv sync --group all
+This repository holds no prose documentation. Every guide, reference, and
+architecture page for OmniIntelligence lives in the knowledge base — that is the
+single home for docs, and this README plus [CLAUDE.md](CLAUDE.md) are the only
+narrative files that stay here.
 
-# Full test suite
-uv run pytest tests/ -v
+**[knowledge-base-internal](https://github.com/OmniNode-ai/knowledge-base-internal)** — internal operational detail:
 
-# Lint and format
-uv run ruff format src/ tests/ && uv run ruff check --fix src/ tests/
+| Page | Purpose |
+|------|---------|
+| [Database schema](https://github.com/OmniNode-ai/knowledge-base-internal/blob/main/reference/omniintelligence-database-schema.md) | Migration inventory, table ownership, apply procedure |
+| [Docker deployment](https://github.com/OmniNode-ai/knowledge-base-internal/blob/main/guides/omniintelligence-docker-deployment.md) | Image build, compose lanes, runtime bring-up |
+| [Contract validation guide](https://github.com/OmniNode-ai/knowledge-base-internal/blob/main/guides/omniintelligence-contract-validation-guide.md) | How `contract.yaml` files are validated and what fails |
+| [Contract linter reference](https://github.com/OmniNode-ai/knowledge-base-internal/blob/main/reference/omniintelligence-contract-linter-reference.md) | Rule-by-rule reference for `src/omniintelligence/validators/` |
+| [Naming conventions](https://github.com/OmniNode-ai/knowledge-base-internal/blob/main/reference/omniintelligence-naming-conventions.md) | Node, model, handler, and topic naming rules |
+| [Node state policy](https://github.com/OmniNode-ai/knowledge-base-internal/blob/main/reference/omniintelligence-node-state-policy.md) | What state a node may hold, and where it lives |
+| [Review-pairing topics](https://github.com/OmniNode-ai/knowledge-base-internal/blob/main/reference/omniintelligence-review-pairing-topics.md) | Topics emitted and consumed by the review-pairing subsystem |
 
-# Type check
-uv run mypy src/
+**[knowledge-base](https://github.com/OmniNode-ai/knowledge-base)** (public) — platform architecture:
 
-# Pre-commit
-pre-commit run --all-files
-```
+| Page | Purpose |
+|------|---------|
+| [ONEX Four-Node Architecture](https://github.com/OmniNode-ai/knowledge-base/blob/main/architecture/omniintelligence-four-node-architecture.md) | Node topology, data flow, pipeline diagrams |
+| [Node inventory](https://github.com/OmniNode-ai/knowledge-base/blob/main/reference/omniintelligence-node-inventory.md) | Full node inventory sourced from `pyproject.toml` |
+| [Event surface](https://github.com/OmniNode-ai/knowledge-base/blob/main/reference/omniintelligence-event-surface.md) | Produced, consumed, dashboard-visible, and deprecated topics |
+
+New markdown outside the allowed set is rejected by the `kb-doc-gate` CI check
+(config: [`.kb-doc-gate.yaml`](.kb-doc-gate.yaml)); write the page in the
+knowledge base instead.
 
 ---
 
 ## Security, contributing, and license
 
 - [SECURITY.md](SECURITY.md)
-- [CONTRIBUTING.md](CONTRIBUTING.md)
-- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+- [CONTRIBUTING.md](.github/CONTRIBUTING.md)
+- [CODE_OF_CONDUCT.md](.github/CODE_OF_CONDUCT.md)
 - [LICENSE](LICENSE) — MIT
