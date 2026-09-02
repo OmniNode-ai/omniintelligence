@@ -19,8 +19,11 @@ Both files were `CREATE TABLE IF NOT EXISTS`, so re-adding a second definition a
 does not fail loudly — the first to sort wins and the other's columns silently never
 appear. This test is the loud failure that condition otherwise lacks.
 
-Rationale and the retired-file inventory:
-`deployment/database/migrations/CODE_ENTITY_DDL_OWNERSHIP.md`.
+Rationale and the retired-file inventory live in this docstring and in
+``RETIRED_MIGRATIONS`` below. The former companion note
+(``deployment/database/migrations/CODE_ENTITY_DDL_OWNERSHIP.md``) was removed by
+OMN-16612; it only restated what is written here, and OMN-15276 is the durable
+record of the decision.
 """
 
 from __future__ import annotations
@@ -94,8 +97,9 @@ def test_no_sql_file_in_this_repo_alters_code_entities() -> None:
 @pytest.mark.parametrize("retired", RETIRED_MIGRATIONS)
 def test_retired_migration_files_stay_deleted(retired: str) -> None:
     assert not (REPO_ROOT / retired).exists(), (
-        f"{retired} was restored. It was retired by OMN-15276; see "
-        "deployment/database/migrations/CODE_ENTITY_DDL_OWNERSHIP.md."
+        f"{retired} was restored. It was retired by OMN-15276; the canonical "
+        f"owner of this DDL is {CANONICAL_LOCATION}, and this module's "
+        "docstring carries the rationale."
     )
 
 

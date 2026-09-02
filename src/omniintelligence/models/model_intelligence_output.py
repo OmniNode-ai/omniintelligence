@@ -19,7 +19,9 @@ Migration Note:
     - processing_time_ms, complexity_score, issues, metrics
     - error_code, retry_allowed, timestamp
 
-    See MIGRATION.md for complete migration guidance.
+    The mapping above is the migration guidance; see also the
+    `omniintelligence.models` package docstring. The separate MIGRATION.md note
+    was removed by OMN-16612.
 """
 
 from __future__ import annotations

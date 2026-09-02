@@ -20,7 +20,13 @@ Stub Detection:
 
 Usage:
     python scripts/generate_node_report.py
-    python scripts/generate_node_report.py --output docs/NODE_STATUS_REPORT.md
+    python scripts/generate_node_report.py --output docs/_build/NODE_STATUS_REPORT.md
+
+The default output lands under the gitignored ``docs/_build/`` scratch tree.
+This report is a generated snapshot, not documentation: prose documentation for
+this repo lives in the knowledge base (OMN-16612), and the kb-doc-gate rejects
+tracked markdown outside the allowed set, so a generated report must not be
+written to a tracked path.
 
 Reference: OMN-1140
 """
@@ -415,8 +421,12 @@ def main():
     parser.add_argument(
         "--output",
         "-o",
-        default="docs/NODE_STATUS_REPORT.md",
-        help="Output file path (default: docs/NODE_STATUS_REPORT.md)",
+        default="docs/_build/NODE_STATUS_REPORT.md",
+        help=(
+            "Output file path (default: docs/_build/NODE_STATUS_REPORT.md, "
+            "which is gitignored — this is a generated snapshot, not tracked "
+            "documentation)"
+        ),
     )
     parser.add_argument(
         "--nodes-dir",

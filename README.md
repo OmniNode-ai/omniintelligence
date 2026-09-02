@@ -135,41 +135,42 @@ For topology diagrams and full pipeline details see [ONEX Four-Node Architecture
 
 ---
 
-## Documentation map
+## Documentation
 
-| Document | Purpose |
-|----------|---------|
+This repository holds no prose documentation. Every guide, reference, and
+architecture page for OmniIntelligence lives in the knowledge base — that is the
+single home for docs, and this README plus [CLAUDE.md](CLAUDE.md) are the only
+narrative files that stay here.
+
+**[knowledge-base-internal](https://github.com/OmniNode-ai/knowledge-base-internal)** — internal operational detail:
+
+| Page | Purpose |
+|------|---------|
+| [Database schema](https://github.com/OmniNode-ai/knowledge-base-internal/blob/main/reference/omniintelligence-database-schema.md) | Migration inventory, table ownership, apply procedure |
+| [Docker deployment](https://github.com/OmniNode-ai/knowledge-base-internal/blob/main/guides/omniintelligence-docker-deployment.md) | Image build, compose lanes, runtime bring-up |
+| [Contract validation guide](https://github.com/OmniNode-ai/knowledge-base-internal/blob/main/guides/omniintelligence-contract-validation-guide.md) | How `contract.yaml` files are validated and what fails |
+| [Contract linter reference](https://github.com/OmniNode-ai/knowledge-base-internal/blob/main/reference/omniintelligence-contract-linter-reference.md) | Rule-by-rule reference for `src/omniintelligence/validators/` |
+| [Naming conventions](https://github.com/OmniNode-ai/knowledge-base-internal/blob/main/reference/omniintelligence-naming-conventions.md) | Node, model, handler, and topic naming rules |
+| [Node state policy](https://github.com/OmniNode-ai/knowledge-base-internal/blob/main/reference/omniintelligence-node-state-policy.md) | What state a node may hold, and where it lives |
+| [Review-pairing topics](https://github.com/OmniNode-ai/knowledge-base-internal/blob/main/reference/omniintelligence-review-pairing-topics.md) | Topics emitted and consumed by the review-pairing subsystem |
+
+**[knowledge-base](https://github.com/OmniNode-ai/knowledge-base)** (public) — platform architecture:
+
+| Page | Purpose |
+|------|---------|
 | [ONEX Four-Node Architecture](https://github.com/OmniNode-ai/knowledge-base/blob/main/architecture/omniintelligence-four-node-architecture.md) | Node topology, data flow, pipeline diagrams |
-| [Node Inventory](https://github.com/OmniNode-ai/knowledge-base/blob/main/reference/omniintelligence-node-inventory.md) | Full node inventory sourced from `pyproject.toml` |
-| [Event Surface](https://github.com/OmniNode-ai/knowledge-base/blob/main/reference/omniintelligence-event-surface.md) | Produced, consumed, dashboard-visible, and deprecated topics |
-| [CLAUDE.md](CLAUDE.md) | Developer context, invariants, quick reference |
+| [Node inventory](https://github.com/OmniNode-ai/knowledge-base/blob/main/reference/omniintelligence-node-inventory.md) | Full node inventory sourced from `pyproject.toml` |
+| [Event surface](https://github.com/OmniNode-ai/knowledge-base/blob/main/reference/omniintelligence-event-surface.md) | Produced, consumed, dashboard-visible, and deprecated topics |
 
----
-
-## Development and test commands
-
-```bash
-# Install (all groups including dev)
-uv sync --group all
-
-# Full test suite
-uv run pytest tests/ -v
-
-# Lint and format
-uv run ruff format src/ tests/ && uv run ruff check --fix src/ tests/
-
-# Type check
-uv run mypy src/
-
-# Pre-commit
-pre-commit run --all-files
-```
+New markdown outside the allowed set is rejected by the `kb-doc-gate` CI check
+(config: [`.kb-doc-gate.yaml`](.kb-doc-gate.yaml)); write the page in the
+knowledge base instead.
 
 ---
 
 ## Security, contributing, and license
 
 - [SECURITY.md](SECURITY.md)
-- [CONTRIBUTING.md](CONTRIBUTING.md)
-- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+- [CONTRIBUTING.md](.github/CONTRIBUTING.md)
+- [CODE_OF_CONDUCT.md](.github/CODE_OF_CONDUCT.md)
 - [LICENSE](LICENSE) — MIT

@@ -1,0 +1,44 @@
+# SPDX-FileCopyrightText: 2026 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+# KB doc gate configuration — omniintelligence. Gate built by OMN-16589,
+# rolled to this repo by OMN-17172, flipped to strict by OMN-16612 (this
+# repo's Wave-4 doc migration).
+#
+# Canonical validator: omniclaude/scripts/kb_doc_gate.py, invoked through
+# omniclaude/.github/workflows/kb-doc-gate-reusable.yml by this repo's thin
+# caller .github/workflows/kb-doc-gate.yml.
+#
+# strict: every tracked markdown file on the branch must be inside the allowed
+# set, whether or not the change under review touched it. The precondition the
+# gate's own docs state for flipping strict on — this repo's KB migration has
+# landed and its residual doc count is zero — is met as of OMN-16612.
+#
+# A `mode:` here wins over the `with: mode:` input in the caller workflow;
+# both are set to strict so the two surfaces cannot disagree.
+mode: strict
+
+# 'allowed:' is ADDITIVE on top of the validator's DEFAULT_ALLOWED (root
+# README.md, CLAUDE.md and **/.claude/**, CHANGELOG*.md, LICENSE*, root
+# SECURITY.md, .github/**, skills|commands|agents/**, and
+# tests/**/{fixtures,data,golden}/**).
+#
+# Markdown that remains here and is covered by the DEFAULT set, for the record:
+#   README.md                          -> `README.md`
+#   CLAUDE.md                          -> `CLAUDE.md`
+#   CHANGELOG.md                       -> `**/CHANGELOG*.md`
+#   SECURITY.md                        -> `SECURITY.md` (GitHub reads it at root)
+#   .claude/architecture-handshake.md  -> `**/.claude/**`
+#   .github/CONTRIBUTING.md            -> `**/.github/**` (relocated from the
+#   .github/CODE_OF_CONDUCT.md            root by OMN-16612; GitHub reads both
+#   .github/PULL_REQUEST_TEMPLATE.md      from .github/ as well)
+#   .github/ISSUE_TEMPLATE/*.md
+#   tests/fixtures/code_projection/v2/README.md -> `**/tests/**/fixtures/**`
+allowed:
+  # Review-pairing persona prompts. These are executable agent configuration,
+  # not prose: `src/omniintelligence/review_pairing/persona_loader.py` reads
+  # `personas/<name>.md` at runtime via `load_persona()` / `list_personas()`,
+  # `cli_review.py --persona` resolves against this directory, hatch ships the
+  # whole `src/omniintelligence` tree so the files land in the wheel, and
+  # `tests/unit/review_pairing/test_personas.py` asserts on their content.
+  # Moving them to the knowledge base would break the package at import time.
+  - "src/omniintelligence/review_pairing/personas/**"

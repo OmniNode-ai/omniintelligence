@@ -16,7 +16,9 @@ Migration Note:
     Operation-specific parameters that were individual fields in legacy models
     should now be passed in the `options` TypedDict.
 
-    See MIGRATION.md for complete migration guidance.
+    The mapping above is the migration guidance; see also the
+    `omniintelligence.models` package docstring. The separate MIGRATION.md note
+    was removed by OMN-16612.
 """
 
 from __future__ import annotations
