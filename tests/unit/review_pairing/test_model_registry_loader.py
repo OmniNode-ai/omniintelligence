@@ -96,13 +96,15 @@ def test_load_registry_preserves_endpoint_config_fields() -> None:
     deepseek = contract.models[MODEL_DEEPSEEK_R1]
     assert deepseek.env_var == "LLM_DEEPSEEK_R1_URL"
     # OMN-16407 residual (2026-08-23): repointed 8001 -> 8000 after the RTX
-    # 4090 this key targeted was physically removed for RMA; api_model_id
-    # now matches the live-served SGLang id on :8000 (same endpoint
-    # qwen3-review / qwen3-review-b use).
+    # 4090 this key targeted was physically removed for RMA.
+    # OMN-17786 (2026-09-03): api_model_id repinned "qwen3.8" -> the live vLLM
+    # served-model-name. The SGLang stack that served "qwen3.8" is gone; :8000
+    # had no listener at all until OMN-14379 restored vllm-gpu0.service. vLLM
+    # rejects an unknown model id (404) where SGLang echoed it back at 200.
     assert deepseek.default_url == "http://192.168.86.201:8000"
     assert deepseek.kind == "reasoning"
     assert deepseek.timeout_seconds == 300.0
-    assert deepseek.api_model_id == "qwen3.8"
+    assert deepseek.api_model_id == "Qwen3.6-35B-A3B"
 
     codex = contract.models["codex"]
     assert codex.env_var == "CODEX_BINARY"
@@ -222,3 +224,30 @@ models:
     )
     with pytest.raises(ModelRegistryLoadError, match="undefined model keys"):
         load_registry(path)
+
+
+@pytest.mark.unit
+def test_local_201_8000_keys_share_one_served_model_id() -> None:
+    """OMN-17786: every key on .201:8000 must send the id that host actually serves.
+
+    The endpoint is vLLM again (OMN-14379), and vLLM validates the ``model``
+    field -- a stale id is an immediate HTTP 404, not a silent mis-attribution
+    the way it was under SGLang. These three keys resolve to one server, so a
+    repin that updates only some of them would leave the rest hard-failing.
+    The value tracks ``--served-model-name`` in
+    ``omnibase_infra/deploy/systemd/vllm-gpu0-qwen-coder.service``.
+    """
+    contract = load_registry()
+    on_8000 = {
+        key: cfg.api_model_id
+        for key, cfg in contract.models.items()
+        if cfg.default_url == "http://192.168.86.201:8000"  # onex-allow-internal-ip
+    }
+
+    assert on_8000, "expected at least one review key pinned to .201:8000"
+    assert set(on_8000) == {"deepseek-r1", "qwen3-review", "qwen3-review-b"}, (
+        f"unexpected key set on .201:8000: {sorted(on_8000)}"
+    )
+    assert set(on_8000.values()) == {"Qwen3.6-35B-A3B"}, (
+        f"every .201:8000 key must send the live vLLM served-model-name; got {on_8000}"
+    )

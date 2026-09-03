@@ -52,12 +52,24 @@ models:
   # thinking-model response against this endpoint can consume the whole
   # max_tokens budget on a <think> preamble and defeat naive
   # strip-think-tags parsing.
+  # api_model_id REPINNED (OMN-17786, 2026-09-03): "qwen3.8" -> "Qwen3.6-35B-A3B".
+  # The SGLang + DSpark stack that served "qwen3.8" on .201:8000 is gone -- there
+  # is no sglang unit and no /opt/sglang on the host. :8000 had NO listener at
+  # all until OMN-14379 resized vllm-gpu0.service off a --gpu-memory-utilization
+  # 0.92 it could never start with, and that unit serves vLLM with
+  # --served-model-name Qwen3.6-35B-A3B. Live readback 2026-09-03T16:07Z:
+  # GET /v1/models -> id "Qwen3.6-35B-A3B", owned_by "vllm", max_model_len 131072.
+  # THIS IS NOT COSMETIC ANY MORE: the note below says SGLang echoed a wrong
+  # model id back at HTTP 200. vLLM does not -- POST /v1/chat/completions with
+  # "qwen3.8" returns HTTP 404 "The model `qwen3.8` does not exist." The id is
+  # now load-bearing and tracks the systemd unit's --served-model-name
+  # (omnibase_infra/deploy/systemd/vllm-gpu0-qwen-coder.service).
   deepseek-r1:
     env_var: "LLM_DEEPSEEK_R1_URL"
     default_url: "http://192.168.86.201:8000"  # onex-allow-internal-ip
     kind: "reasoning"
     timeout_seconds: 300.0
-    api_model_id: "qwen3.8"
+    api_model_id: "Qwen3.6-35B-A3B"
     enable_thinking: false
 
   # qwen3-review — live .201:8000 endpoint. UPDATED (OMN-16407, 2026-08-23):
@@ -80,12 +92,24 @@ models:
   # emit only a trailing </think> with no matching opener, which defeats
   # naive strip-think-tags parsing. Live-confirmed: suppresses the preamble
   # entirely, response is a clean directly-parseable JSON array.
+  # api_model_id REPINNED (OMN-17786, 2026-09-03): "qwen3.8" -> "Qwen3.6-35B-A3B".
+  # The SGLang + DSpark stack that served "qwen3.8" on .201:8000 is gone -- there
+  # is no sglang unit and no /opt/sglang on the host. :8000 had NO listener at
+  # all until OMN-14379 resized vllm-gpu0.service off a --gpu-memory-utilization
+  # 0.92 it could never start with, and that unit serves vLLM with
+  # --served-model-name Qwen3.6-35B-A3B. Live readback 2026-09-03T16:07Z:
+  # GET /v1/models -> id "Qwen3.6-35B-A3B", owned_by "vllm", max_model_len 131072.
+  # THIS IS NOT COSMETIC ANY MORE: the note below says SGLang echoed a wrong
+  # model id back at HTTP 200. vLLM does not -- POST /v1/chat/completions with
+  # "qwen3.8" returns HTTP 404 "The model `qwen3.8` does not exist." The id is
+  # now load-bearing and tracks the systemd unit's --served-model-name
+  # (omnibase_infra/deploy/systemd/vllm-gpu0-qwen-coder.service).
   qwen3-review:
     env_var: "LLM_QWEN3_REVIEW_URL"
     default_url: "http://192.168.86.201:8000"  # onex-allow-internal-ip
     kind: "code_review"
     timeout_seconds: 120.0
-    api_model_id: "qwen3.8"
+    api_model_id: "Qwen3.6-35B-A3B"
     enable_thinking: false
 
   # qwen3-review-b — REPOINTED (OMN-16407, 2026-08-23) from the now-physically-
@@ -120,12 +144,24 @@ models:
   # (60min) hostile-review job ceiling. See omniintelligence.review_pairing
   # .retry_budget, which asserts this on every hostile-review CI run against
   # the LIVE registry + LIVE per-model overrides.
+  # api_model_id REPINNED (OMN-17786, 2026-09-03): "qwen3.8" -> "Qwen3.6-35B-A3B".
+  # The SGLang + DSpark stack that served "qwen3.8" on .201:8000 is gone -- there
+  # is no sglang unit and no /opt/sglang on the host. :8000 had NO listener at
+  # all until OMN-14379 resized vllm-gpu0.service off a --gpu-memory-utilization
+  # 0.92 it could never start with, and that unit serves vLLM with
+  # --served-model-name Qwen3.6-35B-A3B. Live readback 2026-09-03T16:07Z:
+  # GET /v1/models -> id "Qwen3.6-35B-A3B", owned_by "vllm", max_model_len 131072.
+  # THIS IS NOT COSMETIC ANY MORE: the note below says SGLang echoed a wrong
+  # model id back at HTTP 200. vLLM does not -- POST /v1/chat/completions with
+  # "qwen3.8" returns HTTP 404 "The model `qwen3.8` does not exist." The id is
+  # now load-bearing and tracks the systemd unit's --served-model-name
+  # (omnibase_infra/deploy/systemd/vllm-gpu0-qwen-coder.service).
   qwen3-review-b:
     env_var: "LLM_QWEN3_REVIEW_B_URL"
     default_url: "http://192.168.86.201:8000"  # onex-allow-internal-ip
     kind: "code_review"
     timeout_seconds: 300.0
-    api_model_id: "qwen3.8"
+    api_model_id: "Qwen3.6-35B-A3B"
     enable_thinking: false
     max_retries: 1
 
