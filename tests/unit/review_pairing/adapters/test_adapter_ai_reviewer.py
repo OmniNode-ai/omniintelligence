@@ -516,10 +516,11 @@ class TestModelRegistry:
     def test_deepseek_r1_default_model_id(self) -> None:
         """Assert deepseek-r1 resolves the live model ID (OMN-8654; repointed
         OMN-16407 residual 2026-08-23 after the RTX 4090 backend was
-        physically removed for RMA -- now the same SGLang :8000 id
-        qwen3-review/qwen3-review-b serve)."""
+        physically removed for RMA; repinned OMN-17786 2026-09-03 off the
+        retired SGLang id "qwen3.8" onto the vLLM served-model-name that
+        .201:8000 actually answers to -- vLLM 404s an unknown id)."""
         config = MODEL_REGISTRY["deepseek-r1"]
-        assert config.api_model_id == "qwen3.8"
+        assert config.api_model_id == "Qwen3.6-35B-A3B"
 
     def test_deepseek_r1_default_url_is_201_8000(self) -> None:
         """Assert deepseek-r1 default URL points to .201:8000 (OMN-8654;
