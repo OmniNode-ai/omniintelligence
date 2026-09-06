@@ -142,19 +142,6 @@ architecture page for OmniIntelligence lives in the knowledge base — that is t
 single home for docs, and this README plus [CLAUDE.md](CLAUDE.md) are the only
 narrative files that stay here.
 
-**[knowledge-base-internal](https://github.com/OmniNode-ai/knowledge-base-internal)** — internal operational detail:
-
-| Page | Purpose |
-|------|---------|
-| [Database schema](https://github.com/OmniNode-ai/knowledge-base-internal/blob/main/reference/omniintelligence-database-schema.md) | Migration inventory, table ownership, apply procedure |
-| [Docker deployment](https://github.com/OmniNode-ai/knowledge-base-internal/blob/main/guides/omniintelligence-docker-deployment.md) | Image build, compose lanes, runtime bring-up |
-| [Contract validation guide](https://github.com/OmniNode-ai/knowledge-base-internal/blob/main/guides/omniintelligence-contract-validation-guide.md) | How `contract.yaml` files are validated and what fails |
-| [Contract linter reference](https://github.com/OmniNode-ai/knowledge-base-internal/blob/main/reference/omniintelligence-contract-linter-reference.md) | Rule-by-rule reference for `src/omniintelligence/validators/` |
-| [Naming conventions](https://github.com/OmniNode-ai/knowledge-base-internal/blob/main/reference/omniintelligence-naming-conventions.md) | Node, model, handler, and topic naming rules |
-| [Node state policy](https://github.com/OmniNode-ai/knowledge-base-internal/blob/main/reference/omniintelligence-node-state-policy.md) | What state a node may hold, and where it lives |
-| [Review-pairing topics](https://github.com/OmniNode-ai/knowledge-base-internal/blob/main/reference/omniintelligence-review-pairing-topics.md) | Topics emitted and consumed by the review-pairing subsystem |
-| [Code projection v2 replay vectors](https://github.com/OmniNode-ai/knowledge-base-internal/blob/main/reference/omniintelligence-code-projection-v2-replay-vectors.md) | What the frozen `tests/fixtures/code_projection/v2/` corpus asserts |
-
 **[knowledge-base](https://github.com/OmniNode-ai/knowledge-base)** (public) — platform architecture:
 
 | Page | Purpose |
