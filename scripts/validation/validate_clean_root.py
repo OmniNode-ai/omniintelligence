@@ -33,6 +33,13 @@ from pathlib import Path
 
 ALLOWED_ROOT_FILES: frozenset[str] = frozenset(
     {
+        # Public-repo hygiene gate (OMN-18016). Layer (a) of the gate is a
+        # TOP-LEVEL path allowlist, so its declaration has to sit at the root
+        # -- the gate refuses to run without it and treats an absent config as
+        # a refusal, not as an empty allowlist. The suppression registry is
+        # named beside it for the same reason.
+        ".public-repo-hygiene.yaml",
+        ".public-repo-hygiene-suppressions.yaml",
         # Version control
         ".gitignore",
         ".gitattributes",
