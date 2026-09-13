@@ -51,14 +51,32 @@ jobs:
               exit 0
               ;;
           esac
-          echo "pr=$PR" >> "$GITHUB_OUTPUT"
-          echo "actor=$ACTOR" >> "$GITHUB_OUTPUT"
-          echo "skip=false" >> "$GITHUB_OUTPUT"
+          {
+            echo "pr=$PR"
+            echo "actor=$ACTOR"
+            echo "skip=false"
+          } >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@v7
 
-      - name: Enable auto-merge
+      - name: Resolve repository auto-merge setting
+        id: repository-auto-merge
         if: steps.resolve.outputs.skip != 'true' && steps.resolve.outputs.actor == 'jonahgabriel'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          enabled="$(gh api "repos/$GH_REPO" --jq '.allow_auto_merge')"
+          if [ "$enabled" != "true" ]; then
+            echo "repository auto-merge is disabled; arming skipped"
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+
+      - name: Enable auto-merge
+        if: steps.resolve.outputs.skip != 'true' && steps.resolve.outputs.actor == 'jonahgabriel' && steps.repository-auto-merge.outputs.enabled == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}

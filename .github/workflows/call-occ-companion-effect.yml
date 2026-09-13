@@ -67,10 +67,10 @@
 # main, re-pin this `uses:` to `@main` or a main SHA so the caller no longer
 # tracks a moving dev branch.
 #
-# SECRET-FREE: no `secrets: inherit` — the dev-lane broker comes from
-# omnimarket's committed config/ci_bus_lanes.yaml overlay (OMN-14813), and the
-# dev-lane listener is plaintext. This repo needs no Kafka secrets for this
-# workflow.
+# CREDENTIAL INHERITANCE: the canonical reusable publisher inherits the existing
+# organization credentials it requires, including broker authentication, through
+# `secrets: inherit`; this caller neither defines nor exposes credential values.
+# The broker endpoint remains resolved from omnimarket's committed lane overlay.
 #
 # MANUAL REPLAY ENTRYPOINT (OMN-14993): `workflow_dispatch` lets an operator
 # manually re-request a mint for a PR whose original `pull_request` event was
@@ -126,6 +126,10 @@ jobs:
       (contains(github.event.pull_request.title, 'OMN-') ||
        contains(github.event.pull_request.head.ref, 'OMN-'))
     uses: OmniNode-ai/omniclaude/.github/workflows/call-occ-companion-effect-reusable.yml@dev
+    # The dev lane declares SASL, so the canonical publisher needs the
+    # existing organization KAFKA_SASL_* credentials. The broker remains
+    # resolved from the committed omnimarket lane overlay.
+    secrets: inherit
     with:
       lane: dev
 
