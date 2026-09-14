@@ -36,7 +36,7 @@ on:
 
 jobs:
   public-repo-hygiene:
-    uses: OmniNode-ai/omniclaude/.github/workflows/public-repo-hygiene-reusable.yml@c5f4e8fda9e62ce8c74360e7cd7d0b60f3cd8f82
+    uses: OmniNode-ai/omniclaude/.github/workflows/public-repo-hygiene-reusable.yml@f715c21768dd7dfcb3bd09f9c89d20b3ccafc20a
     with:
       mode: report
     secrets: inherit
