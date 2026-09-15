@@ -285,6 +285,49 @@ class TestMain:
         code = main(["--file", "/nonexistent/plan.md"])
         assert code == 1
 
+    def test_pr_empty_diff_emits_valid_verdict_exit_0(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """OMN-18409: an empty PR diff (e.g. a merge/ancestry commit with a
+        tree identical to the base branch, omniclaude#2180) must be a real,
+        reviewable "nothing to review" outcome, not an infra failure.
+
+        Before the fix, this branch printed an error to stderr and returned 1
+        with NO stdout at all -- the caller (hostile-reviewer.yml) then tried
+        to json.loads() an empty string and crashed with JSONDecodeError
+        instead of ever seeing a verdict.
+        """
+        completed = subprocess.CompletedProcess(
+            args=["gh", "pr", "diff"],
+            returncode=0,
+            stdout="   \n",
+            stderr="",
+        )
+
+        with patch(
+            "omniintelligence.review_pairing.cli_review.subprocess.run",
+            return_value=completed,
+        ):
+            code = main(
+                [
+                    "--pr",
+                    "2180",
+                    "--repo",
+                    "OmniNode-ai/omniclaude",
+                    "--model",
+                    "deepseek-r1",
+                ]
+            )
+
+        assert code == 0
+        stdout = capsys.readouterr().out
+        data = json.loads(stdout)
+        assert data["skipped_reason"] == "empty_diff"
+        assert data["total_findings"] == 0
+        assert data["models_attempted"] == []
+        assert data["models_succeeded"] == []
+        assert data["models_failed"] == []
+
     def test_pr_large_diff_falls_back_to_files_api(self) -> None:
         gh_error = subprocess.CalledProcessError(
             1,
