@@ -122,6 +122,13 @@ class ModelMultiReviewResult(BaseModel, frozen=True):
         models_failed: List of models that returned success=False.
         results: Per-model result envelopes.
         total_findings: Sum of findings across all successful models.
+        skipped_reason: Set when no model review was attempted because there
+            was nothing to review (e.g. an empty PR diff on a merge/ancestry
+            commit). ``None`` means models were genuinely attempted -- the
+            caller should read ``models_succeeded``/``models_failed`` as
+            usual. This is distinct from every model failing: a skipped
+            review is an honest "nothing to review" outcome, not a reviewer
+            crash or model outage (OMN-18409).
     """
 
     models_attempted: list[str] = Field(
@@ -138,4 +145,12 @@ class ModelMultiReviewResult(BaseModel, frozen=True):
     )
     total_findings: int = Field(
         default=0, description="Sum of findings across all successful models."
+    )
+    skipped_reason: str | None = Field(
+        default=None,
+        description=(
+            "Set when no model review was attempted because there was "
+            "nothing to review (e.g. an empty PR diff). None means models "
+            "were genuinely attempted (OMN-18409)."
+        ),
     )

@@ -494,8 +494,34 @@ def main(argv: list[str] | None = None) -> int:
             print("Error: gh pr diff timed out", file=sys.stderr)
             return 1
         if not review_content.strip():
-            print(f"Error: PR #{args.pr} has no diff", file=sys.stderr)
-            return 1
+            # OMN-18409: an empty diff (e.g. a merge/ancestry commit whose
+            # tree is identical to the base branch) is a legitimate
+            # "nothing to review" outcome, not an infra failure -- emit a
+            # real, valid verdict document instead of erroring with empty
+            # stdout. Previously this returned 1 with no stdout at all,
+            # which crashed the hostile-reviewer CI caller's JSON parse
+            # (json.decoder.JSONDecodeError on the empty string) instead of
+            # ever producing a verdict.
+            print(
+                f"PR #{args.pr} has no diff — nothing to review.",
+                file=sys.stderr,
+            )
+            result = ModelMultiReviewResult(
+                models_attempted=[],
+                models_succeeded=[],
+                models_failed=[],
+                results=[],
+                total_findings=0,
+                skipped_reason="empty_diff",
+            )
+            json_output = result.model_dump_json(indent=2)
+            if args.output:
+                output_path = Path(args.output)
+                output_path.write_text(json_output + "\n", encoding="utf-8")
+                print(f"Results written to {args.output}", file=sys.stderr)
+            else:
+                print(json_output)
+            return 0
         print(f"Reviewing PR #{args.pr} in {args.repo}", file=sys.stderr)
     else:
         plan_path = Path(args.file)
