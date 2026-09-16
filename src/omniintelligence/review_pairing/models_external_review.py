@@ -12,9 +12,14 @@ Reference: OMN-5790
 
 from __future__ import annotations
 
+from enum import Enum, unique
+
 from pydantic import BaseModel, Field
 
-from omniintelligence.review_pairing.models import ModelReviewFindingObserved
+from omniintelligence.review_pairing.models import (
+    EnumFindingSeverity,
+    ModelReviewFindingObserved,
+)
 
 
 class ModelEndpointConfig(BaseModel, frozen=True):
@@ -87,6 +92,145 @@ class ModelEndpointConfig(BaseModel, frozen=True):
     )
 
 
+@unique
+class EnumQuorumVerdict(str, Enum):
+    """Outcome of multi-model quorum aggregation over one review.
+
+    Reference: OMN-18479.
+    """
+
+    PASSED = "passed"
+    """Quorum was met and no finding reached the agreement threshold."""
+
+    BLOCKED = "blocked"
+    """At least one finding was raised by enough distinct models to block."""
+
+    DEGRADED_QUORUM = "degraded_quorum"
+    """Fewer models succeeded than the threshold requires -- NOT a verdict.
+
+    No agreement can be established from a single opinion, so this state
+    carries no pass and no block. Callers fail closed on it.
+    """
+
+    NO_MODELS = "no_models"
+    """Every model failed; the review never happened."""
+
+
+class ModelReviewQuorumPolicy(BaseModel, frozen=True):
+    """Contract-declared rules for turning per-model findings into a verdict.
+
+    Declared in ``model_registry.yaml`` under ``review_quorum`` so the
+    threshold is a contract edit, not a code change and not a caller flag.
+    A caller may RAISE ``min_agreeing_models`` for its own repository; the
+    ``ge=2`` bound means neither a contract nor a caller can lower it to
+    one, which would restore the single-model blocking this policy exists
+    to remove.
+
+    Attributes:
+        min_agreeing_models: Distinct successful models that must raise a
+            matching finding before it blocks. Also the minimum number of
+            models that must succeed for the run to have a verdict at all.
+        line_proximity_lines: How far apart two findings' resolved line
+            numbers may be and still count as the same finding.
+        blocking_severities: Severities eligible to block once the
+            agreement threshold is met. Every other severity is reported
+            as a warning regardless of agreement.
+    """
+
+    model_config = {"frozen": True, "extra": "forbid"}
+
+    min_agreeing_models: int = Field(
+        default=2,
+        ge=2,
+        description=(
+            "Distinct successful models that must raise a matching finding "
+            "for it to block. Never lower than 2."
+        ),
+    )
+    line_proximity_lines: int = Field(
+        default=3,
+        ge=0,
+        description=(
+            "Maximum line distance between two findings for them to be "
+            "treated as the same finding."
+        ),
+    )
+    blocking_severities: tuple[EnumFindingSeverity, ...] = Field(
+        default=(EnumFindingSeverity.CRITICAL, EnumFindingSeverity.ERROR),
+        description="Severities eligible to block once agreement is reached.",
+    )
+
+
+class ModelQuorumFinding(BaseModel, frozen=True):
+    """One finding cluster after cross-model agreement is resolved.
+
+    Attributes:
+        file_path: Normalised path the cluster was reported against.
+        line_start: Resolved line number for the cluster.
+        severity: Severity carried by the cluster.
+        rule: Normalised rule/category key the cluster agreed on. The raw
+            ``rule_id`` is model-specific (``ai-reviewer:{model}:{category}``)
+            and is never used directly.
+        message: Representative normalised message from the first model
+            that raised the finding.
+        agreeing_models: Distinct successful models that raised it, in the
+            order the models ran.
+        agreement_count: ``len(agreeing_models)``, explicit for scanning.
+        blocking: True when this cluster blocks under the active policy.
+        finding_ids: Source finding identifiers, so a caller can post the
+            underlying per-model findings without re-deriving the cluster.
+    """
+
+    file_path: str = Field(description="Normalised path for the cluster.")
+    line_start: int = Field(description="Resolved line number for the cluster.")
+    severity: EnumFindingSeverity = Field(description="Severity of the cluster.")
+    rule: str = Field(description="Normalised rule/category agreement key.")
+    message: str = Field(description="Representative normalised message.")
+    agreeing_models: tuple[str, ...] = Field(
+        description="Distinct successful models that raised this finding."
+    )
+    agreement_count: int = Field(description="Number of distinct agreeing models.")
+    blocking: bool = Field(description="True when this cluster blocks.")
+    finding_ids: tuple[str, ...] = Field(
+        default=(), description="Source finding identifiers in the cluster."
+    )
+
+
+class ModelReviewQuorumSummary(BaseModel, frozen=True):
+    """Verdict of quorum aggregation over one multi-model review.
+
+    Attributes:
+        verdict: Aggregate outcome. ``degraded_quorum`` and ``no_models``
+            are explicitly NOT passes.
+        quorum_threshold: Active ``min_agreeing_models`` for this run.
+        models_succeeded: Successful model keys considered for agreement.
+        quorum_met: True when enough models succeeded to establish
+            agreement at all.
+        blocking_count: Number of blocking clusters.
+        warning_count: Number of non-blocking clusters.
+        blocking_findings: Clusters that block.
+        warning_findings: Clusters that do not block. Single-model findings
+            live here: reported, never dropped, never blocking.
+    """
+
+    verdict: EnumQuorumVerdict = Field(description="Aggregate quorum outcome.")
+    quorum_threshold: int = Field(description="Active agreement threshold.")
+    models_succeeded: tuple[str, ...] = Field(
+        default=(), description="Successful model keys."
+    )
+    quorum_met: bool = Field(description="True when enough models succeeded.")
+    blocking_count: int = Field(default=0, description="Number of blocking clusters.")
+    warning_count: int = Field(
+        default=0, description="Number of non-blocking clusters."
+    )
+    blocking_findings: tuple[ModelQuorumFinding, ...] = Field(
+        default=(), description="Clusters that block."
+    )
+    warning_findings: tuple[ModelQuorumFinding, ...] = Field(
+        default=(), description="Clusters reported without blocking."
+    )
+
+
 class ModelExternalReviewResult(BaseModel, frozen=True):
     """Top-level output envelope for a single external model review.
 
@@ -145,6 +289,14 @@ class ModelMultiReviewResult(BaseModel, frozen=True):
     )
     total_findings: int = Field(
         default=0, description="Sum of findings across all successful models."
+    )
+    quorum: ModelReviewQuorumSummary | None = Field(
+        default=None,
+        description=(
+            "Cross-model agreement verdict (OMN-18479). None on a raw "
+            "pre-aggregation envelope; the CLI always populates it before "
+            "emitting the document a caller reads."
+        ),
     )
     skipped_reason: str | None = Field(
         default=None,

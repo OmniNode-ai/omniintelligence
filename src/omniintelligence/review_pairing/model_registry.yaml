@@ -28,6 +28,25 @@
 
 default_model_key: "deepseek-r1"
 
+# Cross-model agreement policy (OMN-18479).
+#
+# A finding blocks a review only when at least `min_agreeing_models`
+# DISTINCT successful models raise a matching finding; anything raised by
+# fewer is reported as a warning, never dropped and never blocking. Fewer
+# than `min_agreeing_models` SUCCESSFUL models is not a verdict at all --
+# the CLI exits 2 (degraded quorum) and every caller fails closed on it.
+#
+# `min_agreeing_models` is bounded at >= 2 by the Pydantic contract
+# (ModelReviewQuorumPolicy), so neither this file nor a caller's
+# --quorum-threshold can lower it to one and restore single-model
+# blocking. A caller may RAISE it for its own repository.
+review_quorum:
+  min_agreeing_models: 2
+  line_proximity_lines: 3
+  blocking_severities:
+    - "critical"
+    - "error"
+
 local_model_keys:
   - "deepseek-r1"
   - "qwen3-review"

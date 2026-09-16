@@ -21,6 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from omniintelligence.review_pairing.models_external_review import (
     ModelEndpointConfig,
+    ModelReviewQuorumPolicy,
 )
 
 _REGISTRY_PATH: Path = Path(__file__).parent / "model_registry.yaml"
@@ -33,6 +34,11 @@ class ModelRegistryContract(BaseModel):
         default_model_key: Fallback model key when callers omit one.
         local_model_keys: Keys eligible for TCP reachability probing.
         api_fallback_keys: Keys used when no local model is reachable.
+        review_quorum: Cross-model agreement policy (OMN-18479). Declared
+            here so the blocking threshold is a contract edit rather than a
+            code change or a caller flag. Its ``ge=2`` bound is what makes
+            "never below two agreeing models" mechanical: a registry
+            declaring 1 fails to load.
         models: Mapping of model key to endpoint config. Must contain
             every key referenced by the three lists above.
     """
@@ -45,6 +51,10 @@ class ModelRegistryContract(BaseModel):
     )
     api_fallback_keys: tuple[str, ...] = Field(
         description="Model keys used when local endpoints are unreachable."
+    )
+    review_quorum: ModelReviewQuorumPolicy = Field(
+        default_factory=ModelReviewQuorumPolicy,
+        description="Cross-model agreement policy for review verdicts.",
     )
     models: dict[str, ModelEndpointConfig] = Field(
         description="Model key -> endpoint config."

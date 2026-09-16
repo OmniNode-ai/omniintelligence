@@ -32,15 +32,24 @@ Usage:
         --file plan.md --output review.json
 
 CLI Stream Policy:
-    stdout: canonical ModelMultiReviewResult JSON
+    stdout: canonical ModelMultiReviewResult JSON, including the quorum
+        verdict a caller reads instead of summing severities itself
     stderr: human-readable summary
 
 Exit Codes:
-    0: at least 2 models succeeded (full review)
-    2: exactly 1 model succeeded (DEGRADED — single opinion)
-    1: all models failed
+    0: a verdict was produced. Whether it PASSED or BLOCKED is in
+       ``quorum.verdict`` -- the exit code says a verdict exists, not that
+       the review was clean, because every caller already reads the
+       document and several would misread a blocking exit as an outage.
+    1: no review happened (every model failed, or the invocation was
+       rejected before any model ran)
+    2: DEGRADED QUORUM -- fewer models succeeded than
+       ``review_quorum.min_agreeing_models`` requires, so agreement could
+       not be established and there is NO valid verdict. Distinct from 1
+       (something ran) and from 0 (a verdict exists). Callers fail closed
+       on it; treating it as a pass makes the quorum vacuous.
 
-Reference: OMN-5793, OMN-5819, OMN-6228
+Reference: OMN-5793, OMN-5819, OMN-6228, OMN-18479
 """
 
 from __future__ import annotations
@@ -67,11 +76,17 @@ from omniintelligence.review_pairing.adapters.adapter_codex_reviewer import (
     async_parse_raw as codex_async_parse_raw,
 )
 from omniintelligence.review_pairing.cli_review_models import ModelPersonaConfig
+from omniintelligence.review_pairing.model_registry_loader import load_registry
 from omniintelligence.review_pairing.models_external_review import (
+    EnumQuorumVerdict,
     ModelExternalReviewResult,
     ModelMultiReviewResult,
 )
 from omniintelligence.review_pairing.persona_loader import load_persona
+from omniintelligence.review_pairing.quorum import (
+    evaluate_quorum,
+    format_quorum_summary,
+)
 
 _CODEX_MODEL_KEY: str = "codex"
 _LARGE_PR_DIFF_MARKERS: tuple[str, ...] = (
@@ -146,6 +161,18 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="FILE",
         help=(
             "Path to a custom system prompt .md file. Ignored if --persona is also set."
+        ),
+    )
+    parser.add_argument(
+        "--quorum-threshold",
+        type=int,
+        default=None,
+        metavar="N",
+        help=(
+            "Raise the number of distinct models that must agree before a "
+            "finding blocks. Defaults to review_quorum.min_agreeing_models "
+            "in model_registry.yaml. A value BELOW the contract minimum is "
+            "refused -- the threshold can be raised, never lowered."
         ),
     )
     parser.add_argument(
@@ -408,6 +435,24 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
+    # Resolve the quorum policy BEFORE any model runs: a refused threshold
+    # must fail in milliseconds, not after a full multi-model review.
+    contract_policy = load_registry().review_quorum
+    policy = contract_policy
+    if args.quorum_threshold is not None:
+        if args.quorum_threshold < contract_policy.min_agreeing_models:
+            print(
+                f"Error: --quorum-threshold {args.quorum_threshold} is below the "
+                f"contract minimum {contract_policy.min_agreeing_models} declared in "
+                "model_registry.yaml (review_quorum.min_agreeing_models). The "
+                "threshold may be raised, never lowered.",
+                file=sys.stderr,
+            )
+            return 1
+        policy = contract_policy.model_copy(
+            update={"min_agreeing_models": args.quorum_threshold}
+        )
+
     # Resolve input content.
     if args.pr is not None:
         if not args.repo:
@@ -581,6 +626,13 @@ def main(argv: list[str] | None = None) -> int:
         run_review(review_content, model_keys, review_type=review_type, persona=persona)
     )
 
+    # Resolve cross-model agreement (OMN-18479). The verdict travels in the
+    # emitted document so no caller has to re-derive one by summing
+    # severities across models -- the rule that let a single model's
+    # rotating hallucination block a merge.
+    quorum_summary = evaluate_quorum(result, policy)
+    result = result.model_copy(update={"quorum": quorum_summary})
+
     # Output JSON to stdout (or file).
     json_output = result.model_dump_json(indent=2)
     if args.output:
@@ -617,20 +669,22 @@ def main(argv: list[str] | None = None) -> int:
         f"Severity: {_severity_summary(result)}",
         file=sys.stderr,
     )
+    for line in format_quorum_summary(quorum_summary):
+        print(line, file=sys.stderr)
 
-    succeeded_count = len(result.models_succeeded)
-
-    if succeeded_count == 0:
+    if quorum_summary.verdict is EnumQuorumVerdict.NO_MODELS:
         print(
             "ERROR: All models failed. Review could not be performed.",
             file=sys.stderr,
         )
         return 1
 
-    if succeeded_count < 2:
+    if quorum_summary.verdict is EnumQuorumVerdict.DEGRADED_QUORUM:
         print(
-            f"WARNING: DEGRADED review — only {succeeded_count} model(s) succeeded. "
-            "A minimum of 2 models is required for a full pass.",
+            "ERROR: DEGRADED QUORUM — "
+            f"{len(quorum_summary.models_succeeded)} model(s) succeeded, "
+            f"{quorum_summary.quorum_threshold} required for agreement. "
+            "No verdict was established; this is not a pass.",
             file=sys.stderr,
         )
         return 2
