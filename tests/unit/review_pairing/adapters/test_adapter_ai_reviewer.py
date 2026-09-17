@@ -520,7 +520,9 @@ class TestModelRegistry:
         retired SGLang id "qwen3.8" onto the vLLM served-model-name that
         .201:8000 actually answers to -- vLLM 404s an unknown id)."""
         config = MODEL_REGISTRY["deepseek-r1"]
-        assert config.api_model_id == "Qwen3.6-35B-A3B"
+        # OMN-18623 (2026-09-17): the third repin of this id; see
+        # served_model_inventory.yaml for the declared served value.
+        assert config.api_model_id == "Qwen3.8-27B"
 
     def test_deepseek_r1_default_url_is_201_8000(self) -> None:
         """Assert deepseek-r1 default URL points to .201:8000 (OMN-8654;

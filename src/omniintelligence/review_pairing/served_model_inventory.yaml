@@ -1,0 +1,64 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# Served-model inventory for the hostile-reviewer LAN endpoints.
+#
+# WHAT THIS IS: the single committed declaration of which model id each
+# self-hosted review endpoint actually serves. `model_registry.yaml` pins a
+# per-key `api_model_id`; this file declares, per ENDPOINT, the id that
+# endpoint answers to. `test_served_model_inventory.py` asserts the two agree.
+#
+# WHY IT EXISTS (OMN-18623, third occurrence of one defect class):
+#   OMN-16407  (2026-08-23)  api_model_id -> "qwen3.8"            (SGLang)
+#   OMN-17786  (2026-09-03)  api_model_id -> "Qwen3.6-35B-A3B"    (vLLM)
+#   OMN-18623  (2026-09-17)  api_model_id -> "Qwen3.8-27B"        (vLLM)
+#
+# Each time, the host's served model changed and three separate `api_model_id`
+# values in `model_registry.yaml` went stale together. vLLM validates the
+# `model` field and returns HTTP 404 on any mismatch, so every local review leg
+# fails deterministically and the Hostile Review Gate blocks every PR in every
+# consuming repo until someone greps three pins by hand. On 2026-09-17 that
+# cost a full rerun sweep across seven PRs before the cause was even named.
+#
+# The fix for a future host-side swap is now a ONE-LINE edit to
+# `served_model_id` below. The guard test then fails, by name, on every
+# registry key still carrying the old id -- instead of a generic 404 surfacing
+# in CI as "assumed misconfiguration".
+#
+# HONEST LIMIT, stated rather than implied: this is a COMMITTED declaration in
+# this repo, so it cannot itself observe a swap on the host. It converts a
+# silent three-pin drift into a single declared fact with a loud, named
+# failure. A live probe was considered and deliberately REJECTED as the CI
+# mechanism: `select_models_with_fallback` is designed to degrade to the cloud
+# reviewer when the LAN endpoint is unreachable, so a test that probed `.201`
+# would convert an ordinary endpoint outage into a hard CI failure in every
+# consuming repo -- the exact failure mode the 2026-09-17 `.201` hold already
+# demonstrated. Liveness stays a runtime fallback concern; identity is a
+# contract concern and belongs here.
+#
+# PROVENANCE: `served_model_id` MUST equal the `--served-model-name` argument
+# of the systemd unit that owns the port, recorded in
+# `omnibase_infra/deploy/systemd/vllm-gpu0-qwen-coder.service`. That file lives
+# in another repository and is not importable here, so this is a mirrored
+# declaration carrying its own dated live readback, not a cross-repo read.
+
+inventory_version: 1
+
+endpoints:
+  # onex-allow-internal-ip
+  "http://192.168.86.201:8000":
+    served_model_id: "Qwen3.8-27B"
+    served_by: "vllm"
+    max_model_len: 131072
+    # The RTX 5090's NVFP4 build. vLLM 0.27.1.
+    model_root: "/data/inference/hf-cache/Qwen3.8-27B-NVFP4-RTX5090"
+    provenance_unit: "omnibase_infra/deploy/systemd/vllm-gpu0-qwen-coder.service"
+    # Live readback taken from this workstation while writing this file:
+    #   GET /v1/models -> id "Qwen3.8-27B", owned_by "vllm",
+    #                     max_model_len 131072
+    #   POST /v1/chat/completions {"model":"Qwen3.8-27B"}      -> HTTP 200
+    #       (4,819 prompt + 281 completion tokens, 9.2s, finish_reason=stop)
+    #   POST /v1/chat/completions {"model":"Qwen3.6-35B-A3B"}  -> HTTP 404
+    #       {"message":"The model `Qwen3.6-35B-A3B` does not exist."}
+    last_live_readback: "2026-09-17T20:05Z"
+    last_changed_by_ticket: "OMN-18623"

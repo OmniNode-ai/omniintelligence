@@ -66,29 +66,44 @@ models:
   # is both default_model_key and a member of local_model_keys below, so
   # deletion is NOT safe: model_registry_loader._validate_cross_refs raises
   # ModelRegistryLoadError (hard import-time failure) if default_model_key
-  # names a key absent from `models`. enable_thinking:false carried over
+  # names a key absent from `models`.
+  # NAMING RESIDUAL, recorded rather than silently fixed (OMN-18623): this key
+  # has not named a DeepSeek model since OMN-16407 repointed it off the RMA'd
+  # 4090. It is now an ALIAS for the same local .201:8000 slot qwen3-review and
+  # qwen3-review-b use, kept under its historical name. Retained deliberately:
+  # it is default_model_key, it is named in omniclaude's reviewer roster, and a
+  # rename is a cross-repo change that must move every consuming roster in the
+  # same commit. That belongs in its own ticket, not in a model-id repin. enable_thinking:false carried over
   # from the identical qwen3-review-b migration (OMN-14176): without it, a
   # thinking-model response against this endpoint can consume the whole
   # max_tokens budget on a <think> preamble and defeat naive
   # strip-think-tags parsing.
-  # api_model_id REPINNED (OMN-17786, 2026-09-03): "qwen3.8" -> "Qwen3.6-35B-A3B".
-  # The SGLang + DSpark stack that served "qwen3.8" on .201:8000 is gone -- there
-  # is no sglang unit and no /opt/sglang on the host. :8000 had NO listener at
-  # all until OMN-14379 resized vllm-gpu0.service off a --gpu-memory-utilization
-  # 0.92 it could never start with, and that unit serves vLLM with
-  # --served-model-name Qwen3.6-35B-A3B. Live readback 2026-09-03T16:07Z:
-  # GET /v1/models -> id "Qwen3.6-35B-A3B", owned_by "vllm", max_model_len 131072.
-  # THIS IS NOT COSMETIC ANY MORE: the note below says SGLang echoed a wrong
-  # model id back at HTTP 200. vLLM does not -- POST /v1/chat/completions with
-  # "qwen3.8" returns HTTP 404 "The model `qwen3.8` does not exist." The id is
-  # now load-bearing and tracks the systemd unit's --served-model-name
-  # (omnibase_infra/deploy/systemd/vllm-gpu0-qwen-coder.service).
+  # api_model_id REPINNED AGAIN (OMN-18623, 2026-09-17):
+  # "Qwen3.6-35B-A3B" -> "Qwen3.8-27B". This is the THIRD repin of this field
+  # in four weeks -- OMN-16407 ("qwen3.8"), OMN-17786 ("Qwen3.6-35B-A3B"), and
+  # now. Every time, the model .201:8000 serves changed and all three keys on
+  # that endpoint went stale together, blocking the Hostile Review Gate in
+  # every consuming repo until a human grepped the pins by hand.
+  # THE SERVED ID NOW HAS ONE DECLARED HOME: served_model_inventory.yaml,
+  # keyed by endpoint rather than by review key. Change that file first; the
+  # guard tests/unit/review_pairing/test_served_model_inventory.py then fails
+  # BY NAME on every pin below that still carries the old value. Do not edit
+  # these three pins without it -- agreement among them is not evidence of
+  # correctness, which is precisely how OMN-17786's value survived into the
+  # 2026-09-17 outage.
+  # THE ID IS LOAD-BEARING, NOT COSMETIC: vLLM validates the `model` field and
+  # returns HTTP 404 on a mismatch, where the retired SGLang stack echoed a
+  # wrong id back at HTTP 200. Live readback 2026-09-17T20:05Z from this
+  # workstation: GET /v1/models -> id "Qwen3.8-27B", owned_by "vllm",
+  # max_model_len 131072 (unchanged from the 35B, so no context-length or
+  # max_tokens budget follows this change); POST /v1/chat/completions with
+  # "Qwen3.6-35B-A3B" -> HTTP 404 "The model `Qwen3.6-35B-A3B` does not exist."
   deepseek-r1:
     env_var: "LLM_DEEPSEEK_R1_URL"
     default_url: "http://192.168.86.201:8000"  # onex-allow-internal-ip
     kind: "reasoning"
     timeout_seconds: 300.0
-    api_model_id: "Qwen3.6-35B-A3B"
+    api_model_id: "Qwen3.8-27B"
     enable_thinking: false
 
   # qwen3-review — live .201:8000 endpoint. UPDATED (OMN-16407, 2026-08-23):
@@ -111,24 +126,32 @@ models:
   # emit only a trailing </think> with no matching opener, which defeats
   # naive strip-think-tags parsing. Live-confirmed: suppresses the preamble
   # entirely, response is a clean directly-parseable JSON array.
-  # api_model_id REPINNED (OMN-17786, 2026-09-03): "qwen3.8" -> "Qwen3.6-35B-A3B".
-  # The SGLang + DSpark stack that served "qwen3.8" on .201:8000 is gone -- there
-  # is no sglang unit and no /opt/sglang on the host. :8000 had NO listener at
-  # all until OMN-14379 resized vllm-gpu0.service off a --gpu-memory-utilization
-  # 0.92 it could never start with, and that unit serves vLLM with
-  # --served-model-name Qwen3.6-35B-A3B. Live readback 2026-09-03T16:07Z:
-  # GET /v1/models -> id "Qwen3.6-35B-A3B", owned_by "vllm", max_model_len 131072.
-  # THIS IS NOT COSMETIC ANY MORE: the note below says SGLang echoed a wrong
-  # model id back at HTTP 200. vLLM does not -- POST /v1/chat/completions with
-  # "qwen3.8" returns HTTP 404 "The model `qwen3.8` does not exist." The id is
-  # now load-bearing and tracks the systemd unit's --served-model-name
-  # (omnibase_infra/deploy/systemd/vllm-gpu0-qwen-coder.service).
+  # api_model_id REPINNED AGAIN (OMN-18623, 2026-09-17):
+  # "Qwen3.6-35B-A3B" -> "Qwen3.8-27B". This is the THIRD repin of this field
+  # in four weeks -- OMN-16407 ("qwen3.8"), OMN-17786 ("Qwen3.6-35B-A3B"), and
+  # now. Every time, the model .201:8000 serves changed and all three keys on
+  # that endpoint went stale together, blocking the Hostile Review Gate in
+  # every consuming repo until a human grepped the pins by hand.
+  # THE SERVED ID NOW HAS ONE DECLARED HOME: served_model_inventory.yaml,
+  # keyed by endpoint rather than by review key. Change that file first; the
+  # guard tests/unit/review_pairing/test_served_model_inventory.py then fails
+  # BY NAME on every pin below that still carries the old value. Do not edit
+  # these three pins without it -- agreement among them is not evidence of
+  # correctness, which is precisely how OMN-17786's value survived into the
+  # 2026-09-17 outage.
+  # THE ID IS LOAD-BEARING, NOT COSMETIC: vLLM validates the `model` field and
+  # returns HTTP 404 on a mismatch, where the retired SGLang stack echoed a
+  # wrong id back at HTTP 200. Live readback 2026-09-17T20:05Z from this
+  # workstation: GET /v1/models -> id "Qwen3.8-27B", owned_by "vllm",
+  # max_model_len 131072 (unchanged from the 35B, so no context-length or
+  # max_tokens budget follows this change); POST /v1/chat/completions with
+  # "Qwen3.6-35B-A3B" -> HTTP 404 "The model `Qwen3.6-35B-A3B` does not exist."
   qwen3-review:
     env_var: "LLM_QWEN3_REVIEW_URL"
     default_url: "http://192.168.86.201:8000"  # onex-allow-internal-ip
     kind: "code_review"
     timeout_seconds: 120.0
-    api_model_id: "Qwen3.6-35B-A3B"
+    api_model_id: "Qwen3.8-27B"
     enable_thinking: false
 
   # qwen3-review-b — REPOINTED (OMN-16407, 2026-08-23) from the now-physically-
@@ -152,6 +175,12 @@ models:
   # the fleet reports for this endpoint. 300s keeps ~8.6x margin over that
   # measured worst case for network/queueing/contention variance without
   # carrying forward a timeout sized for hardware that no longer exists.
+  # RE-MEASURED against the vLLM 0.27.1 NVFP4 build now serving :8000
+  # (OMN-18623, 2026-09-17T20:05Z): a 4,819-prompt-token / 281-completion-token
+  # call returned HTTP 200 in 9.2s, finish_reason=stop. The timeouts therefore
+  # do NOT follow the model change -- 120s (qwen3-review) and 300s (here) both
+  # retain ample margin. A 40.3s reading earlier the same evening was a cold
+  # first request after the unit's 6m18s boot, not steady-state latency.
   #
   # max_retries stays at 1 (2 total attempts, unchanged from OMN-15115): the
   # rationale (a doomed retry against a systematically-slow endpoint burns
@@ -163,24 +192,32 @@ models:
   # (60min) hostile-review job ceiling. See omniintelligence.review_pairing
   # .retry_budget, which asserts this on every hostile-review CI run against
   # the LIVE registry + LIVE per-model overrides.
-  # api_model_id REPINNED (OMN-17786, 2026-09-03): "qwen3.8" -> "Qwen3.6-35B-A3B".
-  # The SGLang + DSpark stack that served "qwen3.8" on .201:8000 is gone -- there
-  # is no sglang unit and no /opt/sglang on the host. :8000 had NO listener at
-  # all until OMN-14379 resized vllm-gpu0.service off a --gpu-memory-utilization
-  # 0.92 it could never start with, and that unit serves vLLM with
-  # --served-model-name Qwen3.6-35B-A3B. Live readback 2026-09-03T16:07Z:
-  # GET /v1/models -> id "Qwen3.6-35B-A3B", owned_by "vllm", max_model_len 131072.
-  # THIS IS NOT COSMETIC ANY MORE: the note below says SGLang echoed a wrong
-  # model id back at HTTP 200. vLLM does not -- POST /v1/chat/completions with
-  # "qwen3.8" returns HTTP 404 "The model `qwen3.8` does not exist." The id is
-  # now load-bearing and tracks the systemd unit's --served-model-name
-  # (omnibase_infra/deploy/systemd/vllm-gpu0-qwen-coder.service).
+  # api_model_id REPINNED AGAIN (OMN-18623, 2026-09-17):
+  # "Qwen3.6-35B-A3B" -> "Qwen3.8-27B". This is the THIRD repin of this field
+  # in four weeks -- OMN-16407 ("qwen3.8"), OMN-17786 ("Qwen3.6-35B-A3B"), and
+  # now. Every time, the model .201:8000 serves changed and all three keys on
+  # that endpoint went stale together, blocking the Hostile Review Gate in
+  # every consuming repo until a human grepped the pins by hand.
+  # THE SERVED ID NOW HAS ONE DECLARED HOME: served_model_inventory.yaml,
+  # keyed by endpoint rather than by review key. Change that file first; the
+  # guard tests/unit/review_pairing/test_served_model_inventory.py then fails
+  # BY NAME on every pin below that still carries the old value. Do not edit
+  # these three pins without it -- agreement among them is not evidence of
+  # correctness, which is precisely how OMN-17786's value survived into the
+  # 2026-09-17 outage.
+  # THE ID IS LOAD-BEARING, NOT COSMETIC: vLLM validates the `model` field and
+  # returns HTTP 404 on a mismatch, where the retired SGLang stack echoed a
+  # wrong id back at HTTP 200. Live readback 2026-09-17T20:05Z from this
+  # workstation: GET /v1/models -> id "Qwen3.8-27B", owned_by "vllm",
+  # max_model_len 131072 (unchanged from the 35B, so no context-length or
+  # max_tokens budget follows this change); POST /v1/chat/completions with
+  # "Qwen3.6-35B-A3B" -> HTTP 404 "The model `Qwen3.6-35B-A3B` does not exist."
   qwen3-review-b:
     env_var: "LLM_QWEN3_REVIEW_B_URL"
     default_url: "http://192.168.86.201:8000"  # onex-allow-internal-ip
     kind: "code_review"
     timeout_seconds: 300.0
-    api_model_id: "Qwen3.6-35B-A3B"
+    api_model_id: "Qwen3.8-27B"
     enable_thinking: false
     max_retries: 1
 
