@@ -104,7 +104,11 @@ def test_load_registry_preserves_endpoint_config_fields() -> None:
     assert deepseek.default_url == "http://192.168.86.201:8000"
     assert deepseek.kind == "reasoning"
     assert deepseek.timeout_seconds == 300.0
-    assert deepseek.api_model_id == "Qwen3.6-35B-A3B"
+    # OMN-18623 (2026-09-17): repinned again, "Qwen3.6-35B-A3B" -> the model
+    # .201:8000 serves after the host recovery. The value now has a single
+    # declared home in served_model_inventory.yaml; test_served_model_inventory
+    # is what proves this literal still matches it.
+    assert deepseek.api_model_id == "Qwen3.8-27B"
 
     codex = contract.models["codex"]
     assert codex.env_var == "CODEX_BINARY"
@@ -236,6 +240,13 @@ def test_local_201_8000_keys_share_one_served_model_id() -> None:
     repin that updates only some of them would leave the rest hard-failing.
     The value tracks ``--served-model-name`` in
     ``omnibase_infra/deploy/systemd/vllm-gpu0-qwen-coder.service``.
+
+    SCOPE, corrected by OMN-18623: this proves the keys AGREE WITH EACH OTHER,
+    not that they agree with the host. All three agreed throughout the
+    2026-09-17 outage -- on a model that no longer existed -- because the
+    literal below is written in the same commit as the pins it checks.
+    ``test_served_model_inventory.py`` is the guard that checks them against a
+    separately declared served id; this one remains useful for partial repins.
     """
     contract = load_registry()
     on_8000 = {
@@ -248,6 +259,6 @@ def test_local_201_8000_keys_share_one_served_model_id() -> None:
     assert set(on_8000) == {"deepseek-r1", "qwen3-review", "qwen3-review-b"}, (
         f"unexpected key set on .201:8000: {sorted(on_8000)}"
     )
-    assert set(on_8000.values()) == {"Qwen3.6-35B-A3B"}, (
+    assert set(on_8000.values()) == {"Qwen3.8-27B"}, (
         f"every .201:8000 key must send the live vLLM served-model-name; got {on_8000}"
     )
