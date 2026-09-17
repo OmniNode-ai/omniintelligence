@@ -16,7 +16,16 @@
 #                     by adapter_ai_reviewer.
 #   timeout_seconds:  HTTP request timeout (float).
 #   api_model_id:     Wire-level model identifier sent in the chat-completion
-#                     payload. Empty for CLI-only models.
+#                     payload. Empty for CLI-only models AND for every entry
+#                     whose model_id_source is "served".
+#   model_id_source:  "declared" (default) sends api_model_id. "served"
+#                     resolves the id at call time from this endpoint's
+#                     /v1/models (OMN-18623). Declaring both is refused at
+#                     load time. Use "served" for a single-model self-hosted
+#                     endpoint, where the served model is a fact this repo
+#                     observes rather than owns; use "declared" for a
+#                     multi-model cloud endpoint, where the id is a real
+#                     choice this repo makes.
 #   enable_thinking:  Optional bool (default true). Whether the model may emit
 #                     a reasoning preamble before its answer (Qwen3
 #                     chat_template_kwargs.enable_thinking). call_model()
@@ -78,32 +87,34 @@ models:
   # thinking-model response against this endpoint can consume the whole
   # max_tokens budget on a <think> preamble and defeat naive
   # strip-think-tags parsing.
-  # api_model_id REPINNED AGAIN (OMN-18623, 2026-09-17):
-  # "Qwen3.6-35B-A3B" -> "Qwen3.8-27B". This is the THIRD repin of this field
-  # in four weeks -- OMN-16407 ("qwen3.8"), OMN-17786 ("Qwen3.6-35B-A3B"), and
-  # now. Every time, the model .201:8000 serves changed and all three keys on
-  # that endpoint went stale together, blocking the Hostile Review Gate in
-  # every consuming repo until a human grepped the pins by hand.
-  # THE SERVED ID NOW HAS ONE DECLARED HOME: served_model_inventory.yaml,
-  # keyed by endpoint rather than by review key. Change that file first; the
-  # guard tests/unit/review_pairing/test_served_model_inventory.py then fails
-  # BY NAME on every pin below that still carries the old value. Do not edit
-  # these three pins without it -- agreement among them is not evidence of
-  # correctness, which is precisely how OMN-17786's value survived into the
-  # 2026-09-17 outage.
-  # THE ID IS LOAD-BEARING, NOT COSMETIC: vLLM validates the `model` field and
-  # returns HTTP 404 on a mismatch, where the retired SGLang stack echoed a
-  # wrong id back at HTTP 200. Live readback 2026-09-17T20:05Z from this
-  # workstation: GET /v1/models -> id "Qwen3.8-27B", owned_by "vllm",
-  # max_model_len 131072 (unchanged from the 35B, so no context-length or
-  # max_tokens budget follows this change); POST /v1/chat/completions with
-  # "Qwen3.6-35B-A3B" -> HTTP 404 "The model `Qwen3.6-35B-A3B` does not exist."
+  # NO MODEL ID IS DECLARED HERE, DELIBERATELY (OMN-18623, 2026-09-17).
+  # Operator ruling, in-session 2026-09-17T19:54:09Z, firm: the hostile
+  # reviewer's model must not be hardcoded to a specific model id; a
+  # served-model change must be solvable by an overlay or runtime resolution,
+  # never by a pull request that repoints a literal.
+  # The field was repointed THREE times in four weeks -- OMN-16407
+  # ("qwen3.8"), OMN-17786 ("Qwen3.6-35B-A3B"), OMN-18623 ("Qwen3.8-27B") --
+  # because the model this host serves is decided by a systemd unit on the
+  # host, not by this repository. A declared id is a COPY of a fact owned
+  # elsewhere, and every copy went stale the moment the unit changed, taking
+  # the Hostile Review Gate down in every consuming repo until a human landed
+  # a pull request hours later.
+  # `model_id_source: served` reads the fact instead: the id is resolved at
+  # call time from this endpoint's /v1/models (served_model_resolver.py),
+  # which is exact because vLLM serves exactly one model per port and
+  # validates the `model` field. After this, a served-model swap needs no edit
+  # in any repository. Resolution is fail-closed -- unreachable, unparseable,
+  # zero models or MORE than one all refuse rather than guess.
+  # AN OVERLAY WAS CONSIDERED AND NOT TAKEN: it is still a file a human edits
+  # when the served model changes, which is the same shape as the literal,
+  # only relocated. It stays the right mechanism for a value this repo OWNS,
+  # which is why the cloud reviewer below keeps `declared`.
   deepseek-r1:
     env_var: "LLM_DEEPSEEK_R1_URL"
     default_url: "http://192.168.86.201:8000"  # onex-allow-internal-ip
     kind: "reasoning"
     timeout_seconds: 300.0
-    api_model_id: "Qwen3.8-27B"
+    model_id_source: "served"
     enable_thinking: false
 
   # qwen3-review — live .201:8000 endpoint. UPDATED (OMN-16407, 2026-08-23):
@@ -126,32 +137,34 @@ models:
   # emit only a trailing </think> with no matching opener, which defeats
   # naive strip-think-tags parsing. Live-confirmed: suppresses the preamble
   # entirely, response is a clean directly-parseable JSON array.
-  # api_model_id REPINNED AGAIN (OMN-18623, 2026-09-17):
-  # "Qwen3.6-35B-A3B" -> "Qwen3.8-27B". This is the THIRD repin of this field
-  # in four weeks -- OMN-16407 ("qwen3.8"), OMN-17786 ("Qwen3.6-35B-A3B"), and
-  # now. Every time, the model .201:8000 serves changed and all three keys on
-  # that endpoint went stale together, blocking the Hostile Review Gate in
-  # every consuming repo until a human grepped the pins by hand.
-  # THE SERVED ID NOW HAS ONE DECLARED HOME: served_model_inventory.yaml,
-  # keyed by endpoint rather than by review key. Change that file first; the
-  # guard tests/unit/review_pairing/test_served_model_inventory.py then fails
-  # BY NAME on every pin below that still carries the old value. Do not edit
-  # these three pins without it -- agreement among them is not evidence of
-  # correctness, which is precisely how OMN-17786's value survived into the
-  # 2026-09-17 outage.
-  # THE ID IS LOAD-BEARING, NOT COSMETIC: vLLM validates the `model` field and
-  # returns HTTP 404 on a mismatch, where the retired SGLang stack echoed a
-  # wrong id back at HTTP 200. Live readback 2026-09-17T20:05Z from this
-  # workstation: GET /v1/models -> id "Qwen3.8-27B", owned_by "vllm",
-  # max_model_len 131072 (unchanged from the 35B, so no context-length or
-  # max_tokens budget follows this change); POST /v1/chat/completions with
-  # "Qwen3.6-35B-A3B" -> HTTP 404 "The model `Qwen3.6-35B-A3B` does not exist."
+  # NO MODEL ID IS DECLARED HERE, DELIBERATELY (OMN-18623, 2026-09-17).
+  # Operator ruling, in-session 2026-09-17T19:54:09Z, firm: the hostile
+  # reviewer's model must not be hardcoded to a specific model id; a
+  # served-model change must be solvable by an overlay or runtime resolution,
+  # never by a pull request that repoints a literal.
+  # The field was repointed THREE times in four weeks -- OMN-16407
+  # ("qwen3.8"), OMN-17786 ("Qwen3.6-35B-A3B"), OMN-18623 ("Qwen3.8-27B") --
+  # because the model this host serves is decided by a systemd unit on the
+  # host, not by this repository. A declared id is a COPY of a fact owned
+  # elsewhere, and every copy went stale the moment the unit changed, taking
+  # the Hostile Review Gate down in every consuming repo until a human landed
+  # a pull request hours later.
+  # `model_id_source: served` reads the fact instead: the id is resolved at
+  # call time from this endpoint's /v1/models (served_model_resolver.py),
+  # which is exact because vLLM serves exactly one model per port and
+  # validates the `model` field. After this, a served-model swap needs no edit
+  # in any repository. Resolution is fail-closed -- unreachable, unparseable,
+  # zero models or MORE than one all refuse rather than guess.
+  # AN OVERLAY WAS CONSIDERED AND NOT TAKEN: it is still a file a human edits
+  # when the served model changes, which is the same shape as the literal,
+  # only relocated. It stays the right mechanism for a value this repo OWNS,
+  # which is why the cloud reviewer below keeps `declared`.
   qwen3-review:
     env_var: "LLM_QWEN3_REVIEW_URL"
     default_url: "http://192.168.86.201:8000"  # onex-allow-internal-ip
     kind: "code_review"
     timeout_seconds: 120.0
-    api_model_id: "Qwen3.8-27B"
+    model_id_source: "served"
     enable_thinking: false
 
   # qwen3-review-b — REPOINTED (OMN-16407, 2026-08-23) from the now-physically-
@@ -192,32 +205,34 @@ models:
   # (60min) hostile-review job ceiling. See omniintelligence.review_pairing
   # .retry_budget, which asserts this on every hostile-review CI run against
   # the LIVE registry + LIVE per-model overrides.
-  # api_model_id REPINNED AGAIN (OMN-18623, 2026-09-17):
-  # "Qwen3.6-35B-A3B" -> "Qwen3.8-27B". This is the THIRD repin of this field
-  # in four weeks -- OMN-16407 ("qwen3.8"), OMN-17786 ("Qwen3.6-35B-A3B"), and
-  # now. Every time, the model .201:8000 serves changed and all three keys on
-  # that endpoint went stale together, blocking the Hostile Review Gate in
-  # every consuming repo until a human grepped the pins by hand.
-  # THE SERVED ID NOW HAS ONE DECLARED HOME: served_model_inventory.yaml,
-  # keyed by endpoint rather than by review key. Change that file first; the
-  # guard tests/unit/review_pairing/test_served_model_inventory.py then fails
-  # BY NAME on every pin below that still carries the old value. Do not edit
-  # these three pins without it -- agreement among them is not evidence of
-  # correctness, which is precisely how OMN-17786's value survived into the
-  # 2026-09-17 outage.
-  # THE ID IS LOAD-BEARING, NOT COSMETIC: vLLM validates the `model` field and
-  # returns HTTP 404 on a mismatch, where the retired SGLang stack echoed a
-  # wrong id back at HTTP 200. Live readback 2026-09-17T20:05Z from this
-  # workstation: GET /v1/models -> id "Qwen3.8-27B", owned_by "vllm",
-  # max_model_len 131072 (unchanged from the 35B, so no context-length or
-  # max_tokens budget follows this change); POST /v1/chat/completions with
-  # "Qwen3.6-35B-A3B" -> HTTP 404 "The model `Qwen3.6-35B-A3B` does not exist."
+  # NO MODEL ID IS DECLARED HERE, DELIBERATELY (OMN-18623, 2026-09-17).
+  # Operator ruling, in-session 2026-09-17T19:54:09Z, firm: the hostile
+  # reviewer's model must not be hardcoded to a specific model id; a
+  # served-model change must be solvable by an overlay or runtime resolution,
+  # never by a pull request that repoints a literal.
+  # The field was repointed THREE times in four weeks -- OMN-16407
+  # ("qwen3.8"), OMN-17786 ("Qwen3.6-35B-A3B"), OMN-18623 ("Qwen3.8-27B") --
+  # because the model this host serves is decided by a systemd unit on the
+  # host, not by this repository. A declared id is a COPY of a fact owned
+  # elsewhere, and every copy went stale the moment the unit changed, taking
+  # the Hostile Review Gate down in every consuming repo until a human landed
+  # a pull request hours later.
+  # `model_id_source: served` reads the fact instead: the id is resolved at
+  # call time from this endpoint's /v1/models (served_model_resolver.py),
+  # which is exact because vLLM serves exactly one model per port and
+  # validates the `model` field. After this, a served-model swap needs no edit
+  # in any repository. Resolution is fail-closed -- unreachable, unparseable,
+  # zero models or MORE than one all refuse rather than guess.
+  # AN OVERLAY WAS CONSIDERED AND NOT TAKEN: it is still a file a human edits
+  # when the served model changes, which is the same shape as the literal,
+  # only relocated. It stays the right mechanism for a value this repo OWNS,
+  # which is why the cloud reviewer below keeps `declared`.
   qwen3-review-b:
     env_var: "LLM_QWEN3_REVIEW_B_URL"
     default_url: "http://192.168.86.201:8000"  # onex-allow-internal-ip
     kind: "code_review"
     timeout_seconds: 300.0
-    api_model_id: "Qwen3.8-27B"
+    model_id_source: "served"
     enable_thinking: false
     max_retries: 1
 
@@ -249,6 +264,13 @@ models:
   # timeout 300s x (1 + max_retries 1) keeps the roster's sequential
   # worst-case within the 35-minute hostile-review job ceiling (see
   # retry_budget.py).
+  # model_id_source stays DECLARED here (OMN-18623) and that is not an
+  # oversight: z.ai is a MULTI-MODEL cloud endpoint, so /v1/models has no
+  # single answer and "what this port serves" is not a well-formed question.
+  # The id below is a real choice this repo owns -- the cheapest id on the
+  # plan -- so it belongs in the contract, and the per-environment overlay is
+  # its declared override path. The runtime-resolution rule applies to
+  # single-model self-hosted endpoints, not to every endpoint.
   glm-review:
     env_var: "LLM_GLM_REVIEW_URL"
     default_url: "https://api.z.ai/api/coding/paas/v4/chat/completions"
