@@ -763,6 +763,7 @@ repos:
         files: ^(\.github/workflows/.*\.ya?ml|scripts/.*)$
         stages: [pre-commit]
 
+default_install_hook_types: [pre-commit, pre-push, commit-msg]
 default_stages: [pre-commit]
 
 # ============================================================================
