@@ -261,6 +261,55 @@ jobs:
           echo "Validating alignment between CI path filters and pre-commit patterns..."
           uv run python scripts/validate_ci_precommit_alignment.py --verbose
 
+  # ==========================================================================
+  # CI Workflow Shape Gate (OMN-18578)
+  # ==========================================================================
+  # Asserts, from parsed YAML plus the selector's own code, that the branch
+  # test-unit escalates to runs a superset of anything the narrowed branch can
+  # select. It used to run 10 of 361 test files, so escalation SHRANK the
+  # selection and turning ENABLE_SMART_TESTS off made coverage worse.
+  #
+  # Unconditional and outside test-unit deliberately: a shape gate that lives
+  # inside the job whose shape it checks cannot report on a run where that job
+  # was skipped, which is the other half of the same defect.
+  # ==========================================================================
+  ci-workflow-shape:
+    name: CI Workflow Shape Gate
+    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
+    runs-on: >-
+      ${{
+        github.event_name != 'pull_request'
+        && github.event_name != 'merge_group'
+        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+      }}
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      # pytest, not the module's CLI, so the parser's own self-tests and the
+      # positive control run here too. A silently-broken parser would satisfy
+      # every superset assertion while asserting nothing.
+      - name: Assert the full-suite branch is a superset of the narrowed branch
+        run: uv run pytest tests/ci/test_ci_workflow_shape.py -q -p no:cacheprovider
+
   # Lint job - ruff check and format validation
   # Scope aligned with pre-commit hooks (tools/, utils/, runtime/ and their tests)
   # Only runs when production code changes
@@ -397,10 +446,15 @@ jobs:
   # ---------------------------------------------------------------------------
   # Runs detect_test_paths and emits matrix, split_count, is_full_suite, selected_paths.
   # When ENABLE_SMART_TESTS is off, emits full-suite matrix (FEATURE_FLAG_OFF).
+  # OMN-18578: deliberately NOT gated on the `production_code` path filter.
+  # That filter names validators/, utils/ and runtime/ only, so a diff under
+  # src/omniintelligence/nodes/ — where 133 of the repo's 361 test files point
+  # — matched nothing and skipped the selector and the test job outright, on 3
+  # of the last 8 pull-request runs. Test scope is the selector's decision, not
+  # the path filter's; the selector already falls back to tests/unit/ when a
+  # diff maps to no module, and escalates when it cannot prove that safe.
   detect-changes:
     name: Detect Changes
-    needs: changes
-    if: needs.changes.outputs.production_code == 'true'
     # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
     runs-on: >-
       ${{
@@ -494,8 +548,12 @@ jobs:
         || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
     timeout-minutes: 15
-    needs: [changes, detect-changes]
-    if: needs.changes.outputs.production_code == 'true'
+    # OMN-18578: no `if:`. This job runs on every event, for every diff. A
+    # path filter deciding whether tests run at all was how 3 of the last 8
+    # pull-request runs executed no test of any kind while CI Summary went
+    # green. What to run is the selector's decision; whether to run is not a
+    # decision at all.
+    needs: [detect-changes]
     strategy:
       fail-fast: false
       matrix:
@@ -544,16 +602,27 @@ jobs:
             --tb=short \
             --junitxml=junit-unit-${{ matrix.split }}.xml
 
+      # OMN-18578: this branch is taken whenever the selector decides narrowing
+      # cannot be proven safe, so it MUST run at least everything the narrowed
+      # branch above can select. It used to run `tests/unit/tools/` plus one
+      # file — 10 of 361 test files — which made the escalation path narrower
+      # than the path it escalates from, and made turning ENABLE_SMART_TESTS
+      # off shrink coverage instead of widening it. The root below is the one
+      # the selector's own `_full_suite()` names (`selected_paths: ["tests/"]`,
+      # scripts/ci/detect_test_paths.py), and `tests/integration` is pruned on
+      # exactly the same terms as the narrowed branch: those tests need a
+      # broker and a database this job does not provision. Pinned by
+      # tests/ci/test_ci_workflow_shape.py — change both or neither.
       - name: Run unit tests (full suite)
         if: vars.ENABLE_SMART_TESTS != 'true' || needs.detect-changes.outputs.is_full_suite == 'true'
         run: |
-          uv run pytest tests/unit/tools/ \
-            tests/unit/scripts/test_validate_no_env_fallbacks.py \
+          uv run pytest tests/ \
+            --ignore=tests/integration \
             --splits ${{ needs.detect-changes.outputs.split_count }} \
             --group ${{ matrix.split }} \
             -v \
             --tb=short \
-            --cov=src/omniintelligence/validators \
+            --cov=src/omniintelligence \
             --cov-report=xml \
             --cov-report=term-missing \
             --junitxml=junit-unit-${{ matrix.split }}.xml
@@ -1028,7 +1097,7 @@ jobs:
         && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
         || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
-    needs: [assert-no-poetry, pre-commit, scope-alignment, contract-validation, io-audit, cross-repo-validation, migration-freeze, check-handshake, canon-shape-ratchet, detect-secrets, contract-compliance]
+    needs: [assert-no-poetry, pre-commit, scope-alignment, ci-workflow-shape, contract-validation, io-audit, cross-repo-validation, migration-freeze, check-handshake, canon-shape-ratchet, detect-secrets, contract-compliance]
     if: always()
 
     steps:
@@ -1040,6 +1109,7 @@ jobs:
           nopoetry="${{ needs.assert-no-poetry.result }}"
           precommit="${{ needs.pre-commit.result }}"
           scopealign="${{ needs.scope-alignment.result }}"
+          workflowshape="${{ needs.ci-workflow-shape.result }}"
           contracts="${{ needs.contract-validation.result }}"
           ioaudit="${{ needs.io-audit.result }}"
           crossrepo="${{ needs.cross-repo-validation.result }}"
@@ -1055,6 +1125,7 @@ jobs:
           echo "| No Poetry Artifacts | $nopoetry |" >> $GITHUB_STEP_SUMMARY
           echo "| Pre-commit Hooks | $precommit |" >> $GITHUB_STEP_SUMMARY
           echo "| Scope Alignment | $scopealign |" >> $GITHUB_STEP_SUMMARY
+          echo "| CI Workflow Shape | $workflowshape |" >> $GITHUB_STEP_SUMMARY
           echo "| Contract Validation | $contracts |" >> $GITHUB_STEP_SUMMARY
           echo "| I/O Audit | $ioaudit |" >> $GITHUB_STEP_SUMMARY
           echo "| Cross-Repo Validation | $crossrepo |" >> $GITHUB_STEP_SUMMARY
@@ -1068,7 +1139,7 @@ jobs:
           # check-handshake is skipped on fork PRs -- treat skipped as acceptable.
           FAILED=false
 
-          for check in "$nopoetry" "$precommit" "$scopealign" "$contracts" "$ioaudit" "$crossrepo" "$migrationfreeze" "$secrets"; do
+          for check in "$nopoetry" "$precommit" "$scopealign" "$workflowshape" "$contracts" "$ioaudit" "$crossrepo" "$migrationfreeze" "$secrets"; do
             if [[ "$check" != "success" ]]; then
               FAILED=true
             fi
@@ -1377,7 +1448,16 @@ jobs:
 
           evaluate_path_filtered_job "Lint" "$lint"
           evaluate_path_filtered_job "Type Check" "$typecheck"
-          evaluate_path_filtered_job "Unit Tests" "$unittest"
+
+          # OMN-18578: Unit Tests is NOT path-filtered any more, so there is no
+          # longer such a thing as "skipped by policy" for it. Anything but
+          # success is a failure, including skipped and cancelled.
+          if [[ "$unittest" == "success" ]]; then
+            echo "| Unit Tests | $unittest | Ran and passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Unit Tests | $unittest | **FAILED**: the test job must run on every diff (OMN-18578) |" >> $GITHUB_STEP_SUMMARY
+            FAILED=true
+          fi
 
           echo "" >> $GITHUB_STEP_SUMMARY
 
@@ -1388,9 +1468,6 @@ jobs:
           fi
           if [[ "$typecheck" == "skipped" ]] && [[ "$production_code_changed" != "true" ]]; then
             SKIPS="${SKIPS}\n- **Type Check**: skipped by policy (no changes in tools/, utils/, runtime/)"
-          fi
-          if [[ "$unittest" == "skipped" ]] && [[ "$production_code_changed" != "true" ]]; then
-            SKIPS="${SKIPS}\n- **Unit Tests**: skipped by policy (no changes in tools/, utils/, runtime/)"
           fi
 
           if [[ -n "$SKIPS" ]]; then
