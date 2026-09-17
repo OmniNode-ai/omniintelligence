@@ -763,6 +763,23 @@ repos:
         files: ^(\.github/workflows/.*\.ya?ml|scripts/.*)$
         stages: [pre-commit]
 
+      # ---------------------------------------------------------------------
+      # Local parity for the "CI Workflow Shape Gate" CI job (OMN-18578).
+      # The branch test-unit escalates to must run a superset of anything the
+      # narrowed branch can select. It ran 10 of 361 test files, so escalation
+      # made the selection SMALLER and turning ENABLE_SMART_TESTS off made
+      # coverage worse. Check-only: it prints and exits 1, never rewriting the
+      # workflow. Fires on the workflow itself and on the selector's own
+      # sources, since either half can break the invariant alone.
+      # ---------------------------------------------------------------------
+      - id: ci-workflow-shape
+        name: CI full-suite branch is a superset of the narrowed branch (OMN-18578)
+        entry: uv run python tests/ci/test_ci_workflow_shape.py
+        language: system
+        pass_filenames: false
+        files: ^(\.github/workflows/ci\.ya?ml|scripts/ci/(detect_test_paths|test_selection_.*)\.(py|yaml))$
+        stages: [pre-commit]
+
 default_install_hook_types: [pre-commit, pre-push, commit-msg]
 default_stages: [pre-commit]
 

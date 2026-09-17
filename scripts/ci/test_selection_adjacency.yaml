@@ -22,11 +22,16 @@ thresholds:
   modules_changed_for_full_suite: 6
 
 # Test infrastructure — any change forces the full suite.
+# OMN-18578 adds the CI workflow itself. A change to the file that decides
+# which tests run, how they are split and what prunes them is a change to the
+# test harness, so it escalates fail-closed rather than being selected against
+# like ordinary source. Same call omnibase_core made in OMN-16745.
 test_infrastructure_paths:
   - tests/conftest.py
   - tests/fixtures/
   - pytest.ini
   - pyproject.toml
+  - .github/workflows/ci.yml
 
 # Reverse dependency edges. Key = changed module; value = modules that import it.
 adjacency:
