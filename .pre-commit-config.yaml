@@ -69,7 +69,6 @@
 #   contract-linter           | <0.2s      | >1.0s             | Normal
 #   pytest-smoke              | ~3-5s      | >10s              | Check test scope
 #   mypy (pre-push)           | ~0.5s      | >3.0s             | Check cache*
-#   pytest-tools (pre-push)   | ~5-10s     | >30s              | Check test scope
 #
 #   * mypy uses incremental cache - see "MYPY CACHE" section below
 #   Note: ruff hooks run on entire src/ and tests/ directories (not just staged files)
@@ -136,7 +135,7 @@
 # - mypy: Production source code (pre-push stage for performance)
 # - contract-linter: ONEX node contracts (future nodes/ directory)
 # - pytest-smoke: Quick unit tests on commit
-# - pytest-tools: Full tools/utils/runtime tests on push only
+# - pytest-tools: REMOVED (OMN-18578/OMN-18162) - the pre-push test leg is retired
 #
 # ============================================================================
 # CI ALIGNMENT NOTICE
@@ -572,7 +571,7 @@ repos:
       # Scope: Triggered on changes to tools/ source or tests only (fast feedback)
       # Stage: pre-commit (fast, ~3s)
       # Performance: Narrow scope ensures smoke tests stay fast on every commit
-      # Note: Full utils/runtime testing runs on pre-push (pytest-tools hook)
+      # Note: broader utils/runtime testing is CI's, via the governed selector
       # --------------------------------------------------------------------------
       - id: pytest-smoke
         name: pytest (smoke tests)
@@ -581,32 +580,32 @@ repos:
         pass_filenames: false
         types: [python]
         # Trigger only on validators/ changes - narrow scope for fast smoke tests
-        # utils/runtime changes are tested by pytest-tools on pre-push
+        # utils/runtime changes are covered by CI's governed selector (OMN-18578)
         files: ^(src/omniintelligence/validators/|tests/unit/tools/).*\.py$
         stages: [pre-commit]
 
       # --------------------------------------------------------------------------
-      # Pytest - Full tools/utils/runtime tests on push
-      # Validates: Tools, utils, and runtime functionality via comprehensive unit tests
-      # Scope: Matches ruff/mypy scope - validators/, utils/, runtime/ source and their tests
-      # Stage: pre-push (slower, more thorough)
-      # Note: test_log_sanitizer.py tests utils/log_sanitizer.py but lives in tests/unit/
+      # OMN-18578 / OMN-18162: the `pytest-tools` pre-push hook was REMOVED here.
+      #
+      # It ran `pytest tests/unit/tools/ tests/unit/test_log_sanitizer.py` at the
+      # pre-push stage, selected by a hand-typed files regex rather than by the
+      # governed selector. Measured on this tree, those two paths collect 284 of
+      # the 5,801 tests under tests/unit/ -- 4.9%. The merge gate is CI alone,
+      # and CI's escalation branch now runs the whole tests/ tree, so everything
+      # this hook covered is a strict subset of what CI already runs. Nothing
+      # was re-homed to a nightly, because nothing here ran only here.
+      #
+      # This completes the OMN-18162 fleet retirement of the local pre-push test
+      # leg (operator ruling "Do one at a time"); omnibase_infra, omnibase_core
+      # and omnimarket retired theirs first and this repo was missed because the
+      # plan's scan covered five repos. Do not reintroduce a pre-push test leg:
+      # the governed selector in CI is the test surface.
+      #
+      # `pytest-smoke` above is deliberately KEPT. It is a pre-commit hook whose
+      # files regex scopes it to the two paths it tests, so it is a fast scoped
+      # smoke on matching edits, not a pre-push test leg. The OMN-18162
+      # retirement was about the pre-push leg only.
       # --------------------------------------------------------------------------
-      - id: pytest-tools
-        name: pytest (tools/utils/runtime - full)
-        entry: uv run pytest tests/unit/tools/ tests/unit/test_log_sanitizer.py -v --tb=short
-        language: system
-        pass_filenames: false
-        types: [python]
-        # Scope matches ruff/mypy: validators/, utils/, runtime/ and their tests
-        # test_log_sanitizer.py is included separately (see comment above)
-        # Pattern breakdown:
-        #   - src/omniintelligence/(validators|utils|runtime)/.*\.py : Source directories
-        #   - tests/unit/tools/.*\.py                           : Unit tests for tools
-        #   - tests/unit/test_log_sanitizer\.py                 : Specific file (exact match)
-        # Note: The specific file pattern must NOT have .*\.py$ suffix as it's already complete
-        files: ^(src/omniintelligence/(validators|utils|runtime)/.*\.py|tests/unit/tools/.*\.py|tests/unit/test_log_sanitizer\.py)$
-        stages: [pre-push]
       - id: check-ai-slop
         name: Check for AI-slop patterns
         language: system
