@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from enum import Enum, unique
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from omniintelligence.review_pairing.models import (
     EnumFindingSeverity,
@@ -30,7 +30,13 @@ class ModelEndpointConfig(BaseModel, frozen=True):
         default_url: Fallback URL when env var is not set.
         kind: Model capability category (reasoning, long_context, fast_review).
         timeout_seconds: Request timeout in seconds.
-        api_model_id: Model identifier for the API (empty string for CLI-only models).
+        api_model_id: Model identifier for the API. Empty for CLI-only models
+            and for every ``model_id_source: served`` entry.
+        model_id_source: ``declared`` (send ``api_model_id``) or ``served``
+            (resolve the id at call time from the endpoint's ``/v1/models``).
+            OMN-18623, under the operator ruling of 2026-09-17T19:54:09Z that
+            the reviewer's model must not be a hardcoded literal. Defaults to
+            ``declared`` so existing entries are unaffected.
         enable_thinking: Whether the model is allowed to emit a reasoning
             preamble (Qwen3 chat_template_kwargs.enable_thinking). Declarative
             per-model toggle (OMN-14176) -- flipping reasoning off/on for a
@@ -54,7 +60,21 @@ class ModelEndpointConfig(BaseModel, frozen=True):
     timeout_seconds: float = Field(description="Request timeout in seconds.")
     api_model_id: str = Field(
         default="",
-        description="Model identifier for the API (empty string for CLI-only models).",
+        description=(
+            "Model identifier for the API. Empty for CLI-only models AND for "
+            "every entry whose model_id_source is 'served' -- see that field."
+        ),
+    )
+    model_id_source: str = Field(
+        default="declared",
+        description=(
+            "Where the concrete model id comes from (OMN-18623). 'declared' "
+            "(default, so every pre-existing entry is unaffected) means send "
+            "api_model_id. 'served' means resolve it at call time from the "
+            "routed endpoint's /v1/models, which is exact for a single-model "
+            "endpoint such as vLLM and is what makes a served-model swap need "
+            "no edit in any repository. An entry may not do both."
+        ),
     )
     enable_thinking: bool = Field(
         default=True,
@@ -76,6 +96,33 @@ class ModelEndpointConfig(BaseModel, frozen=True):
             "Additive: existing entries that don't set it are unaffected."
         ),
     )
+
+    @model_validator(mode="after")
+    def _validate_model_id_source(self) -> ModelEndpointConfig:
+        """Refuse a config that declares an id it will not send, or vice versa.
+
+        OMN-18623. Without this, ``model_id_source: served`` alongside a
+        leftover ``api_model_id`` would load cleanly and the literal would sit
+        in the file looking authoritative while nothing read it -- which is how
+        a stale value survives a repin. An unknown source is refused rather
+        than defaulted, because silently treating a typo as ``declared`` would
+        send an empty model id.
+        """
+        allowed = {"declared", "served"}
+        if self.model_id_source not in allowed:
+            raise ValueError(
+                f"model_id_source must be one of {sorted(allowed)}, "
+                f"got {self.model_id_source!r}"
+            )
+        if self.model_id_source == "served" and self.api_model_id:
+            raise ValueError(
+                "model_id_source 'served' resolves the id from the endpoint, "
+                f"so api_model_id must be empty; got {self.api_model_id!r}. "
+                "A declared id here would be dead text that reads as truth "
+                "(OMN-18623)."
+            )
+        return self
+
     api_key_env: str | None = Field(
         default=None,
         description=(

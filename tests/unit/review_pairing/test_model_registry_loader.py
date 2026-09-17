@@ -104,11 +104,13 @@ def test_load_registry_preserves_endpoint_config_fields() -> None:
     assert deepseek.default_url == "http://192.168.86.201:8000"
     assert deepseek.kind == "reasoning"
     assert deepseek.timeout_seconds == 300.0
-    # OMN-18623 (2026-09-17): repinned again, "Qwen3.6-35B-A3B" -> the model
-    # .201:8000 serves after the host recovery. The value now has a single
-    # declared home in served_model_inventory.yaml; test_served_model_inventory
-    # is what proves this literal still matches it.
-    assert deepseek.api_model_id == "Qwen3.8-27B"
+    # OMN-18623 (2026-09-17): this entry now declares NO model id at all.
+    # Operator ruling 2026-09-17T19:54:09Z -- the reviewer's model must not be
+    # a hardcoded literal. The id is resolved at call time from the endpoint's
+    # /v1/models. Asserting EMPTINESS is the point: a value reappearing in this
+    # field is the regression.
+    assert deepseek.api_model_id == ""
+    assert deepseek.model_id_source == "served"
 
     codex = contract.models["codex"]
     assert codex.env_var == "CODEX_BINARY"
@@ -231,34 +233,35 @@ models:
 
 
 @pytest.mark.unit
-def test_local_201_8000_keys_share_one_served_model_id() -> None:
-    """OMN-17786: every key on .201:8000 must send the id that host actually serves.
+def test_local_201_8000_keys_declare_no_model_id() -> None:
+    """OMN-18623: keys on the shared LAN endpoint must declare NO model id.
 
-    The endpoint is vLLM again (OMN-14379), and vLLM validates the ``model``
-    field -- a stale id is an immediate HTTP 404, not a silent mis-attribution
-    the way it was under SGLang. These three keys resolve to one server, so a
-    repin that updates only some of them would leave the rest hard-failing.
-    The value tracks ``--served-model-name`` in
-    ``omnibase_infra/deploy/systemd/vllm-gpu0-qwen-coder.service``.
+    SUPERSEDES ``test_local_201_8000_keys_share_one_served_model_id``
+    (OMN-17786), which asserted the keys carried ONE SHARED literal. That guard
+    could not have prevented this ticket: it proved the keys agreed with EACH
+    OTHER, and all three agreed perfectly throughout the 2026-09-17 outage --
+    on a model that no longer existed -- because the value it compared them
+    against was written in the same commit as the pins it checked.
 
-    SCOPE, corrected by OMN-18623: this proves the keys AGREE WITH EACH OTHER,
-    not that they agree with the host. All three agreed throughout the
-    2026-09-17 outage -- on a model that no longer existed -- because the
-    literal below is written in the same commit as the pins it checks.
-    ``test_served_model_inventory.py`` is the guard that checks them against a
-    separately declared served id; this one remains useful for partial repins.
+    The invariant is now stronger and simpler: there is no value to agree on.
+    Drift is unrepresentable rather than merely detectable.
     """
     contract = load_registry()
     on_8000 = {
-        key: cfg.api_model_id
+        key: cfg
         for key, cfg in contract.models.items()
         if cfg.default_url == "http://192.168.86.201:8000"  # onex-allow-internal-ip
     }
 
-    assert on_8000, "expected at least one review key pinned to .201:8000"
     assert set(on_8000) == {"deepseek-r1", "qwen3-review", "qwen3-review-b"}, (
         f"unexpected key set on .201:8000: {sorted(on_8000)}"
     )
-    assert set(on_8000.values()) == {"Qwen3.8-27B"}, (
-        f"every .201:8000 key must send the live vLLM served-model-name; got {on_8000}"
-    )
+    for key, cfg in sorted(on_8000.items()):
+        assert cfg.model_id_source == "served", (
+            f"{key} must resolve its model id from the endpoint, got "
+            f"model_id_source={cfg.model_id_source!r}"
+        )
+        assert cfg.api_model_id == "", (
+            f"{key} declares api_model_id={cfg.api_model_id!r}. A literal here "
+            "is the OMN-16407/OMN-17786/OMN-18623 defect returning."
+        )

@@ -520,9 +520,11 @@ class TestModelRegistry:
         retired SGLang id "qwen3.8" onto the vLLM served-model-name that
         .201:8000 actually answers to -- vLLM 404s an unknown id)."""
         config = MODEL_REGISTRY["deepseek-r1"]
-        # OMN-18623 (2026-09-17): the third repin of this id; see
-        # served_model_inventory.yaml for the declared served value.
-        assert config.api_model_id == "Qwen3.8-27B"
+        # OMN-18623 (2026-09-17): no id is declared any more. The ruling of
+        # 2026-09-17T19:54:09Z forbids the literal; the id is resolved at call
+        # time from the endpoint's /v1/models.
+        assert config.api_model_id == ""
+        assert config.model_id_source == "served"
 
     def test_deepseek_r1_default_url_is_201_8000(self) -> None:
         """Assert deepseek-r1 default URL points to .201:8000 (OMN-8654;
@@ -666,9 +668,20 @@ class TestCallModelThinkingSuppression:
             },
             clear=False,
         ):
-            with patch(
-                "omnibase_infra.nodes.node_llm_inference_effect.handlers.handler_llm_openai_compatible.HandlerLlmOpenaiCompatible"
-            ) as handler_cls:
+            with (
+                patch(
+                    "omnibase_infra.nodes.node_llm_inference_effect.handlers.handler_llm_openai_compatible.HandlerLlmOpenaiCompatible"
+                ) as handler_cls,
+                # OMN-18623: qwen3-review-b is a model_id_source: served entry,
+                # so call_model now resolves its wire id from the endpoint's
+                # /v1/models. Stub that read -- this test is about the
+                # enable_thinking passthrough, and letting it attempt a real
+                # HTTP call to the fake URL above would make it a network test.
+                patch(
+                    "omniintelligence.review_pairing.adapters.adapter_ai_reviewer.resolve_served_model_id",
+                    return_value="served-model-id",
+                ) as resolve_mock,
+            ):
                 handler_inst = AsyncMock()
                 handler_inst.handle.return_value = AsyncMock(generated_text="[]")
                 handler_cls.return_value = handler_inst
@@ -680,6 +693,12 @@ class TestCallModelThinkingSuppression:
             assert request.extra_body == {
                 "chat_template_kwargs": {"enable_thinking": False}
             }
+            # OMN-18623, added coverage rather than a bare adaptation: the wire
+            # `model` field carries the RESOLVED id, and the probe was aimed at
+            # the same endpoint the request goes to.
+            assert request.model == "served-model-id"
+            resolve_mock.assert_called_once()
+            assert resolve_mock.call_args[0][0] == "http://x:1"
 
     @pytest.mark.asyncio
     async def test_call_model_reads_enable_thinking_true_default_from_registry(

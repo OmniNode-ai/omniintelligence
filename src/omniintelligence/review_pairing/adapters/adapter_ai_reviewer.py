@@ -48,6 +48,9 @@ from omniintelligence.review_pairing.prompts.adversarial_reviewer import (
     USER_PROMPT_TEMPLATE,
     USER_PROMPT_TEMPLATE_PR,
 )
+from omniintelligence.review_pairing.served_model_resolver import (
+    resolve_served_model_id,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +72,13 @@ _SEVERITY_MAP: dict[str, EnumFindingSeverity] = {
 _REGISTRY_CONTRACT = load_registry()
 
 MODEL_REGISTRY: dict[str, ModelEndpointConfig] = dict(_REGISTRY_CONTRACT.models)
+
+# OMN-18623: budget for the served-model metadata probe. Deliberately small and
+# INDEPENDENT of the review timeout: /v1/models answers in milliseconds on a
+# healthy endpoint, and spending review budget waiting on it would trade a
+# review for nothing. An endpoint too slow to answer this is not one a review
+# would have completed against either.
+_SERVED_MODEL_PROBE_TIMEOUT_SECONDS: float = 15.0
 _LOCAL_MODEL_KEYS: frozenset[str] = frozenset(_REGISTRY_CONTRACT.local_model_keys)
 _API_FALLBACK_KEYS: tuple[str, ...] = tuple(_REGISTRY_CONTRACT.api_fallback_keys)
 _DEFAULT_MODEL_KEY: str = _REGISTRY_CONTRACT.default_model_key
@@ -233,6 +243,33 @@ def _resolve_model_url(model_key: str) -> str:
     return url
 
 
+def _resolve_api_model_id(
+    model_key: str,
+    config: ModelEndpointConfig,
+    base_url: str,
+) -> str:
+    """Return the wire ``model`` value for one review call.
+
+    OMN-18623. ``declared`` entries send the id the contract names, exactly as
+    before this change. ``served`` entries resolve it from the endpoint that is
+    about to be POSTed to -- the SAME ``base_url``, so the probe target cannot
+    diverge from the request target, which is the property that makes the
+    answer trustworthy rather than merely fresh.
+
+    Raises:
+        ServedModelResolutionError: If a ``served`` entry's endpoint cannot be
+            resolved to exactly one model. Deliberately not swallowed: a guess
+            here is the defect this ticket exists to remove, and the caller
+            already treats a raise as an ordinary per-model failure that leaves
+            the rest of the roster reviewing.
+    """
+    if config.model_id_source == "served":
+        return resolve_served_model_id(
+            base_url, timeout_seconds=_SERVED_MODEL_PROBE_TIMEOUT_SECONDS
+        )
+    return config.api_model_id or model_key
+
+
 def _validate_model_key(model_key: str) -> None:
     """Validate a model key without requiring an endpoint URL."""
     if model_key not in MODEL_REGISTRY:
@@ -392,7 +429,7 @@ async def call_model(
         endpoint_url=endpoint_url,
         api_key=api_key,
         operation_type=EnumLlmOperationType.CHAT_COMPLETION,
-        model=config.api_model_id or model_key,
+        model=_resolve_api_model_id(model_key, config, base_url),
         messages=({"role": "user", "content": user_prompt},),
         system_prompt=system_prompt,
         max_tokens=_DEFAULT_MAX_TOKENS,
