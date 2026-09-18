@@ -33,9 +33,6 @@ classification:
     pre_commit: backlog
     ci_workflow: backlog
     tracking: OMN-9048
-  detect-secrets:
-    pre_commit: backlog
-    tracking: OMN-9048
   enum-governance:
     pre_commit: backlog
     ci_workflow: backlog
@@ -81,9 +78,6 @@ gaps:
     kind: MISSING_CI_WORKFLOW
   - repo: omniintelligence
     validator: bandit-security
-    kind: MISSING_PRE_COMMIT
-  - repo: omniintelligence
-    validator: detect-secrets
     kind: MISSING_PRE_COMMIT
   - repo: omniintelligence
     validator: enum-governance
