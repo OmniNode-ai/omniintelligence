@@ -45,7 +45,9 @@ from omnibase_infra.models.discovery import ModelIntrospectionConfig
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
 if TYPE_CHECKING:
-    from omnibase_core.protocols.event_bus.protocol_event_bus import ProtocolEventBus
+    from omnibase_infra.protocols.protocol_introspection_event_bus import (
+        ProtocolIntrospectionEventBus,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -189,7 +191,7 @@ INTELLIGENCE_NODES: tuple[_NodeDescriptor, ...] = discover_intelligence_nodes()
 # =============================================================================
 
 
-class IntelligenceNodeIntrospectionProxy(MixinNodeIntrospection):  # type: ignore[misc]
+class IntelligenceNodeIntrospectionProxy(MixinNodeIntrospection):
     """Proxy that uses MixinNodeIntrospection to publish on behalf of a node.
 
     Intelligence nodes are thin shells that run inside the plugin lifecycle.
@@ -209,7 +211,7 @@ class IntelligenceNodeIntrospectionProxy(MixinNodeIntrospection):  # type: ignor
     def __init__(
         self,
         descriptor: _NodeDescriptor,
-        event_bus: ProtocolEventBus | None,
+        event_bus: ProtocolIntrospectionEventBus | None,
     ) -> None:
         config = ModelIntrospectionConfig(
             node_id=descriptor.node_id,
@@ -262,7 +264,7 @@ class IntrospectionResult:
 
 
 async def publish_intelligence_introspection(
-    event_bus: ProtocolEventBus | None,
+    event_bus: ProtocolIntrospectionEventBus | None,
     *,
     correlation_id: UUID | None = None,
     enable_heartbeat: bool = True,
@@ -389,7 +391,7 @@ async def publish_intelligence_introspection(
 
 
 async def publish_intelligence_shutdown(
-    event_bus: ProtocolEventBus | None,
+    event_bus: ProtocolIntrospectionEventBus | None,
     *,
     proxies: list[IntelligenceNodeIntrospectionProxy] | None = None,
     correlation_id: UUID | None = None,

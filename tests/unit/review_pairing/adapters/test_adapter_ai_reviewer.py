@@ -833,7 +833,12 @@ class TestCallModelCloudBearerAuth:
                 )
 
             request = handler_inst.handle.call_args[0][0]
-            assert request.api_key == "test-glm-key"  # pragma: allowlist secret
+            # OMN-18385 made api_key a SecretStr on the upstream request model,
+            # so the wire value has to be unwrapped to be compared. Asserting on
+            # the repr instead would pass against the mask and prove nothing.
+            assert (
+                request.api_key.get_secret_value() == "test-glm-key"
+            )  # pragma: allowlist secret
             # Registry URL is COMPLETE (ends /chat/completions) and must be
             # used verbatim -- appending /v1/chat/completions would 404.
             assert (

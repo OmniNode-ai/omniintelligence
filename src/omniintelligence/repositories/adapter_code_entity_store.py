@@ -24,11 +24,33 @@ from omniintelligence.nodes.node_ast_extraction_compute.models.model_code_entity
 from omniintelligence.nodes.node_ast_extraction_compute.models.model_code_relationship import (
     ModelCodeRelationship,
 )
+from omniintelligence.repositories.db_contract_boundary import (
+    as_runtime_contract,
+    contract_of,
+)
 
 if TYPE_CHECKING:
     from asyncpg import Pool
 
 CONTRACT_PATH = Path(__file__).parent / "code_entities.repository.yaml"
+
+
+def _rows_to_entities(
+    result: list[dict[str, object]] | dict[str, object] | None,
+) -> list[ModelCodeEntity]:
+    """Validate contract-runtime rows into the models this adapter promises.
+
+    Both callers are annotated ``list[ModelCodeEntity]`` and both used to
+    return the runtime's rows unchanged, which are plain dicts -- the
+    annotation and the value disagreed, and only the runtime's looser return
+    type before omnibase-infra 0.38.22 kept a type checker from saying so.
+    Neither method has an in-repo caller, so nothing was relying on receiving
+    dicts; validating is what makes the adapter satisfy the protocol it
+    declares (``ProtocolCodeEntityStore``).
+    """
+    if not isinstance(result, list):
+        return []
+    return [ModelCodeEntity.model_validate(row) for row in result]
 
 
 class AdapterCodeEntityStore:
@@ -46,7 +68,7 @@ class AdapterCodeEntityStore:
         op_name: str,
         provided: dict[str, Any],
     ) -> tuple[Any, ...]:
-        contract = self._runtime.contract
+        contract = contract_of(self._runtime)
         operation = contract.ops.get(op_name)
         if operation is None:
             msg = f"Unknown operation: {op_name}"
@@ -137,9 +159,7 @@ class AdapterCodeEntityStore:
             },
         )
         result = await self._runtime.call("get_entities_by_repo", *args)
-        if isinstance(result, list):
-            return result
-        return []
+        return _rows_to_entities(result)
 
     async def get_entities_by_file(
         self, source_repo: str, file_path: str
@@ -153,9 +173,7 @@ class AdapterCodeEntityStore:
             },
         )
         result = await self._runtime.call("get_entities_by_file", *args)
-        if isinstance(result, list):
-            return result
-        return []
+        return _rows_to_entities(result)
 
 
 def _convert_defaults_to_schema_value(
@@ -196,7 +214,9 @@ def load_code_entities_contract() -> ModelDbRepositoryContract:
 async def create_code_entity_store_adapter(pool: Pool) -> AdapterCodeEntityStore:
     """Factory function to create a code entity store adapter."""
     contract = load_code_entities_contract()
-    runtime = PostgresRepositoryRuntime(pool=pool, contract=contract)
+    runtime = PostgresRepositoryRuntime(
+        pool=pool, contract=as_runtime_contract(contract)
+    )
     return AdapterCodeEntityStore(runtime)
 
 

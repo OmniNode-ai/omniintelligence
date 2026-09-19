@@ -105,8 +105,10 @@ from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from omnibase_core.protocols.event_bus.protocol_event_bus import ProtocolEventBus
     from omnibase_infra.idempotency.store_postgres import StoreIdempotencyPostgres
+    from omnibase_infra.protocols.protocol_introspection_event_bus import (
+        ProtocolIntrospectionEventBus,
+    )
     from omnibase_infra.runtime.db import PostgresRepositoryRuntime
     from omnibase_infra.runtime.message_dispatch_engine import MessageDispatchEngine
     from omnibase_infra.runtime.registry import RegistryMessageType
@@ -359,7 +361,11 @@ class PluginIntelligence:
         self._services_registered: list[str] = []
         self._dispatch_engine: MessageDispatchEngine | None = None
         self._message_type_registry: RegistryMessageType | None = None
-        self._event_bus: ProtocolEventBus | None = None
+        # Narrower than ProtocolEventBus on purpose: this attribute exists
+        # only to feed the introspection shutdown path, which needs
+        # publish_envelope, and omnibase-infra 0.38.22 states that requirement
+        # in the config model's own type rather than leaving it to convention.
+        self._event_bus: ProtocolIntrospectionEventBus | None = None
         self._introspection_nodes: list[str] = []
         self._introspection_proxies: list[IntelligenceNodeIntrospectionProxy] = []
 
@@ -513,9 +519,13 @@ class PluginIntelligence:
             )
 
             # Create PostgresRepositoryRuntime for contract-driven DB access
+            from omniintelligence.repositories.db_contract_boundary import (
+                as_runtime_contract,
+            )
+
             contract = load_contract()
             self._pattern_runtime = PostgresRepositoryRuntime(
-                pool=pool, contract=contract
+                pool=pool, contract=as_runtime_contract(contract)
             )
             resources_created.append("pattern_runtime")
 
