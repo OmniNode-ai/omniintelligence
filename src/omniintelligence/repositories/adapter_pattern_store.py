@@ -42,6 +42,10 @@ from omnibase_core.types.typed_dict_pattern_storage_metadata import (
 from omnibase_infra.runtime.db import PostgresRepositoryRuntime
 
 from omniintelligence.nodes.node_pattern_storage_effect.models import EnumPatternState
+from omniintelligence.repositories.db_contract_boundary import (
+    as_runtime_contract,
+    contract_of,
+)
 
 if TYPE_CHECKING:
     from asyncpg import Pool
@@ -55,6 +59,24 @@ logger = logging.getLogger(__name__)
 
 # Path to the contract YAML
 CONTRACT_PATH = Path(__file__).parent / "learned_patterns.repository.yaml"
+
+
+def _as_uuid(value: object) -> UUID | None:
+    """Narrow an id read out of a contract-runtime row to a UUID.
+
+    ``PostgresRepositoryRuntime.call`` hands back ``dict[str, object]``, so a
+    column value arrives untyped. Postgres yields a ``UUID`` for a uuid column
+    and a ``str`` wherever the contract casts it; anything else means the
+    contract and the column disagree. Returning that unchecked would satisfy
+    the annotation while handing the caller something that is not a UUID, so
+    this returns None and lets each call site take the fallback it already
+    declares rather than propagating a wrong type.
+    """
+    if isinstance(value, UUID):
+        return value
+    if isinstance(value, str):
+        return UUID(value)
+    return None
 
 
 class AdapterPatternStore:
@@ -128,7 +150,7 @@ class AdapterPatternStore:
         Raises:
             ValueError: If required param missing and has no default.
         """
-        contract = self._runtime.contract
+        contract = contract_of(self._runtime)
         operation = contract.ops.get(op_name)
         if operation is None:
             msg = f"Unknown operation: {op_name}"
@@ -239,7 +261,9 @@ class AdapterPatternStore:
 
         # Return the stored pattern ID
         if result and isinstance(result, dict) and "id" in result:
-            return UUID(result["id"]) if isinstance(result["id"], str) else result["id"]
+            stored_id = _as_uuid(result["id"])
+            if stored_id is not None:
+                return stored_id
 
         # Defensive: log if result is empty/invalid to help diagnose INSERT failures
         logger.warning(
@@ -317,7 +341,7 @@ class AdapterPatternStore:
         result = await self._runtime.call("check_exists_by_id", *args)
 
         if result and isinstance(result, dict) and "id" in result:
-            return UUID(result["id"]) if isinstance(result["id"], str) else result["id"]
+            return _as_uuid(result["id"])
         return None
 
     async def set_previous_not_current(
@@ -385,8 +409,8 @@ class AdapterPatternStore:
         result = await self._runtime.call("get_latest_version", *args)
 
         if result and isinstance(result, dict) and "version" in result:
-            version: int = result["version"]
-            return version
+            version = result["version"]
+            return version if isinstance(version, int) else None
         return None
 
     async def get_stored_at(
@@ -409,8 +433,8 @@ class AdapterPatternStore:
         result = await self._runtime.call("get_stored_at", *args)
 
         if result and isinstance(result, dict) and "created_at" in result:
-            stored_at: datetime = result["created_at"]
-            return stored_at
+            stored_at = result["created_at"]
+            return stored_at if isinstance(stored_at, datetime) else None
         return None
 
     async def upsert_pattern(
@@ -476,7 +500,7 @@ class AdapterPatternStore:
 
         # ON CONFLICT DO NOTHING: result is None when duplicate
         if result and isinstance(result, dict) and "id" in result:
-            return UUID(result["id"]) if isinstance(result["id"], str) else result["id"]
+            return _as_uuid(result["id"])
         return None
 
     async def query_patterns(
@@ -670,7 +694,9 @@ class AdapterPatternStore:
 
         # Return the stored pattern ID
         if result and isinstance(result, dict) and "id" in result:
-            return UUID(result["id"]) if isinstance(result["id"], str) else result["id"]
+            stored_id = _as_uuid(result["id"])
+            if stored_id is not None:
+                return stored_id
 
         # Defensive: log if result is empty/invalid to help diagnose INSERT failures
         logger.warning(
@@ -771,7 +797,9 @@ async def create_pattern_store_adapter(pool: Pool) -> AdapterPatternStore:
         >>> await handle_store_pattern(input_data, pattern_store=adapter, conn=conn)
     """
     contract = load_contract()
-    runtime = PostgresRepositoryRuntime(pool=pool, contract=contract)
+    runtime = PostgresRepositoryRuntime(
+        pool=pool, contract=as_runtime_contract(contract)
+    )
     return AdapterPatternStore(runtime)
 
 
@@ -783,7 +811,13 @@ async def create_pattern_store_adapter(pool: Pool) -> AdapterPatternStore:
 # The actual runtime check happens when the adapter is used with isinstance().
 
 if TYPE_CHECKING:
-    _adapter_protocol_check: ProtocolPatternStore = AdapterPatternStore(None)
+    # Checked on the CLASS rather than on a fabricated instance. The instance
+    # form passed None for a parameter annotated PostgresRepositoryRuntime,
+    # which only type-checked while that annotation resolved loosely; it is a
+    # real arg-type error now. The class form asks the same question -- does
+    # AdapterPatternStore structurally satisfy ProtocolPatternStore -- without
+    # constructing anything, and needs no placeholder to be waved through.
+    _adapter_protocol_check: type[ProtocolPatternStore] = AdapterPatternStore
 
 
 __all__ = [

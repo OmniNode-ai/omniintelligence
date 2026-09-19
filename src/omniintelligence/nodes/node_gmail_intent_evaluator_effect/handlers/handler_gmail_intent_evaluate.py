@@ -540,7 +540,7 @@ async def _post_to_slack(
         )
         result = await notifier.handle(alert)
         if not result.success:
-            errors.append(f"Slack delivery failed: {result.error_message}")
+            errors.append(f"Slack delivery failed: {result.error}")
             return False
         return True
     except Exception as exc:

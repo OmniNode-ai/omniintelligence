@@ -30,6 +30,11 @@ import yaml
 from omnibase_core.models.contracts import ModelDbRepositoryContract
 from omnibase_infra.runtime.db import PostgresRepositoryRuntime
 
+from omniintelligence.repositories.db_contract_boundary import (
+    as_runtime_contract,
+    contract_of,
+)
+
 if TYPE_CHECKING:
     import asyncpg
 
@@ -95,7 +100,7 @@ class AdapterDebugStore:
         Raises:
             ValueError: If required param missing and has no default.
         """
-        contract = self._runtime.contract
+        contract = contract_of(self._runtime)
         operation = contract.ops.get(op_name)
         if operation is None:
             msg = f"Unknown operation: {op_name}"
@@ -296,7 +301,15 @@ class AdapterDebugStore:
                 "limit": limit,
             },
         )
-        result = await self._runtime.call("query_fix_records", *args)
+        # Held as ``object`` deliberately. omnibase-infra 0.38.22 narrowed
+        # ``call`` to ``list | dict | None``, which makes the final fallback
+        # below look unreachable to a type checker -- but it is reached, and
+        # ``test_query_fix_records_unexpected_scalar_becomes_empty`` proves it
+        # by driving a scalar through this method and asserting []. Deleting
+        # the branch to satisfy the narrowing turns that test red, which is how
+        # this was caught. Widening the local keeps the checker and the test
+        # agreeing instead of silencing one of them.
+        result: object = await self._runtime.call("query_fix_records", *args)
         if isinstance(result, list):
             return cast(list[dict[str, Any]], result)
         if result is None:
@@ -389,7 +402,9 @@ async def create_debug_store_adapter(pool: asyncpg.Pool) -> AdapterDebugStore:
         AdapterDebugStore implementing ProtocolDebugStore.
     """
     contract = load_contract()
-    runtime = PostgresRepositoryRuntime(pool=pool, contract=contract)
+    runtime = PostgresRepositoryRuntime(
+        pool=pool, contract=as_runtime_contract(contract)
+    )
     return AdapterDebugStore(runtime)
 
 

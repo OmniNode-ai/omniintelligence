@@ -25,8 +25,10 @@ import re
 import socket
 import time
 import urllib.parse
-from typing import Any
+from typing import Any, TypedDict
 from uuid import uuid4
+
+from pydantic import SecretStr
 
 from omniintelligence.review_pairing.adapters.base import (
     PROBABILISTIC,
@@ -243,6 +245,20 @@ def _resolve_model_url(model_key: str) -> str:
     return url
 
 
+class _OptionalRequestKwargs(TypedDict, total=False):
+    """Keyword arguments passed to ``ModelLlmInferenceRequest`` only when the
+    registry declares a real override.
+
+    A plain ``dict[str, object]`` unpacked with ``**`` tells the type checker
+    that ANY keyword may arrive carrying ``object``, which since omnibase-infra
+    0.38.22 conflicts with every narrowly-typed field on that model. A TypedDict
+    states the one key that can actually be present, so the omit-when-unset
+    behaviour (OMN-15115) survives without weakening the call site.
+    """
+
+    max_retries: int
+
+
 def _resolve_api_model_id(
     model_key: str,
     config: ModelEndpointConfig,
@@ -420,14 +436,14 @@ async def call_model(
     # transport's historical hardcoded retry count. Only build an explicit
     # kwargs dict entry when the registry declares a real override, so models
     # that don't set it are provably unaffected by this change.
-    _request_kwargs: dict[str, object] = {}
+    _request_kwargs: _OptionalRequestKwargs = {}
     if config.max_retries is not None:
         _request_kwargs["max_retries"] = config.max_retries
 
     request = ModelLlmInferenceRequest(
         base_url=base_url,
         endpoint_url=endpoint_url,
-        api_key=api_key,
+        api_key=SecretStr(api_key) if api_key is not None else None,
         operation_type=EnumLlmOperationType.CHAT_COMPLETION,
         model=_resolve_api_model_id(model_key, config, base_url),
         messages=({"role": "user", "content": user_prompt},),
