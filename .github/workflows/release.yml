@@ -163,3 +163,205 @@ jobs:
               "source_repo": "${{ github.repository }}",
               "source_sha": "${{ github.sha }}"
             }
+
+  # ---------------------------------------------------------------------------
+  # OMN-16396: fast-forward `main` to the released tag (release-synced main)
+  # ---------------------------------------------------------------------------
+  # WHY THIS JOB EXISTS
+  #   omni_home's Release-Synced `main` policy lists omniintelligence with an
+  #   ACTIVE ruleset (21865240, `update` + `non_fast_forward`, sole bypass actor
+  #   `Integration:4361937` = onexbot-occ-writer) and an empty
+  #   `required_status_checks.contexts` on `main`. The premise of that pair is
+  #   that once a release publishes, `release.yml` fast-forwards `main` to the
+  #   released tag's commit. This repository had no such step, on either branch
+  #   -- so the ruleset restricted pushes to a release automation that did not
+  #   exist, which does not protect the release boundary, it FREEZES it. Measured
+  #   2026-09-19: `main` sat at 2026-08-22, 75 commits behind `dev`, 0 ahead.
+  #
+  #   This is the same condition OMN-16396 found on omnidash (fixed there by
+  #   omnidash#322). omniintelligence was the last of the eight table rows still
+  #   carrying it.
+  #
+  # WHY A SEPARATE JOB RATHER THAN A STEP IN `release`
+  #   The pointer move would otherwise be the last step of a long, partly
+  #   non-idempotent job that publishes to PyPI. When only that step fails there
+  #   is no recovery path that does not also re-run the publish. As its own job,
+  #   GitHub's "Re-run failed jobs" re-runs exactly this and reuses the release
+  #   job's result, so the recovery path is the platform's own and needs no
+  #   second dispatch input. It also keeps the publishing job untouched.
+  #
+  # THE FAST-FORWARD IS GUARDED THREE WAYS
+  #   1. An explicit ancestry precondition: the tag must be an ancestor of
+  #      `dev` (it is a cut from dev, not from anywhere else), and `main` must
+  #      be an ancestor of the tag (never backwards, never sideways). GitHub's
+  #      own guard would also refuse, but failing here names WHY in one line
+  #      instead of leaving a bare REST error. `main` already AT the tag is a
+  #      no-op, not a failure.
+  #   2. `"force": false` on the PATCH, so the server-side guard stands even if
+  #      the precondition above were ever wrong.
+  #   3. The ref is moved over REST with the App token rather than through git's
+  #      credential layer (OMN-16289/OMN-17272). `actions/checkout` v7 keeps the
+  #      workflow token in an included credential file that overrides any
+  #      credential written into a remote URL, so a token-in-URL push
+  #      authenticates as `github-actions[bot]` -- which is NOT an authorizable
+  #      identity for this restricted ref. The push would be declined with GH013
+  #      and `main` would silently desync. REST with the App token has no
+  #      credential layer to override.
+  #
+  #   The mint is fail-closed: there is no `|| secrets.GITHUB_TOKEN` fallback
+  #   anywhere in this job, because that would silently restore the unauthorized
+  #   identity while the job still reported success.
+  #
+  # PUBLISHES NOTHING, DEPLOYS NOTHING
+  #   This job performs exactly one mutation: a REST PATCH of `refs/heads/main`
+  #   in this repository. It dispatches no other workflow and reaches no cluster.
+  #
+  # The validation shell takes its values through `env:` rather than inline
+  # `${{ }}` so a test can execute the committed script verbatim instead of
+  # pattern-matching it.
+  sync-main:
+    name: Sync main to release tag
+    needs: release
+    # Explicit rather than implied, so a future sync-only path can never run off
+    # an empty version string. rc tags never move the pointer.
+    if: ${{ needs.release.result == 'success' && !contains(needs.release.outputs.version, 'rc') }}
+    runs-on: ubuntu-latest
+    permissions:
+      # The ref is moved with the App token, not this one. The workflow token
+      # needs read only, to check out and resolve ancestry.
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve the tag and assert it fast-forwards main
+        id: sync_tag
+        env:
+          RELEASE_TAG: ${{ needs.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          TAG="$RELEASE_TAG"
+
+          # Constrain to the tag charset before anything is written to
+          # GITHUB_OUTPUT: a newline here would forge extra output entries.
+          case "$TAG" in
+            ''|*[!A-Za-z0-9.+_-]*)
+              echo "::error::release tag contains unsupported characters"
+              exit 1
+              ;;
+          esac
+          case "$TAG" in
+            v[0-9]*.[0-9]*.[0-9]*) ;;
+            *)
+              echo "::error::'$TAG' is not a vX.Y.Z release tag"
+              exit 1
+              ;;
+          esac
+
+          if ! git rev-parse -q --verify "refs/tags/${TAG}^{commit}" >/dev/null; then
+            echo "::error::tag '$TAG' does not exist in this repository"
+            exit 1
+          fi
+          TAG_SHA="$(git rev-list -n 1 "refs/tags/${TAG}")"
+
+          # Explicit refspecs: never rely on git opportunistically updating the
+          # remote-tracking refs for a named-branch fetch.
+          git fetch --no-tags --quiet origin \
+            "+refs/heads/dev:refs/remotes/origin/dev" \
+            "+refs/heads/main:refs/remotes/origin/main"
+
+          if ! git merge-base --is-ancestor "$TAG_SHA" origin/dev; then
+            echo "::error::tag '$TAG' ($TAG_SHA) is not an ancestor of origin/dev -- it is not a release cut from dev, refusing to point main at it"
+            exit 1
+          fi
+
+          MAIN_SHA="$(git rev-parse origin/main)"
+          echo "main=$MAIN_SHA  tag=$TAG_SHA ($TAG)"
+          if [ "$MAIN_SHA" = "$TAG_SHA" ]; then
+            echo "::notice::main is already at $TAG_SHA ($TAG) -- nothing to do"
+            echo "noop=true" >> "$GITHUB_OUTPUT"
+          elif ! git merge-base --is-ancestor "$MAIN_SHA" "$TAG_SHA"; then
+            echo "::error::main ($MAIN_SHA) is not an ancestor of $TAG ($TAG_SHA) -- refusing to move main backwards or sideways. Reconcile the histories deliberately; this workflow never forces."
+            exit 1
+          else
+            echo "noop=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "tag_sha=$TAG_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Mint onexbot-occ-writer app token
+        id: app-token
+        if: steps.sync_tag.outputs.noop == 'false'
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.ONEXBOT_OCC_APP_ID }}
+          private-key: ${{ secrets.ONEXBOT_OCC_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          # A `permission-*` input REPLACES the installation's full set with
+          # exactly what is listed. BOTH are required: contents to move
+          # refs/heads/main at all, workflows because a release tag can
+          # legitimately contain changes under .github/workflows/. Listing
+          # workflows alone silently drops contents and the move dies on GH013
+          # (omnibase_core run 34065670492, OMN-17272).
+          permission-contents: write
+          permission-workflows: write
+
+      - name: Sync main to release tag
+        if: steps.sync_tag.outputs.noop == 'false'
+        env:
+          TAG_SHA: ${{ steps.sync_tag.outputs.tag_sha }}
+          RELEASE_TAG: ${{ steps.sync_tag.outputs.tag }}
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          case "$TAG_SHA" in
+            [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]) ;;
+            *)
+              echo "::error::resolved release SHA is not a full commit SHA"
+              exit 1
+              ;;
+          esac
+          printf '{"sha":"%s","force":false}' "$TAG_SHA" > update-main-ref.json
+          http_code="$(curl -sS -o update-main-ref.out -w '%{http_code}' \
+            -X PATCH \
+            -H "Authorization: Bearer ${APP_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/git/refs/heads/main" \
+            --data @update-main-ref.json)"
+          cat update-main-ref.out
+          echo
+          case "$http_code" in
+            2*) ;;
+            *)
+              echo "::error::refs/heads/main update refused with HTTP ${http_code}"
+              exit 1
+              ;;
+          esac
+          echo "main fast-forwarded to ${TAG_SHA} (${RELEASE_TAG})"
+
+      - name: Read main back
+        if: steps.sync_tag.outputs.noop == 'false'
+        env:
+          TAG_SHA: ${{ steps.sync_tag.outputs.tag_sha }}
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          # A 2xx on the PATCH is not proof the pointer moved. This is the
+          # failure mode the OMN-16343 GH006 incident turned on: the ref read
+          # back correctly in one surface while the push had been declined in
+          # another. Read the ref back and compare.
+          actual="$(curl -sS \
+            -H "Authorization: Bearer ${APP_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/git/ref/heads/main" \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["object"]["sha"])')"
+          if [ "$actual" != "$TAG_SHA" ]; then
+            echo "::error::main reads back as ${actual}, not ${TAG_SHA}. The sync did not land."
+            exit 1
+          fi
+          echo "::notice::readback confirms main == ${actual}"
