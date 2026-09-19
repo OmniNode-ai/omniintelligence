@@ -110,12 +110,21 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           set -euo pipefail
-          BRANCH="bot/sibling-lock-refresh-$(date -u +%Y%m%d%H%M%S)"
+          # OMN-18753: the ticket goes in the BRANCH NAME and the COMMIT
+          # MESSAGE, not only the PR title. The Receipt Gate's identity
+          # binding reads Evidence-Ticket from the title and then requires
+          # that same ticket to appear in the branch name or in one of the
+          # PR's commit messages. This workflow named it in the title alone,
+          # so every PR it opened failed that check and needed a hand-pushed
+          # commit before it could merge -- an automation that cannot land
+          # its own output. Observed here on #907, #914 and #919, each of
+          # which had to be unblocked by a manual binding commit.
+          BRANCH="bot/omn-13902-sibling-lock-refresh-$(date -u +%Y%m%d%H%M%S)"
           git config user.name "omninode-bot"
           git config user.email "bot@omninode.ai"
           git checkout -b "$BRANCH"
           git add uv.lock
-          git commit -m "chore(deps): refresh omninode sibling locks [bot]"
+          git commit -m "chore(deps, OMN-13902): refresh omninode sibling locks [bot]"
           git push origin "$BRANCH"
           # Build the PR body in a file to avoid heredoc-in-YAML indentation pitfalls.
           {
