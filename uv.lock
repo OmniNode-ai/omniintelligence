@@ -2981,7 +2981,7 @@ wheels = [
 
 [[package]]
 name = "omnimarket"
-version = "0.4.194"
+version = "0.4.205"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiokafka" },
@@ -3013,9 +3013,9 @@ dependencies = [
     { name = "rich" },
     { name = "uvicorn" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/4e/b8/119035b278e11f43d15a370b3a428d6391b6508fad9b32c5349b464c2304/omnimarket-0.4.194.tar.gz", hash = "sha256:1d1f4a08497bcb5ce6cfb0f365fa9e8c3758107e03fd1d5fe0ef1e06f0948d1c", size = 12416472, upload-time = "2026-09-22T09:03:34.413Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a9/4f/30fa1daef8fda1166cf95659981786718e521d6cb32fcb8f651ce3d32409/omnimarket-0.4.205.tar.gz", hash = "sha256:bc6265f605ef968e699d23098d865ceada8f394939fee295176e34eee8da120a", size = 12515884, upload-time = "2026-09-23T04:58:05.024Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e9/52/0d8bd02e77bc84b1b38bc38856667994669122973b6c228c68b5369407a2/omnimarket-0.4.194-py3-none-any.whl", hash = "sha256:16d20c88a9a70e7a050b6aa153f37ff995449fbcd5d88be47dce27e69e36c676", size = 7555748, upload-time = "2026-09-22T09:03:31.108Z" },
+    { url = "https://files.pythonhosted.org/packages/cf/38/aa299f80dd19c3ebeddab47753783eae25de53c352f5012164bad7956aa3/omnimarket-0.4.205-py3-none-any.whl", hash = "sha256:bd8ad34aa37b02e30cb711d339a8681c23b75d3ad76d55930740b0d0f6080f6e", size = 7591385, upload-time = "2026-09-23T04:58:02.547Z" },
 ]
 
 [[package]]
