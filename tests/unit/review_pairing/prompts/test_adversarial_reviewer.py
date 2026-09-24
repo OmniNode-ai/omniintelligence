@@ -3,7 +3,7 @@
 
 """Tests for the adversarial reviewer prompt module.
 
-Reference: OMN-5789
+Reference: OMN-5789, OMN-19395
 """
 
 from __future__ import annotations
@@ -75,6 +75,27 @@ class TestSystemPrompt:
 
 
 @pytest.mark.unit
+class TestWorkflowPinRule:
+    """OMN-19395: a full commit-SHA workflow pin is compliant, not a finding.
+
+    With no rule, both quorum models blocked omnimarket#2843 (run 35999036124)
+    on a ``uses: ...@<40-hex sha>`` pin, once as "unpinned" and once for
+    pinning to a SHA "rather than a tag or branch".
+    """
+
+    def test_pin_full_sha_is_the_compliant_form(self) -> None:
+        assert "full 40-character commit SHA" in SYSTEM_PROMPT
+        assert "required secure form" in SYSTEM_PROMPT
+
+    def test_pin_defect_is_a_tag_branch_or_short_sha(self) -> None:
+        assert "tag, a branch, or an abbreviated SHA" in SYSTEM_PROMPT
+
+    def test_pin_bump_between_full_shas_is_not_a_finding(self) -> None:
+        assert "pin bump" in SYSTEM_PROMPT
+        assert "Do not report it as unpinned" in SYSTEM_PROMPT
+
+
+@pytest.mark.unit
 class TestUserPromptTemplate:
     """Verify USER_PROMPT_TEMPLATE format."""
 
@@ -103,4 +124,4 @@ class TestPromptVersion:
             assert part.isdigit(), f"Non-numeric semver part: {part}"
 
     def test_current_version(self) -> None:
-        assert PROMPT_VERSION == "1.1.0"
+        assert PROMPT_VERSION == "1.2.0"

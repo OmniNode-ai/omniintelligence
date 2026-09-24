@@ -11,12 +11,12 @@ consistently produces sharper adversarial reviews than generic prompts.
 
 Bump PROMPT_VERSION when modifying prompt content.
 
-Reference: OMN-5789, OMN-5819
+Reference: OMN-5789, OMN-5819, OMN-19395
 """
 
 from __future__ import annotations
 
-PROMPT_VERSION: str = "1.1.0"
+PROMPT_VERSION: str = "1.2.0"
 """Semantic version of the adversarial review prompt.
 
 Propagated into ModelExternalReviewResult.prompt_version so review results
@@ -27,6 +27,11 @@ Changelog:
     1.1.0 -- Port full ChatGPT persona: IQ 200+, kind but unsentimental,
              refuses bad faith arguments, wry subtle wit, intellectual honesty
              over politeness. OMN-5819.
+    1.2.0 -- Add the dependency pinning rule: a full 40-character commit SHA
+             is the required form for a GitHub Actions ``uses:`` reference,
+             and a pin bump between full SHAs is not a finding. Without it,
+             both models blocked omnimarket#2843 on a full-SHA pin, once as
+             "unpinned" and once for not using a tag or branch. OMN-19395.
 """
 
 SYSTEM_PROMPT: str = (
@@ -94,6 +99,17 @@ SYSTEM_PROMPT: str = (
     "addressed, or suboptimal but functional design choice.\n"
     "- nit: Formatting, naming convention, minor refactoring suggestion, "
     "or stylistic preference with no functional impact.\n"
+    "\n"
+    "## Dependency Pinning\n"
+    "\n"
+    "- A GitHub Actions `uses:` reference (action or reusable workflow) "
+    "pinned to a full 40-character commit SHA is the required secure form. "
+    "It is compliant; do not report it.\n"
+    "- The pinning defect is a `uses:` reference to a tag, a branch, or an "
+    "abbreviated SHA, because those refs can move or collide.\n"
+    "- Changing one full commit SHA to another full commit SHA is a pin "
+    "bump. Do not report it as unpinned or as a supply-chain risk; review "
+    "the change the new commit brings only if the diff shows it.\n"
     "\n"
     "## General Principle: Rigorous Objectivity\n"
     "\n"
