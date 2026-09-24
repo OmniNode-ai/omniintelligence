@@ -156,8 +156,12 @@ def _read_source_file(repo_name: str, source_path: str) -> str | None:
     """Best-effort read of source file for quality analysis."""
     try:
         omni_home = Path(os.environ["OMNI_HOME"])
+        # The worktrees root lives inside OMNI_HOME. Its sibling beside
+        # OMNI_HOME is a stray root that nothing may read from or write to.
         omni_worktrees = Path(
-            os.environ.get("OMNI_WORKTREES", str(omni_home.parent / "omni_worktrees"))
+            os.environ.get("OMNI_WORKTREES")
+            or os.environ.get("ONEX_WORKTREES_ROOT")
+            or str(omni_home / "omni_worktrees")
         )
         for base in [omni_home, omni_worktrees]:
             full = base / repo_name / source_path

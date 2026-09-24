@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -255,3 +256,41 @@ class TestQualityHandler:
         )
         assert result == "ok"
         mock_repo.update_quality_score.assert_called_once()
+
+
+@pytest.mark.unit
+class TestReadSourceFileWorktreesRoot:
+    """The fallback worktrees root is inside OMNI_HOME, never its sibling."""
+
+    def test_sibling_worktrees_root_is_never_read(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from omniintelligence.runtime.dispatch_handler_code_quality import (
+            _read_source_file,
+        )
+
+        home = tmp_path / "registry"
+        home.mkdir()
+        stray = tmp_path / "omni_worktrees" / "repo"
+        stray.mkdir(parents=True)
+        (stray / "x.py").write_text("stray = True\n")
+        monkeypatch.setenv("OMNI_HOME", str(home))
+        monkeypatch.delenv("OMNI_WORKTREES", raising=False)
+        monkeypatch.delenv("ONEX_WORKTREES_ROOT", raising=False)
+        assert _read_source_file("repo", "x.py") is None
+
+    def test_worktrees_root_inside_omni_home_is_read(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from omniintelligence.runtime.dispatch_handler_code_quality import (
+            _read_source_file,
+        )
+
+        home = tmp_path / "registry"
+        inside = home / "omni_worktrees" / "repo"
+        inside.mkdir(parents=True)
+        (inside / "x.py").write_text("inside = True\n")
+        monkeypatch.setenv("OMNI_HOME", str(home))
+        monkeypatch.delenv("OMNI_WORKTREES", raising=False)
+        monkeypatch.delenv("ONEX_WORKTREES_ROOT", raising=False)
+        assert _read_source_file("repo", "x.py") == "inside = True\n"
