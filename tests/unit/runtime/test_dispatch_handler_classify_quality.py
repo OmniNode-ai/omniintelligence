@@ -294,3 +294,20 @@ class TestReadSourceFileWorktreesRoot:
         monkeypatch.delenv("OMNI_WORKTREES", raising=False)
         monkeypatch.delenv("ONEX_WORKTREES_ROOT", raising=False)
         assert _read_source_file("repo", "x.py") == "inside = True\n"
+
+    def test_no_omni_home_reads_nothing_and_guesses_no_root(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """OMN-19396: with OMNI_HOME unset the derivation raises, and the
+        best-effort read turns that into None; no machine path is tried."""
+        from omniintelligence.runtime.dispatch_handler_code_quality import (
+            _read_source_file,
+        )
+
+        monkeypatch.delenv("OMNI_HOME", raising=False)
+        monkeypatch.delenv("OMNI_WORKTREES", raising=False)
+        monkeypatch.delenv("ONEX_WORKTREES_ROOT", raising=False)
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "repo").mkdir()
+        (tmp_path / "repo" / "x.py").write_text("cwd = True\n")
+        assert _read_source_file("repo", "x.py") is None
