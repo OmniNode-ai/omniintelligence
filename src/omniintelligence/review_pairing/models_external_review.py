@@ -13,6 +13,7 @@ Reference: OMN-5790
 from __future__ import annotations
 
 from enum import Enum, unique
+from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -137,6 +138,29 @@ class ModelEndpointConfig(BaseModel, frozen=True):
             "LLM_CLOUD_ENDPOINT_HOST_ALLOWLIST over HTTPS."
         ),
     )
+    reasoning_effort: Literal["low", "medium", "high"] | None = Field(
+        default=None,
+        description=(
+            "Optional reasoning effort for a local model whose chat template "
+            "reads chat_template_kwargs.reasoning_effort (gpt-oss, OMN-17492). "
+            "None (default) sends nothing, so existing entries are unaffected. "
+            "It shares max_tokens with the answer: measured 2026-09-25 on "
+            "gpt-oss-120b, 'high' spent all 4096 tokens on reasoning and "
+            "returned no answer on a 98-line diff. Refused on an authenticated "
+            "cloud entry, whose API has no chat_template_kwargs surface."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _validate_reasoning_effort_surface(self) -> ModelEndpointConfig:
+        """Refuse an effort the endpoint would never receive (OMN-17492)."""
+        if self.reasoning_effort is not None and self.api_key_env is not None:
+            raise ValueError(
+                "reasoning_effort travels in chat_template_kwargs, which an "
+                "authenticated cloud entry (api_key_env set) does not send; "
+                "declaring it there would be dead text."
+            )
+        return self
 
 
 @unique

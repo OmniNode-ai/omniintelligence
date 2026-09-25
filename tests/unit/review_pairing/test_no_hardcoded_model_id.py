@@ -70,6 +70,9 @@ _RETIRED_MODEL_IDS: tuple[str, ...] = (
     "qwen3.8",
     "Qwen3.6-35B-A3B",
     "Qwen3.8-27B",
+    # OMN-17492: the id .200:8130 serves today. Pinned here so it is never
+    # pasted in as a declared value; the entry reads it from /v1/models.
+    "gpt-oss-120b",
 )
 
 
@@ -101,7 +104,14 @@ def test_the_scope_is_not_empty() -> None:
         "no local model key resolves to an HTTP endpoint -- the join this "
         "ratchet depends on has changed shape and it has gone vacuous."
     )
-    assert set(keys) == {"deepseek-r1", "qwen3-review", "qwen3-review-b"}, (
+    # OMN-17492 added gpt-oss-review (.200:8130), the first local key that is
+    # not the .201:8000 model under another name.
+    assert set(keys) == {
+        "deepseek-r1",
+        "qwen3-review",
+        "qwen3-review-b",
+        "gpt-oss-review",
+    }, (
         f"unexpected local HTTP endpoint key set: {sorted(keys)}. If this is a "
         "deliberate roster change, update this control; do not delete it."
     )

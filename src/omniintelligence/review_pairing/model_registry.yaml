@@ -60,6 +60,7 @@ local_model_keys:
   - "deepseek-r1"
   - "qwen3-review"
   - "qwen3-review-b"
+  - "gpt-oss-review"
   - "qwen3-coder"
   - "qwen3-14b"
   - "qwen3-next"
@@ -271,6 +272,40 @@ models:
   # plan -- so it belongs in the contract, and the per-environment overlay is
   # its declared override path. The runtime-resolution rule applies to
   # single-model self-hosted endpoints, not to every endpoint.
+  # gpt-oss-review -- ADDED (OMN-17492, 2026-09-25) under the operator ruling
+  # of 2026-09-25T12:40Z (ledger RULING, "we have gpt oss 120 on this
+  # machine, why don't we use it as a review model?"). The first local
+  # reviewer that is a DIFFERENT MODEL from the one behind qwen3-review:
+  # qwen3-review, qwen3-review-b and deepseek-r1 all resolve to .201:8000,
+  # which serves one model (Qwen3.8-27B), so any two of them agreeing is one
+  # model agreeing with itself.
+  # Endpoint: the Mac Studio (.200) llama.cpp server, supervised by the user
+  # LaunchAgent ai.omninode.planner-gptoss120b, serving gpt-oss-120b MXFP4
+  # with a 131,072-token context and 4 parallel slots (docs/reference/
+  # AI_LAB_HARDWARE.md in omni_home). Keyless, LAN-only; the .201 runner
+  # containers reach it (HTTP 200 from omninode-runner-7 and -51,
+  # 2026-09-25). It is NOT always available: the host sleeps after one
+  # minute unless caffeinate holds it, and does not log in unattended after
+  # a reboot. The reachability probe then drops it and the run continues on
+  # the remaining distinct models; see the calling workflows.
+  # model_id_source: served, per the OMN-18623 ruling that no local reviewer
+  # declares a model id.
+  # reasoning_effort: gpt-oss reads it from chat_template_kwargs and spends
+  # its reasoning from the same max_tokens budget as the answer. Measured
+  # 2026-09-25 on omnimarket#2871 (2,318 prompt tokens): "high" used all
+  # 4,096 tokens reasoning and returned no answer; "medium" answered in
+  # 1,437 tokens, 23.7s. See the OMN-17492 eval in the PR body for the
+  # level chosen here.
+  gpt-oss-review:
+    env_var: "LLM_GPT_OSS_REVIEW_URL"
+    default_url: "http://192.168.86.200:8130"  # onex-allow-internal-ip
+    kind: "code_review"
+    timeout_seconds: 300.0
+    model_id_source: "served"
+    enable_thinking: false
+    reasoning_effort: "medium"
+    max_retries: 1
+
   glm-review:
     env_var: "LLM_GLM_REVIEW_URL"
     default_url: "https://api.z.ai/api/coding/paas/v4/chat/completions"
