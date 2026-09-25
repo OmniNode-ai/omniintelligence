@@ -71,7 +71,7 @@
 #   mypy (pre-push)           | ~0.5s      | >3.0s             | Check cache*
 #
 #   * mypy uses incremental cache - see "MYPY CACHE" section below
-#   Note: ruff hooks run on entire src/ and tests/ directories (not just staged files)
+#   Note: ruff hooks receive staged Python files; CI keeps the whole-tree backstop.
 #
 # ============================================================================
 # TROUBLESHOOTING SLOW HOOKS
@@ -131,7 +131,7 @@
 # Hook Scope Summary:
 # - yamlfmt: YAML formatting for consistency
 # - pre-commit-hooks: File hygiene (trailing whitespace, EOF, merge conflicts)
-# - ruff-format/ruff-fix: Entire codebase (src/ and tests/) - runs always, not just on staged files
+# - ruff-format/ruff-fix: Staged Python files under src/ and tests/
 # - mypy: Production source code (pre-push stage for performance)
 # - contract-linter: ONEX node contracts (future nodes/ directory)
 # - pytest-smoke: Quick unit tests on commit
@@ -140,8 +140,7 @@
 # ============================================================================
 # CI ALIGNMENT NOTICE
 # ============================================================================
-# ruff hooks now run on the entire codebase (src/ and tests/) matching CI behavior.
-# This eliminates "works locally, fails in CI" issues from scoped file patterns.
+# ruff hooks run on staged files locally. CI still runs them over src/ and tests/.
 #
 # mypy runs on src/omniintelligence/ in pre-push stage (moved from pre-commit
 # for faster commit cycles).
@@ -430,19 +429,21 @@ repos:
       # uv run ruff format src/ tests/ && uv run ruff check --fix src/ tests/
       # --------------------------------------------------------------------------
       - id: ruff-format
-        name: ruff format --check (entire codebase)
-        entry: uv run ruff format --check src/ tests/
+        name: ruff format --check (staged files)
+        entry: uv run ruff format --check
         language: system
-        pass_filenames: false
-        always_run: true
+        pass_filenames: true
+        types: [python]
+        files: ^(src|tests)/
         stages: [pre-commit]
 
       - id: ruff-check
-        name: ruff check (entire codebase)
-        entry: uv run ruff check src/ tests/
+        name: ruff check (staged files)
+        entry: uv run ruff check
         language: system
-        pass_filenames: false
-        always_run: true
+        pass_filenames: true
+        types: [python]
+        files: ^(src|tests)/
         stages: [pre-commit]
 
       # --------------------------------------------------------------------------
@@ -491,9 +492,9 @@ repos:
         name: onex-validate-naming
         entry: python scripts/validation/validate_naming.py
         language: system
-        pass_filenames: false
-        types: [python]
-        files: ^src/omniintelligence/
+        pass_filenames: true
+        types_or: [python, yaml]
+        files: ^(src/omniintelligence/.*\.py|scripts/validation/validate_naming\.py|\.pre-commit-config\.yaml)$
         stages: [pre-commit]
 
       # --------------------------------------------------------------------------
@@ -628,21 +629,11 @@ repos:
       # Detects os.getenv("KAFKA_*", non-empty) and private-IP Kafka broker ports
       - id: kafka-no-hardcoded-fallback
         name: Reject hardcoded Kafka broker address fallbacks
-        entry: >-
-          bash -c 'FAILED=0; MATCHES=$(grep -rn --include="*.py" --exclude-dir=.venv --exclude-dir=__pycache__
-          -E "os\.getenv\([[:space:]]*[\"'"'"']KAFKA_[^\"'"'"']+[\"'"'"'][[:space:]]*,[[:space:]]*[\"'"'"'][^\"'"'"']+[\"'"'"']"
-          . 2>/dev/null | grep -v "kafka-fallback-ok" | grep -v "noqa"); if [ -n "$MATCHES" ]; then echo
-          "ERROR: Hardcoded Kafka bootstrap fallback detected:"; echo "$MATCHES"; echo ""; echo "FIX:
-          Replace os.getenv(\"KAFKA_...\", \"fallback\") with os.environ[\"KAFKA_BOOTSTRAP_SERVERS\"]
-          or os.getenv(\"KAFKA_BOOTSTRAP_SERVERS\") or add kafka-fallback-ok comment"; FAILED=1; fi; IP_MATCHES=$(grep
-          -rn --include="*.py" --exclude-dir=.venv --exclude-dir=__pycache__ -E "192\.168\.[0-9]+\.[0-9]+:(9092|19092|2909[23])"
-          . 2>/dev/null | grep -v "kafka-fallback-ok" | grep -v "noqa" | grep -v "onex-allow-internal-ip");
-          if [ -n "$IP_MATCHES" ]; then echo "ERROR: Hardcoded private-IP Kafka broker address in Python
-          file:"; echo "$IP_MATCHES"; echo ""; echo "FIX: Use KAFKA_BOOTSTRAP_SERVERS env var or add kafka-fallback-ok
-          comment"; FAILED=1; fi; exit $FAILED'
+        entry: uv run python scripts/validation/check_kafka_no_hardcoded_fallback.py
         language: system
-        pass_filenames: false
-        types: [python]
+        pass_filenames: true
+        types_or: [python, yaml]
+        files: ^((src|scripts)/.*\.py|\.pre-commit-config\.yaml)$
         stages: [pre-commit]
 
       # OMN-10741: Unified localhost/hardcoded-endpoint fallback validator
@@ -661,8 +652,10 @@ repos:
         name: Block cloud bus references
         entry: bash scripts/check_no_cloud_bus_wrapper.sh
         language: system
-        pass_filenames: false
-        always_run: true
+        pass_filenames: true
+        require_serial: true
+        types_or: [python, shell, yaml, toml, javascript, ts]
+        files: ^(scripts/|src/|tests/|\.github/|\.pre-commit-config\.yaml$)
         stages: [pre-commit]
 
       # OMN-4383: SPDX header enforcement
