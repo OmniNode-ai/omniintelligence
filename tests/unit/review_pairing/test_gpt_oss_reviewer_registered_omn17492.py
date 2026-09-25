@@ -5,9 +5,10 @@
 
 Operator ruling of 2026-09-25 (ledger RULING, OMN-17492): hostile review uses
 local models, gpt-oss-120b on the Mac Studio plus the .201 models. Before this,
-the only local review keys (``qwen3-review``, ``qwen3-review-b`` and
-``deepseek-r1``) all resolved to ONE endpoint, ``.201:8000``, which serves one
-model, so every two-model "agreement" was that model agreeing with itself.
+the only local review keys (``qwen3-review`` and the since-deleted aliases
+``qwen3-review-b`` and ``deepseek-r1``) all resolved to ONE endpoint,
+``.201:8000``, which serves one model, so every two-model "agreement" was that
+model agreeing with itself.
 
 These tests pin three things:
 
@@ -55,7 +56,6 @@ class TestGptOssReviewerRegistered:
         assert entry.kind == "code_review"
         assert entry.model_id_source == "served"
         assert entry.api_model_id == ""
-        assert entry.api_key_env is None
         assert _KEY in registry.local_model_keys
         assert entry.env_var == "LLM_GPT_OSS_REVIEW_URL"
 
@@ -68,8 +68,8 @@ class TestGptOssReviewerRegistered:
 
     def test_endpoint_differs_from_every_other_local_review_key(self) -> None:
         """A second name for an endpoint already registered is not a second
-        reviewer. Positive control: the existing aliases DO share one
-        endpoint, so this comparison is able to detect sharing."""
+        reviewer. Positive control: the comparison detects a shared endpoint
+        when one is present."""
         registry = load_registry()
         mine = _host_port(registry.models[_KEY].default_url)
         others = {
@@ -79,8 +79,11 @@ class TestGptOssReviewerRegistered:
         }
         assert others, "no other local key with an endpoint to compare against"
         assert mine not in set(others.values())
-        # Positive control: qwen3-review and qwen3-review-b share one endpoint.
-        assert others["qwen3-review"] == others["qwen3-review-b"]
+        # Positive control: the same membership test finds an endpoint that
+        # IS registered under another key (qwen3-review's own).
+        assert _host_port(registry.models["qwen3-review"].default_url) in set(
+            others.values()
+        )
 
     def test_reasoning_effort_is_declared_and_bounded(self) -> None:
         entry = load_registry().models[_KEY]
@@ -110,17 +113,6 @@ class TestReasoningEffortField:
     def test_refuses_an_unknown_level(self) -> None:
         with pytest.raises(ValidationError):
             ModelEndpointConfig.model_validate(self._base(reasoning_effort="max"))
-
-    def test_refused_on_an_authenticated_cloud_entry(self) -> None:
-        """The field travels in chat_template_kwargs, which the GLM API does
-        not read; declaring it there would be dead text."""
-        with pytest.raises(ValidationError):
-            ModelEndpointConfig.model_validate(
-                self._base(
-                    reasoning_effort="low",
-                    api_key_env="SOME_KEY_ENV",  # pragma: allowlist secret
-                )
-            )
 
 
 @pytest.mark.unit
@@ -224,9 +216,10 @@ class TestUnreachableModelIsNamedInTheResult:
         plan = tmp_path / "plan.md"
         plan.write_text("# plan", encoding="utf-8")
         out = tmp_path / "out.json"
-        ran = ["qwen3-review", "glm-review"]
+        roster = ["qwen3-review", "gpt-oss-review"]
+        ran = [key for key in roster if key not in skipped]
         argv = ["--file", str(plan), "--output", str(out)]
-        for key in ["qwen3-review", "gpt-oss-review", "glm-review"]:
+        for key in roster:
             argv += ["--model", key]
         results = [
             ModelExternalReviewResult(
@@ -260,10 +253,11 @@ class TestUnreachableModelIsNamedInTheResult:
         assert len(entry) == 1
         assert entry[0]["success"] is False
         assert "unreachable" in entry[0]["error"]
-        # The two reachable, distinct reviewers still form a verdict.
-        assert payload["_exit"] == 0
-        assert payload["quorum"]["verdict"] == "passed"
-        assert payload["quorum"]["models_succeeded"] == ["qwen3-review", "glm-review"]
+        # One reviewer left is no quorum: the run fails closed
+        # (omnibase_infra#4119), never a degraded single-model pass.
+        assert payload["_exit"] == 2
+        assert payload["quorum"]["verdict"] == "degraded_quorum"
+        assert payload["quorum"]["models_succeeded"] == ["qwen3-review"]
 
     def test_nothing_skipped_adds_no_failed_entry(self, tmp_path: Path) -> None:
         """Positive control: the entry above comes from the skip, not always."""
@@ -271,5 +265,7 @@ class TestUnreachableModelIsNamedInTheResult:
         assert payload["models_failed"] == []
         assert [r["model"] for r in payload["results"]] == [
             "qwen3-review",
-            "glm-review",
+            "gpt-oss-review",
         ]
+        assert payload["_exit"] == 0
+        assert payload["quorum"]["verdict"] == "passed"

@@ -10,7 +10,7 @@ Usage:
     uv run python -m omniintelligence.review_pairing.cli_calibration \\
         --file plan.md \\
         --ground-truth codex \\
-        --challenger deepseek-r1 \\
+        --challenger qwen3-review \\
         --challenger qwen3-coder
 
 CLI Stream Policy:

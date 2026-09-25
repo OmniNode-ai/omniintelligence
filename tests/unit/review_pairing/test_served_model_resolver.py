@@ -210,14 +210,15 @@ def test_adapter_sends_the_resolved_id_for_a_served_entry(
 def test_adapter_sends_the_declared_id_for_a_declared_entry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A declared entry must not probe anything: the cloud path is unchanged."""
+    """A declared entry must not probe anything."""
     from omniintelligence.review_pairing.adapters.adapter_ai_reviewer import (
         MODEL_REGISTRY,
         _resolve_api_model_id,
     )
 
     seen = _patch_urlopen(monkeypatch, _payload("should-not-be-read"))
-    config = MODEL_REGISTRY["glm-review"]
-    resolved = _resolve_api_model_id("glm-review", config, config.default_url)
-    assert resolved == "glm-5.3-flash"
+    config = MODEL_REGISTRY["qwen3-coder"]
+    resolved = _resolve_api_model_id("qwen3-coder", config, "http://lab.invalid:1")
+    assert resolved == config.api_model_id
+    assert resolved
     assert seen == [], "a declared entry must not probe /v1/models"

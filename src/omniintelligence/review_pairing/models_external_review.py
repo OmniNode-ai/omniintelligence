@@ -23,7 +23,7 @@ from omniintelligence.review_pairing.models import (
 )
 
 
-class ModelEndpointConfig(BaseModel, frozen=True):
+class ModelEndpointConfig(BaseModel, frozen=True, extra="forbid"):
     """Configuration for a model endpoint in the registry.
 
     Attributes:
@@ -124,20 +124,6 @@ class ModelEndpointConfig(BaseModel, frozen=True):
             )
         return self
 
-    api_key_env: str | None = Field(
-        default=None,
-        description=(
-            "Optional environment variable holding a Bearer API key for "
-            "authenticated cloud endpoints (OMN-17492, e.g. the z.ai GLM "
-            "Coding Plan). None (default) means an unauthenticated local "
-            "endpoint -- existing entries are unaffected. When set, "
-            "call_model reads the key from this env var at call time and "
-            "fails that model's review (fail-closed) if it is unset or "
-            "empty; the key VALUE never lives in the registry. The infra "
-            "transport additionally requires the endpoint host to appear in "
-            "LLM_CLOUD_ENDPOINT_HOST_ALLOWLIST over HTTPS."
-        ),
-    )
     reasoning_effort: Literal["low", "medium", "high"] | None = Field(
         default=None,
         description=(
@@ -146,21 +132,9 @@ class ModelEndpointConfig(BaseModel, frozen=True):
             "None (default) sends nothing, so existing entries are unaffected. "
             "It shares max_tokens with the answer: measured 2026-09-25 on "
             "gpt-oss-120b, 'high' spent all 4096 tokens on reasoning and "
-            "returned no answer on a 98-line diff. Refused on an authenticated "
-            "cloud entry, whose API has no chat_template_kwargs surface."
+            "returned no answer on a 98-line diff."
         ),
     )
-
-    @model_validator(mode="after")
-    def _validate_reasoning_effort_surface(self) -> ModelEndpointConfig:
-        """Refuse an effort the endpoint would never receive (OMN-17492)."""
-        if self.reasoning_effort is not None and self.api_key_env is not None:
-            raise ValueError(
-                "reasoning_effort travels in chat_template_kwargs, which an "
-                "authenticated cloud entry (api_key_env set) does not send; "
-                "declaring it there would be dead text."
-            )
-        return self
 
 
 @unique
@@ -246,7 +220,9 @@ class ModelQuorumFinding(BaseModel, frozen=True):
             that raised the finding.
         agreeing_models: Distinct successful models that raised it, in the
             order the models ran.
-        agreement_count: ``len(agreeing_models)``, explicit for scanning.
+        agreement_count: Number of distinct agreeing reviewers (endpoint
+            plus model, OMN-17492). Two keys for one model count once, so
+            this can be smaller than ``len(agreeing_models)``.
         blocking: True when this cluster blocks under the active policy.
         finding_ids: Source finding identifiers, so a caller can post the
             underlying per-model findings without re-deriving the cluster.
@@ -260,7 +236,12 @@ class ModelQuorumFinding(BaseModel, frozen=True):
     agreeing_models: tuple[str, ...] = Field(
         description="Distinct successful models that raised this finding."
     )
-    agreement_count: int = Field(description="Number of distinct agreeing models.")
+    agreement_count: int = Field(
+        description=(
+            "Number of distinct agreeing REVIEWERS (endpoint+model, "
+            "OMN-17492); two keys for one model count once."
+        )
+    )
     blocking: bool = Field(description="True when this cluster blocks.")
     finding_ids: tuple[str, ...] = Field(
         default=(), description="Source finding identifiers in the cluster."
@@ -275,8 +256,11 @@ class ModelReviewQuorumSummary(BaseModel, frozen=True):
             are explicitly NOT passes.
         quorum_threshold: Active ``min_agreeing_models`` for this run.
         models_succeeded: Successful model keys considered for agreement.
-        quorum_met: True when enough models succeeded to establish
-            agreement at all.
+        distinct_reviewers_succeeded: The distinct reviewers (endpoint plus
+            model, see ``reviewer_identity``) behind those keys. The quorum
+            counts THESE, so two names for one model count once (OMN-17492).
+        quorum_met: True when enough DISTINCT reviewers succeeded to
+            establish agreement at all.
         blocking_count: Number of blocking clusters.
         warning_count: Number of non-blocking clusters.
         blocking_findings: Clusters that block.
@@ -289,7 +273,16 @@ class ModelReviewQuorumSummary(BaseModel, frozen=True):
     models_succeeded: tuple[str, ...] = Field(
         default=(), description="Successful model keys."
     )
-    quorum_met: bool = Field(description="True when enough models succeeded.")
+    distinct_reviewers_succeeded: tuple[str, ...] = Field(
+        default=(),
+        description=(
+            "Distinct endpoint+model identities of the successful keys; the "
+            "quorum counts these (OMN-17492)."
+        ),
+    )
+    quorum_met: bool = Field(
+        description="True when enough distinct reviewers succeeded."
+    )
     blocking_count: int = Field(default=0, description="Number of blocking clusters.")
     warning_count: int = Field(
         default=0, description="Number of non-blocking clusters."
@@ -306,12 +299,16 @@ class ModelExternalReviewResult(BaseModel, frozen=True):
     """Top-level output envelope for a single external model review.
 
     Attributes:
-        model: Model key (e.g. "deepseek-r1", "codex").
+        model: Model key (e.g. "qwen3-review", "codex").
         prompt_version: Version of the adversarial prompt used.
         success: True if model returned usable output.
         error: Failure reason if success is False.
         findings: List of canonical review findings.
         result_count: Number of findings (explicit for fast scanning).
+        reviewer_identity: The endpoint plus model this key resolved to
+            (``reviewer_identity.reviewer_identity``), stamped by the CLI.
+            The quorum counts distinct identities, not keys (OMN-17492).
+            None falls back to the key.
     """
 
     model: str = Field(description="Model key used for this review.")
@@ -325,6 +322,13 @@ class ModelExternalReviewResult(BaseModel, frozen=True):
     )
     result_count: int = Field(
         default=0, description="Number of findings (len(findings))."
+    )
+    reviewer_identity: str | None = Field(
+        default=None,
+        description=(
+            "Endpoint+model identity of the reviewer behind this key "
+            "(OMN-17492). None means the key is its own reviewer."
+        ),
     )
 
 

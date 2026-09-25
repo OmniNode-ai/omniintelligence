@@ -29,8 +29,7 @@ still a file a human edits when the served model changes, which is the same
 shape as the literal, only relocated. It would be the right mechanism for a
 value this repository OWNS; the served model id is a value it merely observes.
 The per-environment overlay remains available as the declared override path for
-an endpoint that is genuinely multi-model (see ``model_id_source: declared``),
-which is why ``glm-review`` keeps an explicit id.
+an endpoint that is genuinely multi-model (see ``model_id_source: declared``).
 
 FAIL-CLOSED, AND SCOPED TO ONE MODEL
 ------------------------------------
@@ -59,8 +58,8 @@ _MODELS_PATH: Final[str] = "/v1/models"
 _DEFAULT_TIMEOUT_SECONDS: Final[float] = 15.0
 
 # Resolution is a property of the endpoint, not of the review, and a roster
-# calls the same endpoint more than once per run (qwen3-review and
-# qwen3-review-b are two legs on one port). Cache per process so a roster pays
+# can call the same endpoint more than once per run (a retry, or two keys on
+# one port). Cache per process so a roster pays
 # one extra HTTP round trip rather than one per leg. Never cached across
 # processes: a CI job that outlives a model swap is not a scenario, because a
 # job is minutes long and a swap takes the endpoint down.
@@ -76,11 +75,10 @@ def _models_url(base_url: str) -> str:
     """Build the ``/v1/models`` URL for a registry base URL."""
     normalized = base_url.rstrip("/")
     if normalized.endswith("/chat/completions"):
-        # A registry entry may carry a COMPLETE chat-completions URL (the cloud
-        # shape). In an OpenAI-compatible API ``models`` is the SIBLING of
+        # A registry entry may carry a COMPLETE chat-completions URL. In an
+        # OpenAI-compatible API ``models`` is the SIBLING of
         # ``chat/completions`` under the same version prefix, whatever that
-        # prefix is spelled -- /v1 upstream, /api/coding/paas/v4 on z.ai -- so
-        # swap the leaf rather than assuming the prefix.
+        # prefix is spelled, so swap the leaf rather than assuming the prefix.
         return f"{normalized[: -len('/chat/completions')]}/models"
     # Host:port form (the self-hosted shape): the API root is the origin.
     return f"{normalized}{_MODELS_PATH}"
