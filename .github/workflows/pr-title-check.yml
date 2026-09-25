@@ -8,6 +8,12 @@ on:
   pull_request:
     types: [opened, edited, synchronize, reopened]
 
+# OMN-19646: cancel only superseded pull request runs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+
 jobs:
   pr-title:
     uses: OmniNode-ai/onex_change_control/.github/workflows/pr-title-check-reusable.yml@main

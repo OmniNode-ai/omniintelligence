@@ -14,6 +14,12 @@ on:
       - .github/workflows/**
       - tests/**
 
+# OMN-19646: cancel only superseded pull request runs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+
 jobs:
   ban-hardcoded-runner-ip:
     # OMN-17993: pinned to an exact SHA, not @main. omniclaude main lags dev by
@@ -22,4 +28,3 @@ jobs:
     uses: OmniNode-ai/omniclaude/.github/workflows/ban-hardcoded-runner-ip.yml@33af26309b43e84bde318e8f8c06862d46502ea7
     permissions:
       contents: read
-
