@@ -199,7 +199,19 @@ class TestReviewerIdentity:
             api_model_id="model-b",
         )
         assert reviewer_identity("a", one, env) != reviewer_identity("b", two, env)
-        assert reviewer_identity("a", one, env) == "https://cloud.example:443#model-a"
+        assert (
+            reviewer_identity("a", one, env) == "https://cloud.example:443#id=model-a"
+        )
+
+    def test_a_declared_id_spelled_served_is_not_a_served_reviewer(self) -> None:
+        """Found by the live lab review of this change (both lab models): the
+        model part of a served entry and of a declared id must not share a
+        namespace, or a declared id spelled ``served`` collides with it."""
+        env: dict[str, str] = {}
+        declared = _config(_QWEN, model_id_source="declared", api_model_id="served")
+        assert reviewer_identity("a", declared, env) != reviewer_identity(
+            "b", _config(_QWEN), env
+        )
 
     def test_unknown_or_urlless_key_is_its_own_reviewer(self) -> None:
         assert reviewer_identity("codex", None, {}) == "key:codex"

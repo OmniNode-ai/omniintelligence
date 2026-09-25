@@ -72,19 +72,22 @@ def reviewer_identity(
         environ: Environment to read the key's URL override from.
 
     Returns:
-        ``<normalised endpoint>#<model>`` where ``<model>`` is the declared
-        ``api_model_id`` or ``served``; ``key:<model_key>`` when the key has
-        no entry or no URL.
+        ``<normalised endpoint>#<model>`` where ``<model>`` is
+        ``id=<declared api_model_id>`` or ``served``; ``key:<model_key>`` when
+        the key has no entry or no URL.
     """
     if config is None:
         return f"key:{model_key}"
     url = environ.get(config.env_var) or config.default_url
     if not url.strip():
         return f"key:{model_key}"
+    # The two model forms live in separate namespaces (``served`` vs
+    # ``id=<declared id>``), so a declared id spelled ``served`` cannot pass
+    # for a served entry on the same endpoint.
     if config.model_id_source == "served" or not config.api_model_id:
         model = "served"
     else:
-        model = config.api_model_id
+        model = f"id={config.api_model_id}"
     return f"{_normalise_endpoint(url)}#{model}"
 
 
