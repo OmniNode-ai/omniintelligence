@@ -480,7 +480,17 @@ async def call_model(
         extra_body=(
             {"thinking": {"type": "enabled" if config.enable_thinking else "disabled"}}
             if config.api_key_env is not None
-            else {"chat_template_kwargs": {"enable_thinking": config.enable_thinking}}
+            # OMN-17492: gpt-oss reads reasoning_effort from the same
+            # chat_template_kwargs; it is sent only when the registry declares
+            # it, so every other local entry sends exactly what it sent before.
+            else {
+                "chat_template_kwargs": {"enable_thinking": config.enable_thinking}
+                if config.reasoning_effort is None
+                else {
+                    "enable_thinking": config.enable_thinking,
+                    "reasoning_effort": config.reasoning_effort,
+                }
+            }
         ),
     )
 

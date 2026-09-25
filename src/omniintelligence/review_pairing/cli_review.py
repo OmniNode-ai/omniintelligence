@@ -57,9 +57,11 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 import subprocess
 import sys
 import time
+import urllib.parse
 from pathlib import Path
 
 from omniintelligence.review_pairing.adapters.adapter_ai_reviewer import (
@@ -83,6 +85,7 @@ from omniintelligence.review_pairing.models_external_review import (
     ModelMultiReviewResult,
 )
 from omniintelligence.review_pairing.persona_loader import load_persona
+from omniintelligence.review_pairing.prompts.adversarial_reviewer import PROMPT_VERSION
 from omniintelligence.review_pairing.quorum import (
     evaluate_quorum,
     format_quorum_summary,
@@ -264,6 +267,50 @@ async def run_review(
         results=results,
         total_findings=total_findings,
     )
+
+
+def _record_unreachable(
+    result: ModelMultiReviewResult, skipped: list[str]
+) -> ModelMultiReviewResult:
+    """Name every reviewer the reachability probe dropped (OMN-17492).
+
+    A dropped key used to vanish from the emitted JSON, so a run that lost a
+    reviewer read like a run that never asked for it. Each one is recorded as
+    an attempted, failed model. It never succeeds, so the quorum is unchanged.
+    """
+    if not skipped:
+        return result
+    failed = [
+        ModelExternalReviewResult(
+            model=key,
+            prompt_version=PROMPT_VERSION,
+            success=False,
+            error=(
+                "unreachable: the TCP reachability probe of "
+                f"{_endpoint_label(key)} failed, so this reviewer was not called"
+            ),
+        )
+        for key in skipped
+        if key not in result.models_attempted
+    ]
+    if not failed:
+        return result
+    return result.model_copy(
+        update={
+            "models_attempted": [*result.models_attempted, *(r.model for r in failed)],
+            "models_failed": [*result.models_failed, *(r.model for r in failed)],
+            "results": [*result.results, *failed],
+        }
+    )
+
+
+def _endpoint_label(model_key: str) -> str:
+    """host:port of a registry key's resolved endpoint, for messages only."""
+    config = MODEL_REGISTRY.get(model_key)
+    if config is None:
+        return model_key
+    parsed = urllib.parse.urlparse(os.environ.get(config.env_var, config.default_url))
+    return f"{model_key} at {parsed.hostname}:{parsed.port or 80}"
 
 
 def _severity_summary(result: ModelMultiReviewResult) -> str:
@@ -625,6 +672,7 @@ def main(argv: list[str] | None = None) -> int:
     result = asyncio.run(
         run_review(review_content, model_keys, review_type=review_type, persona=persona)
     )
+    result = _record_unreachable(result, skipped)
 
     # Resolve cross-model agreement (OMN-18479). The verdict travels in the
     # emitted document so no caller has to re-derive one by summing
