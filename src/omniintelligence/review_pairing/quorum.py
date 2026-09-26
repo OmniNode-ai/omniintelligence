@@ -14,6 +14,14 @@ Here a finding blocks only when at least ``min_agreeing_models`` DISTINCT
 successful models raise a matching finding. A finding raised by one model
 is reported as a warning: never dropped, never blocking.
 
+DISTINCT means distinct reviewers, not distinct registry keys (OMN-17492).
+A key is a name; ``qwen3-review``, ``qwen3-review-b`` and ``deepseek-r1``
+were three names for one endpoint serving one model, and two of them met
+the quorum with that model agreeing with itself. Each result carries the
+``reviewer_identity`` the CLI stamped on it (endpoint plus model, see
+``reviewer_identity.py``), and both the quorum and every agreement count
+are taken over identities. A result without one counts as ``key:<model>``.
+
 Fingerprint -- which fields are stable across models, and which are not:
 
 * ``file_path`` IS the location for LLM findings. ``adapter_ai_reviewer``
@@ -54,6 +62,7 @@ from omniintelligence.review_pairing.models import (
 )
 from omniintelligence.review_pairing.models_external_review import (
     EnumQuorumVerdict,
+    ModelExternalReviewResult,
     ModelMultiReviewResult,
     ModelQuorumFinding,
     ModelReviewQuorumPolicy,
@@ -106,6 +115,7 @@ class _Cluster:
         severity: EnumFindingSeverity,
         line: int,
         model: str,
+        identity: str,
         finding: ModelReviewFindingObserved,
     ) -> None:
         self.path = path
@@ -114,12 +124,22 @@ class _Cluster:
         self.line = line
         self.message = finding.normalized_message
         self.models: list[str] = [model]
+        self.identities: list[str] = [identity]
         self.finding_ids: list[str] = [str(finding.finding_id)]
 
-    def admit(self, *, model: str, finding: ModelReviewFindingObserved) -> None:
+    def admit(
+        self, *, model: str, identity: str, finding: ModelReviewFindingObserved
+    ) -> None:
         if model not in self.models:
             self.models.append(model)
+        if identity not in self.identities:
+            self.identities.append(identity)
         self.finding_ids.append(str(finding.finding_id))
+
+
+def _identity(model_result: ModelExternalReviewResult) -> str:
+    """Distinct-reviewer identity of a result, falling back to its key."""
+    return model_result.reviewer_identity or f"key:{model_result.model}"
 
 
 def _cluster_findings(
@@ -134,6 +154,7 @@ def _cluster_findings(
         if not model_result.success:
             continue
         model = model_result.model
+        identity = _identity(model_result)
         for finding in model_result.findings:
             path, line = _normalise_location(finding)
             rule = _normalise_rule(finding)
@@ -141,7 +162,7 @@ def _cluster_findings(
             bucket = grouped.setdefault(key, [])
             for cluster in bucket:
                 if abs(line - cluster.line) <= policy.line_proximity_lines:
-                    cluster.admit(model=model, finding=finding)
+                    cluster.admit(model=model, identity=identity, finding=finding)
                     break
             else:
                 cluster = _Cluster(
@@ -150,6 +171,7 @@ def _cluster_findings(
                     severity=finding.severity,
                     line=line,
                     model=model,
+                    identity=identity,
                     finding=finding,
                 )
                 bucket.append(cluster)
@@ -177,7 +199,14 @@ def evaluate_quorum(
     succeeded: tuple[str, ...] = tuple(
         model_result.model for model_result in result.results if model_result.success
     )
-    quorum_met = len(succeeded) >= policy.min_agreeing_models
+    distinct: tuple[str, ...] = tuple(
+        dict.fromkeys(
+            _identity(model_result)
+            for model_result in result.results
+            if model_result.success
+        )
+    )
+    quorum_met = len(distinct) >= policy.min_agreeing_models
 
     clusters = _cluster_findings(result, policy)
 
@@ -187,7 +216,7 @@ def evaluate_quorum(
         is_blocking = (
             quorum_met
             and cluster.severity in policy.blocking_severities
-            and len(cluster.models) >= policy.min_agreeing_models
+            and len(cluster.identities) >= policy.min_agreeing_models
         )
         entry = ModelQuorumFinding(
             file_path=cluster.path,
@@ -196,7 +225,7 @@ def evaluate_quorum(
             rule=cluster.rule,
             message=cluster.message,
             agreeing_models=tuple(cluster.models),
-            agreement_count=len(cluster.models),
+            agreement_count=len(cluster.identities),
             blocking=is_blocking,
             finding_ids=tuple(cluster.finding_ids),
         )
@@ -218,6 +247,7 @@ def evaluate_quorum(
         verdict=verdict,
         quorum_threshold=policy.min_agreeing_models,
         models_succeeded=succeeded,
+        distinct_reviewers_succeeded=distinct,
         quorum_met=quorum_met,
         blocking_count=len(blocking),
         warning_count=len(warnings),
@@ -231,7 +261,8 @@ def format_quorum_summary(summary: ModelReviewQuorumSummary) -> Sequence[str]:
     lines = [
         f"Quorum verdict: {summary.verdict.value} "
         f"(threshold={summary.quorum_threshold}, "
-        f"models succeeded={len(summary.models_succeeded)})",
+        f"models succeeded={len(summary.models_succeeded)}, "
+        f"distinct reviewers={len(summary.distinct_reviewers_succeeded)})",
         f"Blocking (agreed by >={summary.quorum_threshold} models): "
         f"{summary.blocking_count}",
         f"Warnings (below quorum, reported only): {summary.warning_count}",

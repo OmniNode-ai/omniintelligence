@@ -194,7 +194,7 @@ class TestToReviewFindings:
     def test_converts_well_formed_findings(self) -> None:
         findings = to_review_findings(
             _well_formed_findings(),
-            "deepseek-r1",
+            "qwen3-review",
             repo=_REPO,
             pr_id=_PR_ID,
             commit_sha=_SHA,
@@ -205,10 +205,10 @@ class TestToReviewFindings:
     def test_rule_id_format(self) -> None:
         findings = to_review_findings(
             _well_formed_findings(),
-            "deepseek-r1",
+            "qwen3-review",
         )
-        assert findings[0].rule_id == "ai-reviewer:deepseek-r1:architecture"
-        assert findings[1].rule_id == "ai-reviewer:deepseek-r1:testing"
+        assert findings[0].rule_id == "ai-reviewer:qwen3-review:architecture"
+        assert findings[1].rule_id == "ai-reviewer:qwen3-review:testing"
 
     def test_rule_id_changes_per_model(self) -> None:
         findings = to_review_findings(
@@ -220,7 +220,7 @@ class TestToReviewFindings:
     def test_severity_mapping(self) -> None:
         findings = to_review_findings(
             _well_formed_findings(),
-            "deepseek-r1",
+            "qwen3-review",
         )
         assert findings[0].severity == EnumFindingSeverity.ERROR  # critical
         assert findings[1].severity == EnumFindingSeverity.INFO  # minor
@@ -228,7 +228,7 @@ class TestToReviewFindings:
     def test_confidence_tier_is_probabilistic(self) -> None:
         findings = to_review_findings(
             _well_formed_findings(),
-            "deepseek-r1",
+            "qwen3-review",
         )
         for f in findings:
             # Confidence tier is implicit via tool_name convention
@@ -238,9 +238,9 @@ class TestToReviewFindings:
     def test_tool_name_includes_model(self) -> None:
         findings = to_review_findings(
             _well_formed_findings(),
-            "deepseek-r1",
+            "qwen3-review",
         )
-        assert findings[0].tool_name == "ai-reviewer:deepseek-r1"
+        assert findings[0].tool_name == "ai-reviewer:qwen3-review"
 
     def test_skips_non_dict_items(self) -> None:
         findings = to_review_findings(
@@ -257,20 +257,20 @@ class TestToReviewFindings:
                 "not a dict",
                 42,
             ],
-            "deepseek-r1",
+            "qwen3-review",
         )
         assert len(findings) == 1
 
     def test_empty_input_returns_empty(self) -> None:
-        assert to_review_findings([], "deepseek-r1") == []
+        assert to_review_findings([], "qwen3-review") == []
 
     def test_missing_fields_use_defaults(self) -> None:
         findings = to_review_findings(
             [{"severity": "major"}],
-            "deepseek-r1",
+            "qwen3-review",
         )
         assert len(findings) == 1
-        assert findings[0].rule_id == "ai-reviewer:deepseek-r1:unknown"
+        assert findings[0].rule_id == "ai-reviewer:qwen3-review:unknown"
         assert findings[0].severity == EnumFindingSeverity.WARNING
 
 
@@ -300,17 +300,17 @@ class TestParseRaw:
         findings = parse_raw(raw, model="qwen3-coder")
         assert findings[0].rule_id == "ai-reviewer:qwen3-coder:architecture"
 
-    def test_default_model_is_deepseek_r1(self) -> None:
+    def test_default_model_is_qwen3_review(self) -> None:
         raw = json.dumps(_well_formed_findings())
         findings = parse_raw(raw)
-        assert findings[0].rule_id == "ai-reviewer:deepseek-r1:architecture"
+        assert findings[0].rule_id == "ai-reviewer:qwen3-review:architecture"
 
     def test_unknown_model_raises_value_error(self) -> None:
         with pytest.raises(ValueError, match="Unknown model 'foo'"):
             parse_raw("[]", model="foo")
 
     def test_unknown_model_error_lists_valid_keys(self) -> None:
-        with pytest.raises(ValueError, match="deepseek-r1"):
+        with pytest.raises(ValueError, match="qwen3-review"):
             parse_raw("[]", model="invalid-model")
 
     def test_dict_input(self) -> None:
@@ -347,12 +347,12 @@ class TestAsyncParseRaw:
         ):
             result = await adapter_ai_reviewer.async_parse_raw(
                 "# Test Plan\nDo stuff.",
-                model="deepseek-r1",
+                model="qwen3-review",
             )
 
         assert isinstance(result, ModelExternalReviewResult)
         assert result.success is True
-        assert result.model == "deepseek-r1"
+        assert result.model == "qwen3-review"
         assert result.prompt_version == PROMPT_VERSION
         assert result.result_count == 2
         assert len(result.findings) == 2
@@ -369,7 +369,7 @@ class TestAsyncParseRaw:
         ):
             result = await adapter_ai_reviewer.async_parse_raw(
                 "# Plan",
-                model="deepseek-r1",
+                model="qwen3-review",
             )
 
         assert result.success is True  # Parsing succeeded, just no findings
@@ -388,7 +388,7 @@ class TestAsyncParseRaw:
         ):
             result = await adapter_ai_reviewer.async_parse_raw(
                 "# Plan",
-                model="deepseek-r1",
+                model="qwen3-review",
             )
 
         assert result.success is False
@@ -407,7 +407,7 @@ class TestAsyncParseRaw:
         ):
             result = await adapter_ai_reviewer.async_parse_raw(
                 "# Plan",
-                model="deepseek-r1",
+                model="qwen3-review",
             )
 
         assert result.prompt_version == PROMPT_VERSION
@@ -432,21 +432,10 @@ class TestAsyncParseRaw:
 @pytest.mark.unit
 class TestModelRegistry:
     def test_registry_has_expected_models(self) -> None:
-        assert "deepseek-r1" in MODEL_REGISTRY
+        assert "qwen3-review" in MODEL_REGISTRY
+        assert "gpt-oss-review" in MODEL_REGISTRY
         assert "qwen3-coder" in MODEL_REGISTRY
         assert "qwen3-14b" in MODEL_REGISTRY
-
-    def test_deepseek_r1_config(self) -> None:
-        config = MODEL_REGISTRY["deepseek-r1"]
-        assert config.env_var == "LLM_DEEPSEEK_R1_URL"
-        assert config.kind == "reasoning"
-        assert config.timeout_seconds == 300.0
-
-    def test_deepseek_r1_enable_thinking_false(self) -> None:
-        """OMN-16407 residual: repointed to the same SGLang :8000 endpoint
-        as qwen3-review/qwen3-review-b, which requires enable_thinking:false
-        to avoid the truncated-preamble bug (OMN-14176)."""
-        assert MODEL_REGISTRY["deepseek-r1"].enable_thinking is False
 
     def test_qwen3_coder_config(self) -> None:
         config = MODEL_REGISTRY["qwen3-coder"]
@@ -464,24 +453,6 @@ class TestModelRegistry:
         for qwen3-review -- proves the YAML round-trips into config, not
         just that call_model's mocked behavior matches."""
         assert MODEL_REGISTRY["qwen3-review"].enable_thinking is False
-
-    def test_qwen3_review_b_enable_thinking_false(self) -> None:
-        assert MODEL_REGISTRY["qwen3-review-b"].enable_thinking is False
-
-    def test_qwen3_review_b_timeout_lowered_after_gpu1_rma(self) -> None:
-        """OMN-16407: lowered 1200 -> 300 after the RTX 4090 qwen3-review-b
-        targeted was physically removed for RMA and it was repointed to the
-        SGLang :8000 endpoint, live-measured this session at ~131 tok/s
-        (a 37,230-prompt-token / 3,694-completion-token real review payload
-        completed in 34.7s wall-clock, finish_reason=stop). 300s keeps
-        ~8.6x margin over that measured worst case."""
-        assert MODEL_REGISTRY["qwen3-review-b"].timeout_seconds == 300.0
-
-    def test_qwen3_review_b_max_retries_lowered(self) -> None:
-        """OMN-15115: lowered default(3) -> 1 -- retrying a systematically-slow
-        (not transiently-flaky) single-concurrency-slot endpoint just re-spends
-        the same wall-clock budget for the same outcome."""
-        assert MODEL_REGISTRY["qwen3-review-b"].max_retries == 1
 
     def test_qwen3_review_max_retries_unset(self) -> None:
         """qwen3-review (the 5090 endpoint) is untouched by OMN-15115 -- no
@@ -510,33 +481,8 @@ class TestModelRegistry:
         )
 
         with patch.dict("os.environ", {}, clear=True):
-            url = _resolve_model_url("deepseek-r1")
-        assert url == "http://192.168.86.201:8000"
-
-    def test_deepseek_r1_default_model_id(self) -> None:
-        """Assert deepseek-r1 resolves the live model ID (OMN-8654; repointed
-        OMN-16407 residual 2026-08-23 after the RTX 4090 backend was
-        physically removed for RMA; repinned OMN-17786 2026-09-03 off the
-        retired SGLang id "qwen3.8" onto the vLLM served-model-name that
-        .201:8000 actually answers to -- vLLM 404s an unknown id)."""
-        config = MODEL_REGISTRY["deepseek-r1"]
-        # OMN-18623 (2026-09-17): no id is declared any more. The ruling of
-        # 2026-09-17T19:54:09Z forbids the literal; the id is resolved at call
-        # time from the endpoint's /v1/models.
-        assert config.api_model_id == ""
-        assert config.model_id_source == "served"
-
-    def test_deepseek_r1_default_url_is_201_8000(self) -> None:
-        """Assert deepseek-r1 default URL points to .201:8000 (OMN-8654;
-        repointed OMN-16407 residual 2026-08-23 -- :8001's RTX 4090 was
-        physically removed for RMA)."""
-        from omniintelligence.review_pairing.adapters.adapter_ai_reviewer import (
-            _resolve_model_url,
-        )
-
-        with patch.dict("os.environ", {}, clear=True):
-            url = _resolve_model_url("deepseek-r1")
-        assert url == "http://192.168.86.201:8000"
+            url = _resolve_model_url("qwen3-review")
+        assert url == "http://192.168.86.201:8000"  # onex-allow-internal-ip
 
     def test_unknown_model_raises(self) -> None:
         from omniintelligence.review_pairing.adapters.adapter_ai_reviewer import (
@@ -649,13 +595,13 @@ class TestCallModelThinkingSuppression:
     OMN-12816) -- it was never wired into the reviewer. Without disabling
     reasoning, reviewer models spend most of max_tokens on an unwrapped
     reasoning preamble that defeats the strip-think-tags fallback below and
-    the JSON extraction in parse_review_response. qwen3-review and
-    qwen3-review-b are configured enable_thinking: false in the registry.
+    the JSON extraction in parse_review_response. qwen3-review is
+    configured enable_thinking: false in the registry.
     """
 
     @pytest.mark.asyncio
     async def test_call_model_reads_enable_thinking_false_from_registry(self) -> None:
-        """qwen3-review-b is configured enable_thinking: false in
+        """qwen3-review is configured enable_thinking: false in
         model_registry.yaml -- the request must carry that value, read from
         config, not a hardcoded literal."""
         from omniintelligence.review_pairing.adapters import adapter_ai_reviewer
@@ -664,7 +610,7 @@ class TestCallModelThinkingSuppression:
             "os.environ",
             {
                 "LOCAL_LLM_SHARED_SECRET": "x",  # pragma: allowlist secret
-                "LLM_QWEN3_REVIEW_B_URL": "http://x:1",
+                "LLM_QWEN3_REVIEW_URL": "http://x:1",
             },
             clear=False,
         ):
@@ -672,7 +618,7 @@ class TestCallModelThinkingSuppression:
                 patch(
                     "omnibase_infra.nodes.node_llm_inference_effect.handlers.handler_llm_openai_compatible.HandlerLlmOpenaiCompatible"
                 ) as handler_cls,
-                # OMN-18623: qwen3-review-b is a model_id_source: served entry,
+                # OMN-18623: qwen3-review is a model_id_source: served entry,
                 # so call_model now resolves its wire id from the endpoint's
                 # /v1/models. Stub that read -- this test is about the
                 # enable_thinking passthrough, and letting it attempt a real
@@ -686,7 +632,7 @@ class TestCallModelThinkingSuppression:
                 handler_inst.handle.return_value = AsyncMock(generated_text="[]")
                 handler_cls.return_value = handler_inst
                 await adapter_ai_reviewer.call_model(
-                    "sys", "usr", model_key="qwen3-review-b"
+                    "sys", "usr", model_key="qwen3-review"
                 )
 
             request = handler_inst.handle.call_args[0][0]
@@ -799,114 +745,16 @@ class TestCallModelThinkingSuppression:
         assert result == "[]"
 
 
-class TestCallModelCloudBearerAuth:
-    """OMN-17492: authenticated cloud reviewers (api_key_env in the registry).
-
-    glm-review rides the z.ai GLM Coding Plan through the SAME
-    HandlerLlmOpenaiCompatible path as the local models; the only deltas are
-    a Bearer key read from the declared env var (fail-closed per-model), the
-    COMPLETE endpoint URL used verbatim, and the GLM spelling of the
-    thinking toggle. The key VALUE never appears in the registry or in any
-    error message.
+class TestCallModelSendsNoApiKey:
+    """OMN-17492 (2026-09-25): private diffs go only to lab models, so the
+    authenticated cloud path (a Bearer key read from a declared env var, the
+    GLM wire shape) is deleted with glm-review. No reviewer call carries a
+    key.
     """
 
     @pytest.mark.asyncio
-    async def test_glm_review_threads_bearer_key_and_glm_wire_shape(self) -> None:
-        from omniintelligence.review_pairing.adapters import adapter_ai_reviewer
-
-        with patch.dict(
-            "os.environ",
-            {
-                "LOCAL_LLM_SHARED_SECRET": "x",  # pragma: allowlist secret
-                "LLM_GLM_API_KEY": "test-glm-key",  # pragma: allowlist secret
-            },
-            clear=False,
-        ):
-            with patch(
-                "omnibase_infra.nodes.node_llm_inference_effect.handlers.handler_llm_openai_compatible.HandlerLlmOpenaiCompatible"
-            ) as handler_cls:
-                handler_inst = AsyncMock()
-                handler_inst.handle.return_value = AsyncMock(generated_text="[]")
-                handler_cls.return_value = handler_inst
-                await adapter_ai_reviewer.call_model(
-                    "sys", "usr", model_key="glm-review"
-                )
-
-            request = handler_inst.handle.call_args[0][0]
-            # OMN-18385 made api_key a SecretStr on the upstream request model,
-            # so the wire value has to be unwrapped to be compared. Asserting on
-            # the repr instead would pass against the mask and prove nothing.
-            assert (
-                request.api_key.get_secret_value() == "test-glm-key"
-            )  # pragma: allowlist secret
-            # Registry URL is COMPLETE (ends /chat/completions) and must be
-            # used verbatim -- appending /v1/chat/completions would 404.
-            assert (
-                request.endpoint_url
-                == "https://api.z.ai/api/coding/paas/v4/chat/completions"
-            )
-            assert request.model == "glm-5.3-flash"
-            # GLM wire shape for the declarative enable_thinking:false --
-            # z.ai has no chat_template_kwargs surface.
-            assert request.extra_body == {"thinking": {"type": "disabled"}}
-
-    @pytest.mark.asyncio
-    async def test_glm_review_fails_closed_when_key_missing(self) -> None:
-        from omniintelligence.review_pairing.adapters import adapter_ai_reviewer
-
-        with patch.dict(
-            "os.environ",
-            {"LOCAL_LLM_SHARED_SECRET": "x"},  # pragma: allowlist secret
-            clear=True,
-        ):
-            with patch(
-                "omnibase_infra.nodes.node_llm_inference_effect.handlers.handler_llm_openai_compatible.HandlerLlmOpenaiCompatible"
-            ) as handler_cls:
-                handler_inst = AsyncMock()
-                handler_cls.return_value = handler_inst
-                with pytest.raises(ValueError, match="LLM_GLM_API_KEY"):
-                    await adapter_ai_reviewer.call_model(
-                        "sys", "usr", model_key="glm-review"
-                    )
-                handler_inst.handle.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_glm_review_fails_closed_when_key_empty(self) -> None:
-        """Whitespace-only key is as absent as no key at all."""
-        from omniintelligence.review_pairing.adapters import adapter_ai_reviewer
-
-        with patch.dict(
-            "os.environ",
-            {
-                "LOCAL_LLM_SHARED_SECRET": "x",  # pragma: allowlist secret
-                "LLM_GLM_API_KEY": "   ",
-            },
-            clear=True,
-        ):
-            with pytest.raises(ValueError, match="LLM_GLM_API_KEY"):
-                await adapter_ai_reviewer.call_model(
-                    "sys", "usr", model_key="glm-review"
-                )
-
-    @pytest.mark.asyncio
-    async def test_glm_review_missing_key_error_never_leaks_a_value(self) -> None:
-        """The fail-closed error names the ENV VAR, never any value."""
-        from omniintelligence.review_pairing.adapters import adapter_ai_reviewer
-
-        with patch.dict(
-            "os.environ",
-            {"LOCAL_LLM_SHARED_SECRET": "sekrit-local"},  # pragma: allowlist secret
-            clear=True,
-        ):
-            with pytest.raises(ValueError) as exc_info:
-                await adapter_ai_reviewer.call_model(
-                    "sys", "usr", model_key="glm-review"
-                )
-        assert "sekrit-local" not in str(exc_info.value)
-
-    @pytest.mark.asyncio
     async def test_local_model_sends_no_api_key(self) -> None:
-        """Pre-OMN-17492 entries are unaffected: no Bearer key on local calls."""
+        """A reviewer call carries no Bearer key."""
         from omniintelligence.review_pairing.adapters import adapter_ai_reviewer
 
         with patch.dict(

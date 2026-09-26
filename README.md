@@ -104,7 +104,7 @@ pre-commit run --all-files
 
 # Review calibration CLI
 uv run python -m omniintelligence.review_pairing \
-  --file plan.md --ground-truth codex --challenger deepseek-r1
+  --file plan.md --ground-truth codex --challenger qwen3-review
 ```
 
 ---

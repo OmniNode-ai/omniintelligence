@@ -22,7 +22,7 @@ stalling silently.
 
 Reference: OMN-15066 -- the hostile-reviewer CI gate (omnimarket) stalled
 35m21s and was cancelled at its 35-minute job ceiling because
-qwen3-review-b's worst-case retry budget (4 attempts x 600s + 14s backoff =
+qwen3-review-b's (a since-deleted alias, OMN-17492) worst-case retry budget (4 attempts x 600s + 14s backoff =
 2414s) alone exceeded it, with zero visible log output because
 ``cli_review.py`` never configured Python logging (see the companion
 omnibase_infra PR for the logging fix).
@@ -43,7 +43,7 @@ class ModelRetryBudgetResult:
     """Worst-case retry budget for a single model key.
 
     Attributes:
-        model_key: Registry key (e.g. "qwen3-review-b").
+        model_key: Registry key (e.g. "gpt-oss-review").
         per_attempt_timeout_seconds: The model's registered per-attempt timeout.
         total_attempts: 1 + max_retries.
         backoff_seconds: Total exponential-backoff sleep across all retries.

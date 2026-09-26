@@ -8,7 +8,7 @@ review using local LLMs and optionally Codex CLI. Supports reviewing
 both plan files and PR diffs.
 
 Usage:
-    # Review a plan file (default model: deepseek-r1)
+    # Review a plan file (default model: qwen3-review)
     uv run python -m omniintelligence.review_pairing.cli_review --file plan.md
 
     # Review a PR diff
@@ -90,6 +90,7 @@ from omniintelligence.review_pairing.quorum import (
     evaluate_quorum,
     format_quorum_summary,
 )
+from omniintelligence.review_pairing.reviewer_identity import reviewer_identity
 
 _CODEX_MODEL_KEY: str = "codex"
 _LARGE_PR_DIFF_MARKERS: tuple[str, ...] = (
@@ -247,6 +248,13 @@ async def run_review(
                 system_prompt_prefix=persona.content if persona is not None else None,
             )
         elapsed = time.monotonic() - call_started_at
+        # OMN-17492: record WHICH reviewer this key is (endpoint + model), so
+        # the quorum counts two names for one model once.
+        result = result.model_copy(
+            update={
+                "reviewer_identity": reviewer_identity(model_key, config, os.environ)
+            }
+        )
         status = "succeeded" if result.success else "FAILED"
         print(
             f"Model '{model_key}' {status} in {elapsed:.1f}s "
@@ -730,7 +738,9 @@ def main(argv: list[str] | None = None) -> int:
     if quorum_summary.verdict is EnumQuorumVerdict.DEGRADED_QUORUM:
         print(
             "ERROR: DEGRADED QUORUM — "
-            f"{len(quorum_summary.models_succeeded)} model(s) succeeded, "
+            f"{len(quorum_summary.models_succeeded)} model(s) succeeded as "
+            f"{len(quorum_summary.distinct_reviewers_succeeded)} distinct "
+            "reviewer(s) (endpoint + model), "
             f"{quorum_summary.quorum_threshold} required for agreement. "
             "No verdict was established; this is not a pass.",
             file=sys.stderr,
