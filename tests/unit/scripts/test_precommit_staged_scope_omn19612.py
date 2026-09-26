@@ -1,12 +1,14 @@
 # SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
 
+import re
 import subprocess
 from pathlib import Path
 
 import pytest
 import yaml
 
+from scripts.ci.detect_test_paths import compute_selection
 from scripts.validation.check_kafka_no_hardcoded_fallback import main as kafka_main
 from scripts.validation.validate_naming import IntelligenceNamingConventionValidator
 
@@ -14,6 +16,8 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 PRECOMMIT_CONFIG = REPO_ROOT / ".pre-commit-config.yaml"
 CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 REQUIRED_CHECKS = REPO_ROOT / ".github" / "required-checks.yaml"
+ADJACENCY_PATH = REPO_ROOT / "scripts" / "ci" / "test_selection_adjacency.yaml"
+PIN_TEST_PATH = "tests/unit/scripts/test_precommit_staged_scope_omn19612.py"
 
 JOB_ID = "pre-commit"
 JOB_NAME = "Pre-commit Hooks"
@@ -63,6 +67,30 @@ def _staged_scoped_hook_ids() -> set[str]:
                 continue
             hook_ids.add(str(hook["id"]))
     return hook_ids
+
+
+def _needs(job: dict) -> list[str]:
+    needs = job.get("needs", [])
+    return [needs] if isinstance(needs, str) else needs
+
+
+def _run_script(job: dict) -> str:
+    return "\n".join(str(step.get("run", "")) for step in job.get("steps", []))
+
+
+def _path_covers(root: str, target: str) -> bool:
+    normalized_root = root.rstrip("/")
+    normalized_target = target.rstrip("/")
+    return normalized_target == normalized_root or normalized_target.startswith(
+        f"{normalized_root}/"
+    )
+
+
+def _ignored_paths(step: dict) -> list[str]:
+    command = str(step.get("run", "")).replace("\\\n", " ")
+    return [
+        match.group(1) for match in re.finditer(r"--ignore(?:=|\s+)([^\s\\]+)", command)
+    ]
 
 
 def test_every_staged_scoped_hook_has_whole_tree_coverage() -> None:
@@ -178,3 +206,82 @@ def test_cloud_bus_guard_catches_staged_and_full_violation(tmp_path: Path) -> No
     assert (
         subprocess.run(["bash", str(script)], cwd=tmp_path, check=False).returncode == 1
     )
+
+
+@pytest.mark.parametrize(
+    "changed_files",
+    [[".pre-commit-config.yaml"], [".github/workflows/ci.yml"]],
+)
+def test_configuration_changes_select_the_pin_test(changed_files: list[str]) -> None:
+    selection = compute_selection(
+        changed_files,
+        ADJACENCY_PATH,
+        ref_name="feature",
+        event_name="pull_request",
+        feature_flag_enabled=True,
+    )
+
+    assert any(_path_covers(path, PIN_TEST_PATH) for path in selection.selected_paths)
+
+
+def test_unit_test_job_cannot_skip_the_pin_test() -> None:
+    workflow = _workflow()
+    test_unit = workflow["jobs"]["test-unit"]
+    detect_changes = workflow["jobs"]["detect-changes"]
+
+    assert "if" not in test_unit
+    assert _needs(test_unit) == ["detect-changes"]
+    assert "if" not in detect_changes
+
+    pytest_steps = [
+        step
+        for step in test_unit["steps"]
+        if "uv run pytest" in str(step.get("run", ""))
+    ]
+    assert len(pytest_steps) == 2
+    for step in pytest_steps:
+        assert not any(
+            _path_covers(path, "tests/unit/scripts") for path in _ignored_paths(step)
+        )
+
+    smart_step = next(
+        step
+        for step in pytest_steps
+        if step["name"] == "Run unit tests (smart selection)"
+    )
+    full_step = next(
+        step for step in pytest_steps if step["name"] == "Run unit tests (full suite)"
+    )
+    assert "== 'true'" in smart_step["if"]
+    assert "is_full_suite == 'false'" in smart_step["if"]
+    assert "!= 'true'" in full_step["if"]
+    assert "is_full_suite == 'true'" in full_step["if"]
+
+
+def test_ci_summary_fails_closed_on_unit_tests() -> None:
+    ci_summary = _workflow()["jobs"]["ci-summary"]
+
+    assert "test-unit" in _needs(ci_summary)
+    command = _run_script(ci_summary)
+    assert "needs.test-unit.result" in command
+    assert '[[ "$unittest" == "success" ]]' in command
+
+
+def test_scope_alignment_is_unconditional_and_required() -> None:
+    workflow = _workflow()
+    scope_alignment = workflow["jobs"]["scope-alignment"]
+
+    assert "if" not in scope_alignment
+    assert "continue-on-error" not in scope_alignment
+    validation_steps = [
+        step
+        for step in scope_alignment["steps"]
+        if "validate_ci_precommit_alignment.py" in str(step.get("run", ""))
+    ]
+    assert len(validation_steps) == 1
+    assert "if" not in validation_steps[0]
+    assert "continue-on-error" not in validation_steps[0]
+
+    quality_gate = workflow["jobs"]["quality-gate"]
+    assert "scope-alignment" in _needs(quality_gate)
+    assert "needs.scope-alignment.result" in _run_script(quality_gate)
