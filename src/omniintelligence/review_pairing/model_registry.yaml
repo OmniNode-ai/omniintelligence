@@ -35,7 +35,17 @@
 #
 # Reference: OMN-7213
 
-default_model_key: "deepseek-r1"
+# DELETED (OMN-17492, 2026-09-25): deepseek-r1 and qwen3-review-b, two
+# further names for the one model qwen3-review already names (.201:8000,
+# Qwen3.8-27B), and glm-review, a third-party cloud reviewer. A second name
+# for one model let the two-model quorum be one model agreeing with itself;
+# the quorum now counts distinct endpoint+model identities
+# (reviewer_identity.py), and
+# tests/unit/review_pairing/test_quorum_distinct_reviewers_omn17492.py
+# refuses any two keys here that resolve to one reviewer. Private diffs go
+# only to lab models (operator ruling 2026-09-25), so no cloud reviewer is
+# registered.
+default_model_key: "qwen3-review"
 
 # Cross-model agreement policy (OMN-18479).
 #
@@ -57,9 +67,7 @@ review_quorum:
     - "error"
 
 local_model_keys:
-  - "deepseek-r1"
   - "qwen3-review"
-  - "qwen3-review-b"
   - "gpt-oss-review"
   - "qwen3-coder"
   - "qwen3-14b"
@@ -69,63 +77,14 @@ api_fallback_keys:
   - "codex"
 
 models:
-  # deepseek-r1 — REPOINTED (OMN-16407 residual, 2026-08-23) from the now-
-  # physically-removed RTX 4090 (.201:8001, GPU1 sent for RMA at the
-  # 2026-08-23 ~13:00Z reboot) to the same SGLang endpoint qwen3-review /
-  # qwen3-review-b use (.201:8000, "qwen3.8" / Qwen3.8-27B NVFP4). This key
-  # is both default_model_key and a member of local_model_keys below, so
-  # deletion is NOT safe: model_registry_loader._validate_cross_refs raises
-  # ModelRegistryLoadError (hard import-time failure) if default_model_key
-  # names a key absent from `models`.
-  # NAMING RESIDUAL, recorded rather than silently fixed (OMN-18623): this key
-  # has not named a DeepSeek model since OMN-16407 repointed it off the RMA'd
-  # 4090. It is now an ALIAS for the same local .201:8000 slot qwen3-review and
-  # qwen3-review-b use, kept under its historical name. Retained deliberately:
-  # it is default_model_key, it is named in omniclaude's reviewer roster, and a
-  # rename is a cross-repo change that must move every consuming roster in the
-  # same commit. That belongs in its own ticket, not in a model-id repin. enable_thinking:false carried over
-  # from the identical qwen3-review-b migration (OMN-14176): without it, a
-  # thinking-model response against this endpoint can consume the whole
-  # max_tokens budget on a <think> preamble and defeat naive
-  # strip-think-tags parsing.
-  # NO MODEL ID IS DECLARED HERE, DELIBERATELY (OMN-18623, 2026-09-17).
-  # Operator ruling, in-session 2026-09-17T19:54:09Z, firm: the hostile
-  # reviewer's model must not be hardcoded to a specific model id; a
-  # served-model change must be solvable by an overlay or runtime resolution,
-  # never by a pull request that repoints a literal.
-  # The field was repointed THREE times in four weeks -- OMN-16407
-  # ("qwen3.8"), OMN-17786 ("Qwen3.6-35B-A3B"), OMN-18623 ("Qwen3.8-27B") --
-  # because the model this host serves is decided by a systemd unit on the
-  # host, not by this repository. A declared id is a COPY of a fact owned
-  # elsewhere, and every copy went stale the moment the unit changed, taking
-  # the Hostile Review Gate down in every consuming repo until a human landed
-  # a pull request hours later.
-  # `model_id_source: served` reads the fact instead: the id is resolved at
-  # call time from this endpoint's /v1/models (served_model_resolver.py),
-  # which is exact because vLLM serves exactly one model per port and
-  # validates the `model` field. After this, a served-model swap needs no edit
-  # in any repository. Resolution is fail-closed -- unreachable, unparseable,
-  # zero models or MORE than one all refuse rather than guess.
-  # AN OVERLAY WAS CONSIDERED AND NOT TAKEN: it is still a file a human edits
-  # when the served model changes, which is the same shape as the literal,
-  # only relocated. It stays the right mechanism for a value this repo OWNS,
-  # which is why the cloud reviewer below keeps `declared`.
-  deepseek-r1:
-    env_var: "LLM_DEEPSEEK_R1_URL"
-    default_url: "http://192.168.86.201:8000"  # onex-allow-internal-ip
-    kind: "reasoning"
-    timeout_seconds: 300.0
-    model_id_source: "served"
-    enable_thinking: false
-
   # qwen3-review — live .201:8000 endpoint. UPDATED (OMN-16407, 2026-08-23):
   # .201 was rebooted ~13:00Z 2026-08-23 and GPU1 (the RTX 4090 that served
-  # qwen3-review-b below) was physically REMOVED from the host for RMA. The
+  # the since-deleted qwen3-review-b) was physically REMOVED from the host for RMA. The
   # host's OTHER GPU (the RTX 5090 on this same :8000 port) also changed
   # backend at the same reboot: the old vLLM Qwen3.6-35B-A3B process is gone,
   # replaced by an SGLang + DSpark-drafter stack serving "qwen3.8"
-  # (Qwen3.8-27B NVFP4, ~131 tok/s measured decode -- see qwen3-review-b's
-  # comment below for the live measurement). api_model_id updated to match
+  # (Qwen3.8-27B NVFP4, ~131 tok/s measured decode, measured under the
+  # since-deleted qwen3-review-b entry). api_model_id updated to match
   # (live-verified via `curl :8000/v1/models`). NOTE: unlike the vLLM
   # generation this replaced, SGLang on this endpoint does NOT reject a
   # mismatched `model` field in the request (confirmed live: a
@@ -168,126 +127,22 @@ models:
     model_id_source: "served"
     enable_thinking: false
 
-  # qwen3-review-b — REPOINTED (OMN-16407, 2026-08-23) from the now-physically-
-  # removed RTX 4090 (.201:8001, llama-server, GPU1 sent for RMA at the
-  # 2026-08-23 ~13:00Z reboot) to the same SGLang endpoint qwen3-review now
-  # uses (.201:8000, "qwen3.8" / Qwen3.8-27B NVFP4). The fleet currently has
-  # exactly one GPU-backed review-capable LLM (the RTX 5090); qwen3-review and
-  # qwen3-review-b are therefore two independent HTTP calls to the same
-  # physical model until a second local backend exists again -- this still
-  # satisfies cli_review's "2/2 models responded" gate mechanically, but the
-  # two reviews are no longer architecturally independent. Tracked as a
-  # residual under OMN-16407; not fixed here (no second GPU-backed endpoint
-  # exists on the fleet to route to instead).
-  #
-  # timeout_seconds lowered 1200 -> 300 (OMN-16407): the prior 1200s was sized
-  # against the removed 4090/llama-server's measured 4.3-4.6 tok/s. Live-
-  # measured against the new SGLang :8000 endpoint this session: a
-  # realistic-sized review payload (37,230 prompt tokens, 3,694 completion
-  # tokens, finish_reason=stop i.e. not truncated) completed in 34.7s
-  # wall-clock end-to-end -- consistent with the ~131 tok/s decode throughput
-  # the fleet reports for this endpoint. 300s keeps ~8.6x margin over that
-  # measured worst case for network/queueing/contention variance without
-  # carrying forward a timeout sized for hardware that no longer exists.
-  # RE-MEASURED against the vLLM 0.27.1 NVFP4 build now serving :8000
-  # (OMN-18623, 2026-09-17T20:05Z): a 4,819-prompt-token / 281-completion-token
-  # call returned HTTP 200 in 9.2s, finish_reason=stop. The timeouts therefore
-  # do NOT follow the model change -- 120s (qwen3-review) and 300s (here) both
-  # retain ample margin. A 40.3s reading earlier the same evening was a cold
-  # first request after the unit's 6m18s boot, not steady-state latency.
-  #
-  # max_retries stays at 1 (2 total attempts, unchanged from OMN-15115): the
-  # rationale (a doomed retry against a systematically-slow endpoint burns
-  # wall-clock for the same outcome) still applies; nothing about the retry
-  # count depended on the removed hardware specifically.
-  #
-  # Worst-case sequential budget with these values: qwen3-review (unchanged,
-  # ~500s) + qwen3-review-b (2 x 300s = 600s) = ~1100s, well within the 3600s
-  # (60min) hostile-review job ceiling. See omniintelligence.review_pairing
-  # .retry_budget, which asserts this on every hostile-review CI run against
-  # the LIVE registry + LIVE per-model overrides.
-  # NO MODEL ID IS DECLARED HERE, DELIBERATELY (OMN-18623, 2026-09-17).
-  # Operator ruling, in-session 2026-09-17T19:54:09Z, firm: the hostile
-  # reviewer's model must not be hardcoded to a specific model id; a
-  # served-model change must be solvable by an overlay or runtime resolution,
-  # never by a pull request that repoints a literal.
-  # The field was repointed THREE times in four weeks -- OMN-16407
-  # ("qwen3.8"), OMN-17786 ("Qwen3.6-35B-A3B"), OMN-18623 ("Qwen3.8-27B") --
-  # because the model this host serves is decided by a systemd unit on the
-  # host, not by this repository. A declared id is a COPY of a fact owned
-  # elsewhere, and every copy went stale the moment the unit changed, taking
-  # the Hostile Review Gate down in every consuming repo until a human landed
-  # a pull request hours later.
-  # `model_id_source: served` reads the fact instead: the id is resolved at
-  # call time from this endpoint's /v1/models (served_model_resolver.py),
-  # which is exact because vLLM serves exactly one model per port and
-  # validates the `model` field. After this, a served-model swap needs no edit
-  # in any repository. Resolution is fail-closed -- unreachable, unparseable,
-  # zero models or MORE than one all refuse rather than guess.
-  # AN OVERLAY WAS CONSIDERED AND NOT TAKEN: it is still a file a human edits
-  # when the served model changes, which is the same shape as the literal,
-  # only relocated. It stays the right mechanism for a value this repo OWNS,
-  # which is why the cloud reviewer below keeps `declared`.
-  qwen3-review-b:
-    env_var: "LLM_QWEN3_REVIEW_B_URL"
-    default_url: "http://192.168.86.201:8000"  # onex-allow-internal-ip
-    kind: "code_review"
-    timeout_seconds: 300.0
-    model_id_source: "served"
-    enable_thinking: false
-    max_retries: 1
-
-  # glm-review — authenticated CLOUD reviewer on the z.ai GLM Coding Plan
-  # (OMN-17492). Deliberately NOT in local_model_keys: it is not TCP-probed
-  # as a LAN endpoint and never participates in the local-reachability
-  # fallback — it passes through select_models_with_fallback as a non-local
-  # key, so it still runs when every local model is down (that independence
-  # is the point: OMN-16481 flagged that qwen3-review and qwen3-review-b
-  # both resolve to the ONE remaining GPU, and OMN-17193 sub-row 2 wants the
-  # reviewer leg on an independent, funded quota domain).
-  #
-  # Endpoint authority is the OMN-6790 contract
-  # (omnimarket bifrost_delegation.yaml backend cloud-glm): the Coding-Plan
-  # surface /api/coding/paas/v4 — NEVER /api/paas/v4, which answers a
-  # Coding-Plan key with 429 code 1113 ("Insufficient balance") that reads
-  # as billing but means WRONG ENDPOINT. default_url is the COMPLETE
-  # chat-completions URL (ends in /chat/completions), which call_model uses
-  # verbatim instead of appending /v1/chat/completions.
-  # tests/unit/review_pairing/test_model_registry_loader.py pins the
-  # coding-plan prefix, mirroring test_glm_coding_plan_endpoint_omn6790.py.
-  #
-  # api_key_env: the Bearer key env var (GitHub Actions secret in CI, from
-  # the platform secret store). Fail-closed per-model when unset — the rest
-  # of the roster still reviews. api_model_id glm-5.3-flash = the cheapest
-  # id served on the plan (live probe 2026-08-30, OMN-6790).
-  # enable_thinking false ⇒ the z.ai wire shape thinking:{type: disabled}
-  # (call_model maps the shared declarative toggle to the GLM spelling).
-  # timeout 300s x (1 + max_retries 1) keeps the roster's sequential
-  # worst-case within the 35-minute hostile-review job ceiling (see
-  # retry_budget.py).
-  # model_id_source stays DECLARED here (OMN-18623) and that is not an
-  # oversight: z.ai is a MULTI-MODEL cloud endpoint, so /v1/models has no
-  # single answer and "what this port serves" is not a well-formed question.
-  # The id below is a real choice this repo owns -- the cheapest id on the
-  # plan -- so it belongs in the contract, and the per-environment overlay is
-  # its declared override path. The runtime-resolution rule applies to
-  # single-model self-hosted endpoints, not to every endpoint.
   # gpt-oss-review -- ADDED (OMN-17492, 2026-09-25) under the operator ruling
   # of 2026-09-25T12:40Z (ledger RULING, "we have gpt oss 120 on this
   # machine, why don't we use it as a review model?"). The first local
   # reviewer that is a DIFFERENT MODEL from the one behind qwen3-review:
-  # qwen3-review, qwen3-review-b and deepseek-r1 all resolve to .201:8000,
-  # which serves one model (Qwen3.8-27B), so any two of them agreeing is one
-  # model agreeing with itself.
+  # qwen3-review, qwen3-review-b and deepseek-r1 all resolved to .201:8000,
+  # which serves one model (Qwen3.8-27B), so any two of them agreeing was one
+  # model agreeing with itself (the two aliases are now deleted).
   # Endpoint: the Mac Studio (.200) llama.cpp server, supervised by the user
   # LaunchAgent ai.omninode.planner-gptoss120b, serving gpt-oss-120b MXFP4
   # with a 131,072-token context and 4 parallel slots (docs/reference/
   # AI_LAB_HARDWARE.md in omni_home). Keyless, LAN-only; the .201 runner
   # containers reach it (HTTP 200 from omninode-runner-7 and -51,
-  # 2026-09-25). It is NOT always available: the host sleeps after one
-  # minute unless caffeinate holds it, and does not log in unattended after
-  # a reboot. The reachability probe then drops it and the run continues on
-  # the remaining distinct models; see the calling workflows.
+  # 2026-09-25). The host is always on (operator, 2026-09-25). If it is ever
+  # unreachable, the reachability probe drops it and names it in the
+  # result; with the two-model lab roster that leaves one reviewer, which is
+  # a degraded quorum, and every calling workflow fails closed on it.
   # model_id_source: served, per the OMN-18623 ruling that no local reviewer
   # declares a model id.
   # reasoning_effort: gpt-oss reads it from chat_template_kwargs and spends
@@ -305,16 +160,6 @@ models:
     enable_thinking: false
     reasoning_effort: "medium"
     max_retries: 1
-
-  glm-review:
-    env_var: "LLM_GLM_REVIEW_URL"
-    default_url: "https://api.z.ai/api/coding/paas/v4/chat/completions"
-    kind: "code_review"
-    timeout_seconds: 300.0
-    api_model_id: "glm-5.3-flash"
-    enable_thinking: false
-    max_retries: 1
-    api_key_env: "LLM_GLM_API_KEY"  # pragma: allowlist secret
 
   qwen3-coder:
     env_var: "LLM_CODER_URL"

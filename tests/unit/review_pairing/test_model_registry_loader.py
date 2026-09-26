@@ -13,7 +13,7 @@ from omniintelligence.review_pairing.model_registry_loader import (
     ModelRegistryLoadError,
     load_registry,
 )
-from tests.fixtures.model_constants import MODEL_DEEPSEEK_R1, MODEL_QWEN3_14B
+from tests.fixtures.model_constants import MODEL_QWEN3_14B
 
 pytestmark = pytest.mark.unit
 
@@ -26,11 +26,12 @@ pytestmark = pytest.mark.unit
 def test_load_registry_returns_contract_with_expected_keys() -> None:
     contract = load_registry()
 
-    assert contract.default_model_key == MODEL_DEEPSEEK_R1
+    # OMN-17492 (2026-09-25): deepseek-r1 and qwen3-review-b were further
+    # names for the one model behind qwen3-review, and glm-review was a
+    # third-party cloud reviewer. All three are deleted.
+    assert contract.default_model_key == "qwen3-review"
     assert set(contract.local_model_keys) == {
-        MODEL_DEEPSEEK_R1,
         "qwen3-review",
-        "qwen3-review-b",
         "gpt-oss-review",
         "qwen3-coder",
         MODEL_QWEN3_14B,
@@ -38,81 +39,28 @@ def test_load_registry_returns_contract_with_expected_keys() -> None:
     }
     assert contract.api_fallback_keys == ("codex",)
     assert set(contract.models.keys()) == {
-        MODEL_DEEPSEEK_R1,
         "qwen3-review",
-        "qwen3-review-b",
         "gpt-oss-review",
         "qwen3-coder",
         MODEL_QWEN3_14B,
         "qwen3-next",
         "codex",
-        "glm-review",
     }
-
-
-def test_glm_review_entry_pins_coding_plan_surface() -> None:
-    """glm-review (OMN-17492) rides the z.ai GLM Coding Plan.
-
-    Mirrors omnimarket's test_glm_coding_plan_endpoint_omn6790: the Coding
-    Plan is served ONLY at /api/coding/paas/v4 -- the pay-as-you-go surface
-    (/api/paas/v4) answers a Coding-Plan key with 429 code 1113, which reads
-    as billing but means WRONG ENDPOINT (OMN-6790, rediscovered three times).
-    This pin fails closed on any drift off the coding surface.
-    """
-    contract = load_registry()
-    glm = contract.models["glm-review"]
-
-    assert glm.default_url.startswith("https://api.z.ai/api/coding/paas/v4"), (
-        "glm-review must target the z.ai Coding Plan surface "
-        "/api/coding/paas/v4 (OMN-6790); the pay-as-you-go surface refuses "
-        "Coding-Plan keys with 429 code 1113."
-    )
-    # COMPLETE chat-completions URL: call_model uses it verbatim instead of
-    # appending /v1/chat/completions (which would 404 on z.ai).
-    assert glm.default_url.endswith("/chat/completions")
-    assert glm.api_model_id == "glm-5.3-flash"
-    assert glm.api_key_env == "LLM_GLM_API_KEY"  # pragma: allowlist secret
-    assert glm.kind == "code_review"
-    # Cloud reviewer: never TCP-probed as a LAN endpoint, never part of the
-    # local-reachability fallback -- its independence from the .201 GPU is
-    # the point (OMN-16481).
-    assert "glm-review" not in contract.local_model_keys
-    assert "glm-review" not in contract.api_fallback_keys
-
-
-def test_local_models_declare_no_api_key_env() -> None:
-    """api_key_env is additive: every pre-OMN-17492 entry must be unaffected."""
-    contract = load_registry()
-    for key, config in contract.models.items():
-        if key == "glm-review":
-            continue
-        assert config.api_key_env is None, (
-            f"{key} unexpectedly declares api_key_env; only authenticated "
-            "cloud reviewers set it."
-        )
 
 
 def test_load_registry_preserves_endpoint_config_fields() -> None:
     contract = load_registry()
 
-    deepseek = contract.models[MODEL_DEEPSEEK_R1]
-    assert deepseek.env_var == "LLM_DEEPSEEK_R1_URL"
-    # OMN-16407 residual (2026-08-23): repointed 8001 -> 8000 after the RTX
-    # 4090 this key targeted was physically removed for RMA.
-    # OMN-17786 (2026-09-03): api_model_id repinned "qwen3.8" -> the live vLLM
-    # served-model-name. The SGLang stack that served "qwen3.8" is gone; :8000
-    # had no listener at all until OMN-14379 restored vllm-gpu0.service. vLLM
-    # rejects an unknown model id (404) where SGLang echoed it back at 200.
-    assert deepseek.default_url == "http://192.168.86.201:8000"
-    assert deepseek.kind == "reasoning"
-    assert deepseek.timeout_seconds == 300.0
-    # OMN-18623 (2026-09-17): this entry now declares NO model id at all.
+    qwen = contract.models["qwen3-review"]
+    assert qwen.env_var == "LLM_QWEN3_REVIEW_URL"
+    assert qwen.default_url == "http://192.168.86.201:8000"  # onex-allow-internal-ip
+    # OMN-18623 (2026-09-17): this entry declares NO model id at all.
     # Operator ruling 2026-09-17T19:54:09Z -- the reviewer's model must not be
     # a hardcoded literal. The id is resolved at call time from the endpoint's
     # /v1/models. Asserting EMPTINESS is the point: a value reappearing in this
     # field is the regression.
-    assert deepseek.api_model_id == ""
-    assert deepseek.model_id_source == "served"
+    assert qwen.api_model_id == ""
+    assert qwen.model_id_source == "served"
 
     codex = contract.models["codex"]
     assert codex.env_var == "CODEX_BINARY"
@@ -255,7 +203,7 @@ def test_local_201_8000_keys_declare_no_model_id() -> None:
         if cfg.default_url == "http://192.168.86.201:8000"  # onex-allow-internal-ip
     }
 
-    assert set(on_8000) == {"deepseek-r1", "qwen3-review", "qwen3-review-b"}, (
+    assert set(on_8000) == {"qwen3-review"}, (
         f"unexpected key set on .201:8000: {sorted(on_8000)}"
     )
     for key, cfg in sorted(on_8000.items()):

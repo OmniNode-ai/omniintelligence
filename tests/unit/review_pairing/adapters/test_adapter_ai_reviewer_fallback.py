@@ -101,16 +101,16 @@ class TestProbeLocalReachability:
             "omniintelligence.review_pairing.adapters.adapter_ai_reviewer._probe_tcp",
             return_value=False,
         ):
-            result = probe_local_reachability(["deepseek-r1", "qwen3-coder"])
-        assert result == {"deepseek-r1": False, "qwen3-coder": False}
+            result = probe_local_reachability(["qwen3-review", "qwen3-coder"])
+        assert result == {"qwen3-review": False, "qwen3-coder": False}
 
     def test_all_local_reachable(self) -> None:
         with patch(
             "omniintelligence.review_pairing.adapters.adapter_ai_reviewer._probe_tcp",
             return_value=True,
         ):
-            result = probe_local_reachability(["deepseek-r1", "qwen3-coder"])
-        assert result == {"deepseek-r1": True, "qwen3-coder": True}
+            result = probe_local_reachability(["qwen3-review", "qwen3-coder"])
+        assert result == {"qwen3-review": True, "qwen3-coder": True}
 
     def test_partial_reachability(self) -> None:
         def side_effect(host: str, port: int, **kwargs: object) -> bool:
@@ -120,7 +120,7 @@ class TestProbeLocalReachability:
             "omniintelligence.review_pairing.adapters.adapter_ai_reviewer._probe_tcp",
             side_effect=side_effect,
         ):
-            result = probe_local_reachability(["deepseek-r1", "qwen3-coder"])
+            result = probe_local_reachability(["qwen3-review", "qwen3-coder"])
         # qwen3-coder defaults to 192.168.86.201 — unreachable in this scenario
         assert result["qwen3-coder"] is False
 
@@ -137,13 +137,13 @@ class TestSelectModelsWithFallback:
             return_value=False,
         ):
             models, skipped = select_models_with_fallback(
-                ["deepseek-r1", "qwen3-coder"]
+                ["qwen3-review", "qwen3-coder"]
             )
 
         assert "codex" in models
-        assert "deepseek-r1" in skipped
+        assert "qwen3-review" in skipped
         assert "qwen3-coder" in skipped
-        assert "deepseek-r1" not in models
+        assert "qwen3-review" not in models
         assert "qwen3-coder" not in models
 
     def test_partial_local_reachable_runs_reachable_only(self) -> None:
@@ -151,11 +151,13 @@ class TestSelectModelsWithFallback:
         # env-var URL overrides that change which host:port gets probed.
         with patch(
             "omniintelligence.review_pairing.adapters.adapter_ai_reviewer.probe_local_reachability",
-            return_value={"deepseek-r1": True, "qwen3-next": False},
+            return_value={"qwen3-review": True, "qwen3-next": False},
         ):
-            models, skipped = select_models_with_fallback(["deepseek-r1", "qwen3-next"])
+            models, skipped = select_models_with_fallback(
+                ["qwen3-review", "qwen3-next"]
+            )
 
-        assert "deepseek-r1" in models
+        assert "qwen3-review" in models
         assert "qwen3-next" in skipped
         assert "codex" not in models
 
@@ -165,10 +167,10 @@ class TestSelectModelsWithFallback:
             return_value=True,
         ):
             models, skipped = select_models_with_fallback(
-                ["deepseek-r1", "qwen3-coder"]
+                ["qwen3-review", "qwen3-coder"]
             )
 
-        assert set(models) == {"deepseek-r1", "qwen3-coder"}
+        assert set(models) == {"qwen3-review", "qwen3-coder"}
         assert skipped == []
         assert "codex" not in models
 
@@ -187,10 +189,10 @@ class TestSelectModelsWithFallback:
             "omniintelligence.review_pairing.adapters.adapter_ai_reviewer._probe_tcp",
             return_value=False,
         ):
-            models, skipped = select_models_with_fallback(["codex", "deepseek-r1"])
+            models, skipped = select_models_with_fallback(["codex", "qwen3-review"])
 
         assert models.count("codex") == 1
-        assert "deepseek-r1" in skipped
+        assert "qwen3-review" in skipped
 
     def test_no_local_models_requested_no_probe_called(self) -> None:
         with patch(
@@ -203,7 +205,7 @@ class TestSelectModelsWithFallback:
         assert skipped == []
 
     def test_local_model_keys_constants(self) -> None:
-        assert "deepseek-r1" in _LOCAL_MODEL_KEYS
+        assert "qwen3-review" in _LOCAL_MODEL_KEYS
         assert "qwen3-coder" in _LOCAL_MODEL_KEYS
         assert "qwen3-14b" in _LOCAL_MODEL_KEYS
         assert "codex" not in _LOCAL_MODEL_KEYS

@@ -81,7 +81,8 @@ def _local_http_endpoint_keys() -> dict[str, ModelEndpointConfig]:
 
     Scoped deliberately. A multi-model CLOUD endpoint has no single served
     model, so ``/v1/models`` is not a truth there and a declared id is a real
-    choice this repository owns -- see ``glm-review``. Entries with an empty
+    choice this repository owns (none is registered since OMN-17492 deleted
+    ``glm-review``; ``codex`` is the declared CLI entry). Entries with an empty
     ``default_url`` are unrouted slots that cannot be called at all.
     """
     contract = load_registry()
@@ -104,12 +105,10 @@ def test_the_scope_is_not_empty() -> None:
         "no local model key resolves to an HTTP endpoint -- the join this "
         "ratchet depends on has changed shape and it has gone vacuous."
     )
-    # OMN-17492 added gpt-oss-review (.200:8130), the first local key that is
-    # not the .201:8000 model under another name.
+    # OMN-17492: the lab pair, Qwen3.8-27B on .201:8000 and gpt-oss-120b on
+    # .200:8130. The deepseek-r1 and qwen3-review-b aliases are deleted.
     assert set(keys) == {
-        "deepseek-r1",
         "qwen3-review",
-        "qwen3-review-b",
         "gpt-oss-review",
     }, (
         f"unexpected local HTTP endpoint key set: {sorted(keys)}. If this is a "
@@ -204,17 +203,13 @@ def test_unknown_model_id_source_is_refused() -> None:
 
 
 def test_declared_entries_are_untouched() -> None:
-    """The cloud reviewer and the CLI fallback keep their declared ids.
+    """The CLI fallback and the declared local slots keep their declared ids.
 
-    This ratchet must not become "no model id anywhere". A multi-model cloud
-    endpoint's id is a choice this repo owns, and removing it would be a
+    This ratchet must not become "no model id anywhere". An id this repo
+    chooses on purpose belongs in the contract, and removing it would be a
     different defect, not a stricter version of this one.
     """
     contract = load_registry()
-    glm = contract.models["glm-review"]
-    assert glm.model_id_source == "declared"
-    assert glm.api_model_id == "glm-5.3-flash"
-
     codex = contract.models["codex"]
     assert codex.model_id_source == "declared"
     assert codex.api_model_id == "codex"

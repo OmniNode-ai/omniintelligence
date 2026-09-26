@@ -101,7 +101,7 @@ async def test_one_unresolvable_model_leaves_the_roster_reviewing(
     monkeypatch.setenv("LOCAL_LLM_SHARED_SECRET", "x")  # pragma: allowlist secret
 
     first = await adapter_ai_reviewer.async_parse_raw("plan", model="qwen3-review")
-    second = await adapter_ai_reviewer.async_parse_raw("plan", model="qwen3-review-b")
+    second = await adapter_ai_reviewer.async_parse_raw("plan", model="gpt-oss-review")
 
     assert first.success is False
     assert second.success is False
@@ -136,10 +136,10 @@ def test_an_unreachable_endpoint_is_dropped_before_resolution_ever_runs(
     )
 
     to_run, skipped = adapter_ai_reviewer.select_models_with_fallback(
-        ["qwen3-review", "qwen3-review-b"]
+        ["qwen3-review", "gpt-oss-review"]
     )
 
-    assert sorted(skipped) == ["qwen3-review", "qwen3-review-b"]
+    assert sorted(skipped) == ["gpt-oss-review", "qwen3-review"]
     assert to_run == list(adapter_ai_reviewer._API_FALLBACK_KEYS), (
         f"an all-local outage must degrade to the API fallback; got {to_run}"
     )
@@ -161,26 +161,7 @@ def test_a_reachable_endpoint_is_still_selected(
         adapter_ai_reviewer, "_probe_tcp", lambda _host, _port: True, raising=True
     )
     to_run, skipped = adapter_ai_reviewer.select_models_with_fallback(
-        ["qwen3-review", "qwen3-review-b"]
+        ["qwen3-review", "gpt-oss-review"]
     )
-    assert to_run == ["qwen3-review", "qwen3-review-b"]
+    assert to_run == ["qwen3-review", "gpt-oss-review"]
     assert skipped == []
-
-
-def test_a_non_local_reviewer_is_unaffected_by_a_local_outage(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """The cloud reviewer carries the gate when every local leg is down.
-
-    glm-review is deliberately NOT in local_model_keys, so it passes through
-    selection untouched. That independence is what makes "degrade, never
-    hard-fail" true in practice rather than only in principle.
-    """
-    monkeypatch.setattr(
-        adapter_ai_reviewer, "_probe_tcp", lambda _host, _port: False, raising=True
-    )
-    to_run, skipped = adapter_ai_reviewer.select_models_with_fallback(
-        ["qwen3-review", "glm-review"]
-    )
-    assert "glm-review" in to_run
-    assert skipped == ["qwen3-review"]

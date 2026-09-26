@@ -28,8 +28,6 @@ import urllib.parse
 from typing import Any, TypedDict
 from uuid import uuid4
 
-from pydantic import SecretStr
-
 from omniintelligence.review_pairing.adapters.base import (
     PROBABILISTIC,
     normalize_message,
@@ -414,22 +412,6 @@ async def call_model(
     )
     handler = HandlerLlmOpenaiCompatible(transport)
 
-    # OMN-17492: authenticated cloud endpoints (e.g. the z.ai GLM Coding
-    # Plan) declare api_key_env in the registry. The key is read from the
-    # environment at call time and passed as a Bearer token; it is NEVER
-    # stored in the registry. Fail closed per-model: a missing/empty key
-    # fails THIS model's review (surfaced as a normal per-model failure by
-    # async_parse_raw) without taking down the rest of the roster.
-    api_key: str | None = None
-    if config.api_key_env is not None:
-        api_key = os.environ.get(config.api_key_env, "").strip() or None
-        if api_key is None:
-            raise ValueError(
-                f"Model '{model_key}' requires the {config.api_key_env} "
-                "environment variable for Bearer auth, but it is unset or "
-                "empty (fail-closed; the key is never committed or defaulted)."
-            )
-
     # OMN-15115: max_retries is an OPTIONAL per-model registry override.
     # ``None`` means "no override" -- omit the kwarg entirely so
     # ModelLlmInferenceRequest applies its own default (3), which mirrors the
@@ -443,7 +425,6 @@ async def call_model(
     request = ModelLlmInferenceRequest(
         base_url=base_url,
         endpoint_url=endpoint_url,
-        api_key=SecretStr(api_key) if api_key is not None else None,
         operation_type=EnumLlmOperationType.CHAT_COMPLETION,
         model=_resolve_api_model_id(model_key, config, base_url),
         messages=({"role": "user", "content": user_prompt},),
@@ -465,33 +446,23 @@ async def call_model(
         # <think> opener but an unmatched </think> closer) that both defeats
         # the strip-think-tags step below (needs both tags) and, on slower
         # backends, risks consuming the full budget before an answer is ever
-        # generated. qwen3-review and qwen3-review-b are configured
+        # generated. qwen3-review and gpt-oss-review are configured
         # enable_thinking: false in the registry; confirmed live on both
         # vLLM (5090) and llama.cpp (4090) that the toggle suppresses the
         # preamble entirely at generation time.
         #
-        # OMN-17492: the toggle's WIRE SHAPE differs by endpoint class.
-        # Local Qwen backends read chat_template_kwargs.enable_thinking;
-        # the z.ai GLM API reads a top-level ``thinking: {"type": ...}``
-        # object and has no chat_template_kwargs surface. Authenticated
-        # cloud entries (api_key_env set) therefore get the GLM shape,
-        # local entries keep the Qwen shape -- one declarative field, two
-        # provider spellings.
-        extra_body=(
-            {"thinking": {"type": "enabled" if config.enable_thinking else "disabled"}}
-            if config.api_key_env is not None
-            # OMN-17492: gpt-oss reads reasoning_effort from the same
-            # chat_template_kwargs; it is sent only when the registry declares
-            # it, so every other local entry sends exactly what it sent before.
+        # OMN-17492: gpt-oss reads reasoning_effort from the same
+        # chat_template_kwargs; it is sent only when the registry declares it,
+        # so every other entry sends exactly what it sent before. There is no
+        # cloud wire shape: private diffs go only to lab models (2026-09-25).
+        extra_body={
+            "chat_template_kwargs": {"enable_thinking": config.enable_thinking}
+            if config.reasoning_effort is None
             else {
-                "chat_template_kwargs": {"enable_thinking": config.enable_thinking}
-                if config.reasoning_effort is None
-                else {
-                    "enable_thinking": config.enable_thinking,
-                    "reasoning_effort": config.reasoning_effort,
-                }
+                "enable_thinking": config.enable_thinking,
+                "reasoning_effort": config.reasoning_effort,
             }
-        ),
+        },
     )
 
     response = await handler.handle(request)
