@@ -2981,12 +2981,13 @@ wheels = [
 
 [[package]]
 name = "omnimarket"
-version = "0.4.218"
+version = "0.4.225"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiokafka" },
     { name = "anthropic" },
     { name = "asyncpg" },
+    { name = "boto3" },
     { name = "click" },
     { name = "confluent-kafka" },
     { name = "cryptography" },
@@ -3005,6 +3006,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "pyjwt", extra = ["crypto"] },
+    { name = "pyrage" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "python-dateutil" },
@@ -3013,9 +3015,9 @@ dependencies = [
     { name = "rich" },
     { name = "uvicorn" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fd/bf/d42b69e74efc5bd35a9ce78d12db3f185591824a1895a2264a0b07e340f2/omnimarket-0.4.218.tar.gz", hash = "sha256:4383e8d0f05f39e0617311e23169afdb74f93e251d13ec2f5addb34263d86f7b", size = 12701412, upload-time = "2026-09-25T04:55:55.974Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/50/87/c91e8f54130ce0eea351a58a735635f29067d058f5dc4c86ed04f8d59a4c/omnimarket-0.4.225.tar.gz", hash = "sha256:112d2942d2f73492c3bb71615741c99a5943eaa5cb03b6ed2be7525b35559537", size = 13024166, upload-time = "2026-09-26T06:21:33.224Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/9d/c7/e43994fdade90fe92be9f118b99c0f08ed7058fec361d8a9d2f6798e8298/omnimarket-0.4.218-py3-none-any.whl", hash = "sha256:6b4e9eaba1c5c5a4b5a44ee048ba8245cbbd9e6c7a3efaf0cf6262828cc06070", size = 7702784, upload-time = "2026-09-25T04:55:52.871Z" },
+    { url = "https://files.pythonhosted.org/packages/a8/7f/a77c17aef898d2f56f11c763ffb2afbaca3cf280c2e0781551b4698f2f51/omnimarket-0.4.225-py3-none-any.whl", hash = "sha256:8ed7a07875f866169a9c45968cd7d33914b97dc4b80a17579936c911411a0f64", size = 7914287, upload-time = "2026-09-26T06:21:31.086Z" },
 ]
 
 [[package]]
@@ -4308,6 +4310,18 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/f7/67/53c61d366222550220b42a9212131407f49d3dbcf050178c620bf80fa899/pypdfium2-5.12.1-py3-none-win32.whl", hash = "sha256:e5358d2ce4ebc5c899aab1df9ca5d215357244e9168aa443225d3c1e649c7eac", size = 3725466, upload-time = "2026-07-17T10:01:17.773Z" },
     { url = "https://files.pythonhosted.org/packages/a9/c3/08b62718faf2f6b6aa49207626e3113ff3ec1b3cd076c0ef8fd852f0e57c/pypdfium2-5.12.1-py3-none-win_amd64.whl", hash = "sha256:9609be73a6701a68f29dffe0335f7a2e4b3ba581542ed65d35d49f761a4600ca", size = 3859845, upload-time = "2026-07-17T10:01:19.417Z" },
     { url = "https://files.pythonhosted.org/packages/6c/d5/ad551e55790134c8bc87ea16e0866a3721def0620fbfa19112c8ad4a25a6/pypdfium2-5.12.1-py3-none-win_arm64.whl", hash = "sha256:afc0b7e0c975a429abc75875209ce17b66d749f6ac5cbe8ba72470e83901e304", size = 3674605, upload-time = "2026-07-17T10:01:21.008Z" },
+]
+
+[[package]]
+name = "pyrage"
+version = "1.4.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/15/a4/612910dbedf7d9fb24ec58474849438b6f88e078e1a100f73a54a605d228/pyrage-1.4.0.tar.gz", hash = "sha256:545bf188e8d217ec88c32bc8e8bf56026c8c0b1b1f96d2688cedf1427ab0e827", size = 32198, upload-time = "2026-08-23T22:48:59.906Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/13/bb/6b167a449e95ecf0eaf4277c949a89a29dfc08cc533f710a9e6f12bef513/pyrage-1.4.0-cp310-abi3-macosx_10_12_x86_64.macosx_11_0_arm64.macosx_10_12_universal2.whl", hash = "sha256:bcf4177aea91a9f48951db8001c1385baafbae62cc15d691ef43efebaab6b8db", size = 1701313, upload-time = "2026-08-23T22:48:53.835Z" },
+    { url = "https://files.pythonhosted.org/packages/5a/cb/d88aaab0b89141802473f6139fe8e05519d1b6ac06bff8231a1378a5674f/pyrage-1.4.0-cp310-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:f868b360ccd3f836326d42b532fae3e8eb8340a88cca0a39c0ae10fce68f6cc5", size = 882978, upload-time = "2026-08-23T22:48:55.525Z" },
+    { url = "https://files.pythonhosted.org/packages/d9/f0/41da7d88cfdad2eba492f3275ec50a65916ccd3a78140fb15875569ad1ff/pyrage-1.4.0-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:7f4eb0cbc2b4aee5deac9862c47b3895866df5554153951af822e9c581e68558", size = 924673, upload-time = "2026-08-23T22:48:57.1Z" },
+    { url = "https://files.pythonhosted.org/packages/d3/8c/354fdb9ee7b45a2060272c623536b2cf9f0996de2242eaac177cff3f8003/pyrage-1.4.0-cp310-abi3-win_amd64.whl", hash = "sha256:c4a5dcd24a14b5e0d4cccff13649a2b8f1609ad45d6438bb85f35d84b0c8155e", size = 848219, upload-time = "2026-08-23T22:48:58.702Z" },
 ]
 
 [[package]]
