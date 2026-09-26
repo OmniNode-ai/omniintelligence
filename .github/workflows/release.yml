@@ -74,6 +74,24 @@ jobs:
             exit 1
           }
 
+      - name: Verify PyPI dependency-pin resolvability (OMN-14070, OMN-19655)
+        # This repository published to PyPI with no resolvability check at all
+        # until OMN-19655, while its four publishing siblings refused a wheel
+        # whose declared dependencies cannot be installed from the published
+        # index (omnimarket 0.4.6 pinned a nonexistent omnibase-compat, OMN-14064;
+        # omnimarket 0.4.21-0.4.24 needed an omnibase-core no published
+        # omnibase-infra allowed, OMN-18034). The script is vendored
+        # byte-for-byte from omnibase_infra and is the same one
+        # pin-resolvability-gate.yml runs before merge, so the pre-merge and
+        # release verdicts are one implementation. It installs the built wheel
+        # with `uv pip install` into a bare scratch venv, where
+        # [tool.uv.sources] is unreachable, so a broken pin fails here, before
+        # `uv publish` runs. A timeout is reported as a throughput fault, never
+        # as a broken pin (OMN-16047).
+        env:
+          PYPI_PIN_RESOLVE_TIMEOUT_SECONDS: '900'
+        run: python3 scripts/ci/verify_pypi_pin_resolvability.py dist/
+
       - name: Publish to PyPI
         run: |
           uv publish --token "$UV_PUBLISH_TOKEN" dist/*.whl dist/*.tar.gz
