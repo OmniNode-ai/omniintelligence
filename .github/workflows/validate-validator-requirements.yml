@@ -12,6 +12,12 @@ on:
   merge_group:
   workflow_dispatch:
 
+# OMN-19646: cancel only superseded pull request runs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+
 jobs:
   validate-validator-requirements:
     name: Enforce validator-requirements.yaml (OMN-13291)
