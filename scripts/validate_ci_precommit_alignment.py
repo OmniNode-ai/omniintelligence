@@ -77,14 +77,13 @@ PRECOMMIT_CONFIG_PATH = REPO_ROOT / ".pre-commit-config.yaml"
 # =============================================================================
 # CANONICAL SOURCE OF TRUTH - Full codebase mode
 # =============================================================================
-# As of the omnibase_core alignment (2025-02), both CI and pre-commit run
-# ruff on the ENTIRE codebase (src/ tests/) using the always_run pattern.
-# This eliminates the need for explicit directory alignment since everything
-# is covered.
+# CI runs ruff across src/ and tests/. Local pre-commit ruff hooks receive
+# staged Python files under those roots; the CI Pre-commit Hooks job supplies
+# the whole-tree backstop with `pre-commit run --all-files`.
 #
 # When FULL_CODEBASE_MODE is True:
 # - CI ruff commands run on: src/ tests/
-# - Pre-commit ruff hooks use: always_run: true with src/ tests/
+# - Pre-commit ruff hooks cover all Python files under src/ tests/
 # - Both cover the entire codebase, so alignment is automatic
 #
 # Legacy narrow-scope lists (kept for reference/rollback):
@@ -533,14 +532,27 @@ def _check_ci_full_codebase_mode(ci_config: dict) -> bool:
 
 
 def _check_precommit_full_codebase_mode(precommit_config: dict) -> bool:
-    """Check if pre-commit ruff hooks run on entire codebase.
+    """Check if every pre-commit-stage ruff hook covers the entire codebase.
 
     Args:
         precommit_config: Parsed pre-commit config YAML
 
     Returns:
-        True if pre-commit uses always_run or runs on src/ tests/
+        True if at least one ruff hook applies and all such hooks cover src/ tests/
     """
+    python_type_probes = (
+        {"file", "non-executable", "python", "text"},
+        {"executable", "file", "python", "text"},
+    )
+    scope_probes = (
+        "src/omniintelligence/zz_scope_probe/zz_probe.py",
+        "src/omniintelligence/zz_probe.py",
+        "tests/zz_scope_probe/test_zz_probe.py",
+        "tests/unit/zz_scope_probe/test_zz_probe.py",
+    )
+    default_stages = precommit_config.get("default_stages", ["pre-commit"])
+    hook_results: list[bool] = []
+
     repos = precommit_config.get("repos", [])
     for repo in repos:
         if not isinstance(repo, dict):
@@ -550,15 +562,63 @@ def _check_precommit_full_codebase_mode(precommit_config: dict) -> bool:
             if not isinstance(hook, dict):
                 continue
             hook_id = hook.get("id", "")
-            if "ruff" in hook_id:
-                # Check for always_run: true pattern
-                if hook.get("always_run") is True:
-                    return True
-                # Check for entry that runs on src/ tests/
-                entry = hook.get("entry", "")
-                if "src/" in entry and "tests/" in entry:
-                    return True
-    return False
+            stages = hook.get("stages", default_stages)
+            if not str(hook_id).startswith("ruff") or "pre-commit" not in stages:
+                continue
+
+            types = hook.get("types", ["file"])
+            types_or = hook.get("types_or", [])
+            accepts_python = (
+                isinstance(types, list)
+                and isinstance(types_or, list)
+                and all(
+                    all(file_type in probe_types for file_type in types)
+                    and (
+                        not types_or
+                        or any(file_type in probe_types for file_type in types_or)
+                    )
+                    for probe_types in python_type_probes
+                )
+            )
+            if not accepts_python:
+                hook_results.append(False)
+                continue
+
+            entry = str(hook.get("entry", ""))
+            if hook.get("always_run") is True or (
+                "src/" in entry and "tests/" in entry
+            ):
+                hook_results.append(True)
+                continue
+
+            files_pattern = hook.get("files")
+            exclude_pattern = hook.get("exclude")
+            if not isinstance(files_pattern, str) or (
+                exclude_pattern is not None and not isinstance(exclude_pattern, str)
+            ):
+                hook_results.append(False)
+                continue
+
+            try:
+                files_regex = re.compile(files_pattern)
+                exclude_regex = (
+                    re.compile(exclude_pattern)
+                    if isinstance(exclude_pattern, str)
+                    else None
+                )
+            except re.error:
+                hook_results.append(False)
+                continue
+
+            hook_results.append(
+                all(
+                    files_regex.search(path) is not None
+                    and (exclude_regex is None or exclude_regex.search(path) is None)
+                    for path in scope_probes
+                )
+            )
+
+    return bool(hook_results) and all(hook_results)
 
 
 def validate_alignment(verbose: bool = False) -> ValidationResult:

@@ -232,11 +232,15 @@ class IntelligenceNamingConventionValidator:
             if pattern:
                 cls._COMPILED_NAMING_PATTERNS[category] = re.compile(pattern)
 
-    def __init__(self, repo_path: Path) -> None:
+    def __init__(self, repo_path: Path, python_files: list[Path] | None = None) -> None:
         self.repo_path = repo_path.resolve()
         self.violations: list[NamingViolation] = []
         self._file_cache: dict[Path, ParsedFileInfo] = {}
-        self._all_python_files: list[Path] | None = None
+        self._all_python_files = (
+            [path.resolve() for path in python_files]
+            if python_files is not None
+            else None
+        )
         self._skipped_large_files: list[tuple[Path, int]] = []
         self._validated_file_categories: set[tuple[Path, str]] = set()
         self._ensure_compiled_patterns()
@@ -634,16 +638,15 @@ class IntelligenceNamingConventionValidator:
         return report
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     """Main entry point."""
     parser = argparse.ArgumentParser(
         description="Validate omniintelligence naming conventions"
     )
     parser.add_argument(
-        "repo_path",
-        nargs="?",
-        default=None,
-        help="Path to validate (default: auto-detect src/omniintelligence)",
+        "paths",
+        nargs="*",
+        help="Python files or directories to validate (default: src/omniintelligence)",
     )
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
     parser.add_argument(
@@ -652,13 +655,23 @@ def main() -> int:
         help="Exit with error code if warnings are found",
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+    selected = [Path(raw).resolve() for raw in args.paths]
+    rule_file = Path(__file__).resolve()
+    full_scan = not selected or any(
+        path == rule_file or path.name == ".pre-commit-config.yaml" for path in selected
+    )
 
-    if args.repo_path:
-        repo_path = Path(args.repo_path).resolve()
-    else:
-        script_path = Path(__file__).resolve()
-        repo_path = script_path.parent.parent.parent / "src" / "omniintelligence"
+    script_path = Path(__file__).resolve()
+    repo_path = script_path.parent.parent.parent / "src" / "omniintelligence"
+    python_files: list[Path] | None = None
+    if not full_scan:
+        python_files = []
+        for path in selected:
+            if path.is_file() and path.suffix == ".py":
+                python_files.append(path)
+            elif path.is_dir():
+                python_files.extend(path.rglob("*.py"))
 
     if not repo_path.exists():
         print(f"Error: Path does not exist: {repo_path}")
@@ -667,7 +680,7 @@ def main() -> int:
     if args.verbose:
         print(f"Validating naming conventions in: {repo_path}")
 
-    validator = IntelligenceNamingConventionValidator(repo_path)
+    validator = IntelligenceNamingConventionValidator(repo_path, python_files)
     validator.validate_naming_conventions(args.verbose)
 
     errors = len([v for v in validator.violations if v.severity == "error"])
