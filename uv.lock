@@ -2881,7 +2881,7 @@ wheels = [
 
 [[package]]
 name = "omnibase-core"
-version = "0.47.23"
+version = "0.47.24"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "blake3" },
@@ -2898,9 +2898,9 @@ dependencies = [
     { name = "tree-sitter" },
     { name = "tree-sitter-python" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/38/bf/93003e6f7e81a934f759aef301cfe94830be82f39bb0a0e45634ad134612/omnibase_core-0.47.23.tar.gz", hash = "sha256:ba3e7c777201fa71a01389770603a14163cd5773e85ee7f526c03369b98a1721", size = 9852952, upload-time = "2026-09-25T02:54:56.778Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/13/cc/d0317bbb50f790fb6589b567ac7263f815b6600796b44e28e4b615db5f09/omnibase_core-0.47.24.tar.gz", hash = "sha256:eb2bda6d0eb4041575212e3cd115941c77776da48801073c63b69cea013367f1", size = 9958449, upload-time = "2026-09-26T23:24:27.978Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/55/08/ce5b0d5db73781f56ec0e7f5f0c40f7e6185dcb7bffaf9c0e9173c875f76/omnibase_core-0.47.23-py3-none-any.whl", hash = "sha256:51c86d9cffd8c4fe1f8b78999118cfb35fe9777cf6b3f100c4fed226164b363b", size = 7015911, upload-time = "2026-09-25T02:54:54.39Z" },
+    { url = "https://files.pythonhosted.org/packages/0c/53/0fb06487d5de6cc006cb5f625b3a87e26190aff970e7e26ad2e31dd81fc3/omnibase_core-0.47.24-py3-none-any.whl", hash = "sha256:e04bf735af4503a1f9a33b27e04381098358214a79457dfc16fbfdcc7d492b35", size = 7086205, upload-time = "2026-09-26T23:24:25.8Z" },
 ]
 
 [[package]]
@@ -2981,7 +2981,7 @@ wheels = [
 
 [[package]]
 name = "omnimarket"
-version = "0.4.225"
+version = "0.4.242"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiokafka" },
@@ -3015,9 +3015,9 @@ dependencies = [
     { name = "rich" },
     { name = "uvicorn" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/50/87/c91e8f54130ce0eea351a58a735635f29067d058f5dc4c86ed04f8d59a4c/omnimarket-0.4.225.tar.gz", hash = "sha256:112d2942d2f73492c3bb71615741c99a5943eaa5cb03b6ed2be7525b35559537", size = 13024166, upload-time = "2026-09-26T06:21:33.224Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ea/48/e8300b396b861628479fd64f270cb76076f824bef7831a5e6c09c29f3352/omnimarket-0.4.242.tar.gz", hash = "sha256:46ab441fac423661a88cc20063fd31843c5db40693d38f0fc28d6fc8a026fd57", size = 13343117, upload-time = "2026-09-27T03:23:57.832Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a8/7f/a77c17aef898d2f56f11c763ffb2afbaca3cf280c2e0781551b4698f2f51/omnimarket-0.4.225-py3-none-any.whl", hash = "sha256:8ed7a07875f866169a9c45968cd7d33914b97dc4b80a17579936c911411a0f64", size = 7914287, upload-time = "2026-09-26T06:21:31.086Z" },
+    { url = "https://files.pythonhosted.org/packages/14/80/7282bd74d615ceda7278fcdde1544399dc22fb659c161e14676a5b8fd177/omnimarket-0.4.242-py3-none-any.whl", hash = "sha256:7c7e4700abf41eeb1ef4abb2367c876de5bf35f38972d79210ef3953672a702c", size = 8023971, upload-time = "2026-09-27T03:23:54.591Z" },
 ]
 
 [[package]]
