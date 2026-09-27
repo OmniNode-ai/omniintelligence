@@ -24,7 +24,7 @@
 # a loud one.
 #
 # The pin is a SINGLE source of truth: the reusable workflow checks its own
-# validator out at github.job_workflow_sha, i.e. this very SHA, so the workflow
+# validator out at validated job.workflow_sha, i.e. this very SHA, so the workflow
 # and the script can never drift apart. Pin to an omniclaude commit on `dev`;
 # `main` is release-synced and does not carry the gate.
 
@@ -42,7 +42,7 @@ concurrency:
 
 jobs:
   public-repo-hygiene:
-    uses: OmniNode-ai/omniclaude/.github/workflows/public-repo-hygiene-reusable.yml@33af26309b43e84bde318e8f8c06862d46502ea7
+    uses: OmniNode-ai/omniclaude/.github/workflows/public-repo-hygiene-reusable.yml@6ccd525e2b6390869d18f8e00d1b36294aa5550a
     with:
       mode: report
     secrets: inherit
