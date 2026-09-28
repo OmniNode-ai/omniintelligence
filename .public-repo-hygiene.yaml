@@ -42,6 +42,7 @@ allowed_top_level:
   - "_golden_path_validate"
   - "arch-handler-contract-compliance-allowlist.yaml"
   - "architecture-handshakes"
+  - "config"
   - "configs"
   - "contracts"
   - "deployment"

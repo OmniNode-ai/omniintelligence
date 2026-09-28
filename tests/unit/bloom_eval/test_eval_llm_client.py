@@ -14,7 +14,7 @@ from omniintelligence.adapters.eval_llm_client import (
 )
 
 GENERATOR_URL = "http://192.168.86.201:8001"
-JUDGE_URL = "http://192.168.86.200:8101"
+JUDGE_URL = "http://judge-host.test:8101"
 
 
 def _make_client() -> EvalLLMClient:

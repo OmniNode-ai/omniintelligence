@@ -992,6 +992,7 @@ jobs:
             --no-verify \
             --baseline .secrets.baseline \
             --exclude-files 'uv\.lock' \
+            --exclude-files 'hardcoded_model_config_baseline\.yaml' \
             --exclude-files '\.venv/' \
             --exclude-files 'tests/fixtures/' \
             --exclude-files '\.git/' \

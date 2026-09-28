@@ -1,0 +1,329 @@
+---
+# Baseline for check-hardcoded-model-config-compute (OMN-19252).
+# Plan: knowledge-base-internal beta/plans/2026-09-23-remove-hardcoded-model-config.md
+# (task A1 and the per-repository ratchet of tasks A3.x).
+#
+# RULE: entries only leave. A finding not listed here fails. An entry that no
+# longer matches its file fails until it is removed. CI refuses a pull request
+# whose copy of this file carries an entry its base branch did not. Retired lab
+# values (family R) are never admitted. Entries are keyed by line content
+# (sha1 of the stripped line), not by line number.
+#
+# Regenerate only to SHRINK it:
+#   python -m omnibase_core.validation.hardcoded_model_config.runtime_hardcoded_model_config \
+#     --all --baseline <this file> --write-baseline
+
+schema_version: 1
+entries:
+  - path: _golden_path_validate/node_llm_routing_decision_effect.json
+    family: M
+    content_sha1: c1c8291c58f896769d8d80eb509aa21e6b48c0ea
+  - path: src/omniintelligence/adapters/eval_llm_client.py
+    family: M
+    content_sha1: 113c279e49feb80de12bc5cd1ba4ea6f9a8dfcf9
+  - path: src/omniintelligence/adapters/gmail_intent_http_client.py
+    family: M
+    content_sha1: c2c3007d96349e30dc1ea66869c757f5d0bff34f
+  - path: src/omniintelligence/adapters/gmail_intent_http_client.py
+    family: M
+    content_sha1: ed0b71eeef7d03561845d6ea56c07092d08ceaf1
+  - path: src/omniintelligence/adapters/utilization_llm_client.py
+    family: M
+    content_sha1: 411288bc57ed71ccc2eadc539687c3ecf6abbbee
+  - path: src/omniintelligence/code_projection/__main__.py
+    family: M
+    content_sha1: 27bd17ec9e0c3e93dff1de054d20abeb3dd294cc
+  - path: src/omniintelligence/code_projection/__main__.py
+    family: M
+    content_sha1: bdcc05754defea4c38f4ff12c870ac6360c9f81d
+  - path: src/omniintelligence/code_projection/context_serving/live.py
+    family: M
+    content_sha1: 27bd17ec9e0c3e93dff1de054d20abeb3dd294cc
+  - path: src/omniintelligence/code_projection/context_serving/live.py
+    family: M
+    content_sha1: bdcc05754defea4c38f4ff12c870ac6360c9f81d
+  - path: src/omniintelligence/models/events/model_llm_call_completed_event.py
+    family: E-LAN
+    content_sha1: d8ac31827906b31f73ce9ee4809cdee26f9e3b90
+  - path: src/omniintelligence/models/events/model_llm_call_completed_event.py
+    family: M
+    content_sha1: 12c4084791f6e4e3d321f3ebcb0ef5956c8afa47
+  - path: src/omniintelligence/nodes/node_chunk_classifier_compute/node_tests/test_handler_chunk_classifier.py
+    family: E-LAN
+    content_sha1: 530880fb8eb2a62d3f8f19620f561851ac222105
+  - path: src/omniintelligence/nodes/node_contract_eval_compute/contract.yaml
+    family: M
+    content_sha1: 8bfa2e249eac086dd5ba76998a8e7fad795e856e
+  - path: src/omniintelligence/nodes/node_embedding_generation_effect/contract.yaml
+    family: E-LAN
+    content_sha1: 03e6a4a54e4b363254b8cb80f2c3c06c9a5f156c
+  - path: src/omniintelligence/nodes/node_embedding_generation_effect/contract.yaml
+    family: M
+    content_sha1: 0037b8a892c077a1c41ff0c2a5c857a703dc806e
+  - path: src/omniintelligence/nodes/node_embedding_generation_effect/contract.yaml
+    family: M
+    content_sha1: 94f3e3ab71e7efa769c4a52c1e5eb2238342af41
+  - path: src/omniintelligence/nodes/node_embedding_generation_effect/contract.yaml
+    family: M
+    content_sha1: 9a617a929bf52ed44da508e69f1224b0f643ff7c
+  - path: src/omniintelligence/nodes/node_embedding_generation_effect/contract.yaml
+    family: M
+    content_sha1: b409e16d8adcf65ba23c77a8a0c3a6e495c7a4f8
+  - path: src/omniintelligence/nodes/node_embedding_generation_effect/contract.yaml
+    family: M
+    content_sha1: f05a9cd310c3f1d4317a3fe3aa18f450bdf3bf87
+  - path: src/omniintelligence/nodes/node_embedding_generation_effect/models/enum_embedding_provider.py
+    family: M
+    content_sha1: ae8ed5cc82482d86ea0378f6649522cfaae98e73
+  - path: src/omniintelligence/nodes/node_embedding_generation_effect/models/model_embedded_chunk.py
+    family: M
+    content_sha1: 7c0cfb48c3a8292e374b4e7ef9c599a516b9c708
+  - path: src/omniintelligence/nodes/node_embedding_generation_effect/models/model_embedding_client_config.py
+    family: M
+    content_sha1: 3ffa291449a603fe79ebcf44e6ea1f84b4a75b39
+  - path: src/omniintelligence/nodes/node_embedding_generation_effect/models/model_embedding_generate_input.py
+    family: M
+    content_sha1: bfd5d7727fdf1c19dc7988979812620dfe8b6c7d
+  - path: src/omniintelligence/nodes/node_gmail_intent_evaluator_effect/contract.yaml
+    family: E-LAN
+    content_sha1: 2b798e955aebeb7fe3fef0c39b16cb6c8e043e2e
+  - path: src/omniintelligence/nodes/node_gmail_intent_evaluator_effect/contract.yaml
+    family: M
+    content_sha1: 2b798e955aebeb7fe3fef0c39b16cb6c8e043e2e
+  - path: src/omniintelligence/nodes/node_gmail_intent_evaluator_effect/contract.yaml
+    family: M
+    content_sha1: 6ec1dbd793100b2e2d076f9f74b56b5e69161e25
+  - path: src/omniintelligence/nodes/node_gmail_intent_evaluator_effect/handlers/handler_gmail_intent_evaluate.py
+    family: M
+    content_sha1: 457a5495cd341a9421fb8077188b9bb095fc5a45
+  - path: src/omniintelligence/nodes/node_gmail_intent_evaluator_effect/handlers/handler_gmail_intent_evaluate.py
+    family: M
+    content_sha1: b8e0f32ef08ade0be0f49a78c3b66ee2f9b91e38
+  - path: src/omniintelligence/nodes/node_llm_routing_decision_effect/node_tests/conftest.py
+    family: E-LAN
+    content_sha1: 4611d265b487c00abfb08d9466e481c360fadc03
+  - path: src/omniintelligence/nodes/node_llm_routing_decision_effect/node_tests/conftest.py
+    family: E-LAN
+    content_sha1: 4611d265b487c00abfb08d9466e481c360fadc03
+  - path: src/omniintelligence/nodes/node_navigation_retriever_effect/contract.yaml
+    family: E-LAN
+    content_sha1: 03e6a4a54e4b363254b8cb80f2c3c06c9a5f156c
+  - path: src/omniintelligence/nodes/node_navigation_retriever_effect/contract.yaml
+    family: M
+    content_sha1: 0037b8a892c077a1c41ff0c2a5c857a703dc806e
+  - path: src/omniintelligence/nodes/node_navigation_retriever_effect/contract.yaml
+    family: M
+    content_sha1: 6b68ee1424c113ce00b98df6b670d10c7ae63958
+  - path: src/omniintelligence/nodes/node_navigation_retriever_effect/contract.yaml
+    family: M
+    content_sha1: 9a617a929bf52ed44da508e69f1224b0f643ff7c
+  - path: src/omniintelligence/nodes/node_navigation_retriever_effect/contract.yaml
+    family: M
+    content_sha1: a48f6eeb4d4e7a54b23fb1214ebe4030b32a3255
+  - path: src/omniintelligence/nodes/node_navigation_retriever_effect/models/model_navigation_retrieve_input.py
+    family: M
+    content_sha1: 2d17b4b8c5974324d82b0646e5b6dd0401011225
+  - path: src/omniintelligence/nodes/node_pattern_compliance_effect/handlers/handler_compute.py
+    family: M
+    content_sha1: f3aa2ab007b671d9e4c33541230ff4e46fcb87d9
+  - path: src/omniintelligence/nodes/node_plan_reviewer_multi_compute/contract.yaml
+    family: M
+    content_sha1: 805636e114a8fa9612936de4dece9a1ba045445f
+  - path: src/omniintelligence/nodes/node_plan_reviewer_multi_compute/contract.yaml
+    family: M
+    content_sha1: 9f5ece1a54a112354ef1ac315c34513ebea81f98
+  - path: src/omniintelligence/nodes/node_plan_reviewer_multi_compute/contract.yaml
+    family: M
+    content_sha1: a3c6d3cb5b9a6d1b6a097a4e7b9f353b6b217fea
+  - path: src/omniintelligence/nodes/node_plan_reviewer_multi_compute/handlers/handler_plan_reviewer_multi_compute.py
+    family: M
+    content_sha1: dde9eea27b23287833622361fa869652f33a681b
+  - path: src/omniintelligence/nodes/node_plan_reviewer_multi_compute/handlers/strategies/handler_specialist_split.py
+    family: M
+    content_sha1: 6379898ddbdfbf62e03e82a500723a63e96fd2ef
+  - path: src/omniintelligence/nodes/node_plan_reviewer_multi_compute/models/enum_review_model.py
+    family: M
+    content_sha1: 0084d7dcdd51fbf7a7ef4122f8b147c312ced096
+  - path: src/omniintelligence/nodes/node_plan_reviewer_multi_compute/models/enum_review_model.py
+    family: M
+    content_sha1: 60141f43d51d3a2da904ab45e755fbe91e6b4ebd
+  - path: src/omniintelligence/nodes/node_plan_reviewer_multi_compute/models/enum_review_model.py
+    family: M
+    content_sha1: 7be7bf79d1551f8c2651bc87f050655bb92d67a6
+  - path: src/omniintelligence/nodes/node_plan_reviewer_multi_compute/models/model_plan_reviewer_multi_input.py
+    family: M
+    content_sha1: 1c69673bd2abc1f0fbc08d674175cc977a4d0eb7
+  - path: src/omniintelligence/review_pairing/adapters/adapter_ai_reviewer.py
+    family: M
+    content_sha1: 258569b23ba16397589ce2ba0dcf991cbf9e3aa3
+  - path: src/omniintelligence/review_pairing/model_registry.yaml
+    family: E
+    content_sha1: 46545d286be9855cf1a82df23c2a4534507a186b
+  - path: src/omniintelligence/review_pairing/model_registry.yaml
+    family: E
+    content_sha1: 9dfbccccada26c4f3715c4644c58b9d4d2405a62
+  - path: src/omniintelligence/review_pairing/model_registry.yaml
+    family: E-LAN
+    content_sha1: 46545d286be9855cf1a82df23c2a4534507a186b
+  - path: src/omniintelligence/review_pairing/model_registry.yaml
+    family: E-LAN
+    content_sha1: 9dfbccccada26c4f3715c4644c58b9d4d2405a62
+  - path: src/omniintelligence/review_pairing/model_registry.yaml
+    family: M
+    content_sha1: 0ac25a0c1cf6a878547190da9120c8a4684d5ae2
+  - path: src/omniintelligence/review_pairing/model_registry.yaml
+    family: M
+    content_sha1: 123985e50f6c5529ecddafc6dabd2dfae489d2ed
+  - path: src/omniintelligence/review_pairing/model_registry.yaml
+    family: M
+    content_sha1: 18faf0ea42d22490ef200ca310a603a954093788
+  - path: src/omniintelligence/review_pairing/model_registry.yaml
+    family: M
+    content_sha1: 1f7a2ad520f023b088683f4124669dadc0e4d87c
+  - path: src/omniintelligence/review_pairing/model_registry.yaml
+    family: M
+    content_sha1: 403299a15ebdb5d196d39600a71f07dedc5d41fc
+  - path: src/omniintelligence/review_pairing/model_registry.yaml
+    family: M
+    content_sha1: 489cfae24b1bdfa5c71c652039b2b1526c1a3cc3
+  - path: src/omniintelligence/review_pairing/model_registry.yaml
+    family: M
+    content_sha1: 68f361ca31aba73bf2070ce12889f6c2aebb4690
+  - path: src/omniintelligence/review_pairing/model_registry.yaml
+    family: M
+    content_sha1: 8044fbf29c9bd7b5eb013d500904662fae774d2f
+  - path: src/omniintelligence/review_pairing/model_registry.yaml
+    family: M
+    content_sha1: 822f5e5985cb588c5a7cbee4b8e3dcb679ade05a
+  - path: src/omniintelligence/review_pairing/model_registry.yaml
+    family: M
+    content_sha1: 973b854a6a2e526ebcb064ec0d673b5e03171a81
+  - path: src/omniintelligence/review_pairing/model_registry.yaml
+    family: M
+    content_sha1: c12e742a6402c995f7cd15b01a7be6821d4c9dfa
+  - path: src/omniintelligence/review_pairing/model_registry.yaml
+    family: M
+    content_sha1: db048a612aef382a5682b2d014f19200257de112
+  - path: src/omniintelligence/review_pairing/model_registry.yaml
+    family: M
+    content_sha1: db7d78c67e655244769efc4f9ae43816c407e9b6
+  - path: src/omniintelligence/review_pairing/model_registry.yaml
+    family: M
+    content_sha1: e8c22066191c2185e4c62bdc87602bbeb251bfa0
+  - path: src/omniintelligence/review_pairing/model_registry.yaml
+    family: M
+    content_sha1: f200a697ed72b8b54071ab5aca57266f4adf6559
+  - path: src/omniintelligence/review_pairing/model_registry.yaml
+    family: M
+    content_sha1: f8b7ee549b3f61b17117b31f23a8101f6830f930
+  - path: src/omniintelligence/review_pairing/models_external_review.py
+    family: M
+    content_sha1: 1a2cb529409e778056281d9d5bddf8eab6f1d22d
+  - path: src/omniintelligence/review_pairing/models_external_review.py
+    family: M
+    content_sha1: dd559915c323d780b4a1b8fbe4d1f5ab37c25f31
+  - path: src/omniintelligence/review_pairing/models_external_review.py
+    family: M
+    content_sha1: e3c4b16bf4e5d59a45edcae7e7e7c744cd44a6d6
+  - path: src/omniintelligence/rl/export.py
+    family: M
+    content_sha1: 0466d823007fb28a657681a25a6728fc97e463dc
+  - path: src/omniintelligence/rl/export.py
+    family: M
+    content_sha1: 26caec22aee9790f6bb7859ed134aa4b9198703a
+  - path: src/omniintelligence/rl/export.py
+    family: M
+    content_sha1: 37c2cd78a34dd3ea96b52d73e9a4d043dac15b93
+  - path: src/omniintelligence/rl/export.py
+    family: M
+    content_sha1: 43cfa2ab4c4507a7da9ba1488502cad57f207453
+  - path: src/omniintelligence/rl/export.py
+    family: M
+    content_sha1: 5b9e3c5ee6ac606062ebe0641d43d8f397de7132
+  - path: src/omniintelligence/rl/export.py
+    family: M
+    content_sha1: 6644d1a3a0b1fb40015ca54f4779797be751d88f
+  - path: src/omniintelligence/rl/export.py
+    family: M
+    content_sha1: 750116898053bbdb81e000c39469647478b4c694
+  - path: src/omniintelligence/rl/export.py
+    family: M
+    content_sha1: 7ff984a314349341ba58235a553e692e2c2c8717
+  - path: src/omniintelligence/rl/export.py
+    family: M
+    content_sha1: 83a4d3cf9184a6809f2ed826b2f561054fb91557
+  - path: src/omniintelligence/rl/export.py
+    family: M
+    content_sha1: e98dc20f3abab5a0b2ebd6547299171bd970894b
+  - path: src/omniintelligence/runtime/dispatch_handler_utilization_scoring.py
+    family: M
+    content_sha1: 95a19de7e62143f9536fd757590b11ae2b258ef4
+  - path: src/omniintelligence/runtime/dispatch_handler_utilization_scoring.py
+    family: M
+    content_sha1: d25d6f9720f938c243f0a4a99adf5ed7108aba41
+  - path: src/omniintelligence/runtime/dispatch_handlers.py
+    family: M
+    content_sha1: 478a04416ca7fb596da4ac699e68e67b87eed393
+  - path: tests/integration/nodes/node_plan_reviewer_multi_compute/test_smoke_plan_all_strategies.py
+    family: E-LAN
+    content_sha1: a382e13a7557fe6e48fbfdc6e62ab0be30ab0fd1
+  - path: tests/unit/bloom_eval/test_eval_llm_client.py
+    family: E-LAN
+    content_sha1: 1d3755c3ce74b4f9107af6ab7f0627159369e0ec
+  - path: tests/unit/models/test_model_llm_call_completed_event.py
+    family: E-LAN
+    content_sha1: 150e44cd33e083376f7931f9153be464be3b236f
+  - path: tests/unit/models/test_model_llm_call_completed_event.py
+    family: E-LAN
+    content_sha1: e9453a04eaa55eb0ca30dd18602c04dac362942f
+  - path: tests/unit/nodes/node_navigation_retriever_effect/test_model_navigation_retrieve_input.py
+    family: E-LAN
+    content_sha1: 2bae5bf932c912d09d6f95133228b28d6552c032
+  - path: tests/unit/review_pairing/adapters/test_adapter_ai_reviewer.py
+    family: E-LAN
+    content_sha1: 31533901afccf02fe0c08ad74f5db8ea13b86cdd
+  - path: tests/unit/review_pairing/adapters/test_adapter_ai_reviewer_fallback.py
+    family: E-LAN
+    content_sha1: 6fa43d4f325d308b04f6b4569d79a766ecd4b320
+  - path: tests/unit/review_pairing/test_gpt_oss_reviewer_registered_omn17492.py
+    family: E-LAN
+    content_sha1: 119904ada2e1ec8f07d25e12e88fc0913a9c29bf
+  - path: tests/unit/review_pairing/test_model_registry_loader.py
+    family: E-LAN
+    content_sha1: 47f257db9c3391820e57927e45f64ff6e0892ded
+  - path: tests/unit/review_pairing/test_model_registry_loader.py
+    family: E-LAN
+    content_sha1: c3d321c14bd19f782e1f712bf587174bb921ed8e
+  - path: tests/unit/review_pairing/test_quorum_distinct_reviewers_omn17492.py
+    family: E-LAN
+    content_sha1: 6961b2be80b83e061afeaf31ed4c5d387bf5a6a8
+  - path: tests/unit/review_pairing/test_quorum_distinct_reviewers_omn17492.py
+    family: E-LAN
+    content_sha1: 6ed3d1520e438641b563cffc3ca4dd9f95e720c5
+  - path: tests/unit/rl/test_export.py
+    family: E-LAN
+    content_sha1: 6dd6860e5b1d6a8c974ae576f91fb442a611da17
+  - path: tests/unit/rl/test_export.py
+    family: E-LAN
+    content_sha1: 7be69a5118f3e270884fc0564df59fa5d6a2a0ed
+  - path: tests/unit/rl/test_export.py
+    family: E-LAN
+    content_sha1: 8fb446e5849b82d5ae17eb6af28ef7259bdb63f7
+  - path: tests/unit/rl/test_export.py
+    family: E-LAN
+    content_sha1: a20cc5ddde256a11f1f79aa5ce42651ca23e5813
+  - path: tests/unit/scripts/test_validate_no_env_fallbacks.py
+    family: E-LAN
+    content_sha1: 522eb02d56f567341ddca520e804d0eeb53cdabd
+  - path: tests/unit/scripts/test_validate_no_env_fallbacks.py
+    family: E-LAN
+    content_sha1: 95aea9ae40e42fc16519c21eea3becccd6d87087
+  - path: tests/unit/scripts/test_validate_no_env_fallbacks.py
+    family: E-LAN
+    content_sha1: 98e9b6e1161852be77f68069a543b7b1faa5e880
+  - path: tests/unit/scripts/test_validate_no_env_fallbacks.py
+    family: E-LAN
+    content_sha1: c68940d3ecc63da055ecca7535e96e2aeb2aa4aa
+  - path: tests/unit/scripts/test_validate_no_env_fallbacks.py
+    family: E-LAN
+    content_sha1: e343a67778dcb8d8c243672d4e8d0fe09e353b6a
