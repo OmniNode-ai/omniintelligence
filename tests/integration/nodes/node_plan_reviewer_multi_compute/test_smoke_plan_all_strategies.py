@@ -590,7 +590,7 @@ def _build_openai_compat_critic_caller(
     a CritiqueResult with confirmed/rejected/added lists.
 
     Args:
-        base_url: Base URL e.g. ``http://192.168.86.200:8101``.
+        base_url: Base URL e.g. ``http://judge-host.test:8101``.
         model_name: Model identifier string sent in the request body.
         source_model: EnumReviewModel to tag added findings with.
         timeout_seconds: HTTP request timeout.
@@ -691,7 +691,7 @@ def _build_z_ai_caller(
 
 _LLM_CODER_URL: str = os.environ.get("LLM_CODER_URL", "http://192.168.86.201:8000")
 _LLM_DEEPSEEK_URL: str = os.environ.get(
-    "LLM_DEEPSEEK_R1_URL", "http://192.168.86.200:8101"
+    "LLM_DEEPSEEK_R1_URL", "http://judge-host.test:8101"
 )
 _GEMINI_API_KEY: str = os.environ.get("GEMINI_API_KEY", "")
 _Z_AI_API_KEY: str = os.environ.get("Z_AI_API_KEY", "")
