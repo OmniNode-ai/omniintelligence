@@ -140,7 +140,7 @@ def _load_extraction_configuration() -> _ExtractionConfiguration:
 def _policy(tenant_id: str, repository_id: str) -> ModelCodeProjectionPolicy:
     return ModelCodeProjectionPolicy(
         tenant_id=tenant_id,
-        scope_ref=f"tenant:{tenant_id}:repository:{repository_id}",
+        scope_ref=f"tenant:{tenant_id}:repository:{repository_id}:instance:canonical",
         access_scope="repository",
         visibility="repository",
         redaction_state="not_required",
