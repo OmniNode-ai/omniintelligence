@@ -2905,7 +2905,7 @@ wheels = [
 
 [[package]]
 name = "omnibase-infra"
-version = "0.38.59"
+version = "0.38.60"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "a2a-sdk" },
@@ -2960,9 +2960,9 @@ dependencies = [
     { name = "uvicorn" },
     { name = "watchdog" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ac/79/f5fcaf962c38c7293c2940fc5c66ca0a3691c11516e1a32764dad9c7fe6f/omnibase_infra-0.38.59.tar.gz", hash = "sha256:d95f5ac003c2b688b4be9bdeec211a8660541c870e66d731c1a762296c2913e4", size = 20228989, upload-time = "2026-09-27T13:56:23.579Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/44/63/e5fa6ddd9fb2343ead3db9114f517583866272bc4704607be4a78855b505/omnibase_infra-0.38.60.tar.gz", hash = "sha256:d5784d35ddf7f73ee969180cd434079a40f47ba43628567397e127e1d1a2aff6", size = 20831491, upload-time = "2026-09-30T10:25:25.824Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ae/51/0d76b05f9ba4a4df03f1f3579f54fcb31153f9e1c72084e8140663863f69/omnibase_infra-0.38.59-py3-none-any.whl", hash = "sha256:33f7a4623756d6b3eaf34a485155f15aab81b8e4de30ae60642191d02a053c76", size = 7294021, upload-time = "2026-09-27T13:56:19.671Z" },
+    { url = "https://files.pythonhosted.org/packages/9f/61/83032c985b866da5adc7bd2e9b0f5235410a9caa8d0978d4aa648ec37a7d/omnibase_infra-0.38.60-py3-none-any.whl", hash = "sha256:8e6f141c08e88749c100c0d40c4738a1afa13a28edfef2a296d562de1dcc4418", size = 7428834, upload-time = "2026-09-30T10:25:22.655Z" },
 ]
 
 [[package]]
@@ -4258,11 +4258,11 @@ wheels = [
 
 [[package]]
 name = "pyjwt"
-version = "2.14.0"
+version = "2.15.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/af/c3/8a3b59c25070cc61dc517fbdfa5dc0904670c96f605cc69759dc09166b99/pyjwt-2.14.0.tar.gz", hash = "sha256:77283c83fb56ecf566a886c757a714bc83668e38156de2cce8263302f42e0b86", size = 113177, upload-time = "2026-09-11T13:11:54.638Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/43/ea/5194e52748b0da83d71e082d75496eaec6e58f419f5e184786ded517e6a9/pyjwt-2.15.1.tar.gz", hash = "sha256:4f259e80cdfb6b3fc18a7de51fd1ef9ec79652f25019bae68975ca2468a34df8", size = 121252, upload-time = "2026-09-28T18:40:42.598Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/9c/97/672cb32ce0dfea44b740cb7b4f97038463b9cf7c0ead1aacf595572851d6/pyjwt-2.14.0-py3-none-any.whl", hash = "sha256:ad0cef71c756a56e74863c2919cf0985f72decbcfcb550ee2f422e7c62b5eedc", size = 32896, upload-time = "2026-09-11T13:11:53.409Z" },
+    { url = "https://files.pythonhosted.org/packages/50/ca/44de4e75f8aadc457f0634be3b542815078ded46dca30efb960edeecad6e/pyjwt-2.15.1-py3-none-any.whl", hash = "sha256:42d59d631f7768a1028a64c7ff581a9bf7519804daf91fc5b6c56e30eec5e193", size = 33860, upload-time = "2026-09-28T18:40:41.429Z" },
 ]
 
 [package.optional-dependencies]
