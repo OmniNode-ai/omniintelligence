@@ -1265,8 +1265,8 @@ jobs:
       - name: Shape-gate independence (OMN-20298)
         run: |
           uv run --no-project \
-            --with 'omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core@5220ecf1758b4475c2963ec13171b6431fdc2224' \
-            python -m omnibase_core.validators.shape_gate_independence
+            --with 'omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core@d17f5be8be88a8d35fc6a69e13cb8c1896c3025b' \
+            python -m omnibase_core.handlers.handler_shape_gate_independence
 
   no-noncanonical-lifecycle-classes:
     name: no-noncanonical-lifecycle-classes
