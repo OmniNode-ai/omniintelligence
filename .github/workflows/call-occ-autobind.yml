@@ -27,6 +27,20 @@
 # PR is still a draft; it only unblocks the mint for the transition OUT of
 # draft.
 #
+# TITLE-EDIT HOLE (observed on omniintelligence#962): the job-level ticket gate
+# below reads `github.event.pull_request.title` from the FROZEN webhook
+# payload of whichever event fired it. An automated bot PR (e.g. the
+# publish-downstream-pin-bump.yml pin bump) is commonly opened without its
+# OMN-ticket tag and retitled seconds to minutes later -- a GitHub `edited`
+# event, which this trigger did not listen for. Both `opened` and the next
+# `synchronize` can fire and skip on the untagged title before the rename
+# lands, permanently starving the ticket-gate condition below of a
+# qualifying event: the PR's OCC evidence companion (or the receipt-gate's
+# dependency-pin-only exemption, OMN-18882) never gets minted, and
+# `verify / verify` deadlocks waiting for an outcome that will never be
+# posted. `call-receipt-gate.yml` already listens for `edited`; `edited` is
+# added here to match so a post-open retitle re-evaluates the ticket gate.
+#
 # BRANCH FILTER (OMN-14987, #2377 stacked-PR vector): the prior
 # branches: [main, dev, "hotfix/**"] filter meant a PR whose BASE is a
 # feature branch (a stacked PR) never instantiated this workflow at all -- the
@@ -71,7 +85,7 @@ name: OCC Autobind Publisher
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened, synchronize, reopened, ready_for_review, edited]
   workflow_dispatch:
     inputs:
       pr_number:
