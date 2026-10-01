@@ -121,7 +121,7 @@ class TestProbeLocalReachability:
             side_effect=side_effect,
         ):
             result = probe_local_reachability(["qwen3-review", "qwen3-coder"])
-        # qwen3-coder defaults to 192.168.86.201 — unreachable in this scenario
+        # qwen3-coder is not the reachable host — unreachable in this scenario
         assert result["qwen3-coder"] is False
 
     def test_unknown_model_key_skipped(self) -> None:

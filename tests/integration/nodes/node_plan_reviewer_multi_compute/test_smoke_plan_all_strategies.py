@@ -230,7 +230,7 @@ def _probe_openai_compat_models(base_url: str, timeout: float = 5.0) -> str | No
     of hard-coding a name that may differ from what the server expects.
 
     Args:
-        base_url: Base URL e.g. ``http://192.168.86.201:8000``.
+        base_url: Base URL e.g. ``http://coder-host.test:8000``.
         timeout: HTTP request timeout in seconds.
 
     Returns:
@@ -489,7 +489,7 @@ def _build_openai_compat_caller(
     """Return a ModelCaller that calls an OpenAI-compatible endpoint.
 
     Args:
-        base_url: Base URL e.g. ``http://192.168.86.201:8000``.
+        base_url: Base URL e.g. ``http://coder-host.test:8000``.
         model_name: Model identifier string sent in the request body.
         source_model: EnumReviewModel to tag findings with.
         timeout_seconds: HTTP request timeout.
@@ -689,7 +689,7 @@ def _build_z_ai_caller(
 # Environment + reachability detection
 # ---------------------------------------------------------------------------
 
-_LLM_CODER_URL: str = os.environ.get("LLM_CODER_URL", "http://192.168.86.201:8000")
+_LLM_CODER_URL: str = os.environ.get("LLM_CODER_URL", "http://coder-host.test:8000")
 _LLM_DEEPSEEK_URL: str = os.environ.get(
     "LLM_DEEPSEEK_R1_URL", "http://judge-host.test:8101"
 )
