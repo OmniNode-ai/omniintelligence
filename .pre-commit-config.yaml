@@ -258,7 +258,8 @@ repos:
     hooks:
       - id: check-shape-gate-independence
         name: Shape-gate detectors never depend on the OCC preflight (OMN-20298)
-        entry: uv run --no-project --with "omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core@d17f5be8be88a8d35fc6a69e13cb8c1896c3025b" python -m omnibase_core.handlers.handler_shape_gate_independence
+        entry: uv run --no-project --with "omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core@d17f5be8be88a8d35fc6a69e13cb8c1896c3025b"
+          python -m omnibase_core.handlers.handler_shape_gate_independence
         language: system
         files: ^\.github/workflows/.*\.ya?ml$
         pass_filenames: true
