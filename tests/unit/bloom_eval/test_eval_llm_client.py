@@ -13,7 +13,7 @@ from omniintelligence.adapters.eval_llm_client import (
     EvalLLMTimeoutError,
 )
 
-GENERATOR_URL = "http://192.168.86.201:8001"
+GENERATOR_URL = "http://generator-host.test:8001"
 JUDGE_URL = "http://judge-host.test:8101"
 
 

@@ -264,12 +264,6 @@ entries:
   - path: src/omniintelligence/runtime/dispatch_handlers.py
     family: M
     content_sha1: 478a04416ca7fb596da4ac699e68e67b87eed393
-  - path: tests/integration/nodes/node_plan_reviewer_multi_compute/test_smoke_plan_all_strategies.py
-    family: E-LAN
-    content_sha1: a382e13a7557fe6e48fbfdc6e62ab0be30ab0fd1
-  - path: tests/unit/bloom_eval/test_eval_llm_client.py
-    family: E-LAN
-    content_sha1: 1d3755c3ce74b4f9107af6ab7f0627159369e0ec
   - path: tests/unit/models/test_model_llm_call_completed_event.py
     family: E-LAN
     content_sha1: 150e44cd33e083376f7931f9153be464be3b236f
