@@ -32,4 +32,4 @@ permissions:
 
 jobs:
   verify:
-    uses: OmniNode-ai/omnibase_core/.github/workflows/receipt-gate.yml@main
+    uses: OmniNode-ai/omnibase_core/.github/workflows/receipt-gate.yml@1e69bec909f245be511803191554e5b340def0b7

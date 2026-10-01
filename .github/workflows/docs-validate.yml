@@ -16,4 +16,4 @@ concurrency:
 
 jobs:
   call:
-    uses: OmniNode-ai/omnibase_core/.github/workflows/validate-docs.yml@main
+    uses: OmniNode-ai/omnibase_core/.github/workflows/validate-docs.yml@1e69bec909f245be511803191554e5b340def0b7

@@ -855,6 +855,8 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: OmniNode-ai/omnibase_core
+          # Pinned to the omnibase_core rev this repo records (check-handshake.yml); never the live default branch.
+          ref: 1e69bec909f245be511803191554e5b340def0b7
           path: omnibase_core
 
       - name: Verify handshake is current
@@ -915,7 +917,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: OmniNode-ai/omnibase_core
-          ref: dev
+          ref: 1e69bec909f245be511803191554e5b340def0b7
           path: .ci/omnibase_core
 
       - name: Set up Python
@@ -1194,7 +1196,7 @@ jobs:
     name: Cross-Repo Boundary Parity
     runs-on: ubuntu-latest
     steps:
-      - uses: OmniNode-ai/onex_change_control/.github/actions/validate-boundaries@main
+      - uses: OmniNode-ai/onex_change_control/.github/actions/validate-boundaries@dd2620d18001495b8d0f493b421b38399e9aab4b
         with:
           checks: "boundary-parity,migration-conflicts"
           warn-only: "false"
@@ -1217,6 +1219,8 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: OmniNode-ai/onex_change_control
+          # Pinned to the onex-change-control rev in pyproject.toml; never the live default branch.
+          ref: dd2620d18001495b8d0f493b421b38399e9aab4b
           path: onex_change_control
 
       - uses: astral-sh/setup-uv@v7
