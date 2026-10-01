@@ -103,6 +103,11 @@ checks:
     aggregated_by: "CI Summary"
     note: "Path-filtered via Detect Changes -- skipped on docs-only PRs"
 
+  - name: "Shape-Gate Independence (OMN-20298)"
+    workflow_file: ci.yml
+    workflow_job_key: shape-gate-independence
+    aggregated_by: "CI Summary"
+
 # ── Explicitly excluded from required checks ──────────────────────────────────
 # These checks run in CI but are NOT configured as required status checks in
 # branch protection. They are either aggregated by a gate or informational only.

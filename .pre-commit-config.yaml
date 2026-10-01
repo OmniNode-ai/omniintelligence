@@ -251,6 +251,13 @@ repos:
     rev: f873d2c30201c05d4be020fa0b281b5edbfb8307  # v0.47.24  # pragma: allowlist secret
     hooks:
       - id: check-hardcoded-model-config-compute
+  # Shape-gate independence (OMN-20298): a shape-gate detector job never waits
+  # on the change-control preflight. BLOCKING, no baseline, no allowlist.
+  # CI twin: shape-gate-independence job in .github/workflows/ci.yml.
+  - repo: https://github.com/OmniNode-ai/omnibase_core
+    rev: 5220ecf1758b4475c2963ec13171b6431fdc2224  # pragma: allowlist secret
+    hooks:
+      - id: check-shape-gate-independence
 
   - repo: local
     hooks:
