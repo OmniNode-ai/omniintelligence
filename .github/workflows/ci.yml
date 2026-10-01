@@ -1244,6 +1244,30 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
+  shape-gate-independence:
+    name: Shape-Gate Independence (OMN-20298)
+    # OMN-20298: refuses any shape-gate detector job that waits on the change-control
+    # preflight. Unconditional (no needs, no if); wired into required CI Summary via
+    # needs: + strict success-only verdict check. No baseline, allowlist or suppression.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.8.3"
+      - name: Shape-gate independence (OMN-20298)
+        run: |
+          uv run --no-project \
+            --with 'omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core@5220ecf1758b4475c2963ec13171b6431fdc2224' \
+            python -m omnibase_core.validators.shape_gate_independence
+
   no-noncanonical-lifecycle-classes:
     name: no-noncanonical-lifecycle-classes
     # OMN-14350: non-canonical lifecycle-class ratchet. Unconditional (never skips);
@@ -1434,7 +1458,7 @@ jobs:
         && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
         || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
-    needs: [changes, quality-gate, lint, type-check, test-unit, compliance, no-noncanonical-lifecycle-classes, detect-secrets, occ-companion-merged, canonical-file-shape]
+    needs: [changes, quality-gate, lint, type-check, test-unit, compliance, no-noncanonical-lifecycle-classes, shape-gate-independence, detect-secrets, occ-companion-merged, canonical-file-shape]
     if: always()
 
     steps:
@@ -1445,6 +1469,13 @@ jobs:
           # in needs: so this job WAITS for it (no race).
           if [[ "${{ needs.no-noncanonical-lifecycle-classes.result }}" != "success" ]]; then
             echo "::error::no-noncanonical-lifecycle-classes ratchet did not pass (result: ${{ needs.no-noncanonical-lifecycle-classes.result }}) - fail-closed (OMN-14350)"
+            exit 1
+          fi
+
+          # OMN-20298: strict fail-closed gate on shape-gate independence - only
+          # 'success' passes; skipped/cancelled/failure ALL block.
+          if [[ "${{ needs.shape-gate-independence.result }}" != "success" ]]; then
+            echo "::error::shape-gate-independence did not pass (result: ${{ needs.shape-gate-independence.result }}) - fail-closed (OMN-20298)"
             exit 1
           fi
 
