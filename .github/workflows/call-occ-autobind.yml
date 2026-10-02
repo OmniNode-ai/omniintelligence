@@ -118,12 +118,10 @@ jobs:
     # `gh api repos/OmniNode-ai/omniclaude/contents/.github/workflows/call-occ-autobind-reusable.yml?ref=main`
     # -> HTTP 404). With the broken pin, every invocation failed at workflow
     # parse time ("workflow was not found") and the autobind publisher NEVER
-    # ran — the E1 failure class. Pinned `@dev` (the ref that resolves) until
-    # the reusable promotes to omniclaude main; then re-pin to `@main` or a
-    # main SHA (OMN-14812). The tests/ci/test_workflow_uses_refs_resolve.py
-    # gate now fails closed on any cross-repo `uses:` pin that does not
-    # resolve live.
-    uses: OmniNode-ai/omniclaude/.github/workflows/call-occ-autobind-reusable.yml@dev
+    # ran — the E1 failure class. OMN-20001: pinned to an exact omniclaude SHA, never
+    # a live branch; bump by hand with the other omniclaude SHA pins here.
+    # tests/ci/test_sibling_pins.py fails on any moving-branch sibling pin.
+    uses: OmniNode-ai/omniclaude/.github/workflows/call-occ-autobind-reusable.yml@878ae183ffca50fe4663c4d1f5391e933c445ca2
     secrets: inherit
     with:
       lane: dev
@@ -178,7 +176,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: OmniNode-ai/omnimarket
-          ref: dev
+          ref: v0.4.270  # the omnimarket release locked in uv.lock; bump with it
           path: .occ-autobind-src
           persist-credentials: false
           sparse-checkout: |

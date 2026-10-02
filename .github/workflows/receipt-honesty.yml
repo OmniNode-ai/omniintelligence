@@ -44,7 +44,12 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Clone omnibase_core (provides the receipt-honesty validator)
-        run: git clone --depth=1 https://github.com/OmniNode-ai/omnibase_core.git ../omnibase_core
+        run: |
+          set -euo pipefail
+          # Pinned to the omnibase_core rev this repo records (check-handshake.yml); never the live default branch.
+          git init --quiet ../omnibase_core
+          git -C ../omnibase_core fetch --quiet --depth=1 https://github.com/OmniNode-ai/omnibase_core.git 1e69bec909f245be511803191554e5b340def0b7
+          git -C ../omnibase_core checkout --quiet --detach FETCH_HEAD
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
