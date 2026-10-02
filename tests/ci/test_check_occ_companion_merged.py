@@ -249,9 +249,12 @@ class TestMainEntrypoint:
             }
         )
         monkeypatch.setattr(mod, "GhFetcher", lambda: fetcher)
+        monkeypatch.delenv("GITHUB_EVENT_NAME", raising=False)
         rc = main(
             [
                 "--once",
+                "--event-name",
+                "pull_request",
                 "--repo",
                 PRODUCT_REPO,
                 "--pr-number",
@@ -275,8 +278,11 @@ class TestMainEntrypoint:
             }
         )
         monkeypatch.setattr(mod, "GhFetcher", lambda: fetcher)
+        monkeypatch.delenv("GITHUB_EVENT_NAME", raising=False)
         rc = main(
             [
+                "--event-name",
+                "pull_request",
                 "--repo",
                 PRODUCT_REPO,
                 "--pr-number",
