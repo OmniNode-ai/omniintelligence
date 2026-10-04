@@ -1292,7 +1292,7 @@ jobs:
       - name: Ratchet non-canonical lifecycle-word classes against frozen allowlist (OMN-14350)
         run: |
           uv run --no-project \
-            --with 'omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core@a3b56675fda87a1ba8cf7e19d8e60a7d0ab6c4ee' \
+            --with 'omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core@f50d00fc7918d0b12ccd0d3497160325e32e7ac5' \
             python -m omnibase_core.validators.no_noncanonical_lifecycle_classes \
             --check-stale \
             --allowlist .onex_ratchets/noncanonical_class_allowlist.yaml \
@@ -1397,7 +1397,7 @@ jobs:
     runs-on: ${{ github.event_name != 'pull_request' && github.event_name != 'merge_group' && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]') || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]') }}
     timeout-minutes: 15
     env:
-      CANONICAL_FILE_SHAPE_CORE: "omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core@a3b56675fda87a1ba8cf7e19d8e60a7d0ab6c4ee"
+      CANONICAL_FILE_SHAPE_CORE: "omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core@f50d00fc7918d0b12ccd0d3497160325e32e7ac5"
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
