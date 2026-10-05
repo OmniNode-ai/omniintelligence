@@ -1196,7 +1196,7 @@ jobs:
     name: Cross-Repo Boundary Parity
     runs-on: ubuntu-latest
     steps:
-      - uses: OmniNode-ai/onex_change_control/.github/actions/validate-boundaries@dd2620d18001495b8d0f493b421b38399e9aab4b
+      - uses: OmniNode-ai/onex_change_control/.github/actions/validate-boundaries@c0c49e1240ffaa6db1fe36f74b50c0acd345d7b2
         with:
           checks: "boundary-parity,migration-conflicts"
           warn-only: "false"

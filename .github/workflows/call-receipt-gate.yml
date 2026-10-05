@@ -32,4 +32,4 @@ permissions:
 
 jobs:
   verify:
-    uses: OmniNode-ai/omnibase_core/.github/workflows/receipt-gate.yml@fad21c40911b356c30f3e38c9075332f11524617  # omnibase_core#1853 (OMN-20375): validator ref accepts ModelDodReceipt.artifact_sha256
+    uses: OmniNode-ai/omnibase_core/.github/workflows/receipt-gate.yml@51f0f50b556ae0c47fcc85e52f15cfc5d2472ac2  # omnibase_core#1853 (OMN-20375): validator ref accepts ModelDodReceipt.artifact_sha256
