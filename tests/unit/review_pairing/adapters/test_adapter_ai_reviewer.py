@@ -433,7 +433,7 @@ class TestAsyncParseRaw:
 class TestModelRegistry:
     def test_registry_has_expected_models(self) -> None:
         assert "qwen3-review" in MODEL_REGISTRY
-        assert "gpt-oss-review" in MODEL_REGISTRY
+        assert "local-studio-planner" in MODEL_REGISTRY
         assert "qwen3-coder" in MODEL_REGISTRY
         assert "qwen3-14b" in MODEL_REGISTRY
 

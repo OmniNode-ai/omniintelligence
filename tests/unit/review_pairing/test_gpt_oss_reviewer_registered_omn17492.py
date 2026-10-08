@@ -1,10 +1,11 @@
 # SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
 
-"""gpt-oss-120b is registered as a reviewer that is a different model.
+"""The Mac Studio planner is registered as a reviewer that is a different model.
 
 Operator ruling of 2026-09-25 (ledger RULING, OMN-17492): hostile review uses
-local models, gpt-oss-120b on the Mac Studio plus the .201 models. Before this,
+local models, the Mac Studio planner (gpt-oss-120b then, Qwen3.6-35B-A3B since
+2026-10-08, OMN-17427) plus the .201 models. Before this,
 the only local review keys (``qwen3-review`` and the since-deleted aliases
 ``qwen3-review-b`` and ``deepseek-r1``) all resolved to ONE endpoint,
 ``.201:8000``, which serves one model, so every two-model "agreement" was that
@@ -12,15 +13,16 @@ model agreeing with itself.
 
 These tests pin three things:
 
-* ``gpt-oss-review`` exists, is local, keyless and ``served`` (the id is read
+* ``local-studio-planner`` (named for the rung, not the model) exists, is local, keyless and ``served`` (the id is read
   from the endpoint, never declared, per OMN-18623).
 * Its endpoint is not the endpoint any existing local key uses, so it can
   never be the same model under a second name.
 * ``reasoning_effort`` is a declarative per-model field that reaches the wire
-  inside ``chat_template_kwargs``. It matters for this model: measured on
+  inside ``chat_template_kwargs``. It mattered for gpt-oss-120b: measured on
   2026-09-25 against ``.200:8130``, effort ``high`` spent all 4096 completion
   tokens on reasoning and returned an empty answer on a 98-line diff
-  (omnimarket#2871), while ``low`` and ``medium`` answered.
+  (omnimarket#2871), while ``low`` and ``medium`` answered. The Qwen3.6-35B-A3B
+  template served there since 2026-10-08 does not read it.
 
 Reference: OMN-17492, OMN-18479, OMN-18623.
 """
@@ -39,7 +41,7 @@ from omniintelligence.review_pairing.models_external_review import (
     ModelEndpointConfig,
 )
 
-_KEY = "gpt-oss-review"
+_KEY = "local-studio-planner"
 
 
 def _host_port(url: str) -> tuple[str, int]:
@@ -48,7 +50,7 @@ def _host_port(url: str) -> tuple[str, int]:
 
 
 @pytest.mark.unit
-class TestGptOssReviewerRegistered:
+class TestStudioPlannerReviewerRegistered:
     def test_key_is_registered_as_a_local_served_code_reviewer(self) -> None:
         registry = load_registry()
         assert _KEY in registry.models
@@ -57,7 +59,7 @@ class TestGptOssReviewerRegistered:
         assert entry.model_id_source == "served"
         assert entry.api_model_id == ""
         assert _KEY in registry.local_model_keys
-        assert entry.env_var == "LLM_GPT_OSS_REVIEW_URL"
+        assert entry.env_var == "LLM_LOCAL_STUDIO_PLANNER_URL"
 
     def test_endpoint_is_the_mac_studio_llama_server(self) -> None:
         entry = load_registry().models[_KEY]
@@ -118,7 +120,7 @@ class TestReasoningEffortField:
 @pytest.mark.unit
 class TestCallModelSendsReasoningEffort:
     @pytest.mark.asyncio
-    async def test_gpt_oss_request_carries_effort_in_chat_template_kwargs(
+    async def test_studio_planner_request_carries_effort_in_chat_template_kwargs(
         self,
     ) -> None:
         from omniintelligence.review_pairing.adapters import adapter_ai_reviewer
@@ -128,7 +130,7 @@ class TestCallModelSendsReasoningEffort:
             "os.environ",
             {
                 "LOCAL_LLM_SHARED_SECRET": "x",  # pragma: allowlist secret
-                "LLM_GPT_OSS_REVIEW_URL": "http://x:1",
+                "LLM_LOCAL_STUDIO_PLANNER_URL": "http://x:1",
             },
             clear=False,
         ):
@@ -138,7 +140,7 @@ class TestCallModelSendsReasoningEffort:
                 ) as handler_cls,
                 patch(
                     "omniintelligence.review_pairing.adapters.adapter_ai_reviewer.resolve_served_model_id",
-                    return_value="gpt-oss-120b",
+                    return_value="qwen3.6-35b-a3b",
                 ),
             ):
                 handler_inst = AsyncMock()
@@ -153,7 +155,7 @@ class TestCallModelSendsReasoningEffort:
                 "reasoning_effort": expected,
             }
         }
-        assert request.model == "gpt-oss-120b"
+        assert request.model == "qwen3.6-35b-a3b"
 
     @pytest.mark.asyncio
     async def test_entry_without_effort_sends_no_effort_key(self) -> None:
@@ -216,7 +218,7 @@ class TestUnreachableModelIsNamedInTheResult:
         plan = tmp_path / "plan.md"
         plan.write_text("# plan", encoding="utf-8")
         out = tmp_path / "out.json"
-        roster = ["qwen3-review", "gpt-oss-review"]
+        roster = ["qwen3-review", "local-studio-planner"]
         ran = [key for key in roster if key not in skipped]
         argv = ["--file", str(plan), "--output", str(out)]
         for key in roster:
@@ -246,10 +248,10 @@ class TestUnreachableModelIsNamedInTheResult:
     def test_skipped_model_is_attempted_failed_and_explained(
         self, tmp_path: Path
     ) -> None:
-        payload = self._run(tmp_path, ["gpt-oss-review"])
-        assert "gpt-oss-review" in payload["models_attempted"]
-        assert payload["models_failed"] == ["gpt-oss-review"]
-        entry = [r for r in payload["results"] if r["model"] == "gpt-oss-review"]
+        payload = self._run(tmp_path, ["local-studio-planner"])
+        assert "local-studio-planner" in payload["models_attempted"]
+        assert payload["models_failed"] == ["local-studio-planner"]
+        entry = [r for r in payload["results"] if r["model"] == "local-studio-planner"]
         assert len(entry) == 1
         assert entry[0]["success"] is False
         assert "unreachable" in entry[0]["error"]
@@ -265,7 +267,7 @@ class TestUnreachableModelIsNamedInTheResult:
         assert payload["models_failed"] == []
         assert [r["model"] for r in payload["results"]] == [
             "qwen3-review",
-            "gpt-oss-review",
+            "local-studio-planner",
         ]
         assert payload["_exit"] == 0
         assert payload["quorum"]["verdict"] == "passed"
