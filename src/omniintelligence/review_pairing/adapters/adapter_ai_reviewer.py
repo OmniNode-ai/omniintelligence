@@ -446,15 +446,18 @@ async def call_model(
         # <think> opener but an unmatched </think> closer) that both defeats
         # the strip-think-tags step below (needs both tags) and, on slower
         # backends, risks consuming the full budget before an answer is ever
-        # generated. qwen3-review and gpt-oss-review are configured
+        # generated. qwen3-review and local-studio-planner are configured
         # enable_thinking: false in the registry; confirmed live on both
         # vLLM (5090) and llama.cpp (4090) that the toggle suppresses the
         # preamble entirely at generation time.
         #
         # OMN-17492: gpt-oss reads reasoning_effort from the same
         # chat_template_kwargs; it is sent only when the registry declares it,
-        # so every other entry sends exactly what it sent before. There is no
-        # cloud wire shape: private diffs go only to lab models (2026-09-25).
+        # so every other entry sends exactly what it sent before. (The model
+        # behind local-studio-planner has been Qwen3.6-35B-A3B since
+        # 2026-10-08, OMN-17427; see its registry entry for what that does to
+        # this field.) There is no cloud wire shape: private diffs go only to
+        # lab models (2026-09-25).
         extra_body={
             "chat_template_kwargs": {"enable_thinking": config.enable_thinking}
             if config.reasoning_effort is None

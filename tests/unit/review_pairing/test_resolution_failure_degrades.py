@@ -101,7 +101,9 @@ async def test_one_unresolvable_model_leaves_the_roster_reviewing(
     monkeypatch.setenv("LOCAL_LLM_SHARED_SECRET", "x")  # pragma: allowlist secret
 
     first = await adapter_ai_reviewer.async_parse_raw("plan", model="qwen3-review")
-    second = await adapter_ai_reviewer.async_parse_raw("plan", model="gpt-oss-review")
+    second = await adapter_ai_reviewer.async_parse_raw(
+        "plan", model="local-studio-planner"
+    )
 
     assert first.success is False
     assert second.success is False
@@ -136,10 +138,10 @@ def test_an_unreachable_endpoint_is_dropped_before_resolution_ever_runs(
     )
 
     to_run, skipped = adapter_ai_reviewer.select_models_with_fallback(
-        ["qwen3-review", "gpt-oss-review"]
+        ["qwen3-review", "local-studio-planner"]
     )
 
-    assert sorted(skipped) == ["gpt-oss-review", "qwen3-review"]
+    assert sorted(skipped) == ["local-studio-planner", "qwen3-review"]
     assert to_run == list(adapter_ai_reviewer._API_FALLBACK_KEYS), (
         f"an all-local outage must degrade to the API fallback; got {to_run}"
     )
@@ -161,7 +163,7 @@ def test_a_reachable_endpoint_is_still_selected(
         adapter_ai_reviewer, "_probe_tcp", lambda _host, _port: True, raising=True
     )
     to_run, skipped = adapter_ai_reviewer.select_models_with_fallback(
-        ["qwen3-review", "gpt-oss-review"]
+        ["qwen3-review", "local-studio-planner"]
     )
-    assert to_run == ["qwen3-review", "gpt-oss-review"]
+    assert to_run == ["qwen3-review", "local-studio-planner"]
     assert skipped == []

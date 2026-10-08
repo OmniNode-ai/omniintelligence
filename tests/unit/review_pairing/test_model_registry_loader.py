@@ -32,7 +32,7 @@ def test_load_registry_returns_contract_with_expected_keys() -> None:
     assert contract.default_model_key == "qwen3-review"
     assert set(contract.local_model_keys) == {
         "qwen3-review",
-        "gpt-oss-review",
+        "local-studio-planner",
         "qwen3-coder",
         MODEL_QWEN3_14B,
         "qwen3-next",
@@ -40,7 +40,7 @@ def test_load_registry_returns_contract_with_expected_keys() -> None:
     assert contract.api_fallback_keys == ("codex",)
     assert set(contract.models.keys()) == {
         "qwen3-review",
-        "gpt-oss-review",
+        "local-studio-planner",
         "qwen3-coder",
         MODEL_QWEN3_14B,
         "qwen3-next",

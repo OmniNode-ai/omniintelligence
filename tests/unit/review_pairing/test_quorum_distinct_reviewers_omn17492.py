@@ -127,7 +127,7 @@ class TestQuorumCountsDistinctReviewers:
         summary = evaluate_quorum(
             _multi(
                 _result("qwen3-review", _QWEN_ID),
-                _result("gpt-oss-review", _GPT_OSS_ID),
+                _result("local-studio-planner", _GPT_OSS_ID),
             ),
             _POLICY,
         )
@@ -142,7 +142,7 @@ class TestQuorumCountsDistinctReviewers:
             _multi(
                 _result("qwen3-review", _QWEN_ID),
                 _result("alias", _QWEN_ID),
-                _result("gpt-oss-review", _GPT_OSS_ID, raises=False),
+                _result("local-studio-planner", _GPT_OSS_ID, raises=False),
             ),
             _POLICY,
         )
@@ -233,7 +233,7 @@ class TestRegistryHasNoAliases:
         registry = load_registry()
         pair = {
             reviewer_identity(k, registry.models[k], {})
-            for k in ("qwen3-review", "gpt-oss-review")
+            for k in ("qwen3-review", "local-studio-planner")
         }
         assert pair == {_QWEN_ID, _GPT_OSS_ID}
 
@@ -282,7 +282,7 @@ class TestCliStampsIdentity:
         import asyncio
 
         monkeypatch.delenv("LLM_QWEN3_REVIEW_URL", raising=False)
-        monkeypatch.delenv("LLM_GPT_OSS_REVIEW_URL", raising=False)
+        monkeypatch.delenv("LLM_LOCAL_STUDIO_PLANNER_URL", raising=False)
 
         from omniintelligence.review_pairing import cli_review
 
@@ -296,7 +296,7 @@ class TestCliStampsIdentity:
         ):
             result = asyncio.run(
                 cli_review.run_review(
-                    "diff", ["qwen3-review", "gpt-oss-review"], review_type="pr"
+                    "diff", ["qwen3-review", "local-studio-planner"], review_type="pr"
                 )
             )
         assert [r.reviewer_identity for r in result.results] == [

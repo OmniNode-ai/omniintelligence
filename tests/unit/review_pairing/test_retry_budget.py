@@ -24,21 +24,21 @@ from omniintelligence.review_pairing.retry_budget import (
 
 pytestmark = pytest.mark.unit
 
-_HOSTILE_REVIEWER_MODEL_KEYS = ["qwen3-review", "gpt-oss-review"]
+_HOSTILE_REVIEWER_MODEL_KEYS = ["qwen3-review", "local-studio-planner"]
 
 
 class TestComputeSequentialWorstCase:
-    def test_matches_hand_derived_formula_for_gpt_oss_review(self) -> None:
-        """OMN-17492: gpt-oss-review (.200:8130) is registered with
+    def test_matches_hand_derived_formula_for_local_studio_planner(self) -> None:
+        """OMN-17492: local-studio-planner (.200:8130) is registered with
         timeout_seconds=300.0 and a per-model max_retries=1 override (2
         attempts). With one retry, ModelRetryState's default backoff
         contributes a single 2.0s delay, so worst case must be exactly 602s.
         It replaced qwen3-review-b, an alias for qwen3-review's model, which
         carried the same two values.
         """
-        [result] = compute_sequential_worst_case(["gpt-oss-review"])
+        [result] = compute_sequential_worst_case(["local-studio-planner"])
 
-        assert result.model_key == "gpt-oss-review"
+        assert result.model_key == "local-studio-planner"
         assert result.per_attempt_timeout_seconds == 300.0
         assert result.total_attempts == 2
         assert result.backoff_seconds == 2.0
@@ -79,7 +79,7 @@ class TestComputeSequentialWorstCase:
 
     def test_explicit_max_retries_override_is_honored(self) -> None:
         """Global max_retries fallback argument applies to a model with NO
-        registry-level override (qwen3-review) -- gpt-oss-review is excluded
+        registry-level override (qwen3-review) -- local-studio-planner is excluded
         here on purpose because its registry value would otherwise mask
         whether the argument itself works (see the precedence test below)."""
         [result] = compute_sequential_worst_case(["qwen3-review"], max_retries=1)
@@ -91,10 +91,12 @@ class TestComputeSequentialWorstCase:
 
     def test_registry_max_retries_overrides_global_argument(self) -> None:
         """OMN-15115 precedence: a model_registry.yaml per-model max_retries
-        (gpt-oss-review: 1) wins over the global `max_retries` fallback
+        (local-studio-planner: 1) wins over the global `max_retries` fallback
         argument, because it must mirror call_model()'s real resolution --
         call_model() always reads config.max_retries first."""
-        [result] = compute_sequential_worst_case(["gpt-oss-review"], max_retries=3)
+        [result] = compute_sequential_worst_case(
+            ["local-studio-planner"], max_retries=3
+        )
 
         assert result.total_attempts == 2  # registry's 1, NOT the passed 3
         assert result.worst_case_seconds == 602.0
@@ -112,7 +114,7 @@ class TestAssertBudgetWithinCeiling:
         backend was physically removed for RMA and it was repointed to a
         faster endpoint, so the sequential worst case for both models is now
         1096s, comfortably under 2100s. OMN-17492 replaced that alias with
-        gpt-oss-review, which carries the same timeout and retry values. A ceiling smaller than the current
+        local-studio-planner, which carries the same timeout and retry values. A ceiling smaller than the current
         worst case (here, a synthetic 1000s) still must trip the assertion,
         proving the invariant check itself -- not just the specific 2026-07
         registry values -- keeps working.
@@ -148,11 +150,11 @@ class TestAssertBudgetWithinCeiling:
         Actions cancellation happens at or before the wall-clock boundary, so
         the invariant must be a strict '<', and this asserts '>=' fails.
         """
-        [result] = compute_sequential_worst_case(["gpt-oss-review"])
+        [result] = compute_sequential_worst_case(["local-studio-planner"])
 
         with pytest.raises(AssertionError, match="Retry-budget invariant violated"):
             assert_budget_within_ceiling(
-                ["gpt-oss-review"],
+                ["local-studio-planner"],
                 job_timeout_seconds=result.worst_case_seconds,
             )
 
@@ -164,7 +166,7 @@ class TestAssertBudgetWithinCeiling:
             )
 
         message = str(exc_info.value)
-        assert "gpt-oss-review" in message
+        assert "local-studio-planner" in message
         assert "qwen3-review" in message
         assert "OMN-15066" in message
 

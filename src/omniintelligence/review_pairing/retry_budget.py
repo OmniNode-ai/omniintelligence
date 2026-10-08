@@ -43,7 +43,7 @@ class ModelRetryBudgetResult:
     """Worst-case retry budget for a single model key.
 
     Attributes:
-        model_key: Registry key (e.g. "gpt-oss-review").
+        model_key: Registry key (e.g. "local-studio-planner").
         per_attempt_timeout_seconds: The model's registered per-attempt timeout.
         total_attempts: 1 + max_retries.
         backoff_seconds: Total exponential-backoff sleep across all retries.

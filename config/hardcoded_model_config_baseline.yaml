@@ -182,9 +182,6 @@ entries:
     content_sha1: 1f7a2ad520f023b088683f4124669dadc0e4d87c
   - path: src/omniintelligence/review_pairing/model_registry.yaml
     family: M
-    content_sha1: 403299a15ebdb5d196d39600a71f07dedc5d41fc
-  - path: src/omniintelligence/review_pairing/model_registry.yaml
-    family: M
     content_sha1: 489cfae24b1bdfa5c71c652039b2b1526c1a3cc3
   - path: src/omniintelligence/review_pairing/model_registry.yaml
     family: M
@@ -192,9 +189,6 @@ entries:
   - path: src/omniintelligence/review_pairing/model_registry.yaml
     family: M
     content_sha1: 8044fbf29c9bd7b5eb013d500904662fae774d2f
-  - path: src/omniintelligence/review_pairing/model_registry.yaml
-    family: M
-    content_sha1: 822f5e5985cb588c5a7cbee4b8e3dcb679ade05a
   - path: src/omniintelligence/review_pairing/model_registry.yaml
     family: M
     content_sha1: 973b854a6a2e526ebcb064ec0d673b5e03171a81

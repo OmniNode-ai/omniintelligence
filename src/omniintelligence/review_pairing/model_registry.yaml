@@ -68,7 +68,7 @@ review_quorum:
 
 local_model_keys:
   - "qwen3-review"
-  - "gpt-oss-review"
+  - "local-studio-planner"
   - "qwen3-coder"
   - "qwen3-14b"
   - "qwen3-next"
@@ -127,32 +127,42 @@ models:
     model_id_source: "served"
     enable_thinking: false
 
-  # gpt-oss-review -- ADDED (OMN-17492, 2026-09-25) under the operator ruling
-  # of 2026-09-25T12:40Z (ledger RULING, "we have gpt oss 120 on this
-  # machine, why don't we use it as a review model?"). The first local
+  # local-studio-planner -- ADDED as gpt-oss-review (OMN-17492, 2026-09-25)
+  # under the operator ruling of 2026-09-25T12:40Z (ledger RULING, "we have
+  # gpt oss 120 on this machine, why don't we use it as a review model?"), and
+  # renamed local-studio-planner by OMN-17427 (2026-10-08). The first local
   # reviewer that is a DIFFERENT MODEL from the one behind qwen3-review:
   # qwen3-review, qwen3-review-b and deepseek-r1 all resolved to .201:8000,
   # which serves one model (Qwen3.8-27B), so any two of them agreeing was one
   # model agreeing with itself (the two aliases are now deleted).
-  # Endpoint: the Mac Studio (.200) llama.cpp server, supervised by the user
-  # LaunchAgent ai.omninode.planner-gptoss120b, serving gpt-oss-120b MXFP4
-  # with a 131,072-token context and 4 parallel slots (docs/reference/
-  # AI_LAB_HARDWARE.md in omni_home). Keyless, LAN-only; the .201 runner
-  # containers reach it (HTTP 200 from omninode-runner-7 and -51,
-  # 2026-09-25). The host is always on (operator, 2026-09-25). If it is ever
-  # unreachable, the reachability probe drops it and names it in the
-  # result; with the two-model lab roster that leaves one reviewer, which is
-  # a degraded quorum, and every calling workflow fails closed on it.
+  # THE KEY NAMES THE RUNG, NOT THE MODEL. It is the backend id the routing
+  # overlay uses for this endpoint (omnibase_infra docker/lane-overlays/
+  # dev.bifrost.yaml), so the next swap of the model behind :8130 needs no
+  # rename here, in the consuming workflows, or in their pins. A key spelled
+  # with a model-family name is also refused by the hardcoded-model-config
+  # guard (family M) in a SOURCE file.
+  # Endpoint: the Mac Studio (.200) llama.cpp server on :8130, supervised by
+  # the user LaunchAgent ai.omninode.planner-studio, with a 262,144-token
+  # context shared by 4 parallel slots (reference/lab-hosts-and-lanes.md in
+  # knowledge-base-internal). Since 2026-10-08 it serves Qwen3.6-35B-A3B (Q8_0, alias
+  # qwen3.6-35b-a3b; operator RULING 2026-10-08T17:38:56Z); before that it
+  # served gpt-oss-120b MXFP4 under the LaunchAgent planner-gptoss120b.
+  # Keyless, LAN-only; the .201 runner containers reach it. The host is
+  # always on (operator, 2026-09-25). If it is ever unreachable, the
+  # reachability probe drops it and names it in the result; with the
+  # two-model lab roster that leaves one reviewer, which is a degraded
+  # quorum, and every calling workflow fails closed on it.
   # model_id_source: served, per the OMN-18623 ruling that no local reviewer
   # declares a model id.
-  # reasoning_effort: gpt-oss reads it from chat_template_kwargs and spends
-  # its reasoning from the same max_tokens budget as the answer. Measured
-  # 2026-09-25 on omnimarket#2871 (2,318 prompt tokens): "high" used all
-  # 4,096 tokens reasoning and returned no answer; "medium" answered in
-  # 1,437 tokens, 23.7s. See the OMN-17492 eval in the PR body for the
-  # level chosen here.
-  gpt-oss-review:
-    env_var: "LLM_GPT_OSS_REVIEW_URL"
+  # timeout_seconds, max_retries and reasoning_effort below were measured on
+  # gpt-oss-120b (OMN-17492) and have not been re-measured on Qwen3.6-35B-A3B.
+  # reasoning_effort in particular is read from chat_template_kwargs by the
+  # gpt-oss chat template; the template now served on :8130 does not contain
+  # the string reasoning_effort (GET /props, chat_template, 2026-10-08), so the
+  # value is sent and not read. It is left in place because dropping it is a
+  # change of request shape this rename does not measure.
+  local-studio-planner:
+    env_var: "LLM_LOCAL_STUDIO_PLANNER_URL"
     default_url: "http://192.168.86.200:8130"  # onex-allow-internal-ip
     kind: "code_review"
     timeout_seconds: 300.0
