@@ -18,6 +18,8 @@ from typing import Any
 import pytest
 import yaml
 
+from scripts.validation.validate_clean_root import ALLOWED_ROOT_DIRECTORIES
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 HYGIENE_CONFIG = REPO_ROOT / ".public-repo-hygiene.yaml"
 HYGIENE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "public-repo-hygiene.yml"
@@ -150,3 +152,18 @@ def test_ci_pre_commit_job_has_no_skip() -> None:
     job = _load(CI_WORKFLOW)["jobs"]["pre-commit"]
     text = yaml.safe_dump(job)
     assert "SKIP" not in text
+
+
+def test_ci_vocabulary_checkouts_stay_out_of_the_repository_root() -> None:
+    """The clean-root hook rejects an unlisted root directory, so the checkout
+    paths must sit under a directory it already allows."""
+    paths = [
+        str(step["with"]["path"])
+        for step in _pre_commit_job_steps()
+        if str(step.get("uses", "")).startswith("actions/checkout")
+        and "vocabulary" in str(step.get("with", {}).get("path", ""))
+    ]
+    assert len(paths) == 2
+    for path in paths:
+        root = path.split("/", 1)[0]
+        assert "/" in path and root in ALLOWED_ROOT_DIRECTORIES, path
