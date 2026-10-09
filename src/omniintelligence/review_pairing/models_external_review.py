@@ -310,6 +310,27 @@ class ModelReviewQuorumSummary(BaseModel, frozen=True):
     )
 
 
+class ModelDroppedFinding(BaseModel, frozen=True):
+    """A finding a model emitted whose own text says there is no defect (OMN-20422).
+
+    Dropped before the quorum, never silently: each one is carried on its
+    model's result with the reason, and the CLI prints it.
+
+    Attributes:
+        title: The finding's title as the model wrote it.
+        severity: The model's raw severity string.
+        category: The model's raw category string.
+        location: The model's location, if it gave one.
+        reason: Which field said there is no defect, and the words it used.
+    """
+
+    title: str = Field(description="Finding title as emitted.")
+    severity: str = Field(description="Raw severity string as emitted.")
+    category: str = Field(description="Raw category string as emitted.")
+    location: str | None = Field(default=None, description="Location as emitted.")
+    reason: str = Field(description="Why the finding was dropped.")
+
+
 class ModelExternalReviewResult(BaseModel, frozen=True):
     """Top-level output envelope for a single external model review.
 
@@ -326,6 +347,9 @@ class ModelExternalReviewResult(BaseModel, frozen=True):
         raw_reply_length: Character length of the last unparseable reply, so the
             failure is measurable without storing the reply text. None unless
             ``parse_failed``.
+        dropped_findings: Findings the model emitted whose own text says there
+            is no defect (OMN-20422). Not in ``findings`` and not counted in
+            ``result_count``, so they never reach the quorum.
         reviewer_identity: The endpoint plus model this key resolved to
             (``reviewer_identity.reviewer_identity``), stamped by the CLI.
             The quorum counts distinct identities, not keys (OMN-17492).
@@ -358,6 +382,13 @@ class ModelExternalReviewResult(BaseModel, frozen=True):
             "The reply text is deliberately not recorded."
         ),
     )
+    dropped_findings: list[ModelDroppedFinding] = Field(
+        default_factory=list,
+        description=(
+            "Emitted findings whose own text says there is no defect, with the "
+            "reason each was dropped (OMN-20422)."
+        ),
+    )
     reviewer_identity: str | None = Field(
         default=None,
         description=(
@@ -376,6 +407,8 @@ class ModelMultiReviewResult(BaseModel, frozen=True):
         models_failed: List of models that returned success=False.
         results: Per-model result envelopes.
         total_findings: Sum of findings across all successful models.
+        total_dropped: Sum of dropped self-negating findings across all
+            successful models (OMN-20422).
         skipped_reason: Set when no model review was attempted because there
             was nothing to review (e.g. an empty PR diff on a merge/ancestry
             commit). ``None`` means models were genuinely attempted -- the
@@ -399,6 +432,13 @@ class ModelMultiReviewResult(BaseModel, frozen=True):
     )
     total_findings: int = Field(
         default=0, description="Sum of findings across all successful models."
+    )
+    total_dropped: int = Field(
+        default=0,
+        description=(
+            "Sum of findings dropped because their own text says there is no "
+            "defect, across all successful models (OMN-20422)."
+        ),
     )
     quorum: ModelReviewQuorumSummary | None = Field(
         default=None,

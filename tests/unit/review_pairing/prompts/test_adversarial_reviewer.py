@@ -124,4 +124,39 @@ class TestPromptVersion:
             assert part.isdigit(), f"Non-numeric semver part: {part}"
 
     def test_current_version(self) -> None:
-        assert PROMPT_VERSION == "1.2.0"
+        assert PROMPT_VERSION == "1.3.0"
+
+
+@pytest.mark.unit
+class TestGitDependencyPinning:
+    """OMN-20422: a full-SHA git dependency pin and its bump are not findings.
+
+    The 1.2.0 rule named only GitHub Actions ``uses:``; both voters then blocked
+    omniclaude#2629, a bump of two ``[tool.uv.sources]`` revs between full SHAs,
+    saying the Actions rule "does not apply" to git dependencies.
+    """
+
+    def test_rule_covers_git_dependency_pins(self) -> None:
+        assert "git dependency" in SYSTEM_PROMPT
+        assert "[tool.uv.sources]" in SYSTEM_PROMPT
+        assert "rev=" in SYSTEM_PROMPT
+
+    def test_a_bump_between_full_shas_is_not_a_finding(self) -> None:
+        assert "provenance" in SYSTEM_PROMPT
+
+    def test_branch_tag_or_short_sha_dependency_is_still_the_defect(self) -> None:
+        assert "a git dependency on a branch, a tag, or an abbreviated SHA" in (
+            SYSTEM_PROMPT
+        )
+
+
+@pytest.mark.unit
+class TestNoDefectNoFinding:
+    """OMN-20422: a finding that says there is no defect must not be emitted."""
+
+    def test_prompt_forbids_self_negating_findings(self) -> None:
+        assert "Every finding states a defect" in SYSTEM_PROMPT
+        assert "leave it out" in SYSTEM_PROMPT
+
+    def test_prompt_names_the_empty_array_as_the_clean_answer(self) -> None:
+        assert "output []" in SYSTEM_PROMPT
