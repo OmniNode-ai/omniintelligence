@@ -26,6 +26,11 @@
 #                     observes rather than owns; use "declared" for a
 #                     multi-model cloud endpoint, where the id is a real
 #                     choice this repo makes.
+#   constrain_findings_schema:
+#                     Optional bool (default false). Sends a response_format
+#                     json_schema for the findings array so decoding is
+#                     constrained to it (OMN-20422). For a model that ignores
+#                     the prompt's "raw JSON array" instruction.
 #   enable_thinking:  Optional bool (default true). Whether the model may emit
 #                     a reasoning preamble before its answer (Qwen3
 #                     chat_template_kwargs.enable_thinking). call_model()
@@ -170,6 +175,11 @@ models:
     enable_thinking: false
     reasoning_effort: "medium"
     max_retries: 1
+    # OMN-20422: Qwen3.6-35B-A3B ignores the prompt's "raw JSON array"
+    # instruction and answers with several bare JSON objects in a row, which is
+    # not JSON. Measured on omnibase_infra#4757's diff (2026-10-09, .200:8131):
+    # 7 of 12 replies parsed without this, 12 of 12 with it.
+    constrain_findings_schema: true
 
   qwen3-coder:
     env_var: "LLM_CODER_URL"

@@ -358,7 +358,7 @@ class TestAsyncParseRaw:
         assert len(result.findings) == 2
 
     @pytest.mark.asyncio
-    async def test_malformed_response_returns_empty_findings(self) -> None:
+    async def test_malformed_response_marks_model_failed(self) -> None:
         from omniintelligence.review_pairing.adapters import adapter_ai_reviewer
 
         with patch.object(
@@ -372,7 +372,9 @@ class TestAsyncParseRaw:
                 model="qwen3-review",
             )
 
-        assert result.success is True  # Parsing succeeded, just no findings
+        # OMN-20422: an unparseable reply is a failed vote, not a clean one.
+        assert result.success is False
+        assert result.parse_failed is True
         assert result.result_count == 0
         assert result.findings == []
 

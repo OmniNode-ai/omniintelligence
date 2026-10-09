@@ -42,6 +42,9 @@ class ModelEndpointConfig(BaseModel, frozen=True, extra="forbid"):
             preamble (Qwen3 chat_template_kwargs.enable_thinking). Declarative
             per-model toggle (OMN-14176) -- flipping reasoning off/on for a
             model is a config change here, not a code change in call_model().
+        constrain_findings_schema: Send a ``response_format`` json_schema for
+            the findings array so decoding is constrained to it (OMN-20422).
+            Default False leaves the request unchanged.
         max_retries: Optional per-model override for HTTP retry attempts
             (OMN-15115). ``None`` (default) means "no override" -- call_model
             leaves ``ModelLlmInferenceRequest.max_retries`` at its own default
@@ -95,6 +98,18 @@ class ModelEndpointConfig(BaseModel, frozen=True, extra="forbid"):
             "None means no override -- call_model leaves "
             "ModelLlmInferenceRequest.max_retries at its own default. "
             "Additive: existing entries that don't set it are unaffected."
+        ),
+    )
+
+    constrain_findings_schema: bool = Field(
+        default=False,
+        description=(
+            "Ask the endpoint to constrain decoding to the findings array "
+            "schema (OpenAI-style response_format json_schema, honoured by "
+            "llama.cpp and vLLM) so the reply is a JSON array by construction "
+            "(OMN-20422). For a model that ignores the prompt's 'raw JSON "
+            "array' instruction. Additive: defaults to the previous request "
+            "shape."
         ),
     )
 
@@ -305,6 +320,12 @@ class ModelExternalReviewResult(BaseModel, frozen=True):
         error: Failure reason if success is False.
         findings: List of canonical review findings.
         result_count: Number of findings (explicit for fast scanning).
+        parse_failed: True when the model replied but no reply parsed as review
+            JSON (OMN-20422). Such a result is ``success=False``: an unparseable
+            reply is a failed vote, never a clean review with no findings.
+        raw_reply_length: Character length of the last unparseable reply, so the
+            failure is measurable without storing the reply text. None unless
+            ``parse_failed``.
         reviewer_identity: The endpoint plus model this key resolved to
             (``reviewer_identity.reviewer_identity``), stamped by the CLI.
             The quorum counts distinct identities, not keys (OMN-17492).
@@ -322,6 +343,20 @@ class ModelExternalReviewResult(BaseModel, frozen=True):
     )
     result_count: int = Field(
         default=0, description="Number of findings (len(findings))."
+    )
+    parse_failed: bool = Field(
+        default=False,
+        description=(
+            "True when no reply parsed as review JSON (OMN-20422); the result "
+            "is then success=False."
+        ),
+    )
+    raw_reply_length: int | None = Field(
+        default=None,
+        description=(
+            "Length in characters of the last unparseable reply (OMN-20422). "
+            "The reply text is deliberately not recorded."
+        ),
     )
     reviewer_identity: str | None = Field(
         default=None,
