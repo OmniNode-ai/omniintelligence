@@ -124,7 +124,7 @@ class TestPromptVersion:
             assert part.isdigit(), f"Non-numeric semver part: {part}"
 
     def test_current_version(self) -> None:
-        assert PROMPT_VERSION == "1.3.0"
+        assert PROMPT_VERSION == "1.4.0"
 
 
 @pytest.mark.unit
