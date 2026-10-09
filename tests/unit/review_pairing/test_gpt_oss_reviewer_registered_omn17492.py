@@ -40,6 +40,9 @@ from omniintelligence.review_pairing.model_registry_loader import load_registry
 from omniintelligence.review_pairing.models_external_review import (
     ModelEndpointConfig,
 )
+from omniintelligence.review_pairing.prompts.adversarial_reviewer import (
+    FINDINGS_RESPONSE_FORMAT,
+)
 
 _KEY = "local-studio-planner"
 
@@ -149,11 +152,13 @@ class TestCallModelSendsReasoningEffort:
                 await adapter_ai_reviewer.call_model("sys", "usr", model_key=_KEY)
 
         request = handler_inst.handle.call_args[0][0]
+        # OMN-20422: the entry also asks for schema-constrained decoding.
         assert request.extra_body == {
             "chat_template_kwargs": {
                 "enable_thinking": False,
                 "reasoning_effort": expected,
-            }
+            },
+            "response_format": FINDINGS_RESPONSE_FORMAT,
         }
         assert request.model == "qwen3.6-35b-a3b"
 
