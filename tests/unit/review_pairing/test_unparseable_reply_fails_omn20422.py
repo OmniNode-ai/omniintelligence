@@ -170,3 +170,59 @@ class TestQuorumReadsDegradedOnUnparseableSecondVoter:
         assert multi.models_failed == []
         summary = evaluate_quorum(multi, ModelReviewQuorumPolicy())
         assert summary.verdict is not EnumQuorumVerdict.DEGRADED_QUORUM
+
+
+@pytest.mark.unit
+class TestConstrainFindingsSchema:
+    """Qwen3.6 answers with several bare JSON objects (not an array); the
+    registry asks that endpoint for schema-constrained decoding (OMN-20422)."""
+
+    def test_default_sends_no_response_format(self) -> None:
+        extra = adapter_ai_reviewer._build_extra_body(
+            adapter_ai_reviewer.MODEL_REGISTRY["qwen3-review"]
+        )
+        assert "response_format" not in extra
+        assert extra == {"chat_template_kwargs": {"enable_thinking": False}}
+
+    def test_local_studio_planner_requests_the_findings_schema(self) -> None:
+        config = adapter_ai_reviewer.MODEL_REGISTRY["local-studio-planner"]
+        assert config.constrain_findings_schema is True
+        extra = adapter_ai_reviewer._build_extra_body(config)
+        fmt = extra["response_format"]
+        assert fmt["type"] == "json_schema"
+        assert fmt["json_schema"]["schema"]["type"] == "array"
+        # reasoning_effort handling is unchanged by the new key.
+        assert extra["chat_template_kwargs"]["reasoning_effort"] == "medium"
+
+    def test_schema_requires_every_field_the_prompt_asks_for(self) -> None:
+        from omniintelligence.review_pairing.prompts.adversarial_reviewer import (
+            FINDINGS_RESPONSE_FORMAT,
+            SYSTEM_PROMPT,
+        )
+
+        item = FINDINGS_RESPONSE_FORMAT["json_schema"]["schema"]["items"]
+        assert set(item["required"]) == set(item["properties"])
+        for field in item["required"]:
+            assert f'"{field}"' in SYSTEM_PROMPT
+
+    def test_a_schema_shaped_reply_parses(self) -> None:
+        """Positive control: the shape the constrained decoder emits parses."""
+        parsed = try_parse_review_response(_VALID)
+        assert parsed is not None
+        assert set(parsed[0]) == {
+            "category",
+            "severity",
+            "title",
+            "description",
+            "evidence",
+            "proposed_fix",
+            "location",
+        }
+
+    def test_several_bare_objects_do_not_parse(self) -> None:
+        """The observed Qwen3.6 reply shape: it is the reason for the flag."""
+        item = json.loads(_VALID)[0]
+        assert (
+            try_parse_review_response(json.dumps(item) + "\n" + json.dumps(item))
+            is None
+        )

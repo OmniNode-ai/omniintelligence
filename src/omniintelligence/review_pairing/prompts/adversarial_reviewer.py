@@ -16,6 +16,8 @@ Reference: OMN-5789, OMN-5819, OMN-19395
 
 from __future__ import annotations
 
+from typing import Any
+
 PROMPT_VERSION: str = "1.2.0"
 """Semantic version of the adversarial review prompt.
 
@@ -148,3 +150,52 @@ USER_PROMPT_TEMPLATE_PR: str = (
     "\n"
     "{plan_content}"
 )
+
+_FINDING_CATEGORIES: tuple[str, ...] = (
+    "architecture",
+    "security",
+    "performance",
+    "correctness",
+    "completeness",
+    "feasibility",
+    "testing",
+    "style",
+)
+_FINDING_SEVERITIES: tuple[str, ...] = ("critical", "major", "minor", "nit")
+
+FINDINGS_RESPONSE_FORMAT: dict[str, Any] = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "review_findings",
+        "strict": True,
+        "schema": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "category": {"type": "string", "enum": list(_FINDING_CATEGORIES)},
+                    "severity": {"type": "string", "enum": list(_FINDING_SEVERITIES)},
+                    "title": {"type": "string"},
+                    "description": {"type": "string"},
+                    "evidence": {"type": "string"},
+                    "proposed_fix": {"type": "string"},
+                    "location": {"type": ["string", "null"]},
+                },
+                "required": [
+                    "category",
+                    "severity",
+                    "title",
+                    "description",
+                    "evidence",
+                    "proposed_fix",
+                    "location",
+                ],
+                "additionalProperties": False,
+            },
+        },
+    },
+}
+"""``response_format`` that constrains decoding to the findings array the system
+prompt asks for (OMN-20422). Sent only for registry entries that set
+``constrain_findings_schema``; the field list mirrors the Output Format section
+of ``SYSTEM_PROMPT``."""

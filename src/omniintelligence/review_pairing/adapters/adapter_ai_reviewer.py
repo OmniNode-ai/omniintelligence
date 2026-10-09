@@ -43,6 +43,7 @@ from omniintelligence.review_pairing.models_external_review import (
     ModelExternalReviewResult,
 )
 from omniintelligence.review_pairing.prompts.adversarial_reviewer import (
+    FINDINGS_RESPONSE_FORMAT,
     PROMPT_VERSION,
     SYSTEM_PROMPT,
     USER_PROMPT_TEMPLATE,
@@ -339,6 +340,23 @@ async def _call_claude_api(
         raise RuntimeError(f"Unexpected Claude API response shape: {data!r}") from exc
 
 
+def _build_extra_body(config: ModelEndpointConfig) -> dict[str, Any]:
+    """Request-body keys the OpenAI-compatible effect merges in verbatim.
+
+    ``chat_template_kwargs`` always (OMN-14176; ``reasoning_effort`` only when
+    the registry declares it, OMN-17492). ``response_format`` only for an entry
+    that sets ``constrain_findings_schema`` (OMN-20422), so every other entry
+    sends exactly what it sent before.
+    """
+    template_kwargs: dict[str, Any] = {"enable_thinking": config.enable_thinking}
+    if config.reasoning_effort is not None:
+        template_kwargs["reasoning_effort"] = config.reasoning_effort
+    extra_body: dict[str, Any] = {"chat_template_kwargs": template_kwargs}
+    if config.constrain_findings_schema:
+        extra_body["response_format"] = FINDINGS_RESPONSE_FORMAT
+    return extra_body
+
+
 async def call_model(
     system_prompt: str,
     user_prompt: str,
@@ -458,14 +476,7 @@ async def call_model(
         # 2026-10-08, OMN-17427; see its registry entry for what that does to
         # this field.) There is no cloud wire shape: private diffs go only to
         # lab models (2026-09-25).
-        extra_body={
-            "chat_template_kwargs": {"enable_thinking": config.enable_thinking}
-            if config.reasoning_effort is None
-            else {
-                "enable_thinking": config.enable_thinking,
-                "reasoning_effort": config.reasoning_effort,
-            }
-        },
+        extra_body=_build_extra_body(config),
     )
 
     response = await handler.handle(request)
