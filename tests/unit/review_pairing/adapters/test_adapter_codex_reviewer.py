@@ -388,7 +388,7 @@ class TestAsyncParseRaw:
 
     @pytest.mark.asyncio
     async def test_malformed_assistant_content(self) -> None:
-        """Assistant returns text, not JSON; findings should be empty."""
+        """Assistant returns text, not JSON: a failed vote, not a clean one (OMN-20422)."""
         ndjson_output = _make_ndjson_event(
             "item.completed", "assistant", "I found some issues but not in JSON"
         )
@@ -408,6 +408,8 @@ class TestAsyncParseRaw:
         ):
             result = await async_parse_raw("# Plan")
 
-        assert result.success is True
+        assert result.success is False
+        assert result.parse_failed is True
+        assert result.raw_reply_length == len("I found some issues but not in JSON")
         assert result.result_count == 0
         assert result.findings == []

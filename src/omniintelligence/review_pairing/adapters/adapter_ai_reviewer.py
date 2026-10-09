@@ -489,7 +489,7 @@ async def call_model(
     return text
 
 
-def parse_review_response(raw_text: str) -> list[dict[str, Any]]:
+def try_parse_review_response(raw_text: str) -> list[dict[str, Any]] | None:
     """Extract structured JSON findings from model response.
 
     Handles common model output patterns:
@@ -501,7 +501,10 @@ def parse_review_response(raw_text: str) -> list[dict[str, Any]]:
         raw_text: Raw text response from the model.
 
     Returns:
-        List of finding dictionaries. Empty list on parse failure.
+        List of finding dictionaries (empty for a reply that parsed as ``[]``),
+        or None when nothing in the reply parsed as review JSON. OMN-20422:
+        None and ``[]`` are different answers -- a clean review versus no
+        review -- and callers must not fold one into the other.
     """
     text = raw_text.strip()
 
@@ -524,7 +527,7 @@ def parse_review_response(raw_text: str) -> list[dict[str, Any]]:
         logger.warning(
             "Parsed JSON is not a list or object; got %s", type(parsed).__name__
         )
-        return []
+        return None
     except json.JSONDecodeError:
         pass
 
@@ -551,7 +554,18 @@ def parse_review_response(raw_text: str) -> list[dict[str, Any]]:
             logger.debug("Bracket-extracted text was not valid JSON")
 
     logger.warning("Failed to extract JSON findings from model response")
-    return []
+    return None
+
+
+def parse_review_response(raw_text: str) -> list[dict[str, Any]]:
+    """Like :func:`try_parse_review_response`, with an empty list on failure.
+
+    For callers that only want findings. A caller deciding whether a model's
+    vote counts must use :func:`try_parse_review_response`: this one cannot tell
+    a clean review from an unparseable reply.
+    """
+    parsed = try_parse_review_response(raw_text)
+    return parsed if parsed is not None else []
 
 
 def map_severity(raw_severity: str) -> EnumFindingSeverity:
@@ -693,6 +707,37 @@ def parse_raw(
     )
 
 
+def unparseable_reply_result(
+    model: str,
+    raw_reply_length: int,
+    *,
+    earlier_lengths: tuple[int, ...] = (),
+) -> ModelExternalReviewResult:
+    """Failed vote for a model whose reply never parsed as review JSON (OMN-20422).
+
+    Records the failure and the reply length, never the reply text: the reply is
+    model output over a private diff and has no business in a CI log.
+    """
+    lengths = ", ".join(str(n) for n in (*earlier_lengths, raw_reply_length))
+    attempts = len(earlier_lengths) + 1
+    logger.warning(
+        "Model '%s' returned an unparseable reply on %d attempt(s); vote failed",
+        model,
+        attempts,
+    )
+    return ModelExternalReviewResult(
+        model=model,
+        prompt_version=PROMPT_VERSION,
+        success=False,
+        error=(
+            f"unparseable reply: no review JSON in {attempts} attempt(s) "
+            f"(reply lengths in chars: {lengths})"
+        ),
+        parse_failed=True,
+        raw_reply_length=raw_reply_length,
+    )
+
+
 async def async_parse_raw(
     plan_content: str,
     *,
@@ -732,7 +777,21 @@ async def async_parse_raw(
             system_prompt_prefix=system_prompt_prefix,
         )
         raw_text = await call_model(system_prompt, user_prompt, model_key=model)
-        parsed = parse_review_response(raw_text)
+        parsed = try_parse_review_response(raw_text)
+        if parsed is None:
+            # OMN-20422: retry once with the same prompt, then fail the vote.
+            logger.warning(
+                "Model '%s' reply did not parse (%d chars); retrying once",
+                model,
+                len(raw_text),
+            )
+            first_length = len(raw_text)
+            raw_text = await call_model(system_prompt, user_prompt, model_key=model)
+            parsed = try_parse_review_response(raw_text)
+            if parsed is None:
+                return unparseable_reply_result(
+                    model, len(raw_text), earlier_lengths=(first_length,)
+                )
         findings = to_review_findings(
             parsed,
             model,

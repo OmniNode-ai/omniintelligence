@@ -305,6 +305,12 @@ class ModelExternalReviewResult(BaseModel, frozen=True):
         error: Failure reason if success is False.
         findings: List of canonical review findings.
         result_count: Number of findings (explicit for fast scanning).
+        parse_failed: True when the model replied but no reply parsed as review
+            JSON (OMN-20422). Such a result is ``success=False``: an unparseable
+            reply is a failed vote, never a clean review with no findings.
+        raw_reply_length: Character length of the last unparseable reply, so the
+            failure is measurable without storing the reply text. None unless
+            ``parse_failed``.
         reviewer_identity: The endpoint plus model this key resolved to
             (``reviewer_identity.reviewer_identity``), stamped by the CLI.
             The quorum counts distinct identities, not keys (OMN-17492).
@@ -322,6 +328,20 @@ class ModelExternalReviewResult(BaseModel, frozen=True):
     )
     result_count: int = Field(
         default=0, description="Number of findings (len(findings))."
+    )
+    parse_failed: bool = Field(
+        default=False,
+        description=(
+            "True when no reply parsed as review JSON (OMN-20422); the result "
+            "is then success=False."
+        ),
+    )
+    raw_reply_length: int | None = Field(
+        default=None,
+        description=(
+            "Length in characters of the last unparseable reply (OMN-20422). "
+            "The reply text is deliberately not recorded."
+        ),
     )
     reviewer_identity: str | None = Field(
         default=None,
