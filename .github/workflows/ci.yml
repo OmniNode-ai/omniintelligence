@@ -245,7 +245,7 @@ jobs:
         with:
           repository: ${{ github.repository_owner }}/${{ steps.hygiene-vocab-repos.outputs.vocab }}
           token: ${{ steps.hygiene-vocab-token.outputs.token }}
-          path: .public-repo-hygiene-vocabulary
+          path: tmp/hygiene-vocabulary
           persist-credentials: false
           sparse-checkout: |
             docs/workflows/_shared/public_repo_hygiene_vocabulary.yaml
@@ -256,7 +256,7 @@ jobs:
         with:
           repository: ${{ github.repository_owner }}/${{ steps.hygiene-vocab-repos.outputs.lab_vocab }}
           token: ${{ steps.hygiene-vocab-token.outputs.token }}
-          path: .public-repo-hygiene-lab-vocabulary
+          path: tmp/hygiene-lab-vocabulary
           persist-credentials: false
           sparse-checkout: |
             vocabularies/public_repo_hygiene_lab_vocabulary.yaml
@@ -266,8 +266,8 @@ jobs:
       - name: Point the hygiene hook at its vocabulary
         run: |
           set -euo pipefail
-          vocab=.public-repo-hygiene-vocabulary/docs/workflows/_shared/public_repo_hygiene_vocabulary.yaml
-          lab_vocab=.public-repo-hygiene-lab-vocabulary/vocabularies/public_repo_hygiene_lab_vocabulary.yaml
+          vocab=tmp/hygiene-vocabulary/docs/workflows/_shared/public_repo_hygiene_vocabulary.yaml
+          lab_vocab=tmp/hygiene-lab-vocabulary/vocabularies/public_repo_hygiene_lab_vocabulary.yaml
           test -f "${vocab}"
           test -f "${lab_vocab}"
           cp "${lab_vocab}" "$(dirname "${vocab}")/public_repo_hygiene_lab_vocabulary.yaml"
