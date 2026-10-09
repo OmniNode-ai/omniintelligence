@@ -9,10 +9,14 @@
 # private address, an operator machine path, a private repository name, and
 # internal-KB prose in a public README.
 #
-# mode: report. The gate records every finding and exits 0, so it lands without
-# blocking unrelated PRs on a repository that carries pre-existing residue. It
-# flips to enforce when that residue is FIXED -- never by moving it into
-# .public-repo-hygiene.yaml.
+# mode: report. The gate records every finding with a per-class count. Five
+# classes fail the run on ADDED lines only (OMN-20783): private-repo-name,
+# internal-kb-prose, lab-config, person-name and private-network, set by
+# `enforce_classes` and `enforce_scope: added-lines` in .public-repo-hygiene.yaml.
+# The reusable hands the gate the merge ref's first parent as its diff base, so
+# a pull request that adds one of those goes red and one that does not stays
+# green over the residue OMN-19836 is counting down. The mode flips to enforce
+# when that residue is FIXED -- never by moving it into .public-repo-hygiene.yaml.
 #
 # Layer (a) reads .public-repo-hygiene.yaml at this repo's root; the gate
 # refuses to run without it rather than treating an absent config as an empty
@@ -26,7 +30,11 @@
 # The pin is a SINGLE source of truth: the reusable workflow checks its own
 # validator out at validated job.workflow_sha, i.e. this very SHA, so the workflow
 # and the script can never drift apart. Pin to an omniclaude commit on `dev`;
-# `main` is release-synced and does not carry the gate.
+# `main` is release-synced and does not carry the gate. The pin must be at or
+# after 9a58ef705, which supports `enforce_scope: added-lines`. The
+# public-repo-hygiene pre-commit hook in .pre-commit-config.yaml runs at this
+# same SHA, so the local and CI verdicts cannot diverge: advancing the pin is
+# those two lines, together (tests/unit/scripts/test_public_repo_hygiene_enforce_omn20783.py).
 
 name: Public Repo Hygiene
 
@@ -42,7 +50,7 @@ concurrency:
 
 jobs:
   public-repo-hygiene:
-    uses: OmniNode-ai/omniclaude/.github/workflows/public-repo-hygiene-reusable.yml@acc1daf137d38246e98d0dad29267f2cbad14f5f
+    uses: OmniNode-ai/omniclaude/.github/workflows/public-repo-hygiene-reusable.yml@6e47aa311ac5d177d116d9597b07966a233d2463
     with:
       mode: report
     secrets: inherit

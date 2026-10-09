@@ -207,6 +207,72 @@ jobs:
           restore-keys: |
             pre-commit-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
 
+      # OMN-20783: the public-repo-hygiene pre-commit hook reads the PRIVATE
+      # denylist vocabulary from OMNI_HYGIENE_VOCAB_PATH and fails closed (exit
+      # 2, THE GATE DID NOT RUN) without it, so this job, which runs every hook
+      # over the tree, fetches the same two private files
+      # .github/workflows/public-repo-hygiene.yml fetches. The repository names
+      # live in org variables, not here. Unset variables fail the job: an
+      # unreachable vocabulary reads exactly like a clean bill of health.
+      - name: Resolve the private hygiene vocabulary repos
+        id: hygiene-vocab-repos
+        env:
+          VOCAB_REPO: ${{ vars.OMNI_HYGIENE_VOCAB_REPO }}
+          LAB_VOCAB_REPO: ${{ vars.OMNI_HYGIENE_LAB_VOCAB_REPO }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VOCAB_REPO}" ] || [ -z "${LAB_VOCAB_REPO}" ]; then
+            echo "::error::OMNI_HYGIENE_VOCAB_REPO or OMNI_HYGIENE_LAB_VOCAB_REPO" \
+                 "is unset, so the private denylist vocabulary cannot be located." \
+                 "The public-repo-hygiene hook refuses to run without it."
+            exit 1
+          fi
+          echo "vocab=${VOCAB_REPO}" >> "$GITHUB_OUTPUT"
+          echo "lab_vocab=${LAB_VOCAB_REPO}" >> "$GITHUB_OUTPUT"
+
+      - name: Mint token for the private hygiene vocabulary repos
+        id: hygiene-vocab-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.ONEXBOT_APP_ID }}
+          private-key: ${{ secrets.ONEXBOT_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ steps.hygiene-vocab-repos.outputs.vocab }},${{ steps.hygiene-vocab-repos.outputs.lab_vocab }}
+          permission-contents: read
+
+      - name: Fetch the private hygiene vocabulary
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ github.repository_owner }}/${{ steps.hygiene-vocab-repos.outputs.vocab }}
+          token: ${{ steps.hygiene-vocab-token.outputs.token }}
+          path: .public-repo-hygiene-vocabulary
+          persist-credentials: false
+          sparse-checkout: |
+            docs/workflows/_shared/public_repo_hygiene_vocabulary.yaml
+          sparse-checkout-cone-mode: false
+
+      - name: Fetch the private hygiene lab vocabulary
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ github.repository_owner }}/${{ steps.hygiene-vocab-repos.outputs.lab_vocab }}
+          token: ${{ steps.hygiene-vocab-token.outputs.token }}
+          path: .public-repo-hygiene-lab-vocabulary
+          persist-credentials: false
+          sparse-checkout: |
+            vocabularies/public_repo_hygiene_lab_vocabulary.yaml
+          sparse-checkout-cone-mode: false
+
+      # The hook finds the lab vocabulary beside the main one by file name.
+      - name: Point the hygiene hook at its vocabulary
+        run: |
+          set -euo pipefail
+          vocab=.public-repo-hygiene-vocabulary/docs/workflows/_shared/public_repo_hygiene_vocabulary.yaml
+          lab_vocab=.public-repo-hygiene-lab-vocabulary/vocabularies/public_repo_hygiene_lab_vocabulary.yaml
+          test -f "${vocab}"
+          test -f "${lab_vocab}"
+          cp "${lab_vocab}" "$(dirname "${vocab}")/public_repo_hygiene_lab_vocabulary.yaml"
+          echo "OMNI_HYGIENE_VOCAB_PATH=${GITHUB_WORKSPACE}/${vocab}" >> "$GITHUB_ENV"
+
       # Verbose mode enables hook profiling - shows execution time for each hook
       # This helps identify slow hooks and track performance regressions
       # See .pre-commit-config.yaml for profiling documentation and thresholds
