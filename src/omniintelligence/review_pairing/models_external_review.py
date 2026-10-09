@@ -17,6 +17,9 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
+from omniintelligence.models.review.model_standing_rules_record import (
+    ModelStandingRulesRecord,
+)
 from omniintelligence.review_pairing.models import (
     EnumFindingSeverity,
     ModelReviewFindingObserved,
@@ -241,6 +244,8 @@ class ModelQuorumFinding(BaseModel, frozen=True):
         blocking: True when this cluster blocks under the active policy.
         finding_ids: Source finding identifiers, so a caller can post the
             underlying per-model findings without re-deriving the cluster.
+        standing_rule_id: The reviewed repository's standing rule the cluster
+            is bound to (OMN-20784). None for a finding that cites none.
     """
 
     file_path: str = Field(description="Normalised path for the cluster.")
@@ -260,6 +265,10 @@ class ModelQuorumFinding(BaseModel, frozen=True):
     blocking: bool = Field(description="True when this cluster blocks.")
     finding_ids: tuple[str, ...] = Field(
         default=(), description="Source finding identifiers in the cluster."
+    )
+    standing_rule_id: str | None = Field(
+        default=None,
+        description="Standing rule the cluster is bound to (OMN-20784).",
     )
 
 
@@ -454,5 +463,12 @@ class ModelMultiReviewResult(BaseModel, frozen=True):
             "Set when no model review was attempted because there was "
             "nothing to review (e.g. an empty PR diff). None means models "
             "were genuinely attempted (OMN-18409)."
+        ),
+    )
+    standing_rules: ModelStandingRulesRecord | None = Field(
+        default=None,
+        description=(
+            "The standing rules this verdict was reached under, with their "
+            "digest (OMN-20784). None when the review ran without rules."
         ),
     )

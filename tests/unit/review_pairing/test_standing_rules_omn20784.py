@@ -96,7 +96,7 @@ def _success(model: str, findings: list | None = None) -> ModelExternalReviewRes
 
 
 def _two_models() -> tuple[str, str]:
-    return ("deepseek-r1", "qwen3-coder")
+    return ("qwen3-review", "qwen3-coder")
 
 
 def _run_cli(
@@ -362,7 +362,7 @@ class TestStandingRulesRenderedAndDigested:
             asyncio.run(
                 async_parse_raw(
                     "a diff",
-                    model="deepseek-r1",
+                    model="qwen3-review",
                     review_type="pr",
                     standing_rules=rules,
                 )
@@ -456,7 +456,7 @@ class TestRuleCitedFindingBlocks:
         rules = _load(_RULES_YAML)
         findings = parse_raw(
             _recorded_response(_MANDATORY_ID),
-            model="deepseek-r1",
+            model="qwen3-review",
             standing_rules=rules,
         )
         assert len(findings) == 1
@@ -505,7 +505,7 @@ class TestRuleCitedFindingBlocks:
             result = asyncio.run(
                 async_parse_raw(
                     "a diff",
-                    model="deepseek-r1",
+                    model="qwen3-review",
                     review_type="pr",
                     standing_rules=rules,
                 )
@@ -517,7 +517,7 @@ class TestRuleCitedFindingBlocks:
         rules = _load(_RULES_YAML)
         findings = parse_raw(
             _recorded_response(_OPTIONAL_ID, severity="minor"),
-            model="deepseek-r1",
+            model="qwen3-review",
             standing_rules=rules,
         )
         assert findings[0].standing_rule_id == _OPTIONAL_ID
@@ -528,14 +528,14 @@ class TestRuleCitedFindingBlocks:
         rules = _load(_RULES_YAML)
         findings = parse_raw(
             _recorded_response("invented-rule"),
-            model="deepseek-r1",
+            model="qwen3-review",
             standing_rules=rules,
         )
         assert findings[0].standing_rule_id is None
         assert findings[0].severity is EnumFindingSeverity.INFO
 
     def test_citation_without_supplied_rules_is_not_bound(self) -> None:
-        findings = parse_raw(_recorded_response(_MANDATORY_ID), model="deepseek-r1")
+        findings = parse_raw(_recorded_response(_MANDATORY_ID), model="qwen3-review")
         assert findings[0].standing_rule_id is None
 
 

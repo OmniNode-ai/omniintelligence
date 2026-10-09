@@ -253,6 +253,13 @@ class ModelReviewFindingObserved(BaseModel, frozen=True):
             "None for legacy findings."
         ),
     )
+    standing_rule_id: str | None = Field(
+        default=None,
+        description=(
+            "Id of the reviewed repository's standing rule this finding is "
+            "bound to (OMN-20784). None when it cites none."
+        ),
+    )
 
 
 class ModelReviewFixApplied(BaseModel, frozen=True):
