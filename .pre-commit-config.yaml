@@ -851,13 +851,35 @@ repos:
   # file is present, the repo looks protected, and nothing is checking. This
   # refuses that state — the baseline owes a pre-commit reader AND a CI reader,
   # and it is the local half of the same gate .github/workflows/
-  # secrets-baseline-wiring.yml runs in CI, pinned to the same omniclaude SHA so
-  # the two verdicts cannot diverge. Advancing it is those two lines, together.
+  # secrets-baseline-wiring.yml runs in CI. The hook is declared in the
+  # omniclaude entry below, which also carries the public-repo-hygiene hook
+  # (OMN-20783): one entry, one pinned revision. The wiring gate script is
+  # byte-identical between the revision this hook was pinned to before that
+  # entry existed and the one it is pinned to now.
+  # --------------------------------------------------------------------------
+
+  # --------------------------------------------------------------------------
+  # public-repo hygiene gate (OMN-20783)
+  #
+  # The local half of .github/workflows/public-repo-hygiene.yml, pinned to the
+  # SAME omniclaude SHA so the two verdicts cannot diverge. Advancing it is
+  # those two lines, together. The hook runs the gate with --diff-staged: the
+  # five classes in .public-repo-hygiene.yaml `enforce_classes` fail the commit
+  # on the lines it ADDS, and the whole-tree residue is still reported.
+  #
+  # The denylist vocabulary is private, so the gate reads it from the path in
+  # OMNI_HYGIENE_VOCAB_PATH and fails closed (exit 2, THE GATE DID NOT RUN)
+  # when that is unset or not a file. The lab vocabulary is read from the file
+  # named public_repo_hygiene_lab_vocabulary.yaml beside it. CI sets both up in
+  # the pre-commit job of .github/workflows/ci.yml; a developer points the
+  # variable at a checkout of the private vocabulary. No hook arg, files filter
+  # or exclude narrows it: the content classes apply to every file type.
   # --------------------------------------------------------------------------
   - repo: https://github.com/OmniNode-ai/omniclaude
-    rev: 42b994826519e8d6bc21d0ca915803084c7c3955  # pragma: allowlist secret
+    rev: 6e47aa311ac5d177d116d9597b07966a233d2463  # pragma: allowlist secret
     hooks:
       - id: secrets-baseline-wired
+      - id: public-repo-hygiene
 
   - repo: local
     hooks:
