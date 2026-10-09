@@ -259,6 +259,32 @@ class TestAsyncParseRaw:
         assert result.findings[0].rule_id == "ai-reviewer:codex:architecture"
 
     @pytest.mark.asyncio
+    async def test_argv_uses_flags_codex_cli_accepts(self) -> None:
+        """codex-cli 0.159.2 rejects --full-auto, so the review failed at once.
+
+        A review reads a diff and writes nothing: the read-only sandbox, no
+        session file, and no git-repo requirement for the working directory.
+        """
+        ndjson_output = _make_ndjson_event(
+            "item.completed", "assistant", _well_formed_findings_json()
+        )
+        mock_process = AsyncMock()
+        mock_process.communicate = AsyncMock(return_value=(ndjson_output.encode(), b""))
+        spawn = AsyncMock(return_value=mock_process)
+
+        with (
+            patch(f"{_MODULE}._resolve_codex_binary", return_value="/usr/bin/codex"),
+            patch("asyncio.create_subprocess_exec", spawn),
+        ):
+            await async_parse_raw("# Test Plan")
+
+        argv = list(spawn.call_args.args)
+        assert "--full-auto" not in argv
+        assert argv[argv.index("--sandbox") + 1] == "read-only"
+        assert "--skip-git-repo-check" in argv
+        assert "--ephemeral" in argv
+
+    @pytest.mark.asyncio
     async def test_no_assistant_completion(self) -> None:
         ndjson_output = _make_ndjson_event("thread.started", "", "Starting")
 
