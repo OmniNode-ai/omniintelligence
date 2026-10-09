@@ -143,8 +143,10 @@ async def async_parse_raw(
 ) -> ModelExternalReviewResult:
     """Run adversarial review via Codex CLI.
 
-    Invokes ``codex exec - --json --full-auto`` with the
-    adversarial review prompt piped via stdin.
+    Invokes ``codex exec - --json --sandbox read-only --skip-git-repo-check
+    --ephemeral`` with the adversarial review prompt piped via stdin. A review
+    reads text and writes nothing, so the sandbox is read-only and no session
+    file is kept; ``--full-auto`` is not accepted by codex-cli 0.159.2.
 
     Args:
         plan_content: Raw plan text to review.
@@ -180,7 +182,10 @@ async def async_parse_raw(
             "exec",
             "-",
             "--json",
-            "--full-auto",
+            "--sandbox",
+            "read-only",
+            "--skip-git-repo-check",
+            "--ephemeral",
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
