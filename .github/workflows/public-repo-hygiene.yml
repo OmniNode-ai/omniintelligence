@@ -9,10 +9,19 @@
 # private address, an operator machine path, a private repository name, and
 # internal-KB prose in a public README.
 #
-# mode: report. The gate records every finding and exits 0, so it lands without
-# blocking unrelated PRs on a repository that carries pre-existing residue. It
-# flips to enforce when that residue is FIXED -- never by moving it into
+# mode: report. The gate records every finding and exits 0 for the residue the
+# tree already carries, so it does not block unrelated PRs. It flips to enforce
+# when that residue is FIXED -- never by moving it into
 # .public-repo-hygiene.yaml.
+#
+# Five classes already fail the run, on ADDED lines only (OMN-20783):
+# private-repo-name, internal-kb-prose, lab-config, person-name and
+# private-network, set by `enforce_classes` and `enforce_scope: added-lines` in
+# .public-repo-hygiene.yaml. The reusable hands the gate the merge ref's first
+# parent as its diff base, so a pull request that adds one of those goes red
+# and one that does not stays green over the residue. The pre-commit hook runs
+# the same gate at the same revision (see .pre-commit-config.yaml); advance the
+# two together.
 #
 # Layer (a) reads .public-repo-hygiene.yaml at this repo's root; the gate
 # refuses to run without it rather than treating an absent config as an empty
@@ -42,7 +51,7 @@ concurrency:
 
 jobs:
   public-repo-hygiene:
-    uses: OmniNode-ai/omniclaude/.github/workflows/public-repo-hygiene-reusable.yml@acc1daf137d38246e98d0dad29267f2cbad14f5f
+    uses: OmniNode-ai/omniclaude/.github/workflows/public-repo-hygiene-reusable.yml@6e47aa311ac5d177d116d9597b07966a233d2463
     with:
       mode: report
     secrets: inherit

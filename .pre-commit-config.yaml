@@ -851,13 +851,33 @@ repos:
   # file is present, the repo looks protected, and nothing is checking. This
   # refuses that state — the baseline owes a pre-commit reader AND a CI reader,
   # and it is the local half of the same gate .github/workflows/
-  # secrets-baseline-wiring.yml runs in CI, pinned to the same omniclaude SHA so
-  # the two verdicts cannot diverge. Advancing it is those two lines, together.
+  # secrets-baseline-wiring.yml runs in CI, from an omniclaude SHA that carries
+  # the same gate script as this hook's rev below.
+  # --------------------------------------------------------------------------
+  #
+  # public-repo hygiene gate on added lines (OMN-20783), same omniclaude entry
+  #
+  # Refuses a staged line that ADDS a private repository name, internal-KB
+  # prose, a lab-config literal, a person name or a private address. The five
+  # classes and the added-lines scope come from .public-repo-hygiene.yaml, and
+  # the hook runs the exported gate over the lines the index adds (it passes
+  # --diff-staged itself). It is the local half of
+  # .github/workflows/public-repo-hygiene.yml, pinned to the same omniclaude
+  # SHA so the two verdicts cannot diverge: advancing it is that workflow's
+  # `uses:` line and this `rev:`, together (tests/ci/
+  # test_public_repo_hygiene_enforcement.py). Both hooks share this one entry,
+  # so one allowlist pragma covers the SHA; the secrets-baseline-wired script
+  # is byte-identical between the previous rev and this one.
+  #
+  # The denylist vocabulary is private, so the hook fails closed (exit 2)
+  # until OMNI_HYGIENE_VOCAB_PATH names it; the lab vocabulary is read from
+  # beside it. The CI pre-commit job fetches both before it runs this hook.
   # --------------------------------------------------------------------------
   - repo: https://github.com/OmniNode-ai/omniclaude
-    rev: 42b994826519e8d6bc21d0ca915803084c7c3955  # pragma: allowlist secret
+    rev: 6e47aa311ac5d177d116d9597b07966a233d2463  # pragma: allowlist secret
     hooks:
       - id: secrets-baseline-wired
+      - id: public-repo-hygiene
 
   - repo: local
     hooks:

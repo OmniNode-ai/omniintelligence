@@ -12,13 +12,28 @@
 # WITHHELD AT ADOPTION, and they must stay withheld:
 #   (none — every root entry in this repo is legitimate)
 #
-# mode: report — the gate records every finding with a per-class count and
-# exits 0. It flips to enforce when the residue is FIXED, never by moving the
+# mode: report -- the whole-tree residue (every class) is recorded on every run
+# and exits 0. It flips to enforce when the residue is FIXED, never by moving the
 # residue into this file: that is the recurrence mechanism the OMN-17992
 # programme exists to remove.
+#
+# enforce_classes + enforce_scope: added-lines (OMN-20783, as the gate's home
+# repository carries since OMN-19835) -- five internal-content classes FAIL the
+# run when a change ADDS a line that trips them, in CI and in the pre-commit
+# hook alike. The scan and the report stay whole-tree, so the residue is still
+# counted; only a line the change adds can fail the run. No allowlist entry is
+# added for any of them.
 
 mode: report
 suppression_registry: ".public-repo-hygiene-suppressions.yaml"
+
+enforce_scope: added-lines
+enforce_classes:
+  - "private-repo-name"
+  - "internal-kb-prose"
+  - "lab-config"
+  - "person-name"
+  - "private-network"
 
 allowed_top_level:
   - ".claude"
