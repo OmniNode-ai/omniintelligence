@@ -39,6 +39,7 @@ from omniintelligence.review_pairing.models import (
     ModelReviewFindingObserved,
 )
 from omniintelligence.review_pairing.models_external_review import (
+    ModelDroppedFinding,
     ModelEndpointConfig,
     ModelExternalReviewResult,
 )
@@ -579,6 +580,88 @@ def parse_review_response(raw_text: str) -> list[dict[str, Any]]:
     return parsed if parsed is not None else []
 
 
+# OMN-20422: explicit statements that a finding is not a defect, as both lab
+# voters wrote them ("No finding here", "Retracting this finding"). Narrow on
+# purpose: "this is correct" and "is acceptable" also open sentences that go on
+# to name a real gap, so they are not here.
+_NO_DEFECT_STATEMENTS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\bno finding here\b", re.IGNORECASE),
+    re.compile(r"\bretract(?:ing|ed|s)? (?:this|the) finding\b", re.IGNORECASE),
+    re.compile(
+        r"\bno (?:actual |real )?(?:defect|finding|bug)s? "
+        r"(?:here|found|exists?|is present)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(r"\bno defect\s*[.;]", re.IGNORECASE),
+    re.compile(r"\bthis is not a (?:finding|defect|bug)\b", re.IGNORECASE),
+)
+# A proposed fix that is only "no change": the statement ends at punctuation or
+# at the end of the field. "No change needed in X; do Y" and "No action
+# required unless ..." go on to ask for something, so they do not match.
+_NO_CHANGE_FIX: re.Pattern[str] = re.compile(
+    r"^\s*(?:no (?:code )?(?:change|fix|action)s? (?:is |are )?"
+    r"(?:needed|required|necessary)|none (?:needed|required))\s*(?:[.;,:]|$)",
+    re.IGNORECASE,
+)
+# Evidence quotes the diff, which can contain any of these words, so it is not
+# read.
+_SELF_NEGATION_FIELDS: tuple[str, ...] = ("title", "description", "proposed_fix")
+
+
+def self_negation_reason(item: dict[str, Any]) -> str | None:
+    """Return why a finding's own text says it is not a defect, or None.
+
+    OMN-20422: both voters emitted critical findings whose text ended "No
+    finding here ... No defect", and two of them in one place blocked a clean
+    pull request. None means the finding stands as written.
+    """
+    for field in _SELF_NEGATION_FIELDS:
+        text = str(item.get(field) or "")
+        for pattern in _NO_DEFECT_STATEMENTS:
+            match = pattern.search(text)
+            if match is not None:
+                return f"{field} says {match.group(0).strip()!r}"
+    fix = str(item.get("proposed_fix") or "")
+    match = _NO_CHANGE_FIX.match(fix)
+    if match is not None:
+        return f"proposed_fix says {match.group(0).strip()!r}"
+    return None
+
+
+def split_self_negating(
+    parsed: list[Any],
+) -> tuple[list[Any], list[ModelDroppedFinding]]:
+    """Split parsed findings into kept ones and self-negating ones (OMN-20422).
+
+    Order is preserved. Non-dict items are kept for ``to_review_findings`` to
+    skip as before. Each drop is logged and returned with its reason, so the
+    caller records it on the result instead of losing it.
+    """
+    kept: list[Any] = []
+    dropped: list[ModelDroppedFinding] = []
+    for item in parsed:
+        reason = self_negation_reason(item) if isinstance(item, dict) else None
+        if reason is None:
+            kept.append(item)
+            continue
+        location = item.get("location")
+        record = ModelDroppedFinding(
+            title=str(item.get("title", "Untitled finding")),
+            severity=str(item.get("severity", "")),
+            category=str(item.get("category", "")),
+            location=str(location) if location else None,
+            reason=reason,
+        )
+        logger.warning(
+            "Dropped %s finding %r: its own text states no defect (%s)",
+            record.severity,
+            record.title,
+            reason,
+        )
+        dropped.append(record)
+    return kept, dropped
+
+
 def map_severity(raw_severity: str) -> EnumFindingSeverity:
     """Map a raw severity string to canonical EnumFindingSeverity.
 
@@ -708,7 +791,7 @@ def parse_raw(
     _validate_model_key(model)
 
     text = raw if isinstance(raw, str) else json.dumps(raw)
-    parsed = parse_review_response(text)
+    parsed, _dropped = split_self_negating(parse_review_response(text))
     return to_review_findings(
         parsed,
         model,
@@ -803,6 +886,9 @@ async def async_parse_raw(
                 return unparseable_reply_result(
                     model, len(raw_text), earlier_lengths=(first_length,)
                 )
+        # OMN-20422: a finding whose own text says there is no defect is
+        # recorded as dropped and never reaches the quorum.
+        parsed, dropped = split_self_negating(parsed)
         findings = to_review_findings(
             parsed,
             model,
@@ -816,6 +902,7 @@ async def async_parse_raw(
             success=True,
             findings=findings,
             result_count=len(findings),
+            dropped_findings=dropped,
         )
     except Exception as exc:
         # OMN-17293: the infra LLM transport builds request-rejection errors with

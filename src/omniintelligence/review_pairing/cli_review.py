@@ -256,9 +256,14 @@ async def run_review(
             }
         )
         status = "succeeded" if result.success else "FAILED"
+        dropped_note = (
+            f", {len(result.dropped_findings)} dropped as self-negating"
+            if result.dropped_findings
+            else ""
+        )
         print(
             f"Model '{model_key}' {status} in {elapsed:.1f}s "
-            f"({result.result_count} finding(s)).",
+            f"({result.result_count} finding(s){dropped_note}).",
             file=sys.stderr,
             flush=True,
         )
@@ -267,6 +272,7 @@ async def run_review(
     models_succeeded = [r.model for r in results if r.success]
     models_failed = [r.model for r in results if not r.success]
     total_findings = sum(r.result_count for r in results if r.success)
+    total_dropped = sum(len(r.dropped_findings) for r in results if r.success)
 
     return ModelMultiReviewResult(
         models_attempted=model_keys,
@@ -274,6 +280,7 @@ async def run_review(
         models_failed=models_failed,
         results=results,
         total_findings=total_findings,
+        total_dropped=total_dropped,
     )
 
 
@@ -725,6 +732,21 @@ def main(argv: list[str] | None = None) -> int:
         f"Severity: {_severity_summary(result)}",
         file=sys.stderr,
     )
+    # OMN-20422: a finding dropped because its own text says there is no
+    # defect is named here, so the drop is never silent.
+    print(
+        f"Dropped (own text states no defect): {result.total_dropped}",
+        file=sys.stderr,
+    )
+    for r in result.results:
+        if not r.success:
+            continue
+        for dropped in r.dropped_findings:
+            print(
+                f"  [dropped] {r.model} {dropped.severity} {dropped.title}: "
+                f"{dropped.reason}",
+                file=sys.stderr,
+            )
     for line in format_quorum_summary(quorum_summary):
         print(line, file=sys.stderr)
 

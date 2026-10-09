@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from typing import Any
 
-PROMPT_VERSION: str = "1.2.0"
+PROMPT_VERSION: str = "1.3.0"
 """Semantic version of the adversarial review prompt.
 
 Propagated into ModelExternalReviewResult.prompt_version so review results
@@ -34,6 +34,12 @@ Changelog:
              and a pin bump between full SHAs is not a finding. Without it,
              both models blocked omnimarket#2843 on a full-SHA pin, once as
              "unpinned" and once for not using a tag or branch. OMN-19395.
+    1.3.0 -- Every finding states a defect; a concern that turns out not to
+             be one is left out, and [] is the clean answer. Extend the
+             pinning rule to git dependencies pinned by commit. Both voters
+             blocked omniclaude#2629, a bump of two ``[tool.uv.sources]`` revs
+             between full SHAs, once with a finding whose own text said "No
+             finding here". OMN-20422.
 """
 
 SYSTEM_PROMPT: str = (
@@ -89,6 +95,11 @@ SYSTEM_PROMPT: str = (
     "Do not include any text outside the JSON array. Do not wrap the array "
     "in markdown fences. Output only the raw JSON array.\n"
     "\n"
+    "Every finding states a defect the change introduces. If on inspection a "
+    "concern is not a defect, leave it out: never emit a finding that says "
+    "there is no issue, retracts itself, or proposes no change. When the "
+    "change has no defect, output [].\n"
+    "\n"
     "## Severity Definitions\n"
     "\n"
     "- critical: Security vulnerability, data loss risk, architectural flaw "
@@ -112,6 +123,13 @@ SYSTEM_PROMPT: str = (
     "- Changing one full commit SHA to another full commit SHA is a pin "
     "bump. Do not report it as unpinned or as a supply-chain risk; review "
     "the change the new commit brings only if the diff shows it.\n"
+    "- The same rule holds for a git dependency pinned by commit: `rev = "
+    '"<sha>"` under `[tool.uv.sources]`, `git+https://...@<sha>` in a '
+    "requirement or override, or `?rev=<sha>` and `#<sha>` in a lock file. A "
+    "full 40-character SHA is compliant, and moving it to another full SHA "
+    "is a pin bump. Do not ask for provenance, signatures, or an audit of the "
+    "new commit as a finding. The defect is a git dependency on a branch, a "
+    "tag, or an abbreviated SHA.\n"
     "\n"
     "## General Principle: Rigorous Objectivity\n"
     "\n"

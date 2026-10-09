@@ -23,6 +23,7 @@ import shutil
 from pathlib import Path
 
 from omniintelligence.review_pairing.adapters.adapter_ai_reviewer import (
+    split_self_negating,
     to_review_findings,
     try_parse_review_response,
     unparseable_reply_result,
@@ -231,6 +232,7 @@ async def async_parse_raw(
     parsed = try_parse_review_response(assistant_content)
     if parsed is None:
         return unparseable_reply_result(_CODEX_MODEL_KEY, len(assistant_content))
+    parsed, dropped = split_self_negating(parsed)
     findings = to_review_findings(
         parsed,
         _CODEX_MODEL_KEY,
@@ -245,6 +247,7 @@ async def async_parse_raw(
         success=True,
         findings=findings,
         result_count=len(findings),
+        dropped_findings=dropped,
     )
 
 
