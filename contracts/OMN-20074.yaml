@@ -74,6 +74,10 @@ dod_evidence:
       - check_type: "test_passes"
         check_value: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k base_branch"
         cwd: "${OMNI_HOME}/omniintelligence"
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k bare_call_with_no_secrets"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC1"]
   - id: "dod-repo-evidence-ac2"
     description: "The caller pins the current receipt-gate by full sha."
     source: "manual"
@@ -81,6 +85,7 @@ dod_evidence:
       - check_type: "test_passes"
         check_value: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k current_receipt_gate"
         cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC2"]
   - id: "dod-repo-evidence-ac3"
     description: "The caller runs in shadow mode and compares with OCC."
     source: "manual"
@@ -88,6 +93,7 @@ dod_evidence:
       - check_type: "test_passes"
         check_value: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k shadow_mode"
         cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC3"]
   - id: "dod-repo-evidence-ac4"
     description: "The OCC callers stay."
     source: "manual"
@@ -95,6 +101,7 @@ dod_evidence:
       - check_type: "test_passes"
         check_value: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k removes_no_occ_caller"
         cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC4"]
   - id: "dod-repo-evidence-ac5"
     description: "Every criterion of this contract is bound to a runnable check."
     source: "manual"
@@ -102,6 +109,7 @@ dod_evidence:
       - check_type: "test_passes"
         check_value: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k falsifier_per_criterion"
         cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC5"]
   - id: "dod-precommit-hooks-from-core-ac6"
     description: "Migrated hooks sit in an omnibase_core block at a full sha, excludes unchanged."
     source: "manual"
@@ -109,6 +117,7 @@ dod_evidence:
       - check_type: "test_passes"
         check_value: "uv run pytest tests/ci/test_precommit_hooks_core_omn20074.py -q"
         cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC6"]
   - id: "dod-todo-format-replay-ac7"
     description: "The omnibase_core todo-format handler replays the recorded change-control decisions."
     source: "manual"
@@ -116,3 +125,4 @@ dod_evidence:
       - check_type: "test_passes"
         check_value: "uv run pytest tests/ci/test_todo_format_replay_omn20074.py -q"
         cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC7"]
