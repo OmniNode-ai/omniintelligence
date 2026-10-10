@@ -10,7 +10,6 @@ change-control repository; omnibase_core exports them under the same ids, so onl
 
 from __future__ import annotations
 
-import hashlib
 import re
 from pathlib import Path
 
@@ -22,9 +21,9 @@ pytestmark = pytest.mark.unit
 CONFIG = Path(__file__).resolve().parents[2] / ".pre-commit-config.yaml"
 CORE_REPO = "https://github.com/OmniNode-ai/omnibase_core"
 CHANGE_CONTROL_REPO = "https://github.com/OmniNode-ai/onex_change_control"
-# sha256 of the exclude string each hook carried in the change-control block (None: no exclude).
-EXPECTED_EXCLUDE_SHA256: dict[str, str | None] = {
-    "no-hardcoded-topics": "74c1471cd17b5fa9e0ca51dee5dc8aed742dbc39f7d9092988151b4fe3b609a9",  # pragma: allowlist secret
+# Each hook's exclude from the change-control block, byte for byte (None: no exclude).
+EXPECTED_EXCLUDE: dict[str, str | None] = {
+    "no-hardcoded-topics": "(?x)^(\n  src/omniintelligence/constants\\.py|\n  src/omniintelligence/runtime/dispatch_handlers\\.py|\n  src/omniintelligence/runtime/contracts/runtime_config\\.yaml|\n  src/omniintelligence/nodes/node_bloom_eval_orchestrator/handlers/handler_bloom_eval_effect\\.py|\n  src/omniintelligence/nodes/node_compliance_evaluate_effect/handlers/handler_compliance_evaluate\\.py|\n  src/omniintelligence/nodes/node_crawl_scheduler_effect/handlers/handler_crawl_scheduler\\.py|\n  src/omniintelligence/nodes/node_evidence_collection_effect/handlers/handler_evidence_collection\\.py|\n  src/omniintelligence/nodes/node_gmail_intent_evaluator_effect/handlers/handler_gmail_intent_evaluate\\.py|\n  src/omniintelligence/nodes/node_pattern_compliance_effect/handlers/handler_compute\\.py|\n  src/omniintelligence/nodes/node_watchdog_effect/handlers/handler_watchdog\\.py|\n  src/omniintelligence/model_selector/episode_emitter\\.py|\n  src/omniintelligence/runtime/dispatch_handler_code_analysis\\.py|\n  src/omniintelligence/runtime/contract_topics\\.py\n)$",
     "no-untracked-todos": None,
 }
 # The keys each hook carried, so a widened or added setting is refused.
@@ -64,7 +63,7 @@ def _declarations(hook_id: str) -> list[tuple[dict[str, object], dict[str, objec
     ]
 
 
-@pytest.mark.parametrize("hook_id", sorted(EXPECTED_EXCLUDE_SHA256))
+@pytest.mark.parametrize("hook_id", sorted(EXPECTED_EXCLUDE))
 def test_hook_is_declared_once_in_an_omnibase_core_block_at_a_full_sha(
     hook_id: str,
 ) -> None:
@@ -77,16 +76,16 @@ def test_hook_is_declared_once_in_an_omnibase_core_block_at_a_full_sha(
     assert re.fullmatch(r"[0-9a-f]{40}", rev)
 
 
-@pytest.mark.parametrize("hook_id", sorted(EXPECTED_EXCLUDE_SHA256))
+@pytest.mark.parametrize("hook_id", sorted(EXPECTED_EXCLUDE))
 def test_hook_keeps_its_exclude_and_settings(hook_id: str) -> None:
     _, hook = _declarations(hook_id)[0]
     exclude = hook.get("exclude")
-    expected = EXPECTED_EXCLUDE_SHA256[hook_id]
+    expected = EXPECTED_EXCLUDE[hook_id]
     if expected is None:
         assert exclude is None
     else:
         assert isinstance(exclude, str)
-        assert hashlib.sha256(exclude.encode()).hexdigest() == expected
+        assert exclude == expected
     assert sorted(hook) == EXPECTED_KEYS[hook_id]
     assert hook.get("stages") == EXPECTED_STAGES[hook_id]
 
