@@ -35,9 +35,15 @@
 # repository's own S5 bar. The S6 change sets shadow and compare-with-occ back
 # to "false".
 #
-# The reusable is pinned by full SHA to the squash commit of omnibase_core#1914
-# on dev, the pin omnibase_core's own caller and omnibase_infra's caller use; it
-# carries the `shadow` input. omniintelligence does not host receipt-gate.yml.
+# The reusable is pinned by full SHA to the squash commit of omnibase_core#1932
+# on dev, a descendant of #1914; it carries the `shadow` input. omniintelligence
+# does not host receipt-gate.yml.
+#
+# The pinned reusable refuses a verifier-version below 0.4.303 before installing
+# it (VERIFIER_FLOOR, omnibase_core#1932; OMN-20032), the first release that
+# refuses a contract leaving a criterion unbound. While shadow is "true" that
+# install step is continue-on-error, so a refusal is recorded and blocks nothing;
+# the S6 change that sets shadow to "false" makes it block.
 
 name: Repo Evidence Gate
 
@@ -56,7 +62,7 @@ permissions:
 
 jobs:
   repo-evidence:
-    uses: OmniNode-ai/omnibase_core/.github/workflows/receipt-gate.yml@fb0c6c2117d5868a398b0920cd0048d0824415b1 # OMN-20074: immutable full-SHA pin, the squash commit of omnibase_core#1914 on that repo's dev branch (carries the shadow input)
+    uses: OmniNode-ai/omnibase_core/.github/workflows/receipt-gate.yml@4e4f5e0404d364e296c5d37db6aa3ab9e07f8ffa # OMN-20032: immutable full-SHA pin, the squash commit of omnibase_core#1932 on that repo's dev branch; descends from #1914 (carries the shadow input) and adds the VERIFIER_FLOOR 0.4.303 refusal to the verifier install step
     with:
       evidence-source: caller
       verifier-version: 0.4.305

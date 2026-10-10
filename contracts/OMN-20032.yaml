@@ -1,0 +1,57 @@
+---
+schema_version: "1.0.0"
+ticket_id: "OMN-20032"
+title: "omniintelligence's Repo Evidence Gate caller pins the receipt-gate reusable that carries the verifier
+  floor"
+summary: "Operator ruling 2026-10-10T11:04:11Z (R2) makes node_dod_verify refuse a contract whose acceptance
+  criteria are only partly bound, in every repository. omnibase_core#1932 adds VERIFIER_FLOOR 0.4.303
+  to the receipt-gate reusable's verifier install step, which exits 1 when a caller's verifier-version
+  is below it. omniintelligence's caller moves from the omnibase_core#1914 pin, which has no floor, to
+  the #1932 squash commit and keeps verifier-version at 0.4.305, shadow and compare-with-occ unchanged."
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: "req-caller-repin-verifier-floor"
+    statement: |-
+      omniintelligence's Repo Evidence Gate caller pins the omnibase_core receipt-gate reusable at omnibase_core#1932's squash commit, whose verifier install step refuses a verifier-version below the floor, and passes a verifier-version at or above that floor, with job ids and inputs otherwise unchanged.
+    acceptance:
+      - id: "AC9"
+        statement: |-
+          AC9: .github/workflows/call-repo-evidence-gate.yml pins receipt-gate.yml by a full 40-character sha whose prefix is 4e4f5e04, the squash commit 4e4f5e0404d364e296c5d37db6aa3ab9e07f8ffa of omnibase_core#1932 -- falsifier: uv run pytest tests/ci/test_repo_evidence_caller_verifier_floor_omn20032.py -q -k carries_the_verifier_floor
+      - id: "AC10"
+        statement: |-
+          AC10: the caller's verifier-version is at or above the reusable's VERIFIER_FLOOR 0.4.303, the comparison refuses 0.4.280 and 0.4.302 and admits 0.4.303 and 0.4.305 -- falsifier: uv run pytest tests/ci/test_repo_evidence_caller_verifier_floor_omn20032.py -q -k "at_or_above_the_floor or floor_comparison"
+evidence_requirements:
+  - kind: "tests"
+    description: "The caller pins the floor-carrying reusable."
+    command: "uv run pytest tests/ci/test_repo_evidence_caller_verifier_floor_omn20032.py -q -k carries_the_verifier_floor"
+  - kind: "tests"
+    description: "The caller's verifier-version is at or above the floor, with a refusing and an admitting
+      comparison case."
+    command: "uv run pytest tests/ci/test_repo_evidence_caller_verifier_floor_omn20032.py -q -k \"at_or_above_the_floor
+      or floor_comparison\""
+emergency_bypass:
+  enabled: false
+  justification: ""
+  follow_up_ticket_id: ""
+dod_evidence:
+  - id: "dod-omn20032-caller-pins-floor-reusable"
+    description: "The caller pins omnibase_core#1932's receipt-gate reusable."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_repo_evidence_caller_verifier_floor_omn20032.py -q -k
+          carries_the_verifier_floor"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC9"]
+  - id: "dod-omn20032-caller-verifier-at-floor"
+    description: "The caller's verifier-version is at or above the floor and the comparison has a refusing
+      and an admitting case."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_repo_evidence_caller_verifier_floor_omn20032.py -q -k
+          \"at_or_above_the_floor or floor_comparison\""
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC10"]
