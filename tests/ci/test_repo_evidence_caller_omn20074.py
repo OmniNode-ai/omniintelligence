@@ -29,11 +29,11 @@ WORKFLOWS = REPO_ROOT / ".github" / "workflows"
 CALLER = WORKFLOWS / "call-repo-evidence-gate.yml"
 CONTRACT = REPO_ROOT / "contracts" / "OMN-20074.yaml"
 
-# 8-character prefix of the squash commit of omnibase_core#1914 on that repository's dev branch: the pin
-# omnibase_core's own caller uses. 0.4.305 is the first omnimarket release carrying
+# 8-character prefix of the squash commit of omnibase_core#1932 on that repository's dev branch,
+# a descendant of #1914 (OMN-20032). 0.4.305 is the first omnimarket release carrying
 # omnimarket#3563, the verifier half of the contract-home marker, and it ships the
 # node_dod_verify occ-difference classifier (omnimarket#3277, 0.4.294).
-RECEIPT_GATE_PIN_PREFIX = "fb0c6c21"
+RECEIPT_GATE_PIN_PREFIX = "4e4f5e04"
 VERIFIER_FLOOR = (0, 4, 305)
 
 
