@@ -82,6 +82,11 @@ def test_caller_pins_the_current_receipt_gate_by_full_sha() -> None:
     assert uses.split("@", 1)[1].startswith(RECEIPT_GATE_PIN_PREFIX)
 
 
+def test_current_receipt_gate_verifier_version_is_at_or_above_the_floor() -> None:
+    version = tuple(int(part) for part in _job()["with"]["verifier-version"].split("."))
+    assert version >= VERIFIER_FLOOR
+
+
 def test_caller_is_in_shadow_mode_and_compares_with_occ() -> None:
     inputs = _job()["with"]
     assert inputs["evidence-source"] == "caller"
