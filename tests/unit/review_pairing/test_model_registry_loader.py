@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -53,7 +54,7 @@ def test_load_registry_preserves_endpoint_config_fields() -> None:
 
     qwen = contract.models["qwen3-review"]
     assert qwen.env_var == "LLM_QWEN3_REVIEW_URL"
-    assert qwen.default_url == "http://192.168.86.201:8000"  # onex-allow-internal-ip
+    assert qwen.default_url == ""
     # OMN-18623 (2026-09-17): this entry declares NO model id at all.
     # Operator ruling 2026-09-17T19:54:09Z -- the reviewer's model must not be
     # a hardcoded literal. The id is resolved at call time from the endpoint's
@@ -183,7 +184,67 @@ models:
 
 
 @pytest.mark.unit
-def test_local_201_8000_keys_declare_no_model_id() -> None:
+def test_lab_endpoint_not_shipped() -> None:
+    """OMN-20930: no registry entry ships a private-network default endpoint.
+
+    The deployment supplies each endpoint through the entry's environment
+    variable (the lab's value comes from its private overlay). An entry with
+    neither refuses by naming that variable, so a fork or customer with no
+    overlay gets a loud "not configured", never our lab host.
+    """
+    import ipaddress
+    import urllib.parse
+
+    from omniintelligence.review_pairing.adapters.adapter_ai_reviewer import (
+        _resolve_model_url,
+    )
+
+    contract = load_registry()
+    for key, cfg in contract.models.items():
+        host = urllib.parse.urlparse(cfg.default_url).hostname
+        if host is None:
+            continue
+        try:
+            address = ipaddress.ip_address(host)
+        except ValueError:
+            continue
+        assert not (address.is_private or address.is_loopback), (
+            f"{key} ships the private default {cfg.default_url!r}"
+        )
+
+    for key in ("qwen3-review", "local-studio-planner"):
+        assert contract.models[key].default_url == ""
+        env_var = contract.models[key].env_var
+        with (
+            patch.dict("os.environ", {}, clear=True),
+            pytest.raises(ValueError, match=env_var),
+        ):
+            _resolve_model_url(key)
+        with patch.dict("os.environ", {env_var: "http://reviewer.test:1"}, clear=True):
+            assert _resolve_model_url(key) == "http://reviewer.test:1"
+
+
+@pytest.mark.unit
+def test_unset_endpoint_is_unreachable_not_probed() -> None:
+    """OMN-20930: an entry with no endpoint is reported unreachable without a TCP probe."""
+    from omniintelligence.review_pairing.adapters.adapter_ai_reviewer import (
+        probe_local_reachability,
+    )
+
+    with (
+        patch.dict("os.environ", {}, clear=True),
+        patch(
+            "omniintelligence.review_pairing.adapters.adapter_ai_reviewer._probe_tcp",
+            return_value=True,
+        ) as probe,
+    ):
+        result = probe_local_reachability(["qwen3-review"])
+    assert result == {"qwen3-review": False}
+    probe.assert_not_called()
+
+
+@pytest.mark.unit
+def test_local_review_keys_declare_no_model_id() -> None:
     """OMN-18623: keys on the shared LAN endpoint must declare NO model id.
 
     SUPERSEDES ``test_local_201_8000_keys_share_one_served_model_id``
@@ -200,11 +261,11 @@ def test_local_201_8000_keys_declare_no_model_id() -> None:
     on_8000 = {
         key: cfg
         for key, cfg in contract.models.items()
-        if cfg.default_url == "http://192.168.86.201:8000"  # onex-allow-internal-ip
+        if cfg.env_var == "LLM_QWEN3_REVIEW_URL"
     }
 
     assert set(on_8000) == {"qwen3-review"}, (
-        f"unexpected key set on .201:8000: {sorted(on_8000)}"
+        f"unexpected key set on the qwen3-review endpoint: {sorted(on_8000)}"
     )
     for key, cfg in sorted(on_8000.items()):
         assert cfg.model_id_source == "served", (

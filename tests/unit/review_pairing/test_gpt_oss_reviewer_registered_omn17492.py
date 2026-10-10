@@ -31,7 +31,6 @@ from __future__ import annotations
 
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
-from urllib.parse import urlparse
 
 import pytest
 from pydantic import ValidationError
@@ -47,11 +46,6 @@ from omniintelligence.review_pairing.prompts.adversarial_reviewer import (
 _KEY = "local-studio-planner"
 
 
-def _host_port(url: str) -> tuple[str, int]:
-    parsed = urlparse(url)
-    return parsed.hostname or "", parsed.port or 80
-
-
 @pytest.mark.unit
 class TestStudioPlannerReviewerRegistered:
     def test_key_is_registered_as_a_local_served_code_reviewer(self) -> None:
@@ -64,31 +58,28 @@ class TestStudioPlannerReviewerRegistered:
         assert _KEY in registry.local_model_keys
         assert entry.env_var == "LLM_LOCAL_STUDIO_PLANNER_URL"
 
-    def test_endpoint_is_the_mac_studio_llama_server(self) -> None:
+    def test_endpoint_is_supplied_by_the_deployment_not_shipped(self) -> None:
+        """OMN-20930: the registry carries the variable, not a lab address."""
         entry = load_registry().models[_KEY]
-        assert _host_port(entry.default_url) == (
-            "192.168.86.200",
-            8130,
-        )  # onex-allow-internal-ip
+        assert entry.default_url == ""
+        assert entry.env_var == "LLM_LOCAL_STUDIO_PLANNER_URL"
 
-    def test_endpoint_differs_from_every_other_local_review_key(self) -> None:
+    def test_endpoint_variable_differs_from_every_other_local_review_key(self) -> None:
         """A second name for an endpoint already registered is not a second
-        reviewer. Positive control: the comparison detects a shared endpoint
-        when one is present."""
+        reviewer: no two local keys read the same variable. Positive control:
+        the comparison detects a shared variable when one is present."""
         registry = load_registry()
-        mine = _host_port(registry.models[_KEY].default_url)
+        mine = registry.models[_KEY].env_var
         others = {
-            key: _host_port(registry.models[key].default_url)
+            key: registry.models[key].env_var
             for key in registry.local_model_keys
-            if key != _KEY and registry.models[key].default_url
+            if key != _KEY
         }
-        assert others, "no other local key with an endpoint to compare against"
+        assert others, "no other local key to compare against"
         assert mine not in set(others.values())
-        # Positive control: the same membership test finds an endpoint that
-        # IS registered under another key (qwen3-review's own).
-        assert _host_port(registry.models["qwen3-review"].default_url) in set(
-            others.values()
-        )
+        # Positive control: the same membership test finds a variable that IS
+        # read by another key (qwen3-review's own).
+        assert registry.models["qwen3-review"].env_var in set(others.values())
 
     def test_reasoning_effort_is_declared_and_bounded(self) -> None:
         entry = load_registry().models[_KEY]

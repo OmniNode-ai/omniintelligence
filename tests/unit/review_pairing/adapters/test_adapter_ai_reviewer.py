@@ -477,14 +477,17 @@ class TestModelRegistry:
             url = _resolve_model_url("qwen3-coder")
         assert url == "http://custom:9999"
 
-    def test_default_url_when_env_unset(self) -> None:
+    def test_unset_env_refuses_naming_the_variable(self) -> None:
+        """OMN-20930: no shipped default; the refusal names how to supply one."""
         from omniintelligence.review_pairing.adapters.adapter_ai_reviewer import (
             _resolve_model_url,
         )
 
-        with patch.dict("os.environ", {}, clear=True):
-            url = _resolve_model_url("qwen3-review")
-        assert url == "http://192.168.86.201:8000"  # onex-allow-internal-ip
+        with (
+            patch.dict("os.environ", {}, clear=True),
+            pytest.raises(ValueError, match="LLM_QWEN3_REVIEW_URL"),
+        ):
+            _resolve_model_url("qwen3-review")
 
     def test_unknown_model_raises(self) -> None:
         from omniintelligence.review_pairing.adapters.adapter_ai_reviewer import (

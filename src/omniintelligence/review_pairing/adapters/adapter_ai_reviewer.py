@@ -149,6 +149,11 @@ def probe_local_reachability(model_keys: list[str]) -> dict[str, bool]:
         if config is None:
             continue
         url = os.environ.get(config.env_var, config.default_url)
+        if not url:
+            # Not configured (OMN-20930): nothing to probe, and a probe of an
+            # empty host would be answered by whatever listens locally.
+            results[key] = False
+            continue
         try:
             parsed = urllib.parse.urlparse(url)
             host = parsed.hostname or ""

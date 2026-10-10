@@ -51,8 +51,8 @@ from omniintelligence.review_pairing.reviewer_identity import reviewer_identity
 pytestmark = pytest.mark.unit
 
 _POLICY = ModelReviewQuorumPolicy()
-_QWEN = "http://192.168.86.201:8000"  # onex-allow-internal-ip
-_GPT_OSS = "http://192.168.86.200:8130"  # onex-allow-internal-ip
+_QWEN = "http://192.0.2.10:8000"
+_GPT_OSS = "http://192.0.2.11:8130"
 _QWEN_ID = f"{_QWEN}#served"
 _GPT_OSS_ID = f"{_GPT_OSS}#served"
 
@@ -231,21 +231,28 @@ class TestRegistryHasNoAliases:
     def test_the_lab_pair_is_two_reviewers(self) -> None:
         """Positive control for the uniqueness test below."""
         registry = load_registry()
+        environ = {
+            registry.models["qwen3-review"].env_var: _QWEN,
+            registry.models["local-studio-planner"].env_var: _GPT_OSS,
+        }
         pair = {
-            reviewer_identity(k, registry.models[k], {})
+            reviewer_identity(k, registry.models[k], environ)
             for k in ("qwen3-review", "local-studio-planner")
         }
         assert pair == {_QWEN_ID, _GPT_OSS_ID}
 
     def test_no_two_registry_keys_name_one_reviewer(self) -> None:
+        """No registry ships an endpoint (OMN-20930), so two keys can only name
+        one reviewer by reading the same variable; that is what is refused."""
         registry = load_registry()
         seen: dict[str, str] = {}
         for key, config in registry.models.items():
-            identity = reviewer_identity(key, config, {})
-            assert identity not in seen, (
-                f"{key} and {seen.get(identity)} are one reviewer ({identity})"
+            assert config.env_var not in seen, (
+                f"{key} and {seen.get(config.env_var)} read one variable "
+                f"({config.env_var})"
             )
-            seen[identity] = key
+            seen[config.env_var] = key
+            assert reviewer_identity(key, config, {}) == f"key:{key}"
 
 
 class TestNoCloudReviewerCanBeRegistered:
@@ -281,8 +288,8 @@ class TestCliStampsIdentity:
     ) -> None:
         import asyncio
 
-        monkeypatch.delenv("LLM_QWEN3_REVIEW_URL", raising=False)
-        monkeypatch.delenv("LLM_LOCAL_STUDIO_PLANNER_URL", raising=False)
+        monkeypatch.setenv("LLM_QWEN3_REVIEW_URL", _QWEN)
+        monkeypatch.setenv("LLM_LOCAL_STUDIO_PLANNER_URL", _GPT_OSS)
 
         from omniintelligence.review_pairing import cli_review
 

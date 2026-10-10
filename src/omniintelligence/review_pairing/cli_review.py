@@ -408,7 +408,10 @@ def _endpoint_label(model_key: str) -> str:
     config = MODEL_REGISTRY.get(model_key)
     if config is None:
         return model_key
-    parsed = urllib.parse.urlparse(os.environ.get(config.env_var, config.default_url))
+    url = os.environ.get(config.env_var, config.default_url)
+    if not url:
+        return f"{model_key} (endpoint not configured; set {config.env_var})"
+    parsed = urllib.parse.urlparse(url)
     return f"{model_key} at {parsed.hostname}:{parsed.port or 80}"
 
 

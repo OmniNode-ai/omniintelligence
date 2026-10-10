@@ -77,20 +77,30 @@ _RETIRED_MODEL_IDS: tuple[str, ...] = (
 )
 
 
+# The environment variables the deployment binds to a self-hosted, single-model
+# HTTP endpoint. No registry entry ships its URL (OMN-20930), so the scope is
+# named by the variable the deployment supplies, not by a URL in this file.
+_SELF_HOSTED_ENDPOINT_ENV_VARS: frozenset[str] = frozenset(
+    {"LLM_QWEN3_REVIEW_URL", "LLM_LOCAL_STUDIO_PLANNER_URL"}
+)
+
+
 def _local_http_endpoint_keys() -> dict[str, ModelEndpointConfig]:
     """Registry entries that resolve to a self-hosted HTTP endpoint.
 
     Scoped deliberately. A multi-model CLOUD endpoint has no single served
     model, so ``/v1/models`` is not a truth there and a declared id is a real
     choice this repository owns (none is registered since OMN-17492 deleted
-    ``glm-review``; ``codex`` is the declared CLI entry). Entries with an empty
-    ``default_url`` are unrouted slots that cannot be called at all.
+    ``glm-review``; ``codex`` is the declared CLI entry). Entries the
+    deployment has no variable for are unrouted slots that cannot be called at
+    all.
     """
     contract = load_registry()
     return {
         key: cfg
         for key, cfg in contract.models.items()
-        if key in contract.local_model_keys and cfg.default_url.startswith("http")
+        if key in contract.local_model_keys
+        and cfg.env_var in _SELF_HOSTED_ENDPOINT_ENV_VARS
     }
 
 

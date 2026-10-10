@@ -109,8 +109,9 @@ embedding_config:
   model: "Qwen3-Embedding-8B-4bit"
   dimension: 1024
   distance: "Cosine"
+  # No default endpoint is shipped (OMN-20930): the deployment supplies
+  # LLM_EMBEDDING_URL, and a caller that finds it unset fails.
   endpoint_env_var: "LLM_EMBEDDING_URL"
-  default_endpoint: "http://192.168.86.200:8100"
 
 # =============================================================================
 # QDRANT CONFIGURATION

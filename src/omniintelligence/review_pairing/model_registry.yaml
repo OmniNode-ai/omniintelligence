@@ -10,7 +10,10 @@
 # Schema (one entry per model key):
 #   env_var:          Environment variable that overrides default_url at runtime.
 #   default_url:      Fallback URL when env_var is unset. Empty string allowed;
-#                     an empty resolved URL raises at call time.
+#                     an empty resolved URL raises at call time, naming env_var.
+#                     No entry ships a private-network endpoint (OMN-20930):
+#                     the deployment supplies it through env_var, for the lab
+#                     from its private overlay.
 #   kind:             Capability tag (reasoning, long_context, fast_review,
 #                     code_review, api_fallback). Consumed as a plain string
 #                     by adapter_ai_reviewer.
@@ -41,8 +44,7 @@
 # Reference: OMN-7213
 
 # DELETED (OMN-17492, 2026-09-25): deepseek-r1 and qwen3-review-b, two
-# further names for the one model qwen3-review already names (.201:8000,
-# Qwen3.8-27B), and glm-review, a third-party cloud reviewer. A second name
+# further names for the one model qwen3-review already names, and glm-review, a third-party cloud reviewer. A second name
 # for one model let the two-model quorum be one model agreeing with itself;
 # the quorum now counts distinct endpoint+model identities
 # (reviewer_identity.py), and
@@ -89,20 +91,12 @@ api_fallback_keys:
   - "codex"
 
 models:
-  # qwen3-review — live .201:8000 endpoint. UPDATED (OMN-16407, 2026-08-23):
-  # .201 was rebooted ~13:00Z 2026-08-23 and GPU1 (the RTX 4090 that served
-  # the since-deleted qwen3-review-b) was physically REMOVED from the host for RMA. The
-  # host's OTHER GPU (the RTX 5090 on this same :8000 port) also changed
-  # backend at the same reboot: the old vLLM Qwen3.6-35B-A3B process is gone,
-  # replaced by an SGLang + DSpark-drafter stack serving "qwen3.8"
-  # (Qwen3.8-27B NVFP4, ~131 tok/s measured decode, measured under the
-  # since-deleted qwen3-review-b entry). api_model_id updated to match
-  # (live-verified via `curl :8000/v1/models`). NOTE: unlike the vLLM
-  # generation this replaced, SGLang on this endpoint does NOT reject a
+  # qwen3-review — the lab's single-model code-review endpoint. The endpoint
+  # is supplied by LLM_QWEN3_REVIEW_URL and no address is shipped here
+  # (OMN-20930). NOTE: the SGLang backend on that endpoint does NOT reject a
   # mismatched `model` field in the request (confirmed live: a
-  # deliberately-wrong id got a 200 response echoing the wrong id back) --
-  # api_model_id is still kept exact for observability/logging, not because
-  # the server enforces it.
+  # deliberately-wrong id got a 200 response echoing the wrong id back), so
+  # the id the request carries is observability, not enforcement.
   # enable_thinking: false (OMN-14176) -- without a reasoning scratchpad,
   # a thinking-model response can consume the whole max_tokens budget on a
   # <think> preamble before producing an answer, and (observed live) can
@@ -133,7 +127,7 @@ models:
   # which is why the cloud reviewer below keeps `declared`.
   qwen3-review:
     env_var: "LLM_QWEN3_REVIEW_URL"
-    default_url: "http://192.168.86.201:8000"  # onex-allow-internal-ip
+    default_url: ""
     kind: "code_review"
     timeout_seconds: 120.0
     model_id_source: "served"
@@ -154,38 +148,31 @@ models:
   # gpt oss 120 on this machine, why don't we use it as a review model?"), and
   # renamed local-studio-planner by OMN-17427 (2026-10-08). The first local
   # reviewer that is a DIFFERENT MODEL from the one behind qwen3-review:
-  # qwen3-review, qwen3-review-b and deepseek-r1 all resolved to .201:8000,
-  # which serves one model (Qwen3.8-27B), so any two of them agreeing was one
-  # model agreeing with itself (the two aliases are now deleted).
+  # qwen3-review, qwen3-review-b and deepseek-r1 all resolved to one endpoint
+  # serving one model, so any two of them agreeing was one model agreeing with
+  # itself (the two aliases are now deleted).
   # THE KEY NAMES THE RUNG, NOT THE MODEL. It is the backend id the routing
-  # overlay uses for this endpoint (omnibase_infra docker/lane-overlays/
-  # dev.bifrost.yaml), so the next swap of the model behind :8130 needs no
-  # rename here, in the consuming workflows, or in their pins. A key spelled
-  # with a model-family name is also refused by the hardcoded-model-config
+  # overlay uses for this endpoint, so the next swap of the model behind it
+  # needs no rename here, in the consuming workflows, or in their pins. A key
+  # spelled with a model-family name is also refused by the hardcoded-model-config
   # guard (family M) in a SOURCE file.
-  # Endpoint: the Mac Studio (.200) llama.cpp server on :8130, supervised by
-  # the user LaunchAgent ai.omninode.planner-studio, with a 262,144-token
-  # context shared by 4 parallel slots (reference/lab-hosts-and-lanes.md in
-  # knowledge-base-internal). Since 2026-10-08 it serves Qwen3.6-35B-A3B (Q8_0, alias
-  # qwen3.6-35b-a3b; operator RULING 2026-10-08T17:38:56Z); before that it
-  # served gpt-oss-120b MXFP4 under the LaunchAgent planner-gptoss120b.
-  # Keyless, LAN-only; the .201 runner containers reach it. The host is
-  # always on (operator, 2026-09-25). If it is ever unreachable, the
-  # reachability probe drops it and names it in the result; with the
-  # two-model lab roster that leaves one reviewer, which is a degraded
-  # quorum, and every calling workflow fails closed on it.
+  # Endpoint: supplied by LLM_LOCAL_STUDIO_PLANNER_URL; no address is shipped
+  # here (OMN-20930). If it is ever unreachable, the reachability probe drops
+  # it and names it in the result; with the two-model lab roster that leaves
+  # one reviewer, which is a degraded quorum, and every calling workflow fails
+  # closed on it.
   # model_id_source: served, per the OMN-18623 ruling that no local reviewer
   # declares a model id.
   # timeout_seconds, max_retries and reasoning_effort below were measured on
-  # gpt-oss-120b (OMN-17492) and have not been re-measured on Qwen3.6-35B-A3B.
-  # reasoning_effort in particular is read from chat_template_kwargs by the
-  # gpt-oss chat template; the template now served on :8130 does not contain
-  # the string reasoning_effort (GET /props, chat_template, 2026-10-08), so the
+  # gpt-oss-120b (OMN-17492) and have not been re-measured on the model now
+  # served. reasoning_effort in particular is read from chat_template_kwargs by
+  # the gpt-oss chat template; the template now served does not contain the
+  # string reasoning_effort (GET /props, chat_template, 2026-10-08), so the
   # value is sent and not read. It is left in place because dropping it is a
   # change of request shape this rename does not measure.
   local-studio-planner:
     env_var: "LLM_LOCAL_STUDIO_PLANNER_URL"
-    default_url: "http://192.168.86.200:8130"  # onex-allow-internal-ip
+    default_url: ""
     kind: "code_review"
     timeout_seconds: 300.0
     model_id_source: "served"
@@ -194,7 +181,7 @@ models:
     max_retries: 1
     # OMN-20422: Qwen3.6-35B-A3B ignores the prompt's "raw JSON array"
     # instruction and answers with several bare JSON objects in a row, which is
-    # not JSON. Measured on omnibase_infra#4757's diff (2026-10-09, .200:8131):
+    # not JSON. Measured on omnibase_infra#4757's diff (2026-10-09):
     # 7 of 12 replies parsed without this, 12 of 12 with it.
     constrain_findings_schema: true
     # OMN-20422: different sampling and a different emphasis from qwen3-review,
