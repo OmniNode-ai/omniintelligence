@@ -47,6 +47,13 @@ requirements:
       - id: "AC8"
         statement: |-
           AC8: the caller passes occ-context equal to call-reject-skip-token / occ-preflight / eligibility, the nested name the reject-skip caller job reports, instead of the reusable's default occ-preflight / eligibility that this repository never reports -- falsifier: uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k occ_context
+  - id: "req-arch-handler-compliance-from-core"
+    statement: |-
+      omniintelligence's handler contract compliance job runs the validator from omnibase_core, installed at a full commit sha, with the same flags and the same allowlist file, instead of installing onex_change_control.
+    acceptance:
+      - id: "AC9"
+        statement: |-
+          AC9: the handler-contract-compliance job of omni-standards-compliance.yml installs omnibase-core at a full sha, runs python -m omnibase_core.handlers.handler_arch_handler_contract_compliance --repo-root . --allowlist-path arch-handler-contract-compliance-allowlist.yaml, and installs nothing from onex_change_control -- falsifier: uv run pytest tests/ci/test_arch_handler_compliance_core_omn20074.py -q
 evidence_requirements:
   - kind: "tests"
     description: "The caller workflow has the required base-branch trigger and read-only permissions."
@@ -72,6 +79,10 @@ evidence_requirements:
   - kind: "tests"
     description: "The shadow's OCC lookup names a job this repository reports."
     command: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k occ_context"
+  - kind: "tests"
+    description: "The handler contract compliance job installs omnibase_core at a full sha and runs its
+      validator with the same flags and allowlist."
+    command: "uv run pytest tests/ci/test_arch_handler_compliance_core_omn20074.py -q"
 emergency_bypass:
   enabled: false
   justification: ""
@@ -144,3 +155,12 @@ dod_evidence:
         check_value: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k occ_context"
         cwd: "${OMNI_HOME}/omniintelligence"
     binds_ac: ["AC8"]
+  - id: "dod-arch-handler-compliance-from-core-ac9"
+    description: "The handler contract compliance job installs omnibase_core at a full sha and runs its
+      validator with the same flags and allowlist."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_arch_handler_compliance_core_omn20074.py -q"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC9"]
