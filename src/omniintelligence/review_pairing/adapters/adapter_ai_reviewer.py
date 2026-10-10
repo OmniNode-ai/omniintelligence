@@ -28,6 +28,9 @@ import urllib.parse
 from typing import Any, TypedDict
 from uuid import uuid4
 
+from omniintelligence.models.review.model_review_standing_rules import (
+    ModelReviewStandingRules,
+)
 from omniintelligence.review_pairing.adapters.base import (
     PROBABILISTIC,
     normalize_message,
@@ -49,6 +52,7 @@ from omniintelligence.review_pairing.prompts.adversarial_reviewer import (
     SYSTEM_PROMPT,
     USER_PROMPT_TEMPLATE,
     USER_PROMPT_TEMPLATE_PR,
+    render_standing_rules_section,
 )
 from omniintelligence.review_pairing.served_model_resolver import (
     resolve_served_model_id,
@@ -199,6 +203,7 @@ def build_review_prompt(
     *,
     review_type: str = "plan",
     system_prompt_prefix: str | None = None,
+    standing_rules: ModelReviewStandingRules | None = None,
 ) -> tuple[str, str]:
     """Construct system and user prompts for adversarial review.
 
@@ -207,6 +212,8 @@ def build_review_prompt(
         review_type: "plan" for plan/design review, "pr" for PR diff review.
         system_prompt_prefix: Optional content to prepend to the system prompt.
             When provided (e.g., a persona), it is prepended with a separator.
+        standing_rules: The reviewed repository's standing rules (OMN-20784).
+            When provided, every rule is rendered into the system prompt by id.
 
     Returns:
         Tuple of (system_prompt, user_prompt).
@@ -217,6 +224,10 @@ def build_review_prompt(
         system_prompt = f"{system_prompt_prefix}\n\n---\n\n{SYSTEM_PROMPT}"
     else:
         system_prompt = SYSTEM_PROMPT
+    if standing_rules is not None:
+        system_prompt = (
+            f"{system_prompt}\n\n{render_standing_rules_section(standing_rules)}"
+        )
     return system_prompt, user_prompt
 
 
@@ -689,6 +700,7 @@ def to_review_findings(
     repo: str = "plan-review",
     pr_id: int = 0,
     commit_sha: str = "0000000",
+    standing_rules: ModelReviewStandingRules | None = None,
 ) -> list[ModelReviewFindingObserved]:
     """Convert parsed finding dicts to canonical ModelReviewFindingObserved models.
 
@@ -698,6 +710,10 @@ def to_review_findings(
         repo: Repository slug (default "plan-review" for plan reviews).
         pr_id: PR number (default 0 for non-PR contexts).
         commit_sha: Commit SHA (default placeholder for plan reviews).
+        standing_rules: The rules the model was handed (OMN-20784). A finding
+            whose ``standing_rule_id`` names one of them is bound to it, and a
+            violated mandatory rule is never below blocking severity. A
+            citation of any other id binds nothing.
 
     Returns:
         List of ModelReviewFindingObserved instances.
@@ -720,6 +736,22 @@ def to_review_findings(
 
         severity = map_severity(raw_severity)
         rule_id = f"ai-reviewer:{model_key}:{category}"
+
+        standing_rule_id: str | None = None
+        cited = item.get("standing_rule_id")
+        if standing_rules is not None and isinstance(cited, str):
+            standing_rule = standing_rules.rule(cited)
+            if standing_rule is None:
+                logger.warning(
+                    "Model '%s' cited standing rule %r, which is not in the "
+                    "supplied rules; the finding is not bound",
+                    model_key,
+                    cited,
+                )
+            else:
+                standing_rule_id = standing_rule.id
+                if standing_rule.mandatory:
+                    severity = EnumFindingSeverity.ERROR
 
         # Compose raw message from available fields.
         raw_parts = [title]
@@ -752,6 +784,7 @@ def to_review_findings(
                 raw_message=raw_message[:512],
                 commit_sha_observed=commit_sha,
                 observed_at=now,
+                standing_rule_id=standing_rule_id,
             )
         )
 
@@ -770,6 +803,7 @@ def parse_raw(
     pr_id: int = 0,
     commit_sha: str = "0000000",
     model: str = _DEFAULT_MODEL_KEY,
+    standing_rules: ModelReviewStandingRules | None = None,
     **kwargs: Any,
 ) -> list[ModelReviewFindingObserved]:
     """Parse raw model output into canonical review findings.
@@ -783,6 +817,7 @@ def parse_raw(
         pr_id: Pull request number.
         commit_sha: Commit SHA.
         model: Model key for endpoint resolution and rule_id.
+        standing_rules: The rules the model was handed (OMN-20784).
         **kwargs: Additional keyword arguments (ignored).
 
     Returns:
@@ -798,6 +833,7 @@ def parse_raw(
         repo=repo,
         pr_id=pr_id,
         commit_sha=commit_sha,
+        standing_rules=standing_rules,
     )
 
 
@@ -841,6 +877,7 @@ async def async_parse_raw(
     pr_id: int = 0,
     commit_sha: str = "0000000",
     system_prompt_prefix: str | None = None,
+    standing_rules: ModelReviewStandingRules | None = None,
 ) -> ModelExternalReviewResult:
     """Full review transaction: prompt, call, parse, convert.
 
@@ -859,6 +896,8 @@ async def async_parse_raw(
         commit_sha: Commit SHA.
         system_prompt_prefix: Optional content to prepend to the system prompt
             (e.g., persona content). When set, prepended with a separator.
+        standing_rules: The reviewed repository's standing rules (OMN-20784),
+            rendered into the system prompt and used to bind cited findings.
 
     Returns:
         ModelExternalReviewResult with review findings or error.
@@ -869,6 +908,7 @@ async def async_parse_raw(
             plan_content,
             review_type=review_type,
             system_prompt_prefix=system_prompt_prefix,
+            standing_rules=standing_rules,
         )
         raw_text = await call_model(system_prompt, user_prompt, model_key=model)
         parsed = try_parse_review_response(raw_text)
@@ -895,6 +935,7 @@ async def async_parse_raw(
             repo=repo,
             pr_id=pr_id,
             commit_sha=commit_sha,
+            standing_rules=standing_rules,
         )
         return ModelExternalReviewResult(
             model=model,

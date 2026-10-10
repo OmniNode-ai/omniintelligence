@@ -31,10 +31,30 @@ Usage:
     uv run python -m omniintelligence.review_pairing.cli_review \\
         --file plan.md --output review.json
 
+    # Gated review against the reviewed repository's standing rules, read from
+    # the protected base branch (never the pull request's own branch)
+    uv run python -m omniintelligence.review_pairing.cli_review \\
+        --pr 433 --repo OmniNode-ai/omniintelligence --gated \\
+        --rules-file .review/standing-rules.yaml --rules-base-ref origin/dev
+
+    # Validate a rules file (and, with a base ref, check it weakens nothing)
+    uv run python -m omniintelligence.review_pairing.cli_review \\
+        validate-rules --rules-file .review/standing-rules.yaml
+
 CLI Stream Policy:
     stdout: canonical ModelMultiReviewResult JSON, including the quorum
         verdict a caller reads instead of summing severities itself
     stderr: human-readable summary
+
+Standing rules (OMN-20784):
+    ``--rules-file`` supplies the reviewed repository's standing rules, rendered
+    into every model's prompt by id, and the digest lands in the verdict.
+    ``--gated`` makes them mandatory: no rules file, or an invalid one, exits 1
+    before any model call. ``--rules-base-ref`` reads the file from that git ref
+    instead of the working tree, so a pull request cannot supply its own rules;
+    the pull request's copy (``--rules-head-ref``, default HEAD) is only checked
+    against the base, and a mandatory base rule it removes, demotes or rewords
+    makes the verdict BLOCKED without a model call.
 
 Exit Codes:
     0: a verdict was produced. Whether it PASSED or BLOCKED is in
@@ -63,7 +83,23 @@ import sys
 import time
 import urllib.parse
 from pathlib import Path
+from typing import NamedTuple
 
+from omniintelligence.handlers.handler_review_standing_rules import (
+    handle as handle_standing_rules,
+)
+from omniintelligence.models.review.model_review_standing_rules import (
+    ModelReviewStandingRules,
+)
+from omniintelligence.models.review.model_standing_rules_record import (
+    ModelStandingRulesRecord,
+)
+from omniintelligence.models.review.model_standing_rules_request import (
+    ModelStandingRulesRequest,
+)
+from omniintelligence.models.review.model_standing_rules_result import (
+    ModelStandingRulesResult,
+)
 from omniintelligence.review_pairing.adapters.adapter_ai_reviewer import (
     _DEFAULT_MODEL_KEY as _DEFAULT_MODEL,
 )
@@ -79,10 +115,14 @@ from omniintelligence.review_pairing.adapters.adapter_codex_reviewer import (
 )
 from omniintelligence.review_pairing.cli_review_models import ModelPersonaConfig
 from omniintelligence.review_pairing.model_registry_loader import load_registry
+from omniintelligence.review_pairing.models import EnumFindingSeverity
 from omniintelligence.review_pairing.models_external_review import (
     EnumQuorumVerdict,
     ModelExternalReviewResult,
     ModelMultiReviewResult,
+    ModelQuorumFinding,
+    ModelReviewQuorumPolicy,
+    ModelReviewQuorumSummary,
 )
 from omniintelligence.review_pairing.persona_loader import load_persona
 from omniintelligence.review_pairing.prompts.adversarial_reviewer import PROMPT_VERSION
@@ -188,7 +228,262 @@ def build_parser() -> argparse.ArgumentParser:
             "Unreachable local models will cause the run to exit 1."
         ),
     )
+    _add_rules_arguments(parser)
+    parser.add_argument(
+        "--gated",
+        action="store_true",
+        default=False,
+        help=(
+            "Run only with the reviewed repository's standing rules: requires "
+            "--rules-file (and, with --pr, --rules-base-ref). A missing or "
+            "invalid rules file exits 1 before any model call."
+        ),
+    )
     return parser
+
+
+def _add_rules_arguments(parser: argparse.ArgumentParser) -> None:
+    """Arguments shared by the review and ``validate-rules`` commands."""
+    parser.add_argument(
+        "--rules-file",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help=(
+            "Standing rules file of the reviewed repository (YAML, "
+            "ModelReviewStandingRules). Repo-relative when --rules-base-ref is set."
+        ),
+    )
+    parser.add_argument(
+        "--rules-base-ref",
+        type=str,
+        default=None,
+        metavar="REF",
+        help=(
+            "Git ref of the protected base branch to read --rules-file from, "
+            "instead of the working tree. The pull request's own copy is only "
+            "compared against it."
+        ),
+    )
+    parser.add_argument(
+        "--rules-head-ref",
+        type=str,
+        default="HEAD",
+        metavar="REF",
+        help="Git ref of the pull request's head, compared with the base rules.",
+    )
+    parser.add_argument(
+        "--rules-repo-dir",
+        type=str,
+        default=".",
+        metavar="DIR",
+        help="Directory of the git repository the refs are read from.",
+    )
+
+
+class _RulesLoad(NamedTuple):
+    """Outcome of loading the standing rules for a review."""
+
+    result: ModelStandingRulesResult | None
+    source: str
+    error: str | None
+
+
+class _GitReadError(Exception):
+    """A rules file could not be read from git for a reason other than absence."""
+
+
+def _git_show(repo_dir: str, ref: str, path: str) -> str | None:
+    """Text of ``path`` at ``ref``; None when the ref has no such file."""
+    try:
+        completed = subprocess.run(
+            ["git", "-C", repo_dir, "show", f"{ref}:{path}"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+        raise _GitReadError(f"git show {ref}:{path} failed: {exc}") from exc
+    if completed.returncode == 0:
+        return completed.stdout
+    stderr = completed.stderr.strip()
+    if "does not exist in" in stderr or "exists on disk, but not in" in stderr:
+        return None
+    raise _GitReadError(f"git show {ref}:{path} failed: {stderr}")
+
+
+def _read_rules_text(path: str) -> str | None:
+    try:
+        return Path(path).read_text(encoding="utf-8")
+    except (FileNotFoundError, IsADirectoryError):
+        return None
+    except (OSError, UnicodeDecodeError) as exc:
+        raise _GitReadError(f"cannot read rules file {path}: {exc}") from exc
+
+
+def _load_standing_rules(
+    *,
+    rules_file: str,
+    base_ref: str | None,
+    head_ref: str,
+    repo_dir: str,
+) -> _RulesLoad:
+    """Read and check the rules; from the base ref when one is given.
+
+    With a base ref the working tree is never read: the authoritative text is
+    the base branch's, and the head ref's copy is only compared with it.
+    """
+    try:
+        if base_ref is None:
+            result = handle_standing_rules(
+                ModelStandingRulesRequest(rules_text=_read_rules_text(rules_file))
+            )
+            return _RulesLoad(result, rules_file, None)
+        if Path(rules_file).is_absolute():
+            return _RulesLoad(
+                None,
+                rules_file,
+                "--rules-file must be repo-relative when --rules-base-ref is set",
+            )
+        result = handle_standing_rules(
+            ModelStandingRulesRequest(
+                rules_text=_git_show(repo_dir, base_ref, rules_file),
+                compare_candidate=True,
+                candidate_text=_git_show(repo_dir, head_ref, rules_file),
+            )
+        )
+        return _RulesLoad(result, f"{base_ref}:{rules_file}", None)
+    except _GitReadError as exc:
+        return _RulesLoad(None, rules_file, str(exc))
+
+
+def _rules_record(
+    result: ModelStandingRulesResult, *, source: str, gated: bool
+) -> ModelStandingRulesRecord | None:
+    """The verdict's record of the rules in force; None without valid rules."""
+    rules: ModelReviewStandingRules | None = result.rules
+    if rules is None:
+        return None
+    return ModelStandingRulesRecord(
+        version=rules.version,
+        digest=rules.digest,
+        rule_ids=tuple(r.id for r in rules.rules),
+        mandatory_rule_ids=tuple(r.id for r in rules.rules if r.mandatory),
+        source=source,
+        gated=gated,
+        violations=result.weakened,
+        candidate_errors=result.candidate_errors,
+    )
+
+
+def _rules_refusal(args: argparse.Namespace) -> str | None:
+    """Why the invocation is refused before any rules are read, or None."""
+    if args.rules_file is None:
+        if args.gated:
+            return "--gated requires --rules-file"
+        if args.rules_base_ref is not None:
+            return "--rules-base-ref requires --rules-file"
+    elif args.gated and args.pr is not None and args.rules_base_ref is None:
+        return (
+            "--gated with --pr requires --rules-base-ref: the rules of a pull "
+            "request come from its protected base branch, never from its own branch"
+        )
+    return None
+
+
+def _blocked_by_weakened_rules(
+    record: ModelStandingRulesRecord,
+    rules_path: str,
+    policy: ModelReviewQuorumPolicy,
+) -> ModelMultiReviewResult:
+    """Verdict for a pull request whose rules file weakens the base rules.
+
+    No model ran: the verdict is BLOCKED because the change under review drops
+    or weakens a mandatory rule, which needs no opinion to establish.
+    """
+    blocking = [
+        ModelQuorumFinding(
+            file_path=rules_path,
+            line_start=1,
+            severity=EnumFindingSeverity.ERROR,
+            rule=f"standing:{v.rule_id}",
+            message=(
+                f"mandatory standing rule {v.rule_id!r} is {v.reason} by the "
+                "pull request's rules file"
+            ),
+            agreeing_models=(),
+            agreement_count=0,
+            blocking=True,
+            standing_rule_id=v.rule_id,
+        )
+        for v in record.violations
+    ]
+    if record.candidate_errors:
+        blocking.append(
+            ModelQuorumFinding(
+                file_path=rules_path,
+                line_start=1,
+                severity=EnumFindingSeverity.ERROR,
+                rule="rules-file:invalid",
+                message=(
+                    "the pull request's rules file is invalid: "
+                    + "; ".join(record.candidate_errors)
+                ),
+                agreeing_models=(),
+                agreement_count=0,
+                blocking=True,
+            )
+        )
+    return ModelMultiReviewResult(
+        quorum=ModelReviewQuorumSummary(
+            verdict=EnumQuorumVerdict.BLOCKED,
+            quorum_threshold=policy.min_agreeing_models,
+            quorum_met=False,
+            blocking_count=len(blocking),
+            blocking_findings=tuple(blocking),
+        ),
+        skipped_reason="standing_rules_weakened",
+        standing_rules=record,
+    )
+
+
+def _validate_rules_main(argv: list[str]) -> int:
+    """``validate-rules``: check a rules file, and optionally a pull request's copy."""
+    parser = argparse.ArgumentParser(
+        prog="cli_review validate-rules",
+        description="Validate a standing rules file against ModelReviewStandingRules.",
+    )
+    _add_rules_arguments(parser)
+    args = parser.parse_args(argv)
+    if args.rules_file is None:
+        print("Error: validate-rules requires --rules-file", file=sys.stderr)
+        return 1
+    load = _load_standing_rules(
+        rules_file=args.rules_file,
+        base_ref=args.rules_base_ref,
+        head_ref=args.rules_head_ref,
+        repo_dir=args.rules_repo_dir,
+    )
+    if load.result is None:
+        report: dict[str, object] = {"ok": False, "errors": [load.error]}
+    else:
+        rules = load.result.rules
+        report = {
+            "ok": load.result.ok,
+            "source": load.source,
+            "version": rules.version if rules else None,
+            "digest": rules.digest if rules else None,
+            "rule_ids": [r.id for r in rules.rules] if rules else [],
+            "mandatory_rule_ids": (
+                [r.id for r in rules.rules if r.mandatory] if rules else []
+            ),
+            "errors": list(load.result.errors),
+            "violations": [v.model_dump() for v in load.result.weakened],
+            "candidate_errors": list(load.result.candidate_errors),
+        }
+    print(json.dumps(report, indent=2))
+    return 0 if report["ok"] else 1
 
 
 async def run_review(
@@ -197,6 +492,7 @@ async def run_review(
     *,
     review_type: str = "plan",
     persona: ModelPersonaConfig | None = None,
+    standing_rules: ModelReviewStandingRules | None = None,
 ) -> ModelMultiReviewResult:
     """Execute multi-model review.
 
@@ -208,6 +504,8 @@ async def run_review(
         review_type: "plan" for plan review, "pr" for PR diff review.
         persona: Optional persona config. When provided, persona content is
             prepended to the system prompt for each LLM call.
+        standing_rules: The reviewed repository's standing rules (OMN-20784).
+            Handed to every model; when None the call is exactly as before.
 
     Returns:
         Aggregated ModelMultiReviewResult.
@@ -236,17 +534,29 @@ async def run_review(
         )
         call_started_at = time.monotonic()
         if model_key == _CODEX_MODEL_KEY:
-            result = await codex_async_parse_raw(
-                content,
-                review_type=review_type,
-            )
+            if standing_rules is None:
+                result = await codex_async_parse_raw(content, review_type=review_type)
+            else:
+                result = await codex_async_parse_raw(
+                    content, review_type=review_type, standing_rules=standing_rules
+                )
         else:
-            result = await llm_async_parse_raw(
-                content,
-                model=model_key,
-                review_type=review_type,
-                system_prompt_prefix=persona.content if persona is not None else None,
-            )
+            prefix = persona.content if persona is not None else None
+            if standing_rules is None:
+                result = await llm_async_parse_raw(
+                    content,
+                    model=model_key,
+                    review_type=review_type,
+                    system_prompt_prefix=prefix,
+                )
+            else:
+                result = await llm_async_parse_raw(
+                    content,
+                    model=model_key,
+                    review_type=review_type,
+                    system_prompt_prefix=prefix,
+                    standing_rules=standing_rules,
+                )
         elapsed = time.monotonic() - call_started_at
         # OMN-17492: record WHICH reviewer this key is (endpoint + model), so
         # the quorum counts two names for one model once.
@@ -494,8 +804,12 @@ def main(argv: list[str] | None = None) -> int:
     Returns:
         Exit code (0=success, 1=all models failed).
     """
+    raw_argv = sys.argv[1:] if argv is None else argv
+    if raw_argv and raw_argv[0] == "validate-rules":
+        return _validate_rules_main(raw_argv[1:])
+
     parser = build_parser()
-    args = parser.parse_args(argv)
+    args = parser.parse_args(raw_argv)
 
     # Resolve the quorum policy BEFORE any model runs: a refused threshold
     # must fail in milliseconds, not after a full multi-model review.
@@ -514,6 +828,51 @@ def main(argv: list[str] | None = None) -> int:
         policy = contract_policy.model_copy(
             update={"min_agreeing_models": args.quorum_threshold}
         )
+
+    # Standing rules (OMN-20784), also BEFORE any model or diff fetch: a gated
+    # review with no usable rules fails here, and a pull request that weakens
+    # the base branch's mandatory rules is blocked here without a model call.
+    standing_rules: ModelReviewStandingRules | None = None
+    rules_record: ModelStandingRulesRecord | None = None
+    refusal = _rules_refusal(args)
+    if refusal is not None:
+        print(f"Error: {refusal}", file=sys.stderr)
+        return 1
+    if args.rules_file is not None:
+        load = _load_standing_rules(
+            rules_file=args.rules_file,
+            base_ref=args.rules_base_ref,
+            head_ref=args.rules_head_ref,
+            repo_dir=args.rules_repo_dir,
+        )
+        if load.result is None or load.result.rules is None:
+            reasons = (
+                [load.error]
+                if load.error
+                else list(load.result.errors)
+                if load.result is not None
+                else []
+            )
+            print(
+                f"Error: standing rules unusable ({load.source}): "
+                f"{'; '.join(str(r) for r in reasons)}",
+                file=sys.stderr,
+            )
+            return 1
+        standing_rules = load.result.rules
+        rules_record = _rules_record(load.result, source=load.source, gated=args.gated)
+        if not load.result.ok and rules_record is not None:
+            blocked = _blocked_by_weakened_rules(rules_record, args.rules_file, policy)
+            json_output = blocked.model_dump_json(indent=2)
+            if args.output:
+                Path(args.output).write_text(json_output + "\n", encoding="utf-8")
+                print(f"Results written to {args.output}", file=sys.stderr)
+            else:
+                print(json_output)
+            if blocked.quorum is not None:
+                for line in format_quorum_summary(blocked.quorum):
+                    print(line, file=sys.stderr)
+            return 0
 
     # Resolve input content.
     if args.pr is not None:
@@ -620,6 +979,7 @@ def main(argv: list[str] | None = None) -> int:
                 results=[],
                 total_findings=0,
                 skipped_reason="empty_diff",
+                standing_rules=rules_record,
             )
             json_output = result.model_dump_json(indent=2)
             if args.output:
@@ -685,7 +1045,13 @@ def main(argv: list[str] | None = None) -> int:
 
     # Run review.
     result = asyncio.run(
-        run_review(review_content, model_keys, review_type=review_type, persona=persona)
+        run_review(
+            review_content,
+            model_keys,
+            review_type=review_type,
+            persona=persona,
+            standing_rules=standing_rules,
+        )
     )
     result = _record_unreachable(result, skipped)
 
@@ -694,7 +1060,9 @@ def main(argv: list[str] | None = None) -> int:
     # severities across models -- the rule that let a single model's
     # rotating hallucination block a merge.
     quorum_summary = evaluate_quorum(result, policy)
-    result = result.model_copy(update={"quorum": quorum_summary})
+    result = result.model_copy(
+        update={"quorum": quorum_summary, "standing_rules": rules_record}
+    )
 
     # Output JSON to stdout (or file).
     json_output = result.model_dump_json(indent=2)
