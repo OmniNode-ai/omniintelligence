@@ -97,6 +97,20 @@ def test_caller_is_in_shadow_mode_and_compares_with_occ() -> None:
     assert version >= VERIFIER_FLOOR
 
 
+def test_shadow_occ_context_is_a_job_name_the_repo_reports() -> None:
+    # The reusable's default lookup, `occ-preflight / eligibility`, names a job
+    # this repository never reports: its OCC preflight runs nested inside the
+    # reject-skip caller, so the check-run is `<caller job> / occ-preflight /
+    # eligibility`. Without this input the shadow waits and reads not_compared.
+    jobs = _load(WORKFLOWS / "call-reject-skip.yml")["jobs"]
+    assert "call-reject-skip-token" in jobs
+    assert "/reject-deploy-gate-skip.yml@" in jobs["call-reject-skip-token"]["uses"]
+    assert (
+        _job()["with"]["occ-context"]
+        == "call-reject-skip-token / occ-preflight / eligibility"
+    )
+
+
 def test_shadow_caller_removes_no_occ_caller() -> None:
     for name in ("call-occ-autobind.yml", "call-occ-companion-effect.yml"):
         assert (WORKFLOWS / name).is_file(), f"{name} must stay until the S6 ruling"

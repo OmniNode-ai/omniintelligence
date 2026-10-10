@@ -40,6 +40,13 @@ requirements:
       - id: "AC7"
         statement: |-
           AC7: omnibase_core's no-untracked-todos handler reproduces the printed output and exit code that onex_change_control's check-todo-format at rev 8d7e85bc00e7f1b1306d1cb40949be1ab6e7e91a recorded for 17 replayed cases -- falsifier: uv run pytest tests/ci/test_todo_format_replay_omn20074.py -q
+  - id: "req-shadow-occ-context"
+    statement: |-
+      omniintelligence's S5 shadow must read OCC's verdict from a check-run this repository actually reports, so a run records a verdict instead of waiting out the lookup and reading not_compared.
+    acceptance:
+      - id: "AC8"
+        statement: |-
+          AC8: the caller passes occ-context equal to call-reject-skip-token / occ-preflight / eligibility, the nested name the reject-skip caller job reports, instead of the reusable's default occ-preflight / eligibility that this repository never reports -- falsifier: uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k occ_context
 evidence_requirements:
   - kind: "tests"
     description: "The caller workflow has the required base-branch trigger and read-only permissions."
@@ -62,6 +69,9 @@ evidence_requirements:
   - kind: "tests"
     description: "The omnibase_core todo-format handler replays the recorded change-control decisions."
     command: "uv run pytest tests/ci/test_todo_format_replay_omn20074.py -q"
+  - kind: "tests"
+    description: "The shadow's OCC lookup names a job this repository reports."
+    command: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k occ_context"
 emergency_bypass:
   enabled: false
   justification: ""
@@ -126,3 +136,11 @@ dod_evidence:
         check_value: "uv run pytest tests/ci/test_todo_format_replay_omn20074.py -q"
         cwd: "${OMNI_HOME}/omniintelligence"
     binds_ac: ["AC7"]
+  - id: "dod-shadow-occ-context-ac8"
+    description: "The shadow's OCC lookup names a job this repository reports."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k occ_context"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC8"]
