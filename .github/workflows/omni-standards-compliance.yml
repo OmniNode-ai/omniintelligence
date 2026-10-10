@@ -99,7 +99,7 @@ jobs:
           version: ${{ env.UV_VERSION }}
 
       - name: Install omnibase_core (pinned)
-        run: uv pip install --system "omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core.git@e49fd566bc341e24feaaff2962394a80e2fa4dce"
+        run: uv pip install --system "omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core.git@c584a652ae32c7e672521f660872c354d6e36325"
 
       - name: Run handler contract compliance check
         run: |
