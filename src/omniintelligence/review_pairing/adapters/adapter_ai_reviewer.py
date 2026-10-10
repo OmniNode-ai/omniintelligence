@@ -257,6 +257,7 @@ class _OptionalRequestKwargs(TypedDict, total=False):
     """
 
     max_retries: int
+    top_p: float
 
 
 def _resolve_api_model_id(
@@ -440,6 +441,14 @@ async def call_model(
     _request_kwargs: _OptionalRequestKwargs = {}
     if config.max_retries is not None:
         _request_kwargs["max_retries"] = config.max_retries
+    # OMN-20422: top_p is an OPTIONAL per-model registry override, sent only
+    # when declared, so an entry that sets none sends what it always sent.
+    if config.top_p is not None:
+        _request_kwargs["top_p"] = config.top_p
+    # OMN-20422: a per-model review focus extends the system prompt for that
+    # voter only. Empty (the default) leaves the prompt byte-identical.
+    if config.review_focus:
+        system_prompt = f"{system_prompt}\n\n## Reviewer Focus\n\n{config.review_focus}"
 
     request = ModelLlmInferenceRequest(
         base_url=base_url,
@@ -449,7 +458,11 @@ async def call_model(
         messages=({"role": "user", "content": user_prompt},),
         system_prompt=system_prompt,
         max_tokens=_DEFAULT_MAX_TOKENS,
-        temperature=_DEFAULT_TEMPERATURE,
+        temperature=(
+            config.temperature
+            if config.temperature is not None
+            else _DEFAULT_TEMPERATURE
+        ),
         timeout_seconds=config.timeout_seconds,
         **_request_kwargs,
         # OMN-14176: enable_thinking is a DECLARATIVE per-model registry field
