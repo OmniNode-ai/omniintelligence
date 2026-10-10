@@ -395,6 +395,39 @@ class TestCliOverlayMode:
         plan.write_text("# change", encoding="utf-8")
         return plan
 
+    def test_a_voter_removed_from_the_overlay_is_not_called(
+        self, tmp_path: Path
+    ) -> None:
+        """AC1: the gate's roster is the overlay and nothing else."""
+        third = textwrap.indent(
+            '- voter_id: third\n  endpoint_url: "http://voter-c.example:9000"\n'
+            "  required: true\n  timeout_seconds: 60\n",
+            "  ",
+        )
+        reach = {"first": True, "second": True, "third": True}
+
+        def _called(overlay_text: str) -> list[str]:
+            overlay = _write(tmp_path, overlay_text)
+            parse = AsyncMock(side_effect=lambda _content, model, **_: _success(model))
+            with (
+                patch(f"{_CLI}.probe_local_reachability", return_value=reach),
+                patch(f"{_CLI}.resolve_served_model_id", return_value="Model"),
+                patch(f"{_CLI}.llm_async_parse_raw", parse),
+            ):
+                code = main(
+                    [
+                        "--file",
+                        str(self._plan(tmp_path)),
+                        "--voters-overlay",
+                        str(overlay),
+                    ]
+                )
+            assert code == 0
+            return [c.kwargs["model"] for c in parse.await_args_list]
+
+        assert _called(_VOTERS + third) == ["first", "second", "third"]
+        assert _called(_VOTERS) == ["first", "second"]
+
     def test_voters_are_called_in_overlay_order_and_pass(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
