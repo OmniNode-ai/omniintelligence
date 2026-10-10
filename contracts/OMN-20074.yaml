@@ -47,6 +47,16 @@ requirements:
       - id: "AC8"
         statement: |-
           AC8: the caller passes occ-context equal to call-reject-skip-token / occ-preflight / eligibility, the nested name the reject-skip caller job reports, instead of the reusable's default occ-preflight / eligibility that this repository never reports -- falsifier: uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k occ_context
+  - id: "req-contract-validation-core"
+    statement: |-
+      omniintelligence's contract-validation workflow validates the branch ticket's contract with omnibase_core's ModelTicketContract at the locked core version instead of the onex_change_control validators, under unchanged workflow and job names.
+    acceptance:
+      - id: "AC10"
+        statement: |-
+          AC10: .github/workflows/contract-validation.yml names no onex_change_control (no auth preflight, no validator checkout, no validate-yaml), validates with omnibase_core's ModelTicketContract at the uv.lock core version that carries the binds_ac rules (0.47.39 or later), and keeps its workflow name Contract Validation and its job name contract-validation -- falsifier: uv run pytest tests/ci/test_contract_validation_core_validator_omn20074.py -q -k test_workflow_
+      - id: "AC11"
+        statement: |-
+          AC11: the contract-validation step's own run block passes this repository's branch-ticket contract, skips a branch with no ticket or no contract, and fails a planted binds_ac entry that is not a criterion label, a planted binds_ac item of check_type command_exit_0 and a planted malformed contract, each naming the file, the first two also the rule -- falsifier: uv run pytest tests/ci/test_contract_validation_core_validator_omn20074.py -q
 evidence_requirements:
   - kind: "tests"
     description: "The caller workflow has the required base-branch trigger and read-only permissions."
@@ -72,6 +82,14 @@ evidence_requirements:
   - kind: "tests"
     description: "The shadow's OCC lookup names a job this repository reports."
     command: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k occ_context"
+  - kind: "tests"
+    description: "The contract-validation workflow reads no onex_change_control, validates with omnibase_core
+      at the locked core and keeps its names."
+    command: "uv run pytest tests/ci/test_contract_validation_core_validator_omn20074.py -q -k test_workflow_"
+  - kind: "tests"
+    description: "The contract-validation step passes this repository's branch contract and refuses both
+      planted binds_ac shapes and a malformed contract."
+    command: "uv run pytest tests/ci/test_contract_validation_core_validator_omn20074.py -q"
 emergency_bypass:
   enabled: false
   justification: ""
@@ -144,3 +162,22 @@ dod_evidence:
         check_value: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k occ_context"
         cwd: "${OMNI_HOME}/omniintelligence"
     binds_ac: ["AC8"]
+  - id: "dod-contract-validation-core-ac10"
+    description: "The workflow test proves no onex_change_control reference, the locked core version and
+      the unchanged names."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_contract_validation_core_validator_omn20074.py -q -k
+          test_workflow_"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC10"]
+  - id: "dod-contract-validation-core-ac11"
+    description: "The step's own run block passes the branch contract and fails each planted shape naming
+      the file."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_contract_validation_core_validator_omn20074.py -q"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC11"]
