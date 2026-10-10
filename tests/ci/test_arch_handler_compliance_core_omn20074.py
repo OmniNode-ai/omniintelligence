@@ -24,7 +24,7 @@ WORKFLOW = REPO_ROOT / ".github" / "workflows" / "omni-standards-compliance.yml"
 JOB = "handler-contract-compliance"
 ALLOWLIST = "arch-handler-contract-compliance-allowlist.yaml"
 CORE_INSTALL = re.compile(
-    r"uv pip install --system \"omnibase-core @ "
+    r"uv pip install --system --no-config \"omnibase-core @ "
     r"git\+https://github\.com/OmniNode-ai/omnibase_core\.git@(?P<sha>[0-9a-f]{40})\""
 )
 CORE_MODULE = "omnibase_core.handlers.handler_arch_handler_contract_compliance"
