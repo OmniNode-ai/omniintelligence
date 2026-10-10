@@ -68,3 +68,5 @@ jobs:
       verifier-version: 0.4.305
       compare-with-occ: "true"
       shadow: "true"
+      # OMN-20074: the nested name this repository reports; the default never resolves here.
+      occ-context: "call-reject-skip-token / occ-preflight / eligibility"

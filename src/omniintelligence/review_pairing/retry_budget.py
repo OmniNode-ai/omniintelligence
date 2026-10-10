@@ -33,9 +33,15 @@ from __future__ import annotations
 import argparse
 import inspect
 import sys
+from collections.abc import Mapping
 from dataclasses import dataclass
+from pathlib import Path
 
-from omniintelligence.review_pairing.model_registry_loader import load_registry
+from omniintelligence.review_pairing.model_registry_loader import (
+    load_registry,
+    load_review_voters,
+)
+from omniintelligence.review_pairing.models_external_review import ModelEndpointConfig
 
 
 @dataclass(frozen=True)
@@ -117,6 +123,7 @@ def compute_sequential_worst_case(
     model_keys: list[str],
     *,
     max_retries: int | None = None,
+    configs: Mapping[str, ModelEndpointConfig] | None = None,
 ) -> list[ModelRetryBudgetResult]:
     """Compute the worst-case retry budget for each model key, in the exact
     order ``cli_review.run_review`` calls them (sequential -- see module
@@ -133,6 +140,9 @@ def compute_sequential_worst_case(
             ``resolve_live_max_retries_default()`` -- this must mirror
             ``call_model()``'s real resolution order exactly, or the
             invariant simulates a budget the real call path doesn't use.
+        configs: The endpoint configs to read instead of the registry's --
+            the voters of a review voters overlay (OMN-20910), so the budget
+            is computed from the same timeouts the gate will call with.
 
     Returns:
         One ``ModelRetryBudgetResult`` per model key that resolves to a
@@ -140,14 +150,16 @@ def compute_sequential_worst_case(
         ``cli_fallback`` codex entry is excluded -- it is a subprocess call,
         not an HTTP retry loop, and has its own timeout mechanism).
     """
-    registry = load_registry()
+    lookup: Mapping[str, ModelEndpointConfig] = (
+        configs if configs is not None else load_registry().models
+    )
     fallback_max_retries = (
         max_retries if max_retries is not None else resolve_live_max_retries_default()
     )
 
     results: list[ModelRetryBudgetResult] = []
     for model_key in model_keys:
-        config = registry.models.get(model_key)
+        config = lookup.get(model_key)
         if config is None or config.kind == "cli_fallback":
             continue
         resolved_max_retries = (
@@ -189,6 +201,7 @@ def assert_budget_within_ceiling(
     job_timeout_seconds: float,
     setup_overhead_seconds: float = 0.0,
     max_retries: int | None = None,
+    configs: Mapping[str, ModelEndpointConfig] | None = None,
 ) -> list[ModelRetryBudgetResult]:
     """Raise ``AssertionError`` if the sequential sum of worst-case per-model
     retry budgets (plus ``setup_overhead_seconds``) meets or exceeds
@@ -205,7 +218,9 @@ def assert_budget_within_ceiling(
     Returns:
         The per-model breakdown on success, so a caller can log/print it.
     """
-    results = compute_sequential_worst_case(model_keys, max_retries=max_retries)
+    results = compute_sequential_worst_case(
+        model_keys, max_retries=max_retries, configs=configs
+    )
     total_worst_case = (
         sum(r.worst_case_seconds for r in results) + setup_overhead_seconds
     )
@@ -234,12 +249,19 @@ def build_parser() -> argparse.ArgumentParser:
             "omnibase_infra transport -- no live network/GPU calls."
         )
     )
-    parser.add_argument(
+    roster = parser.add_mutually_exclusive_group(required=True)
+    roster.add_argument(
         "--model",
         action="append",
         dest="models",
-        required=True,
         help="Model key to include (repeatable, in call order).",
+    )
+    roster.add_argument(
+        "--voters-overlay",
+        type=Path,
+        default=None,
+        help="Review voters overlay (OMN-20910): budget every voter it "
+        "declares, in declaration order, from the overlay's own timeouts.",
     )
     parser.add_argument(
         "--job-timeout-seconds",
@@ -264,11 +286,25 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
+    configs: dict[str, ModelEndpointConfig] | None = None
+    models: list[str] = args.models or []
+    if args.voters_overlay is not None:
+        roster = load_review_voters(args.voters_overlay)
+        if not roster.ok:
+            print(
+                f"ERROR: review voters overlay: {roster.error_message}",
+                file=sys.stderr,
+            )
+            return 1
+        configs = roster.endpoint_configs()
+        models = roster.voter_ids
+
     try:
         results = assert_budget_within_ceiling(
-            args.models,
+            models,
             job_timeout_seconds=args.job_timeout_seconds,
             setup_overhead_seconds=args.setup_overhead_seconds,
+            configs=configs,
         )
     except AssertionError as exc:
         print(str(exc), file=sys.stderr)
@@ -278,7 +314,7 @@ def main(argv: list[str] | None = None) -> int:
     print(
         "Retry-budget invariant holds: sequential worst-case "
         f"{total:g}s (setup_overhead={args.setup_overhead_seconds:g}s) < "
-        f"job_timeout {args.job_timeout_seconds:g}s for models {args.models}.",
+        f"job_timeout {args.job_timeout_seconds:g}s for models {models}.",
         file=sys.stderr,
     )
     print(format_budget_breakdown(results), file=sys.stderr)

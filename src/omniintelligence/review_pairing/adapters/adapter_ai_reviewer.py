@@ -25,6 +25,7 @@ import re
 import socket
 import time
 import urllib.parse
+from collections.abc import Mapping
 from typing import Any, TypedDict
 from uuid import uuid4
 
@@ -189,6 +190,30 @@ def select_models_with_fallback(
     return dedupe(list(_API_FALLBACK_KEYS) + non_local_requested), unreachable_local
 
 
+def register_review_voters(configs: Mapping[str, ModelEndpointConfig]) -> None:
+    """Add overlay voters (OMN-20910) to the registry this adapter calls through.
+
+    Every voter is a local endpoint, so it is also probed for reachability like
+    the registry's local keys. A voter id that names an existing registry key is
+    refused: an overlay voter must never silently replace a registry entry, or
+    the same name would mean two different reviewers depending on the caller.
+
+    Raises:
+        ValueError: A voter id collides with a registry key that is not the
+            identical config (re-registering the same roster is a no-op).
+    """
+    global _LOCAL_MODEL_KEYS
+    for voter_id, config in configs.items():
+        existing = MODEL_REGISTRY.get(voter_id)
+        if existing is not None and existing != config:
+            raise ValueError(
+                f"review voter {voter_id!r}: the id is already a model_registry.yaml "
+                "key; give the overlay voter a name of its own"
+            )
+    MODEL_REGISTRY.update(configs)
+    _LOCAL_MODEL_KEYS = _LOCAL_MODEL_KEYS | frozenset(configs)
+
+
 # ---------------------------------------------------------------------------
 # Internal layers (independently testable)
 # ---------------------------------------------------------------------------
@@ -257,6 +282,7 @@ class _OptionalRequestKwargs(TypedDict, total=False):
     """
 
     max_retries: int
+    top_p: float
 
 
 def _resolve_api_model_id(
@@ -440,6 +466,14 @@ async def call_model(
     _request_kwargs: _OptionalRequestKwargs = {}
     if config.max_retries is not None:
         _request_kwargs["max_retries"] = config.max_retries
+    # OMN-20422: top_p is an OPTIONAL per-model registry override, sent only
+    # when declared, so an entry that sets none sends what it always sent.
+    if config.top_p is not None:
+        _request_kwargs["top_p"] = config.top_p
+    # OMN-20422: a per-model review focus extends the system prompt for that
+    # voter only. Empty (the default) leaves the prompt byte-identical.
+    if config.review_focus:
+        system_prompt = f"{system_prompt}\n\n## Reviewer Focus\n\n{config.review_focus}"
 
     request = ModelLlmInferenceRequest(
         base_url=base_url,
@@ -449,7 +483,11 @@ async def call_model(
         messages=({"role": "user", "content": user_prompt},),
         system_prompt=system_prompt,
         max_tokens=_DEFAULT_MAX_TOKENS,
-        temperature=_DEFAULT_TEMPERATURE,
+        temperature=(
+            config.temperature
+            if config.temperature is not None
+            else _DEFAULT_TEMPERATURE
+        ),
         timeout_seconds=config.timeout_seconds,
         **_request_kwargs,
         # OMN-14176: enable_thinking is a DECLARATIVE per-model registry field

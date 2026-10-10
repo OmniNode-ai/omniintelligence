@@ -113,6 +113,37 @@ class ModelEndpointConfig(BaseModel, frozen=True, extra="forbid"):
         ),
     )
 
+    temperature: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=2.0,
+        description=(
+            "Optional per-model sampling temperature (OMN-20422). None "
+            "(default) sends the adapter's default, so existing entries are "
+            "unaffected. Two voters that serve the same weights are given "
+            "different sampling so they can disagree where the change is "
+            "genuinely in doubt."
+        ),
+    )
+    top_p: float | None = Field(
+        default=None,
+        gt=0.0,
+        le=1.0,
+        description=(
+            "Optional per-model nucleus-sampling cutoff (OMN-20422). None "
+            "(default) sends no top_p, so the endpoint keeps its own default."
+        ),
+    )
+    review_focus: str = Field(
+        default="",
+        description=(
+            "Optional per-model emphasis appended to the system prompt "
+            "(OMN-20422). It adds scrutiny, it never narrows the remit: the "
+            "text must tell the model to keep reviewing the whole change. "
+            "Empty (default) leaves the system prompt exactly as it was."
+        ),
+    )
+
     @model_validator(mode="after")
     def _validate_model_id_source(self) -> ModelEndpointConfig:
         """Refuse a config that declares an id it will not send, or vice versa.

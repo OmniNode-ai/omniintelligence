@@ -50,6 +50,13 @@
 # refuses any two keys here that resolve to one reviewer. Private diffs go
 # only to lab models (operator ruling 2026-09-25), so no cloud reviewer is
 # registered.
+# THE HOSTILE REVIEWER GATE DOES NOT READ ITS VOTERS FROM THIS FILE (OMN-20910).
+# Operator RULING 2026-10-10T18:17:37Z: review-voter models live in a contract
+# overlay, never in repository variables or workflow files. The gate's roster
+# (endpoint, model, sampling, focus, timeout, required) is omnibase_infra
+# docker/lane-overlays/hostile-review-voters.yaml, read by
+# `cli_review --voters-overlay`. The keys below serve `--model` callers, and
+# `review_quorum` below still binds every caller, the overlay included.
 default_model_key: "qwen3-review"
 
 # Cross-model agreement policy (OMN-18479).
@@ -131,6 +138,16 @@ models:
     timeout_seconds: 120.0
     model_id_source: "served"
     enable_thinking: false
+    # OMN-20422: the two lab voters serve the same Qwen3.8-27B weights, so with
+    # identical sampling and an identical prompt their "agreement" is one model
+    # agreeing with itself. This voter keeps the sampling it has always had
+    # (temperature 0.3, the server's own top_p) and reads for correctness.
+    temperature: 0.3
+    review_focus: "Give extra scrutiny to correctness: logic errors, off-by-one and boundary conditions,
+      wrong or missing error handling, state that is read before it is written, and tests that would pass
+      whether or not the change worked. Keep reviewing the whole change for every other defect as well;
+      this is added emphasis, not a narrower remit. Label each finding with the category that best describes
+      the defect itself."
 
   # local-studio-planner -- ADDED as gpt-oss-review (OMN-17492, 2026-09-25)
   # under the operator ruling of 2026-09-25T12:40Z (ledger RULING, "we have
@@ -180,6 +197,18 @@ models:
     # not JSON. Measured on omnibase_infra#4757's diff (2026-10-09, .200:8131):
     # 7 of 12 replies parsed without this, 12 of 12 with it.
     constrain_findings_schema: true
+    # OMN-20422: different sampling and a different emphasis from qwen3-review,
+    # so that when the two voters serve the same weights they can still
+    # disagree where a change is genuinely in doubt. Nucleus values follow the
+    # Qwen3 non-thinking card (temperature 0.7, top_p 0.8).
+    temperature: 0.7
+    top_p: 0.8
+    review_focus: "Give extra scrutiny to security and contracts: untrusted input reaching a shell, query,
+      path or template; secrets, tokens or credentials in code, logs or workflow files; permissions and
+      trust boundaries; and any change to a public interface, schema, event shape or workflow contract
+      that a caller depends on without the callers being updated. Keep reviewing the whole change for
+      every other defect as well; this is added emphasis, not a narrower remit. Label each finding with
+      the category that best describes the defect itself."
 
   qwen3-coder:
     env_var: "LLM_CODER_URL"

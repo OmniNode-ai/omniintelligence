@@ -1,0 +1,92 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# ONEX Node Contract
+# Node: NodeReviewVotersOverlayCompute
+#
+# Resolves the Hostile Reviewer gate's voters from a contract overlay.
+# Operator RULING 2026-10-10T18:17:37Z: review-voter models are declared in a
+# contract overlay, never in repository variables or workflow files.
+#
+# Reference: OMN-20910
+
+name: "node_review_voters_overlay_compute"
+version: "1.0.0"
+contract_version: {major: 1, minor: 0, patch: 0}
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+node_type: "COMPUTE_GENERIC"
+
+status: "active"
+
+description: >
+  Validates a review_voters_overlay.v1 document and resolves each Hostile Reviewer voter's endpoint, either
+  from a backend of the lab delegation overlay (bifrost_lane_overlay.v3) or from the voter's own endpoint_url,
+  with its model selection, sampling, focus prompt, timeout and required flag. Pure computation over the
+  two documents' text; a refusal is returned as data naming the voter.
+input_model:
+  name: "ModelReviewVotersOverlayRequest"
+  module: "omniintelligence.nodes.node_review_voters_overlay_compute.models.model_review_voters_overlay_request"
+  description: "The overlay text and the delegation overlay text it names."
+
+output_model:
+  name: "ModelReviewVoterRoster"
+  module: "omniintelligence.nodes.node_review_voters_overlay_compute.models.model_review_voter_roster"
+  description: "Every voter resolved in declaration order, or the refusal and the voter it concerns."
+
+operations:
+  - name: "resolve_review_voters"
+    description: "Validate the overlay and resolve every voter's endpoint"
+    input_fields:
+      - overlay_yaml
+      - overlay_source
+      - backend_overlay_yaml
+      - backend_overlay_source
+    output_fields:
+      - voters
+      - error
+      - error_voter_id
+
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    - operation: "resolve_review_voters"
+      handler:
+        function: "handle"
+        module: "omniintelligence.nodes.node_review_voters_overlay_compute.handlers.handler_review_voters_overlay"
+        type: "sync"
+      description: "Resolve the review voters overlay into a roster"
+
+dependencies: []
+
+error_handling:
+  error_types:
+    - name: "ReviewVotersOverlayRefused"
+      error_code: "RVO_001"
+      description: "The overlay or one voter in it is invalid or names an unbound backend; returned as
+        roster data"
+      recoverable: false
+      retry_strategy: "none"
+
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-10-10"
+  updated: "2026-10-10"
+  tags:
+    - compute
+    - review
+    - hostile-reviewer
+    - overlay
+  references:
+    - ticket: "OMN-20910"
+      url: "https://linear.app/omninode/issue/OMN-20910"
+      description: "Review-voter models live in a contract overlay"
