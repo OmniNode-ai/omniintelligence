@@ -30,5 +30,5 @@ permissions:
 
 jobs:
   call-reject-skip-token:
-    uses: OmniNode-ai/omniclaude/.github/workflows/reject-deploy-gate-skip.yml@878ae183ffca50fe4663c4d1f5391e933c445ca2
+    uses: OmniNode-ai/omniclaude/.github/workflows/reject-deploy-gate-skip.yml@cb11e382966e354126cba07441e8f2b05faedee4 # OMN-20925: omniclaude dev head; carries omniclaude#2540 (4358450cc), so the scan runs with no nested change-control preflight
     secrets: inherit
