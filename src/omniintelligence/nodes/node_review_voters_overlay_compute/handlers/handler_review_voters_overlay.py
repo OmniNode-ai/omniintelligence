@@ -196,21 +196,33 @@ def _resolve(
     return tuple(resolved)
 
 
-def handle(request: ModelReviewVotersOverlayRequest) -> ModelReviewVoterRoster:
-    """Validate the overlay and resolve every voter, or say why not.
+class HandlerReviewVotersOverlay:
+    """The node's handler: overlay text in, a resolved roster or a refusal out."""
 
-    Pure and deterministic: the same texts give the same roster. A refusal is
-    returned as data with the voter it concerns, never raised.
-    """
-    try:
-        voters = _resolve(request)
-    except _RefusalError as refusal:
+    def handle(
+        self, request: ModelReviewVotersOverlayRequest
+    ) -> ModelReviewVoterRoster:
+        """Validate the overlay and resolve every voter, or say why not.
+
+        Pure and deterministic: the same texts give the same roster. A refusal
+        is returned as data with the voter it concerns, never raised.
+        """
+        try:
+            voters = _resolve(request)
+        except _RefusalError as refusal:
+            return ModelReviewVoterRoster(
+                overlay_source=request.overlay_source,
+                error=refusal.message,
+                error_voter_id=refusal.voter_id,
+            )
         return ModelReviewVoterRoster(
-            overlay_source=request.overlay_source,
-            error=refusal.message,
-            error_voter_id=refusal.voter_id,
+            overlay_source=request.overlay_source, voters=voters
         )
-    return ModelReviewVoterRoster(overlay_source=request.overlay_source, voters=voters)
+
+
+def handle(request: ModelReviewVotersOverlayRequest) -> ModelReviewVoterRoster:
+    """The contract's routed entry point; see ``HandlerReviewVotersOverlay``."""
+    return HandlerReviewVotersOverlay().handle(request)
 
 
 def probe_target_lines(roster: ModelReviewVoterRoster) -> list[str]:
@@ -222,4 +234,4 @@ def probe_target_lines(roster: ModelReviewVoterRoster) -> list[str]:
     return lines
 
 
-__all__ = ["handle", "probe_target_lines"]
+__all__ = ["HandlerReviewVotersOverlay", "handle", "probe_target_lines"]
