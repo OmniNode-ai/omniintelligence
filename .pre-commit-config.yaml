@@ -365,9 +365,11 @@ repos:
             |node_intent_classifier_compute/handlers/handler_adaptive_classification\.py
             |node_gmail_intent_evaluator_effect/handlers/handler_gmail_intent_evaluate\.py
           )$
-  # Hardcoded topic string detection — sourced from onex_change_control (OMN-5259)
-  - repo: https://github.com/OmniNode-ai/onex_change_control
-    rev: 8d7e85bc00e7f1b1306d1cb40949be1ab6e7e91a  # pragma: allowlist secret
+  # Hardcoded topic string detection and ticketed TODO format — sourced from omnibase_core
+  # (OMN-5259; OMN-20074, OCC retirement S8: same hook ids, no longer pulled from
+  # the change-control repository)
+  - repo: https://github.com/OmniNode-ai/omnibase_core
+    rev: 4a4177335d11b138a29fe28e2f4c5575afa92b2b  # pragma: allowlist secret
     hooks:
       - id: no-hardcoded-topics
         # Pre-existing violations excluded pending migration to canonical constants.
