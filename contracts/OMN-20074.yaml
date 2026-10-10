@@ -47,6 +47,13 @@ requirements:
       - id: "AC8"
         statement: |-
           AC8: the caller passes occ-context equal to call-reject-skip-token / occ-preflight / eligibility, the nested name the reject-skip caller job reports, instead of the reusable's default occ-preflight / eligibility that this repository never reports -- falsifier: uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k occ_context
+  - id: "req-codeql-from-core"
+    statement: |-
+      omniintelligence's CodeQL caller uses omnibase_core's codeql-reusable.yml instead of onex_change_control's, with the job id, the inputs and the required context unchanged.
+    acceptance:
+      - id: "AC10"
+        statement: |-
+          AC10: security-scan.yml's codeql job calls OmniNode-ai/omnibase_core/.github/workflows/codeql-reusable.yml at the full sha 3fbb43eaff028a30edccb1b9b794e0a3f3d9523c and names no onex_change_control, and the job id, name and inputs are unchanged so the required context CodeQL / CodeQL Analysis (python) is unchanged -- falsifier: uv run pytest tests/ci/test_codeql_from_core_omn20074.py -q
 evidence_requirements:
   - kind: "tests"
     description: "The caller workflow has the required base-branch trigger and read-only permissions."
@@ -72,6 +79,9 @@ evidence_requirements:
   - kind: "tests"
     description: "The shadow's OCC lookup names a job this repository reports."
     command: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k occ_context"
+  - kind: "tests"
+    description: "The CodeQL caller uses the omnibase_core reusable at a full sha, shape unchanged."
+    command: "uv run pytest tests/ci/test_codeql_from_core_omn20074.py -q"
 emergency_bypass:
   enabled: false
   justification: ""
@@ -144,3 +154,11 @@ dod_evidence:
         check_value: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k occ_context"
         cwd: "${OMNI_HOME}/omniintelligence"
     binds_ac: ["AC8"]
+  - id: "dod-codeql-from-core-ac10"
+    description: "The CodeQL caller uses the omnibase_core reusable at a full sha, shape unchanged."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_codeql_from_core_omn20074.py -q"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC10"]
