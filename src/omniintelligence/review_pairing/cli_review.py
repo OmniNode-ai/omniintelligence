@@ -27,6 +27,11 @@ Usage:
     uv run python -m omniintelligence.review_pairing.cli_review \\
         --file plan.md --system-prompt /path/to/my-prompt.md
 
+    # Voters from the contract overlay (OMN-20910) -- the Hostile Reviewer gate
+    uv run python -m omniintelligence.review_pairing.cli_review \\
+        --pr 433 --repo OmniNode-ai/omniintelligence \\
+        --voters-overlay docker/lane-overlays/hostile-review-voters.yaml
+
     # Output to file
     uv run python -m omniintelligence.review_pairing.cli_review \\
         --file plan.md --output review.json
@@ -47,9 +52,11 @@ Exit Codes:
        ``review_quorum.min_agreeing_models`` requires, so agreement could
        not be established and there is NO valid verdict. Distinct from 1
        (something ran) and from 0 (a verdict exists). Callers fail closed
-       on it; treating it as a pass makes the quorum vacuous.
+       on it; treating it as a pass makes the quorum vacuous. With
+       ``--voters-overlay`` it also means a REQUIRED voter did not vote
+       (unreachable or failed); the voter is named on stderr (OMN-20910).
 
-Reference: OMN-5793, OMN-5819, OMN-6228, OMN-18479
+Reference: OMN-5793, OMN-5819, OMN-6228, OMN-18479, OMN-20910
 """
 
 from __future__ import annotations
@@ -64,11 +71,16 @@ import time
 import urllib.parse
 from pathlib import Path
 
+from omniintelligence.nodes.node_review_voters_overlay_compute.models.model_review_voter_roster import (
+    ModelReviewVoterRoster,
+)
 from omniintelligence.review_pairing.adapters.adapter_ai_reviewer import (
     _DEFAULT_MODEL_KEY as _DEFAULT_MODEL,
 )
 from omniintelligence.review_pairing.adapters.adapter_ai_reviewer import (
     MODEL_REGISTRY,
+    probe_local_reachability,
+    register_review_voters,
     select_models_with_fallback,
 )
 from omniintelligence.review_pairing.adapters.adapter_ai_reviewer import (
@@ -78,7 +90,10 @@ from omniintelligence.review_pairing.adapters.adapter_codex_reviewer import (
     async_parse_raw as codex_async_parse_raw,
 )
 from omniintelligence.review_pairing.cli_review_models import ModelPersonaConfig
-from omniintelligence.review_pairing.model_registry_loader import load_registry
+from omniintelligence.review_pairing.model_registry_loader import (
+    load_registry,
+    load_review_voters,
+)
 from omniintelligence.review_pairing.models_external_review import (
     EnumQuorumVerdict,
     ModelExternalReviewResult,
@@ -91,6 +106,10 @@ from omniintelligence.review_pairing.quorum import (
     format_quorum_summary,
 )
 from omniintelligence.review_pairing.reviewer_identity import reviewer_identity
+from omniintelligence.review_pairing.served_model_resolver import (
+    ServedModelResolutionError,
+    resolve_served_model_id,
+)
 
 _CODEX_MODEL_KEY: str = "codex"
 _LARGE_PR_DIFF_MARKERS: tuple[str, ...] = (
@@ -100,6 +119,7 @@ _LARGE_PR_DIFF_MARKERS: tuple[str, ...] = (
 )
 _MAX_FALLBACK_REVIEW_CHARS = 120_000
 _MAX_FALLBACK_PATCH_CHARS = 6_000
+_VOTER_MODEL_PROBE_TIMEOUT_SECONDS = 15.0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -139,6 +159,19 @@ def build_parser() -> argparse.ArgumentParser:
             f"Valid LLM models: {', '.join(sorted(MODEL_REGISTRY.keys()))}. "
             "Use 'codex' for Codex CLI adapter. "
             f"Default: {_DEFAULT_MODEL}"
+        ),
+    )
+    parser.add_argument(
+        "--voters-overlay",
+        type=str,
+        default=None,
+        metavar="FILE",
+        help=(
+            "Review voters overlay (review_voters_overlay.v1, OMN-20910). The "
+            "overlay IS the roster: each voter's endpoint, model, sampling, "
+            "focus, timeout and required flag come from it. Excludes --model. "
+            "No API fallback is substituted for a voter, and a required voter "
+            "that is unreachable or fails makes the run exit 2, naming it."
         ),
     )
     parser.add_argument(
@@ -282,6 +315,57 @@ async def run_review(
         total_findings=total_findings,
         total_dropped=total_dropped,
     )
+
+
+def _select_overlay_voters(
+    roster: ModelReviewVoterRoster,
+) -> tuple[list[str], list[str]]:
+    """Probe every overlay voter; return (voters to call, unreachable voters).
+
+    No fallback is substituted for an unreachable voter (OMN-20910): the
+    overlay names the roster and a silent stand-in would be a different
+    review. When a REQUIRED voter is unreachable no voter is called at all --
+    the run cannot produce a verdict, so the remaining calls would only spend
+    shared lab capacity. Each reachable voter's served model is read and
+    printed, so the job log names the model every vote came from.
+    """
+    reachability = probe_local_reachability(roster.voter_ids)
+    skipped = [vid for vid in roster.voter_ids if not reachability.get(vid, False)]
+    for voter_id in skipped:
+        level = "ERROR" if voter_id in roster.required_ids else "WARNING"
+        role = "required" if voter_id in roster.required_ids else "optional"
+        print(
+            f"{level}: {role} review voter {voter_id!r} is unreachable "
+            f"({_endpoint_label(voter_id)}).",
+            file=sys.stderr,
+        )
+    if any(voter_id in roster.required_ids for voter_id in skipped):
+        print(
+            "ERROR: a required review voter is unreachable; no voter is called.",
+            file=sys.stderr,
+        )
+        return [], skipped
+
+    selected = [vid for vid in roster.voter_ids if vid not in skipped]
+    for voter_id in selected:
+        voter = roster.get(voter_id)
+        if voter is None or voter.voter.model_id_source != "served":
+            continue
+        try:
+            served = resolve_served_model_id(
+                voter.base_url, timeout_seconds=_VOTER_MODEL_PROBE_TIMEOUT_SECONDS
+            )
+        except ServedModelResolutionError as exc:
+            print(
+                f"WARNING: review voter {voter_id!r} served model unresolved: {exc}",
+                file=sys.stderr,
+            )
+            continue
+        print(
+            f"Review voter {voter_id!r} -> {voter.base_url} serves model {served}",
+            file=sys.stderr,
+        )
+    return selected, skipped
 
 
 def _record_unreachable(
@@ -515,6 +599,34 @@ def main(argv: list[str] | None = None) -> int:
             update={"min_agreeing_models": args.quorum_threshold}
         )
 
+    # OMN-20910: the voters overlay is loaded before anything else runs, so a
+    # malformed overlay or an unknown backend fails in milliseconds, naming the
+    # voter, instead of after the diff is fetched.
+    roster: ModelReviewVoterRoster | None = None
+    if args.voters_overlay is not None:
+        if args.model:
+            print(
+                "Error: --voters-overlay and --model are mutually exclusive; "
+                "the overlay is the roster.",
+                file=sys.stderr,
+            )
+            return 1
+        roster = load_review_voters(Path(args.voters_overlay))
+        if not roster.ok:
+            print(
+                f"ERROR: review voters overlay: {roster.error_message}",
+                file=sys.stderr,
+            )
+            return 1
+        try:
+            register_review_voters(roster.endpoint_configs())
+        except ValueError as exc:
+            print(f"ERROR: review voters overlay: {exc}", file=sys.stderr)
+            return 1
+        print(f"Review voters from {roster.overlay_source}:", file=sys.stderr)
+        for voter in roster.voters:
+            print(f"  {voter.describe()}", file=sys.stderr)
+
     # Resolve input content.
     if args.pr is not None:
         if not args.repo:
@@ -640,9 +752,12 @@ def main(argv: list[str] | None = None) -> int:
     # Resolve model keys, applying reachability probe + API fallback unless suppressed.
     requested_keys: list[str] = args.model if args.model else [_DEFAULT_MODEL]
 
-    if args.no_fallback:
+    skipped: list[str]
+    if roster is not None:
+        model_keys, skipped = _select_overlay_voters(roster)
+    elif args.no_fallback:
         model_keys = requested_keys
-        skipped: list[str] = []
+        skipped = []
     else:
         model_keys, skipped = select_models_with_fallback(requested_keys)
         if skipped:
@@ -749,6 +864,32 @@ def main(argv: list[str] | None = None) -> int:
             )
     for line in format_quorum_summary(quorum_summary):
         print(line, file=sys.stderr)
+
+    if roster is not None:
+        failed_required = [
+            r
+            for r in result.results
+            if not r.success and r.model in roster.required_ids
+        ]
+        not_attempted = sorted(roster.required_ids - set(result.models_attempted))
+        for r in failed_required:
+            print(
+                f"ERROR: required review voter {r.model!r} did not vote: {r.error}",
+                file=sys.stderr,
+            )
+        for voter_id in not_attempted:
+            print(
+                f"ERROR: required review voter {voter_id!r} was not called.",
+                file=sys.stderr,
+            )
+        if failed_required or not_attempted:
+            print(
+                "ERROR: NO VERDICT -- a required voter declared in "
+                f"{roster.overlay_source} did not vote. Fix or replace that voter "
+                "in the overlay; nothing is substituted for it.",
+                file=sys.stderr,
+            )
+            return 2
 
     if quorum_summary.verdict is EnumQuorumVerdict.NO_MODELS:
         print(
