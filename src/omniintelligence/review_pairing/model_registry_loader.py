@@ -19,6 +19,15 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from omniintelligence.nodes.node_review_voters_overlay_compute.handlers.handler_review_voters_overlay import (
+    handle as handle_review_voters_overlay,
+)
+from omniintelligence.nodes.node_review_voters_overlay_compute.models.model_review_voter_roster import (
+    ModelReviewVoterRoster,
+)
+from omniintelligence.nodes.node_review_voters_overlay_compute.models.model_review_voters_overlay_request import (
+    ModelReviewVotersOverlayRequest,
+)
 from omniintelligence.review_pairing.models_external_review import (
     ModelEndpointConfig,
     ModelReviewQuorumPolicy,
@@ -124,8 +133,50 @@ def load_registry(path: Path | None = None) -> ModelRegistryContract:
     return contract
 
 
+def load_review_voters(path: Path) -> ModelReviewVoterRoster:
+    """Read a review voters overlay and the delegation overlay it names (OMN-20910).
+
+    The file edge of ``node_review_voters_overlay_compute``: this reads the two
+    documents and the node's pure handler validates and resolves them. A
+    missing or unreadable file comes back as a refused roster like any other
+    refusal, so every caller fails the same way. Imports nothing heavier than
+    pydantic and yaml, so the workflows' pre-install preflight can call it from
+    a bare source checkout.
+    """
+    overlay_path = Path(path)
+    if not overlay_path.is_file():
+        return ModelReviewVoterRoster(
+            overlay_source=str(overlay_path),
+            error=f"review voters overlay not found at {overlay_path}",
+        )
+    overlay_yaml = overlay_path.read_text(encoding="utf-8")
+
+    backend_yaml: str | None = None
+    backend_source = ""
+    try:
+        raw = yaml.safe_load(overlay_yaml)
+    except yaml.YAMLError:
+        raw = None  # the handler reports the YAML error itself
+    name = raw.get("backend_overlay") if isinstance(raw, dict) else None
+    if isinstance(name, str) and name and "/" not in name and "\\" not in name:
+        backend_path = overlay_path.parent / name
+        backend_source = str(backend_path)
+        if backend_path.is_file():
+            backend_yaml = backend_path.read_text(encoding="utf-8")
+
+    return handle_review_voters_overlay(
+        ModelReviewVotersOverlayRequest(
+            overlay_yaml=overlay_yaml,
+            overlay_source=str(overlay_path),
+            backend_overlay_yaml=backend_yaml,
+            backend_overlay_source=backend_source,
+        )
+    )
+
+
 __all__ = [
     "ModelRegistryContract",
     "ModelRegistryLoadError",
     "load_registry",
+    "load_review_voters",
 ]

@@ -1,0 +1,61 @@
+---
+schema_version: "1.0.0"
+ticket_id: "OMN-20910"
+title: "Review-voter models are declared in a contract overlay, not repo variables or workflow files"
+summary: "The Hostile Reviewer gate reads its voters from a review_voters_overlay.v1 contract overlay:
+  a new COMPUTE node, node_review_voters_overlay_compute, validates it and resolves each voter's endpoint
+  from the lab delegation overlay or the voter's own endpoint_url, with model selection, sampling, focus,
+  timeout and a required flag. cli_review and retry_budget take --voters-overlay; a required voter that
+  is unreachable or fails exits 2 naming it. The quorum policy is unchanged."
+is_seam_ticket: false
+interface_change: true
+interfaces_touched:
+  - "public_api"
+requirements:
+  - id: "req-voters-from-overlay"
+    statement: "The gate's voters, with model, endpoint, sampling and focus, come from the overlay and
+      nowhere else."
+    acceptance:
+      - id: "AC1"
+        statement: "AC1: a contract overlay declares each review voter with model, endpoint, sampling
+          and focus, and the gate resolves voters only from it -- falsifier: uv run pytest tests/unit/review_pairing/test_review_voters_overlay_omn20910.py
+          -q -k removed_from_the_overlay"
+      - id: "AC2"
+        statement: "AC2: swapping a voter's model is an overlay-only diff that changes the resolved call
+          target -- falsifier: uv run pytest tests/unit/review_pairing/test_review_voters_overlay_omn20910.py
+          -q -k changing_the_backend_changes_the_model"
+evidence_requirements:
+  - kind: "tests"
+    description: "A voter removed from the overlay is not called."
+    command: "uv run pytest tests/unit/review_pairing/test_review_voters_overlay_omn20910.py -q -k removed_from_the_overlay"
+  - kind: "tests"
+    description: "Changing a voter's backend in the overlay changes its call target and nothing else."
+    command: "uv run pytest tests/unit/review_pairing/test_review_voters_overlay_omn20910.py -q -k changing_the_backend_changes_the_model"
+emergency_bypass:
+  enabled: false
+  justification: ""
+  follow_up_ticket_id: ""
+dod_evidence:
+  - id: "dod-omn20910-ac1-voters-from-overlay"
+    description: "A voter removed from the overlay is not called; invalid or unreachable voters fail naming
+      the voter."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/review_pairing/test_review_voters_overlay_omn20910.py -q
+          -k removed_from_the_overlay"
+        cwd: "${OMNI_HOME}/omniintelligence"
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/review_pairing/test_review_voters_overlay_omn20910.py -q
+          -k 'naming or names_the_voter'"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC1"]
+  - id: "dod-omn20910-ac2-overlay-only-swap"
+    description: "Changing a voter's backend in the overlay changes its resolved call target."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/review_pairing/test_review_voters_overlay_omn20910.py -q
+          -k changing_the_backend_changes_the_model"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC2"]

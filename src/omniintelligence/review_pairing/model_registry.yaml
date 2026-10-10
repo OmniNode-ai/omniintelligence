@@ -50,6 +50,13 @@
 # refuses any two keys here that resolve to one reviewer. Private diffs go
 # only to lab models (operator ruling 2026-09-25), so no cloud reviewer is
 # registered.
+# THE HOSTILE REVIEWER GATE DOES NOT READ ITS VOTERS FROM THIS FILE (OMN-20910).
+# Operator RULING 2026-10-10T18:17:37Z: review-voter models live in a contract
+# overlay, never in repository variables or workflow files. The gate's roster
+# (endpoint, model, sampling, focus, timeout, required) is omnibase_infra
+# docker/lane-overlays/hostile-review-voters.yaml, read by
+# `cli_review --voters-overlay`. The keys below serve `--model` callers, and
+# `review_quorum` below still binds every caller, the overlay included.
 default_model_key: "qwen3-review"
 
 # Cross-model agreement policy (OMN-18479).
