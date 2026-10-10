@@ -1,0 +1,88 @@
+---
+schema_version: "1.0.0"
+ticket_id: "OMN-20074"
+title: "Repo-owned DoD evidence caller for omniintelligence, S5 shadow count"
+summary: "omniintelligence owns its DoD evidence contract and delegates verification to the receipt-gate
+  reusable in caller-evidence mode, in shadow mode with the OCC difference step on, so every pull request
+  records the new-path verdict beside OCC's verdict on the same head. No repo-evidence context is required
+  and no OCC caller is removed. A focused test checks the base-branch caller wiring, the immutable pin,
+  the shadow inputs and this contract."
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: "req-repo-evidence-gate"
+    statement: |-
+      omniintelligence must wire a base-branch caller evidence gate that runs beside OCC in shadow mode, and bind every repo-owned acceptance criterion to runnable test evidence.
+    acceptance:
+      - id: "AC1"
+        statement: |-
+          AC1: omniintelligence carries a caller workflow for the receipt-gate's caller-evidence mode that runs from the base branch (pull_request_target) on dev and main with read-only permissions and no secrets -- falsifier: uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k base_branch
+      - id: "AC2"
+        statement: |-
+          AC2: the caller pins the reusable by the full sha of the omnibase_core#1914 squash commit, the pin omnibase_core's own caller uses, with a verifier-version of 0.4.305 or later -- falsifier: uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k current_receipt_gate
+      - id: "AC3"
+        statement: |-
+          AC3: the caller sets evidence-source caller, shadow "true" and compare-with-occ "true", so the S5 shadow count records the new-path verdict beside OCC's on the same head and no repo-evidence check-run concludes anything but success -- falsifier: uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k shadow_mode
+      - id: "AC4"
+        statement: |-
+          AC4: the shadow caller removes no OCC caller: call-occ-autobind.yml and call-occ-companion-effect.yml stay until the S6 ruling -- falsifier: uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k removes_no_occ_caller
+      - id: "AC5"
+        statement: |-
+          AC5: every acceptance criterion of this contract names a falsifier that is also a dod_evidence check and runs an existing test file -- falsifier: uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k falsifier_per_criterion
+evidence_requirements:
+  - kind: "tests"
+    description: "The caller workflow has the required base-branch trigger and read-only permissions."
+    command: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k base_branch"
+  - kind: "tests"
+    description: "The caller pins the current receipt-gate by full sha."
+    command: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k current_receipt_gate"
+  - kind: "tests"
+    description: "The caller runs in shadow mode and compares with OCC."
+    command: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k shadow_mode"
+  - kind: "tests"
+    description: "The OCC callers stay."
+    command: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k removes_no_occ_caller"
+  - kind: "tests"
+    description: "Every criterion of this contract is bound to a runnable check."
+    command: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k falsifier_per_criterion"
+emergency_bypass:
+  enabled: false
+  justification: ""
+  follow_up_ticket_id: ""
+dod_evidence:
+  - id: "dod-repo-evidence-ac1"
+    description: "The caller workflow has the required base-branch trigger and read-only permissions."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k base_branch"
+        cwd: "${OMNI_HOME}/omniintelligence"
+  - id: "dod-repo-evidence-ac2"
+    description: "The caller pins the current receipt-gate by full sha."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k current_receipt_gate"
+        cwd: "${OMNI_HOME}/omniintelligence"
+  - id: "dod-repo-evidence-ac3"
+    description: "The caller runs in shadow mode and compares with OCC."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k shadow_mode"
+        cwd: "${OMNI_HOME}/omniintelligence"
+  - id: "dod-repo-evidence-ac4"
+    description: "The OCC callers stay."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k removes_no_occ_caller"
+        cwd: "${OMNI_HOME}/omniintelligence"
+  - id: "dod-repo-evidence-ac5"
+    description: "Every criterion of this contract is bound to a runnable check."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k falsifier_per_criterion"
+        cwd: "${OMNI_HOME}/omniintelligence"
