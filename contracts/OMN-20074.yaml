@@ -57,6 +57,13 @@ requirements:
       - id: "AC11"
         statement: |-
           AC11: the contract-validation step's own run block passes this repository's branch-ticket contract, skips a branch with no ticket or no contract, and fails a planted binds_ac entry that is not a criterion label, a planted binds_ac item of check_type command_exit_0 and a planted malformed contract, each naming the file, the first two also the rule -- falsifier: uv run pytest tests/ci/test_contract_validation_core_validator_omn20074.py -q
+  - id: "req-arch-handler-compliance-from-core"
+    statement: |-
+      omniintelligence's handler contract compliance job runs the validator from omnibase_core, installed at a full commit sha, with the same flags and the same allowlist file, instead of installing onex_change_control.
+    acceptance:
+      - id: "AC12"
+        statement: |-
+          AC12: the handler-contract-compliance job of omni-standards-compliance.yml installs omnibase-core at a full sha, runs python -m omnibase_core.handlers.handler_arch_handler_contract_compliance --repo-root . --allowlist-path arch-handler-contract-compliance-allowlist.yaml, and installs nothing from onex_change_control -- falsifier: uv run pytest tests/ci/test_arch_handler_compliance_core_omn20074.py -q
 evidence_requirements:
   - kind: "tests"
     description: "The caller workflow has the required base-branch trigger and read-only permissions."
@@ -90,6 +97,9 @@ evidence_requirements:
     description: "The contract-validation step passes this repository's branch contract and refuses both
       planted binds_ac shapes and a malformed contract."
     command: "uv run pytest tests/ci/test_contract_validation_core_validator_omn20074.py -q"
+    description: "The handler contract compliance job installs omnibase_core at a full sha and runs its
+      validator with the same flags and allowlist."
+    command: "uv run pytest tests/ci/test_arch_handler_compliance_core_omn20074.py -q"
 emergency_bypass:
   enabled: false
   justification: ""
@@ -181,3 +191,12 @@ dod_evidence:
         check_value: "uv run pytest tests/ci/test_contract_validation_core_validator_omn20074.py -q"
         cwd: "${OMNI_HOME}/omniintelligence"
     binds_ac: ["AC11"]
+  - id: "dod-arch-handler-compliance-from-core-ac12"
+    description: "The handler contract compliance job installs omnibase_core at a full sha and runs its
+      validator with the same flags and allowlist."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_arch_handler_compliance_core_omn20074.py -q"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC12"]
