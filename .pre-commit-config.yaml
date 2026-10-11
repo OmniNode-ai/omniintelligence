@@ -507,7 +507,7 @@ repos:
       # --------------------------------------------------------------------------
       - id: onex-validate-clean-root
         name: onex-validate-clean-root
-        entry: python scripts/validation/validate_clean_root.py
+        entry: uv run --frozen python scripts/validation/validate_clean_root.py
         language: system
         pass_filenames: false
         always_run: true
@@ -521,7 +521,7 @@ repos:
       # --------------------------------------------------------------------------
       - id: onex-validate-naming
         name: onex-validate-naming
-        entry: python scripts/validation/validate_naming.py
+        entry: uv run --frozen python scripts/validation/validate_naming.py
         language: system
         pass_filenames: true
         types_or: [python, yaml]
