@@ -99,6 +99,8 @@ async def test_one_unresolvable_model_leaves_the_roster_reviewing(
         adapter_ai_reviewer, "resolve_served_model_id", selective, raising=True
     )
     monkeypatch.setenv("LOCAL_LLM_SHARED_SECRET", "x")  # pragma: allowlist secret
+    monkeypatch.setenv("LLM_QWEN3_REVIEW_URL", "http://x:1")
+    monkeypatch.setenv("LLM_LOCAL_STUDIO_PLANNER_URL", "http://y:2")
 
     first = await adapter_ai_reviewer.async_parse_raw("plan", model="qwen3-review")
     second = await adapter_ai_reviewer.async_parse_raw(
@@ -132,7 +134,9 @@ def test_an_unreachable_endpoint_is_dropped_before_resolution_ever_runs(
     monkeypatch.setattr(
         adapter_ai_reviewer, "resolve_served_model_id", tripwire, raising=True
     )
-    # Every local endpoint is down.
+    # Every local endpoint is configured and down.
+    monkeypatch.setenv("LLM_QWEN3_REVIEW_URL", "http://x:1")
+    monkeypatch.setenv("LLM_LOCAL_STUDIO_PLANNER_URL", "http://y:2")
     monkeypatch.setattr(
         adapter_ai_reviewer, "_probe_tcp", lambda _host, _port: False, raising=True
     )
@@ -159,6 +163,8 @@ def test_a_reachable_endpoint_is_still_selected(
     Without it, a selection function that returned the fallback unconditionally
     would satisfy the outage assertion while being completely broken.
     """
+    monkeypatch.setenv("LLM_QWEN3_REVIEW_URL", "http://x:1")
+    monkeypatch.setenv("LLM_LOCAL_STUDIO_PLANNER_URL", "http://y:2")
     monkeypatch.setattr(
         adapter_ai_reviewer, "_probe_tcp", lambda _host, _port: True, raising=True
     )

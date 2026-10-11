@@ -34,7 +34,11 @@ from omniintelligence.review_pairing.adapters.base import (
     normalize_message,
     utcnow,
 )
-from omniintelligence.review_pairing.model_registry_loader import load_registry
+from omniintelligence.review_pairing.model_registry_loader import (
+    endpoint_not_configured_message,
+    load_registry,
+    resolve_endpoint_url,
+)
 from omniintelligence.review_pairing.models import (
     EnumFindingSeverity,
     ModelReviewFindingObserved,
@@ -148,7 +152,12 @@ def probe_local_reachability(model_keys: list[str]) -> dict[str, bool]:
         config = MODEL_REGISTRY.get(key)
         if config is None:
             continue
-        url = os.environ.get(config.env_var, config.default_url)
+        url = resolve_endpoint_url(key, config)
+        if not url:
+            # Not configured (OMN-20936): nothing to probe, and a probe of an
+            # empty host would be answered by whatever listens locally.
+            results[key] = False
+            continue
         try:
             parsed = urllib.parse.urlparse(url)
             host = parsed.hostname or ""
@@ -261,12 +270,9 @@ def _resolve_model_url(model_key: str) -> str:
         valid = ", ".join(sorted(MODEL_REGISTRY.keys()))
         raise ValueError(f"Unknown model '{model_key}'. Valid: {valid}")
     config = MODEL_REGISTRY[model_key]
-    url = os.environ.get(config.env_var, config.default_url)
+    url = resolve_endpoint_url(model_key, config)
     if not url:
-        raise ValueError(
-            f"LLM endpoint not configured for '{model_key}'. "
-            f"Set the {config.env_var} environment variable."
-        )
+        raise ValueError(endpoint_not_configured_message(model_key, config))
     return url
 
 
@@ -433,12 +439,9 @@ async def call_model(
     # entry points and test fixtures) are responsible for setting the
     # secret in their own environment before invoking this path; the
     # adapter must not synthesize a placeholder.
-    base_url = os.environ.get(config.env_var, config.default_url)
+    base_url = resolve_endpoint_url(model_key, config)
     if not base_url:
-        raise ValueError(
-            f"LLM endpoint not configured for '{model_key}'. "
-            f"Set the {config.env_var} environment variable."
-        )
+        raise ValueError(endpoint_not_configured_message(model_key, config))
 
     # OMN-14176 / OMN-12815: the OpenAI-compatible effect posts ``endpoint_url``
     # VERBATIM and performs no base_url + path construction. Registry URLs are

@@ -26,6 +26,22 @@ from omniintelligence.review_pairing.adapters.adapter_ai_reviewer import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _configured_local_endpoints(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The registry ships no endpoint (OMN-20936); a deployment supplies each one."""
+    for index, env_var in enumerate(
+        (
+            "LLM_QWEN3_REVIEW_URL",
+            "LLM_LOCAL_STUDIO_PLANNER_URL",
+            "LLM_CODER_URL",
+            "LLM_CODER_FAST_URL",
+            "LLM_QWEN3_NEXT_URL",
+        ),
+        start=10,
+    ):
+        monkeypatch.setenv(env_var, f"http://192.0.2.{index}:8000")
+
+
 @pytest.mark.unit
 class TestProbeTcp:
     def test_unreachable_returns_false(self) -> None:
@@ -114,7 +130,7 @@ class TestProbeLocalReachability:
 
     def test_partial_reachability(self) -> None:
         def side_effect(host: str, port: int, **kwargs: object) -> bool:
-            return host == "192.168.86.200"
+            return host == "192.0.2.10"
 
         with patch(
             "omniintelligence.review_pairing.adapters.adapter_ai_reviewer._probe_tcp",
@@ -122,7 +138,7 @@ class TestProbeLocalReachability:
         ):
             result = probe_local_reachability(["qwen3-review", "qwen3-coder"])
         # qwen3-coder is not the reachable host — unreachable in this scenario
-        assert result["qwen3-coder"] is False
+        assert result == {"qwen3-review": True, "qwen3-coder": False}
 
     def test_unknown_model_key_skipped(self) -> None:
         result = probe_local_reachability(["nonexistent-model"])
