@@ -146,7 +146,7 @@ def _base_url(url: str, voter_id: str, what: str) -> str:
 
 def _resolve(
     request: ModelReviewVotersOverlayRequest,
-) -> tuple[ModelResolvedReviewVoter, ...]:
+) -> tuple[tuple[ModelResolvedReviewVoter, ...], ModelReviewVotersOverlay]:
     source = request.overlay_source
     overlay = _validate(
         _parse_mapping(request.overlay_yaml, f"overlay {source}"), source
@@ -193,7 +193,7 @@ def _resolve(
                     voter=voter, base_url=base_url, source="endpoint_url"
                 )
             )
-    return tuple(resolved)
+    return tuple(resolved), overlay
 
 
 class HandlerReviewVotersOverlay:
@@ -208,7 +208,7 @@ class HandlerReviewVotersOverlay:
         is returned as data with the voter it concerns, never raised.
         """
         try:
-            voters = _resolve(request)
+            voters, overlay = _resolve(request)
         except _RefusalError as refusal:
             return ModelReviewVoterRoster(
                 overlay_source=request.overlay_source,
@@ -216,7 +216,9 @@ class HandlerReviewVotersOverlay:
                 error_voter_id=refusal.voter_id,
             )
         return ModelReviewVoterRoster(
-            overlay_source=request.overlay_source, voters=voters
+            overlay_source=request.overlay_source,
+            voters=voters,
+            substitute_votes=overlay.substitute_votes,
         )
 
 

@@ -429,6 +429,26 @@ class ModelExternalReviewResult(BaseModel, frozen=True):
     )
 
 
+class ModelSubstituteVoteRecord(BaseModel, frozen=True):
+    """A timed-out voter whose vote came from off-CI review receipts (OMN-20947).
+
+    Attributes:
+        voter_id: The overlay voter that timed out.
+        replaced_error: The voter's own failure, kept verbatim.
+        reviewer_ids: The approved reviewers whose clean receipts stood in.
+        head_sha: The commit every receipt was signed for.
+        review_authors: The accounts that posted those receipts.
+    """
+
+    voter_id: str = Field(description="Voter that timed out.")
+    replaced_error: str = Field(description="That voter's failure, verbatim.")
+    reviewer_ids: tuple[str, ...] = Field(description="Reviewers standing in.")
+    head_sha: str = Field(description="Commit the receipts are bound to.")
+    review_authors: tuple[str, ...] = Field(
+        description="Accounts whose pull request reviews carried the receipts."
+    )
+
+
 class ModelMultiReviewResult(BaseModel, frozen=True):
     """Aggregated output from multiple model reviews.
 
@@ -485,5 +505,12 @@ class ModelMultiReviewResult(BaseModel, frozen=True):
             "Set when no model review was attempted because there was "
             "nothing to review (e.g. an empty PR diff). None means models "
             "were genuinely attempted (OMN-18409)."
+        ),
+    )
+    substitute_votes: list[ModelSubstituteVoteRecord] = Field(
+        default_factory=list,
+        description=(
+            "Timed-out voters whose vote came from off-CI review receipts "
+            "(OMN-20947). Empty unless the overlay allows substitution."
         ),
     )
