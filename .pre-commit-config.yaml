@@ -878,10 +878,12 @@ repos:
   # or exclude narrows it: the content classes apply to every file type.
   # --------------------------------------------------------------------------
   - repo: https://github.com/OmniNode-ai/omniclaude
-    rev: 6e47aa311ac5d177d116d9597b07966a233d2463  # pragma: allowlist secret
+    rev: 0c9f9146d8dd0446fc5c10952aa57247b3a880ae  # pragma: allowlist secret
     hooks:
       - id: secrets-baseline-wired
       - id: public-repo-hygiene
+      - id: deployment-config
+        require_serial: true
 
   - repo: local
     hooks:
