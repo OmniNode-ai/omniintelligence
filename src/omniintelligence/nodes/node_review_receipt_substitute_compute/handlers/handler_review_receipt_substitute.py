@@ -177,73 +177,89 @@ def _check(
     return ""
 
 
-def handle(request: ModelSubstituteVoteRequest) -> ModelSubstituteDecision:
-    """Decide which timed-out voters valid clean receipts stand in for."""
-    result = request.result
-    timed_out = [r for r in result.results if is_timeout_failure(r)]
-    if not timed_out:
-        return ModelSubstituteDecision()
-    policy = request.policy
-    if policy is None:
-        return ModelSubstituteDecision(
-            refusals=("the overlay declares no substitute_votes policy",)
-        )
-    key = request.key
-    if not key:
-        return ModelSubstituteDecision(
-            refusals=(f"the receipt signing key ({policy.signing_key_env}) is not set",)
-        )
-    if not any(r.success for r in result.results):
-        return ModelSubstituteDecision(
-            refusals=("no configured voter voted; receipts never form a quorum alone",)
-        )
+class HandlerReviewReceiptSubstitute:
+    """The node's handler: the voters' results and the PR's reviews in, a decision out."""
 
-    refusals: list[str] = []
-    clean: dict[str, str] = {}  # reviewer_id -> account that posted it
-    findings: list[str] = []
-    for review in request.reviews:
-        for receipt, parse_error in receipts_in_body(review.body):
-            if receipt is None:
-                refusals.append(f"review by {review.author_login!r}: {parse_error}")
-                continue
-            reason = _check(receipt, review, request, policy, key)
-            if reason:
-                refusals.append(reason)
-            elif receipt.verdict == "findings":
-                findings.append(
-                    f"reviewer {receipt.reviewer_id!r} recorded "
-                    f"{receipt.findings_count} finding(s) at {request.head_sha[:12]}"
+    def handle(self, request: ModelSubstituteVoteRequest) -> ModelSubstituteDecision:
+        """Decide which timed-out voters valid clean receipts stand in for."""
+        result = request.result
+        timed_out = [r for r in result.results if is_timeout_failure(r)]
+        if not timed_out:
+            return ModelSubstituteDecision()
+        policy = request.policy
+        if policy is None:
+            return ModelSubstituteDecision(
+                refusals=("the overlay declares no substitute_votes policy",)
+            )
+        key = request.key
+        if not key:
+            return ModelSubstituteDecision(
+                refusals=(
+                    f"the receipt signing key ({policy.signing_key_env}) is not set",
                 )
-            else:
-                clean.setdefault(receipt.reviewer_id, review.author_login)
-
-    if findings:
-        return ModelSubstituteDecision(
-            refusals=(*refusals, *findings, "a receipt with findings is never a pass")
-        )
-
-    available = [r.reviewer_id for r in policy.reviewers if r.reviewer_id in clean]
-    records: list[ModelSubstituteVoteRecord] = []
-    for voter in timed_out:
-        if len(available) < policy.receipts_per_vote:
-            refusals.append(
-                f"voter {voter.model!r} timed out and {len(available)} unused clean "
-                f"receipt(s) remain for head {request.head_sha[:12]}; "
-                f"{policy.receipts_per_vote} required"
             )
-            continue
-        group = available[: policy.receipts_per_vote]
-        available = available[policy.receipts_per_vote :]
-        records.append(
-            ModelSubstituteVoteRecord(
-                voter_id=voter.model,
-                replaced_error=voter.error or "",
-                reviewer_ids=tuple(group),
-                head_sha=request.head_sha,
-                review_authors=tuple(clean[rid] for rid in group),
+        if not any(r.success for r in result.results):
+            return ModelSubstituteDecision(
+                refusals=(
+                    "no configured voter voted; receipts never form a quorum alone",
+                )
             )
-        )
-    return ModelSubstituteDecision(records=tuple(records), refusals=tuple(refusals))
+
+        refusals: list[str] = []
+        clean: dict[str, str] = {}  # reviewer_id -> account that posted it
+        findings: list[str] = []
+        for review in request.reviews:
+            for receipt, parse_error in receipts_in_body(review.body):
+                if receipt is None:
+                    refusals.append(f"review by {review.author_login!r}: {parse_error}")
+                    continue
+                reason = _check(receipt, review, request, policy, key)
+                if reason:
+                    refusals.append(reason)
+                elif receipt.verdict == "findings":
+                    findings.append(
+                        f"reviewer {receipt.reviewer_id!r} recorded "
+                        f"{receipt.findings_count} finding(s) at {request.head_sha[:12]}"
+                    )
+                else:
+                    clean.setdefault(receipt.reviewer_id, review.author_login)
+
+        if findings:
+            return ModelSubstituteDecision(
+                refusals=(
+                    *refusals,
+                    *findings,
+                    "a receipt with findings is never a pass",
+                )
+            )
+
+        available = [r.reviewer_id for r in policy.reviewers if r.reviewer_id in clean]
+        records: list[ModelSubstituteVoteRecord] = []
+        for voter in timed_out:
+            if len(available) < policy.receipts_per_vote:
+                refusals.append(
+                    f"voter {voter.model!r} timed out and {len(available)} unused clean "
+                    f"receipt(s) remain for head {request.head_sha[:12]}; "
+                    f"{policy.receipts_per_vote} required"
+                )
+                continue
+            group = available[: policy.receipts_per_vote]
+            available = available[policy.receipts_per_vote :]
+            records.append(
+                ModelSubstituteVoteRecord(
+                    voter_id=voter.model,
+                    replaced_error=voter.error or "",
+                    reviewer_ids=tuple(group),
+                    head_sha=request.head_sha,
+                    review_authors=tuple(clean[rid] for rid in group),
+                )
+            )
+        return ModelSubstituteDecision(records=tuple(records), refusals=tuple(refusals))
+
+
+def handle(request: ModelSubstituteVoteRequest) -> ModelSubstituteDecision:
+    """The contract's routed entry point; see ``HandlerReviewReceiptSubstitute``."""
+    return HandlerReviewReceiptSubstitute().handle(request)
 
 
 def apply_substitutes(
@@ -281,6 +297,7 @@ def apply_substitutes(
 
 __all__ = [
     "TIMEOUT_ERROR_CODE",
+    "HandlerReviewReceiptSubstitute",
     "apply_substitutes",
     "handle",
     "is_timeout_failure",
