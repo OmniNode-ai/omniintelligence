@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
 
-"""A timed-out voter's vote may come from a signed off-CI receipt (OMN-20947).
+"""A lost voter's vote may come from a signed off-CI receipt (OMN-20947).
 
 Operator RULING 2026-10-11T01:52:39Z: while a lab review voter times out, an
 approved off-CI reviewer reviews the pull request and the gate reads the
@@ -15,7 +15,10 @@ overlay) with the model calls and the GitHub review read faked, and hold:
 * AC5 an overlay with no substitute policy accepts nothing (exit 2);
 plus the checks a receipt must pass one by one: signature, poster, age,
 reviewer, dismissed review, failure kind, and that receipts never form a
-quorum on their own.
+quorum on their own. A voter whose endpoint was unavailable (HTTP 502/503/504,
+a refused or failed connection, a failed reachability probe) is lost to the
+lab exactly like one that timed out, and takes the same receipts under the
+same rules; the error strings come from the real transport error classes.
 """
 
 from __future__ import annotations
@@ -28,13 +31,23 @@ from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from omnibase_infra.enums import EnumInfraTransportType
+from omnibase_infra.errors import (
+    InfraConnectionError,
+    InfraRequestRejectedError,
+    InfraUnavailableError,
+)
+from omnibase_infra.models.errors import ModelInfraErrorContext
 
 from omniintelligence.nodes.node_review_receipt_substitute_compute.handlers.handler_review_receipt_substitute import (
+    FAILURE_TIMED_OUT,
+    FAILURE_UNAVAILABLE,
     handle,
     receipt_signature,
     receipts_in_body,
     render_receipt_block,
     sign_receipt,
+    substitutable_failure,
 )
 from omniintelligence.nodes.node_review_receipt_substitute_compute.models import (
     ModelPullRequestReviewView,
@@ -62,6 +75,39 @@ _KEY_ENV = "REVIEW_RECEIPT_TEST_KEY"
 _TIMEOUT = (
     "[ONEX_CORE_092_TIMEOUT_ERROR] Request to ai-reviewer-second timed out "
     "after 300.0s (2 attempts)"
+)
+
+_CTX = ModelInfraErrorContext(
+    transport_type=EnumInfraTransportType.HTTP,
+    operation="chat_completion",
+    target_name="ai-reviewer-second",
+)
+
+
+def _transport_error(exc: Exception) -> str:
+    """The error text the review adapter records for a transport exception."""
+    body = getattr(exc, "response_body", None)
+    return f"{exc} :: response_body={body}" if body else str(exc)
+
+
+def _server_error(status: int, body: str = "Loading model") -> str:
+    return _transport_error(
+        InfraUnavailableError(
+            f"Server error ({status}) from ai-reviewer-second",
+            context=_CTX,
+            status_code=status,
+            response_body=body,
+        )
+    )
+
+
+_UNAVAILABLE_503 = _server_error(503)
+_CONNECTION_REFUSED = _transport_error(
+    InfraConnectionError(
+        "Connection to ai-reviewer-second failed after 3 attempts: "
+        "[Errno 61] Connection refused",
+        context=_CTX,
+    )
 )
 
 _VOTERS = textwrap.dedent(
@@ -164,20 +210,26 @@ def _run_gate(
     overlay: Path | None = None,
     second_error: str = _TIMEOUT,
     head: str = _HEAD,
+    second_reachable: bool = True,
 ) -> tuple[int, dict[str, object], str]:
-    """One gate run over a PR: 'first' votes clean, 'second' fails."""
+    """One gate run over a PR: 'first' votes clean, 'second' fails.
+
+    With ``second_reachable=False`` the reachability probe drops 'second', so
+    it is never called; the calls string then also says whether 'first' was.
+    """
 
     def _parse(_content: str, model: str, **_: object) -> ModelExternalReviewResult:
         return _ok(model) if model == "first" else _fail(model, second_error)
 
     out = tmp_path / "result.json"
+    llm = AsyncMock(side_effect=_parse)
     with (
         patch(
             f"{_CLI}.probe_local_reachability",
-            return_value={"first": True, "second": True},
+            return_value={"first": True, "second": second_reachable},
         ),
         patch(f"{_CLI}.resolve_served_model_id", return_value="Model"),
-        patch(f"{_CLI}.llm_async_parse_raw", AsyncMock(side_effect=_parse)),
+        patch(f"{_CLI}.llm_async_parse_raw", llm),
         patch(f"{_CLI}.subprocess.run") as gh_diff,
         patch(f"{_CLI}._fetch_pr_reviews", return_value=reviews) as fetch,
     ):
@@ -198,6 +250,8 @@ def _run_gate(
         )
     document = json.loads(out.read_text(encoding="utf-8")) if out.exists() else {}
     calls = f"fetch_calls={fetch.call_count}"
+    if not second_reachable:
+        calls += f" voter_calls={llm.call_count}"
     return code, document, calls
 
 
@@ -220,6 +274,7 @@ class TestGate:
         assert isinstance(records, list)
         (record,) = records
         assert record["voter_id"] == "second"
+        assert record["failure"] == FAILURE_TIMED_OUT
         assert record["head_sha"] == _HEAD
         assert "TIMEOUT_ERROR" in record["replaced_error"]
         assert "Substitute vote: voter 'second' timed out" in capsys.readouterr().err
@@ -278,17 +333,151 @@ class TestGate:
         assert document["substitute_votes"] == []
         assert calls == "fetch_calls=0"
 
-    def test_unreachable_or_unparseable_voter_is_not_substituted(
-        self, tmp_path: Path
+    @pytest.mark.parametrize(
+        "error",
+        [
+            pytest.param(
+                "unparseable reply: no review JSON in 2 attempt(s)", id="unparseable"
+            ),
+            pytest.param(_server_error(500), id="http-500"),
+            pytest.param(
+                _transport_error(
+                    InfraRequestRejectedError(
+                        "Request rejected (400) by ai-reviewer-second",
+                        context=_CTX,
+                        status_code=400,
+                        response_body="input is longer than max_model_len",
+                    )
+                ),
+                id="http-400",
+            ),
+            pytest.param(
+                _server_error(500, body="Server error (503) from ai-reviewer-second"),
+                id="500-whose-body-quotes-a-503",
+            ),
+            pytest.param(
+                "unparseable reply: [ONEX_CORE_205_SERVICE_UNAVAILABLE] Server "
+                "error (503) from ai-reviewer-second",
+                id="503-text-not-at-the-start",
+            ),
+        ],
+    )
+    def test_a_voter_that_answered_and_failed_is_not_substituted(
+        self, tmp_path: Path, error: str
     ) -> None:
-        """Only a timeout is substituted; any other failure stays a failure."""
+        """Only a voter lost to the lab is substituted; its own failure stays."""
         code, _, calls = _run_gate(
             tmp_path,
             [_receipt_review("codex"), _receipt_review("opus")],
-            second_error="unparseable reply: no review JSON in 2 attempt(s)",
+            second_error=error,
         )
         assert code == 2
         assert calls == "fetch_calls=0"
+
+    @pytest.mark.parametrize(
+        "error",
+        [
+            pytest.param(_UNAVAILABLE_503, id="http-503"),
+            pytest.param(_server_error(502), id="http-502"),
+            pytest.param(_server_error(504), id="http-504"),
+            pytest.param(_CONNECTION_REFUSED, id="connection-refused"),
+        ],
+    )
+    def test_unavailable_voter_with_valid_receipts_passes(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str], error: str
+    ) -> None:
+        """An unavailable voter takes the same receipts a timed-out one does."""
+        code, document, _ = _run_gate(
+            tmp_path,
+            [_receipt_review("codex"), _receipt_review("opus")],
+            second_error=error,
+        )
+
+        assert code == 0
+        quorum = document["quorum"]
+        assert isinstance(quorum, dict)
+        assert quorum["verdict"] == "passed"
+        records = document["substitute_votes"]
+        assert isinstance(records, list)
+        (record,) = records
+        assert record["voter_id"] == "second"
+        assert record["failure"] == FAILURE_UNAVAILABLE
+        assert record["replaced_error"] == error
+        assert (
+            "Substitute vote: voter 'second' was unavailable" in capsys.readouterr().err
+        )
+
+    def test_unavailable_voter_without_receipt_fails(self, tmp_path: Path) -> None:
+        code, document, calls = _run_gate(tmp_path, [], second_error=_UNAVAILABLE_503)
+        assert code == 2
+        assert document["substitute_votes"] == []
+        assert calls == "fetch_calls=1"
+
+    @pytest.mark.parametrize(
+        "reviews",
+        [
+            pytest.param(
+                [
+                    _receipt_review("codex", head=_OTHER),
+                    _receipt_review("opus", head=_OTHER),
+                ],
+                id="other-head",
+            ),
+            pytest.param(
+                [_receipt_review("codex"), _receipt_review("opus", findings=1)],
+                id="findings",
+            ),
+            pytest.param([_receipt_review("codex")], id="one-short"),
+        ],
+    )
+    def test_unavailable_voter_takes_the_same_receipt_rules(
+        self, tmp_path: Path, reviews: list[ModelPullRequestReviewView]
+    ) -> None:
+        code, document, _ = _run_gate(tmp_path, reviews, second_error=_UNAVAILABLE_503)
+        assert code == 2
+        assert document["substitute_votes"] == []
+
+    def test_unavailable_voter_with_no_policy_accepts_nothing(
+        self, tmp_path: Path
+    ) -> None:
+        code, _, calls = _run_gate(
+            tmp_path,
+            [_receipt_review("codex"), _receipt_review("opus")],
+            overlay=_overlay(tmp_path, policy=False),
+            second_error=_CONNECTION_REFUSED,
+        )
+        assert code == 2
+        assert calls == "fetch_calls=0"
+
+    def test_probe_unreachable_voter_with_receipts_passes(self, tmp_path: Path) -> None:
+        """With a policy, the reachable voter still votes and receipts stand in."""
+        code, document, calls = _run_gate(
+            tmp_path,
+            [_receipt_review("codex"), _receipt_review("opus")],
+            second_reachable=False,
+        )
+        assert code == 0
+        assert calls == "fetch_calls=1 voter_calls=1"
+        records = document["substitute_votes"]
+        assert isinstance(records, list)
+        (record,) = records
+        assert record["voter_id"] == "second"
+        assert record["failure"] == FAILURE_UNAVAILABLE
+        assert str(record["replaced_error"]).startswith("unreachable:")
+
+    def test_probe_unreachable_voter_without_policy_calls_no_voter(
+        self, tmp_path: Path
+    ) -> None:
+        """OMN-20910 unchanged: no policy, a required voter down, nobody is called."""
+        code, document, calls = _run_gate(
+            tmp_path,
+            [_receipt_review("codex"), _receipt_review("opus")],
+            overlay=_overlay(tmp_path, policy=False),
+            second_reachable=False,
+        )
+        assert code == 2
+        assert calls == "fetch_calls=0 voter_calls=0"
+        assert document["substitute_votes"] == []
 
     def test_one_receipt_is_short_of_two_per_vote(self, tmp_path: Path) -> None:
         assert _run_gate(tmp_path, [_receipt_review("codex")])[0] == 2
@@ -383,11 +572,16 @@ class TestReceiptChecks:
         assert decision.records == ()
         assert any("signature does not verify" in r for r in decision.refusals)
 
-    def test_receipts_never_form_a_quorum_alone(self, tmp_path: Path) -> None:
+    @pytest.mark.parametrize(
+        "first_error", [_TIMEOUT, _UNAVAILABLE_503, _CONNECTION_REFUSED]
+    )
+    def test_receipts_never_form_a_quorum_alone(
+        self, tmp_path: Path, first_error: str
+    ) -> None:
         both_timed_out = ModelMultiReviewResult(
             models_attempted=["first", "second"],
             models_failed=["first", "second"],
-            results=[_fail("first"), _fail("second")],
+            results=[_fail("first", first_error), _fail("second")],
         )
         decision = _decide(
             tmp_path,
@@ -410,6 +604,30 @@ class TestReceiptChecks:
         )
         assert [r.voter_id for r in decision.records] == ["second"]
         assert any("'third' timed out" in r for r in decision.refusals)
+
+    def test_lost_voters_are_substituted_in_order_with_their_kind(
+        self, tmp_path: Path
+    ) -> None:
+        three = ModelMultiReviewResult(
+            models_attempted=["first", "second", "third"],
+            models_succeeded=["first"],
+            models_failed=["second", "third"],
+            results=[
+                _ok("first"),
+                _fail("second", _UNAVAILABLE_503),
+                _fail("third"),
+            ],
+        )
+        decision = _decide(
+            tmp_path,
+            [_receipt_review("codex"), _receipt_review("opus")],
+            result=three,
+            per_vote=1,
+        )
+        assert [(r.voter_id, r.failure) for r in decision.records] == [
+            ("second", FAILURE_UNAVAILABLE),
+            ("third", FAILURE_TIMED_OUT),
+        ]
 
     def test_malformed_block_is_reported_not_trusted(self, tmp_path: Path) -> None:
         junk = ModelPullRequestReviewView(
@@ -471,3 +689,55 @@ class TestOverlayPolicy:
         assert error == ""
         assert parsed == receipt
         assert parsed.signature == receipt_signature(parsed, _KEY.encode())
+
+
+@pytest.mark.unit
+class TestFailureKind:
+    @pytest.mark.parametrize(
+        ("exc", "kind"),
+        [
+            pytest.param(
+                InfraUnavailableError(
+                    "Server error (503) from ai-reviewer-second",
+                    context=_CTX,
+                    status_code=503,
+                    response_body="Loading model",
+                ),
+                FAILURE_UNAVAILABLE,
+                id="503",
+            ),
+            pytest.param(
+                InfraConnectionError(
+                    "Connection to ai-reviewer-second failed after 3 attempts: "
+                    "All connection attempts failed",
+                    context=_CTX,
+                ),
+                FAILURE_UNAVAILABLE,
+                id="connection",
+            ),
+            pytest.param(
+                InfraUnavailableError(
+                    "Server error (500) from ai-reviewer-second",
+                    context=_CTX,
+                    status_code=500,
+                    response_body="Server error (503) from x",
+                ),
+                None,
+                id="500",
+            ),
+        ],
+    )
+    async def test_the_adapter_error_for_a_transport_failure_is_classified(
+        self, exc: Exception, kind: str | None
+    ) -> None:
+        """Through the real adapter: the error text it records is what is matched."""
+        with patch.object(
+            adapter_ai_reviewer, "call_model", AsyncMock(side_effect=exc)
+        ):
+            result = await adapter_ai_reviewer.async_parse_raw(
+                "diff",
+                model=next(iter(adapter_ai_reviewer.MODEL_REGISTRY)),
+                review_type="pr",
+            )
+        assert not result.success
+        assert substitutable_failure(result) == kind
