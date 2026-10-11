@@ -94,6 +94,7 @@ from omniintelligence.review_pairing.adapters.adapter_ai_reviewer import (
 )
 from omniintelligence.review_pairing.adapters.adapter_ai_reviewer import (
     MODEL_REGISTRY,
+    SERVED_BASE_URLS,
     probe_local_reachability,
     register_review_voters,
     select_models_with_fallback,
@@ -296,6 +297,7 @@ async def run_review(
             flush=True,
         )
         call_started_at = time.monotonic()
+        SERVED_BASE_URLS.pop(model_key, None)
         if model_key == _CODEX_MODEL_KEY:
             result = await codex_async_parse_raw(
                 content,
@@ -313,7 +315,12 @@ async def run_review(
         # the quorum counts two names for one model once.
         result = result.model_copy(
             update={
-                "reviewer_identity": reviewer_identity(model_key, config, os.environ)
+                "reviewer_identity": reviewer_identity(
+                    model_key,
+                    config,
+                    os.environ,
+                    served_base_url=SERVED_BASE_URLS.get(model_key),
+                )
             }
         )
         status = "succeeded" if result.success else "FAILED"

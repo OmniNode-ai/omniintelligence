@@ -134,6 +134,24 @@ class ModelEndpointConfig(BaseModel, frozen=True, extra="forbid"):
             "(default) sends no top_p, so the endpoint keeps its own default."
         ),
     )
+    overflow_urls: tuple[str, ...] = Field(
+        default=(),
+        description=(
+            "Ordered base URLs tried after the resolved endpoint when it is "
+            "full or unavailable (503, 429, refused, or no reply within "
+            "overflow_after_seconds). Empty (default) is a single-endpoint "
+            "model, so every existing entry is unaffected."
+        ),
+    )
+    overflow_after_seconds: float | None = Field(
+        default=None,
+        gt=0.0,
+        description=(
+            "Per-attempt budget of every endpoint but the last when "
+            "overflow_urls is set; None means timeout_seconds. Those attempts "
+            "are not retried: the next endpoint is the retry."
+        ),
+    )
     review_focus: str = Field(
         default="",
         description=(

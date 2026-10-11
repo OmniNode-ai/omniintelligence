@@ -64,6 +64,7 @@ def reviewer_identity(
     model_key: str,
     config: ModelEndpointConfig | None,
     environ: Mapping[str, str],
+    served_base_url: str | None = None,
 ) -> str:
     """Return the distinct-reviewer identity of ``model_key``.
 
@@ -71,6 +72,9 @@ def reviewer_identity(
         model_key: Registry key the caller asked for.
         config: That key's registry entry, or None when it has none.
         environ: Environment to read the key's URL override from.
+        served_base_url: The endpoint that actually answered, when it is not
+            the resolved one (an overflow endpoint took the call). A vote is
+            counted against the host that cast it.
 
     Returns:
         ``<normalised endpoint>#<model>`` where ``<model>`` is
@@ -79,7 +83,7 @@ def reviewer_identity(
     """
     if config is None:
         return f"key:{model_key}"
-    url = resolve_endpoint_url(model_key, config, environ)
+    url = served_base_url or resolve_endpoint_url(model_key, config, environ)
     if not url.strip():
         return f"key:{model_key}"
     # The two model forms live in separate namespaces (``served`` vs
