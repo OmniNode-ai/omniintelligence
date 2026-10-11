@@ -332,7 +332,9 @@ def test_core_guard_accepts_clean_tree_and_refuses_a_planted_live_handler(
     (root / ".github").mkdir()
     shutil.copyfile(ALLOWLIST, root / ALLOWLIST_PATH)
     args = (
-        "check-imperative-contracts",
+        "python",
+        "-m",
+        "omnibase_core.handlers.handler_imperative_contract_guard_cli",
         "--repo-root",
         str(root),
         "--allowlist-path",
