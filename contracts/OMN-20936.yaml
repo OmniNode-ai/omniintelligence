@@ -1,0 +1,59 @@
+---
+schema_version: "1.0.0"
+ticket_id: "OMN-20936"
+title: "omniintelligence and omnimemory endpoint defaults move to the private overlay"
+summary: "The lab endpoints that omniintelligence shipped as defaults leave the repository: the review
+  registry's two default_url values, the two default_endpoint values of the embedding and navigation contracts,
+  and the lab examples in a contract description and four docstrings. The review registry now resolves
+  a key's endpoint from its environment variable, then a review_pairing overlay found under ONEX_SKILL_OVERLAY_ROOTS,
+  and otherwise refuses naming both. The lab values live in a private overlay at onex/overlays/review_pairing/overlay.yaml.
+  The quorum policy is unchanged."
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: "req-no-lab-endpoint-shipped"
+    statement: "omniintelligence ships no lab endpoint and resolves one only from env or an overlay."
+    acceptance:
+      - id: "AC1"
+        statement: "AC1: omniintelligence and omnimemory at dev carry no lab endpoint in configuration
+          or as a default value -- falsifier: pytest over the gate's deployment-config class reports zero
+          findings in both repos"
+      - id: "AC2"
+        statement: "AC2: each repointed reader resolves today's endpoint from the private overlay or env
+          and fails naming the missing setting without it -- falsifier: pytest focused tests for each
+          repointed reader with and without ONEX_SKILL_OVERLAY_ROOTS"
+evidence_requirements:
+  - kind: "tests"
+    description: "No shipped YAML names a private-network address."
+    command: "uv run pytest tests/unit/test_shipped_config_has_no_private_endpoint_omn20936.py -q"
+  - kind: "tests"
+    description: "The review registry resolves env, then overlay, else refuses naming both."
+    command: "uv run pytest tests/unit/review_pairing/test_endpoint_overlay_omn20936.py -q"
+emergency_bypass:
+  enabled: false
+  justification: ""
+  follow_up_ticket_id: ""
+dod_evidence:
+  - id: "dod-omn20936-ac1-no-lab-endpoint-shipped"
+    description: "No YAML shipped in omniintelligence names a private-network address; the registry entries
+      ship an empty default_url."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/test_shipped_config_has_no_private_endpoint_omn20936.py
+          -q"
+        cwd: "${OMNI_HOME}/omniintelligence"
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/review_pairing/test_model_registry_loader.py -q -k lab_endpoint_not_shipped"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC1"]
+  - id: "dod-omn20936-ac2-overlay-or-env-else-refuse"
+    description: "A registry key resolves its endpoint from the environment variable or the overlay and
+      refuses naming both without either."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/review_pairing/test_endpoint_overlay_omn20936.py -q"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC2"]

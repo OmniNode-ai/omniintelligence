@@ -93,6 +93,7 @@ from omniintelligence.review_pairing.cli_review_models import ModelPersonaConfig
 from omniintelligence.review_pairing.model_registry_loader import (
     load_registry,
     load_review_voters,
+    resolve_endpoint_url,
 )
 from omniintelligence.review_pairing.models_external_review import (
     EnumQuorumVerdict,
@@ -408,7 +409,10 @@ def _endpoint_label(model_key: str) -> str:
     config = MODEL_REGISTRY.get(model_key)
     if config is None:
         return model_key
-    parsed = urllib.parse.urlparse(os.environ.get(config.env_var, config.default_url))
+    url = resolve_endpoint_url(model_key, config)
+    if not url:
+        return f"{model_key} (endpoint not configured; set {config.env_var})"
+    parsed = urllib.parse.urlparse(url)
     return f"{model_key} at {parsed.hostname}:{parsed.port or 80}"
 
 

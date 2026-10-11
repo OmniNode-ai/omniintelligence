@@ -14,6 +14,8 @@ Reference: OMN-7213
 
 from __future__ import annotations
 
+import os
+from collections.abc import Mapping
 from pathlib import Path
 
 import yaml
@@ -34,6 +36,9 @@ from omniintelligence.review_pairing.models_external_review import (
 )
 
 _REGISTRY_PATH: Path = Path(__file__).parent / "model_registry.yaml"
+
+OVERLAY_ROOTS_ENV = "ONEX_SKILL_OVERLAY_ROOTS"
+OVERLAY_NODE = "review_pairing"
 
 
 class ModelRegistryContract(BaseModel):
@@ -133,6 +138,75 @@ def load_registry(path: Path | None = None) -> ModelRegistryContract:
     return contract
 
 
+def _overlay_default_urls(environ: Mapping[str, str]) -> dict[str, str]:
+    """Read ``default_urls`` from the first review_pairing overlay on the roots.
+
+    Each root named in ``ONEX_SKILL_OVERLAY_ROOTS`` is searched in order for
+    ``review_pairing/overlay.yaml``. No root, or no file under any root, is no
+    overlay and returns an empty mapping; a file that is there and unreadable or
+    malformed is refused, never skipped, because a half-read overlay would send
+    a review to the wrong endpoint.
+    """
+    for root in environ.get(OVERLAY_ROOTS_ENV, "").split(os.pathsep):
+        if not root:
+            continue
+        candidate = Path(root) / OVERLAY_NODE / "overlay.yaml"
+        if not candidate.is_file():
+            continue
+        try:
+            raw = yaml.safe_load(candidate.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, yaml.YAMLError) as exc:
+            raise ModelRegistryLoadError(
+                f"{candidate} is not a readable review_pairing overlay "
+                f"({type(exc).__name__})"
+            ) from None
+        urls = raw.get("default_urls") if isinstance(raw, dict) else None
+        if (
+            not isinstance(raw, dict)
+            or set(raw) != {"default_urls"}
+            or not isinstance(urls, dict)
+            or not all(
+                isinstance(key, str) and isinstance(value, str)
+                for key, value in urls.items()
+            )
+        ):
+            raise ModelRegistryLoadError(
+                f"{candidate} must be a mapping holding exactly default_urls, "
+                "a mapping of model key to endpoint URL"
+            )
+        return dict(urls)
+    return {}
+
+
+def resolve_endpoint_url(
+    model_key: str,
+    config: ModelEndpointConfig,
+    environ: Mapping[str, str] | None = None,
+) -> str:
+    """The endpoint URL ``model_key`` resolves to, or ``""`` when none is configured.
+
+    In order: the key's own environment variable, then the ``default_urls``
+    entry of a review_pairing overlay on ``ONEX_SKILL_OVERLAY_ROOTS``, then the
+    registry's ``default_url`` (empty in the shipped registry). Read at call
+    time, so a changed environment is seen without a reload.
+    """
+    env = os.environ if environ is None else environ
+    from_env = env.get(config.env_var)
+    if from_env:
+        return from_env
+    return _overlay_default_urls(env).get(model_key) or config.default_url
+
+
+def endpoint_not_configured_message(model_key: str, config: ModelEndpointConfig) -> str:
+    """The refusal for a key with no resolved endpoint, naming how to supply one."""
+    return (
+        f"LLM endpoint not configured for '{model_key}'. Set the "
+        f"{config.env_var} environment variable, or supply a {OVERLAY_NODE} "
+        f"overlay whose default_urls names '{model_key}' under a root listed in "
+        f"{OVERLAY_ROOTS_ENV}."
+    )
+
+
 def load_review_voters(path: Path) -> ModelReviewVoterRoster:
     """Read a review voters overlay and the delegation overlay it names (OMN-20910).
 
@@ -175,8 +249,12 @@ def load_review_voters(path: Path) -> ModelReviewVoterRoster:
 
 
 __all__ = [
+    "OVERLAY_NODE",
+    "OVERLAY_ROOTS_ENV",
     "ModelRegistryContract",
     "ModelRegistryLoadError",
+    "endpoint_not_configured_message",
     "load_registry",
     "load_review_voters",
+    "resolve_endpoint_url",
 ]
