@@ -144,6 +144,18 @@ def _base_url(url: str, voter_id: str, what: str) -> str:
     return f"{parsed.scheme}://{netloc}{path.rstrip('/')}"
 
 
+def _refuse_overflow_equal_to_primary(
+    voter_id: str, base_url: str, overflow_base_urls: tuple[str, ...]
+) -> None:
+    """An overflow endpoint that is the primary is a retry spelled as a failover."""
+    if base_url in overflow_base_urls:
+        raise _RefusalError(
+            f"overflow_endpoint_urls names the voter's own endpoint {base_url!r}; "
+            "an overflow endpoint must be a different one",
+            voter_id,
+        )
+
+
 def _resolve(
     request: ModelReviewVotersOverlayRequest,
 ) -> tuple[tuple[ModelResolvedReviewVoter, ...], ModelReviewVotersOverlay]:
@@ -180,6 +192,9 @@ def _resolve(
                 voter.voter_id,
                 f"backend {voter.backend_id!r} endpoint_url",
             )
+            _refuse_overflow_equal_to_primary(
+                voter.voter_id, base_url, overflow_base_urls
+            )
             resolved.append(
                 ModelResolvedReviewVoter(
                     voter=voter,
@@ -192,6 +207,9 @@ def _resolve(
         else:
             base_url = _base_url(
                 voter.endpoint_url or "", voter.voter_id, "endpoint_url"
+            )
+            _refuse_overflow_equal_to_primary(
+                voter.voter_id, base_url, overflow_base_urls
             )
             resolved.append(
                 ModelResolvedReviewVoter(

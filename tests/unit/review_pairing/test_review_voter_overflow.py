@@ -161,6 +161,10 @@ class TestSchema:
                 'overflow_endpoint_urls: ["http://o.example:99999999"]\n',
                 "invalid port",
             ),
+            (
+                'overflow_endpoint_urls: ["http://primary.example:8130/chat/completions"]\n',
+                "names the voter's own endpoint",
+            ),
         ],
     )
     def test_a_malformed_overflow_is_refused_naming_the_voter(
