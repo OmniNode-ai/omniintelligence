@@ -77,3 +77,40 @@ def test_inputs_and_job_name_are_unchanged() -> None:
         "warn-only": "false",
         "repos": "omniclaude,omnidash,omniintelligence,omnibase_infra,omnibase_core,omnimemory,omnimarket,onex_change_control",
     }
+
+
+_CORE_GIT_PIN = re.compile(r"omnibase_core@([0-9a-f]{40})\b")
+_PRECOMMIT_CORE_REV = re.compile(
+    r"repo:\s*https://github\.com/OmniNode-ai/omnibase_core\s*\n\s*rev:\s*([0-9a-f]{40})\b"
+)
+
+
+def _core_git_pins(text: str) -> set[str]:
+    return set(_CORE_GIT_PIN.findall(text))
+
+
+def test_every_core_git_pin_in_ci_is_the_commit_the_hooks_pin() -> None:
+    # A pin on a pre-squash commit that is on no omnibase_core branch cannot be
+    # fetched, so every job that installs omnibase-core from it fails (the
+    # shape-gate-independence job did, behind d17f5be8). The pre-commit hooks pin
+    # commits already proven reachable on omnibase_core dev; ci.yml must use one
+    # of them, and only one.
+    precommit = (REPO_ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8")
+    hook_revs = set(_PRECOMMIT_CORE_REV.findall(precommit))
+    assert hook_revs != set()
+
+    pins = _core_git_pins((WORKFLOWS / "ci.yml").read_text(encoding="utf-8"))
+
+    assert len(pins) == 1
+    assert pins <= hook_revs
+
+
+def test_unfetchable_core_git_pin_is_detected() -> None:
+    # The retired pin begins d17f5be8; the remaining digits are a stand-in.
+    stand_in = "d17f5be8" + "0" * 32
+    old = (
+        "--with 'omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core"
+        f"@{stand_in}'"
+    )
+
+    assert _core_git_pins(old) == {stand_in}
