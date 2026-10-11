@@ -4,7 +4,8 @@
 # ONEX Node Contract
 # Node: NodeReviewReceiptSubstituteCompute
 #
-# Decides which Hostile Reviewer voters that timed out may count as voted,
+# Decides which Hostile Reviewer voters that timed out or were unavailable
+# may count as voted,
 # from signed off-CI review receipts bound to the head commit.
 # Operator RULING 2026-10-11T01:52:39Z: while a lab review voter times out,
 # approved reviewers review the pull request outside CI and CI reads their
@@ -26,12 +27,14 @@ status: "active"
 
 description: >
   Reads the review receipts in a pull request's reviews and decides, for each required voter whose call
-  timed out, whether clean receipts from the voters overlay's approved substitute reviewers stand in for
-  its vote. A receipt counts only when it is HMAC-signed with the overlay-named key, posted by an account
-  the overlay names for its reviewer, bound to the exact head commit in its payload and by the review's
-  commit, within its validity window, and clean. A valid receipt with findings refuses substitution, an
-  overlay with no substitute_votes policy accepts nothing, and receipts never form a quorum alone. Pure
-  computation: the reviews, the key and the clock are inputs; every refusal is returned as data.
+  timed out or whose endpoint was unavailable (HTTP 502/503/504, a refused or failed connection, a failed
+  reachability probe), whether clean receipts from the voters overlay's approved substitute reviewers
+  stand in for its vote. A receipt counts only when it is HMAC-signed with the overlay-named key, posted
+  by an account the overlay names for its reviewer, bound to the exact head commit in its payload and
+  by the review's commit, within its validity window, and clean. A valid receipt with findings refuses
+  substitution, an overlay with no substitute_votes policy accepts nothing, and receipts never form a
+  quorum alone. Pure computation: the reviews, the key and the clock are inputs; every refusal is returned
+  as data.
 input_model:
   name: "ModelSubstituteVoteRequest"
   module: "omniintelligence.nodes.node_review_receipt_substitute_compute.models.model_substitute_vote_request"
@@ -45,7 +48,7 @@ output_model:
 
 operations:
   - name: "decide_substitute_votes"
-    description: "Decide which timed-out voters signed clean receipts stand in for"
+    description: "Decide which timed-out or unavailable voters signed clean receipts stand in for"
     input_fields:
       - result
       - policy
@@ -98,4 +101,4 @@ metadata:
   references:
     - ticket: "OMN-20947"
       url: "https://linear.app/omninode/issue/OMN-20947"
-      description: "A signed off-CI review receipt may stand in for a timed-out voter"
+      description: "A signed off-CI review receipt may stand in for a timed-out or unavailable voter"

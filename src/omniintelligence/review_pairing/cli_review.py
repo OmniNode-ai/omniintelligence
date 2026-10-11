@@ -55,9 +55,11 @@ Exit Codes:
        on it; treating it as a pass makes the quorum vacuous. With
        ``--voters-overlay`` it also means a REQUIRED voter did not vote
        (unreachable or failed); the voter is named on stderr (OMN-20910).
-       A required voter that TIMED OUT counts as voted only when the overlay
-       declares ``substitute_votes`` and the pull request carries enough
-       valid, clean, signed review receipts for ``--head-sha`` (OMN-20947).
+       A required voter that TIMED OUT, or whose endpoint was UNAVAILABLE
+       (HTTP 502/503/504, a refused or failed connection, a failed
+       reachability probe), counts as voted only when the overlay declares
+       ``substitute_votes`` and the pull request carries enough valid, clean,
+       signed review receipts for ``--head-sha`` (OMN-20947).
 
 Reference: OMN-5793, OMN-5819, OMN-6228, OMN-18479, OMN-20910, OMN-20947
 """
@@ -77,7 +79,7 @@ from pathlib import Path
 
 from omniintelligence.nodes.node_review_receipt_substitute_compute.handlers.handler_review_receipt_substitute import (
     apply_substitutes,
-    is_timeout_failure,
+    substitutable_failure,
 )
 from omniintelligence.nodes.node_review_receipt_substitute_compute.handlers.handler_review_receipt_substitute import (
     handle as decide_substitute_votes,
@@ -198,8 +200,8 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "The pull request head commit this run reviews (with --pr). Needed "
             "only when the voters overlay declares substitute_votes: a voter "
-            "that times out may then be replaced by clean off-CI review "
-            "receipts bound to exactly this commit (OMN-20947)."
+            "that times out or is unavailable may then be replaced by clean "
+            "off-CI review receipts bound to exactly this commit (OMN-20947)."
         ),
     )
     parser.add_argument(
@@ -352,9 +354,12 @@ def _select_overlay_voters(
 
     No fallback is substituted for an unreachable voter (OMN-20910): the
     overlay names the roster and a silent stand-in would be a different
-    review. When a REQUIRED voter is unreachable no voter is called at all --
-    the run cannot produce a verdict, so the remaining calls would only spend
-    shared lab capacity. Each reachable voter's served model is read and
+    review. When a REQUIRED voter is unreachable and the overlay declares no
+    ``substitute_votes`` policy, no voter is called at all -- the run cannot
+    produce a verdict, so the remaining calls would only spend shared lab
+    capacity. With a policy, the reachable voters are still called: signed
+    off-CI receipts may stand in for the unreachable voter, but never without
+    a real vote beside them (OMN-20947). Each reachable voter's served model is read and
     printed, so the job log names the model every vote came from.
     """
     reachability = probe_local_reachability(roster.voter_ids)
@@ -368,11 +373,18 @@ def _select_overlay_voters(
             file=sys.stderr,
         )
     if any(voter_id in roster.required_ids for voter_id in skipped):
+        if roster.substitute_votes is None:
+            print(
+                "ERROR: a required review voter is unreachable; no voter is called.",
+                file=sys.stderr,
+            )
+            return [], skipped
         print(
-            "ERROR: a required review voter is unreachable; no voter is called.",
+            "WARNING: a required review voter is unreachable; the reachable "
+            "voters are called because the overlay allows signed review "
+            "receipts to stand in for it.",
             file=sys.stderr,
         )
-        return [], skipped
 
     selected = [vid for vid in roster.voter_ids if vid not in skipped]
     for voter_id in selected:
@@ -462,7 +474,7 @@ def _fetch_pr_reviews(repo: str, pr: int) -> list[ModelPullRequestReviewView]:
     return reviews
 
 
-def _substitute_timed_out_voters(
+def _substitute_lost_voters(
     result: ModelMultiReviewResult,
     roster: ModelReviewVoterRoster,
     *,
@@ -470,19 +482,20 @@ def _substitute_timed_out_voters(
     pr: int | None,
     head_sha: str | None,
 ) -> ModelMultiReviewResult:
-    """Let clean off-CI receipts stand in for voters that timed out (OMN-20947).
+    """Let clean off-CI receipts stand in for voters lost to the lab (OMN-20947).
 
-    Does nothing unless a voter timed out. Every reason a receipt is not
-    accepted is printed, so a run that stays red says why.
+    Does nothing unless a voter timed out or was unavailable. Every reason a
+    receipt is not accepted is printed, so a run that stays red says why.
     """
-    if not any(is_timeout_failure(r) for r in result.results):
+    if not any(substitutable_failure(r) for r in result.results):
         return result
     policy = roster.substitute_votes
     if policy is None:
         return result
     if pr is None or not repo or not head_sha:
         print(
-            "WARNING: a review voter timed out; substitute receipts need --pr, "
+            "WARNING: a review voter timed out or was unavailable; substitute "
+            "receipts need --pr, "
             "--repo and --head-sha, so none were read.",
             file=sys.stderr,
         )
@@ -513,7 +526,7 @@ def _substitute_timed_out_voters(
         print(f"Substitute receipt not accepted: {reason}", file=sys.stderr)
     for record in decision.records:
         print(
-            f"Substitute vote: voter {record.voter_id!r} timed out; clean receipts "
+            f"Substitute vote: voter {record.voter_id!r} {record.failure}; clean receipts "
             f"from {', '.join(record.reviewer_ids)} (posted by "
             f"{', '.join(record.review_authors)}) at {record.head_sha} stand in.",
             file=sys.stderr,
@@ -925,7 +938,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     result = _record_unreachable(result, skipped)
     if roster is not None:
-        result = _substitute_timed_out_voters(
+        result = _substitute_lost_voters(
             result, roster, repo=args.repo, pr=args.pr, head_sha=args.head_sha
         )
 

@@ -429,18 +429,24 @@ class ModelExternalReviewResult(BaseModel, frozen=True):
     )
 
 
+# How a voter was lost to the lab, when receipts may stand in for it (OMN-20947).
+SubstituteFailure = Literal["timed out", "was unavailable"]
+
+
 class ModelSubstituteVoteRecord(BaseModel, frozen=True):
-    """A timed-out voter whose vote came from off-CI review receipts (OMN-20947).
+    """A lost voter whose vote came from off-CI review receipts (OMN-20947).
 
     Attributes:
-        voter_id: The overlay voter that timed out.
+        voter_id: The overlay voter that was lost.
+        failure: How it was lost: it timed out, or its endpoint was unavailable.
         replaced_error: The voter's own failure, kept verbatim.
         reviewer_ids: The approved reviewers whose clean receipts stood in.
         head_sha: The commit every receipt was signed for.
         review_authors: The accounts that posted those receipts.
     """
 
-    voter_id: str = Field(description="Voter that timed out.")
+    voter_id: str = Field(description="Voter that was lost.")
+    failure: SubstituteFailure = Field(description="How the voter was lost to the lab.")
     replaced_error: str = Field(description="That voter's failure, verbatim.")
     reviewer_ids: tuple[str, ...] = Field(description="Reviewers standing in.")
     head_sha: str = Field(description="Commit the receipts are bound to.")
@@ -510,7 +516,8 @@ class ModelMultiReviewResult(BaseModel, frozen=True):
     substitute_votes: list[ModelSubstituteVoteRecord] = Field(
         default_factory=list,
         description=(
-            "Timed-out voters whose vote came from off-CI review receipts "
-            "(OMN-20947). Empty unless the overlay allows substitution."
+            "Voters that timed out or were unavailable and whose vote came "
+            "from off-CI review receipts (OMN-20947). Empty unless the overlay "
+            "allows substitution."
         ),
     )

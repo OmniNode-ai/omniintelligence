@@ -1,11 +1,13 @@
 # SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
 
-"""Off-CI review receipts that may stand in for a timed-out voter (OMN-20947).
+"""Off-CI review receipts that may stand in for a lost voter (OMN-20947).
 
 Operator RULING 2026-10-11T01:52:39Z: while a lab review voter times out,
 approved reviewers review the pull request outside CI, and CI only reads
-their result. A Hostile Reviewer voter that times out casts no vote; with two
+their result. A Hostile Reviewer voter that times out, or whose endpoint is
+unavailable (HTTP 502/503/504, a refused or failed connection, or a failed
+reachability probe), casts no vote; with two
 required voters that is no quorum and the gate fails closed. When the voters
 overlay declares a ``substitute_votes`` policy, clean receipts from approved
 off-CI reviewers can replace that one lost vote, provided the gate can verify
@@ -23,8 +25,11 @@ them without trusting any free text:
   findings refuses substitution outright: a reviewer that found defects is
   never counted as a pass.
 
-Only a voter whose call failed with the transport timeout is substituted --
-an unreachable voter, an unparseable reply or any other failure is not. At
+Only a voter that was lost to the lab -- its call timed out, or its endpoint
+was unavailable -- is substituted. A voter that answered and failed (an
+unparseable reply, a rejected request, an HTTP 500, an authentication or
+configuration error) is not: that failure is about this change or this
+deployment, and a receipt never hides it. At
 least one configured voter must have voted for real, each approved reviewer
 stands in for at most one voter, and the quorum rule (``evaluate_quorum``) is
 applied unchanged afterwards: the stand-in vote carries no findings and its
@@ -40,6 +45,7 @@ import hmac
 import json
 import re
 from datetime import datetime, timedelta
+from typing import Final
 
 from pydantic import ValidationError
 
@@ -64,9 +70,28 @@ from omniintelligence.review_pairing.models_external_review import (
     ModelExternalReviewResult,
     ModelMultiReviewResult,
     ModelSubstituteVoteRecord,
+    SubstituteFailure,
 )
 
 TIMEOUT_ERROR_CODE = "ONEX_CORE_092_TIMEOUT_ERROR"
+FAILURE_TIMED_OUT: Final = "timed out"
+FAILURE_UNAVAILABLE: Final = "was unavailable"
+# The exact error shapes the lab transport and the gate itself emit when a
+# voter's endpoint is unavailable. Each is anchored at the start of the error,
+# where the transport's error code leads, so an endpoint's reply body (which
+# the adapter appends after the message) can never make a failure match.
+_UNAVAILABLE_ERRORS = (
+    # InfraUnavailableError for a gateway or unavailable status.
+    re.compile(
+        r"\[ONEX_CORE_205_SERVICE_UNAVAILABLE\] Server error \((?:502|503|504)\) from "
+    ),
+    # InfraConnectionError: connection refused or failed, after the retries.
+    re.compile(
+        r"\[ONEX_CORE_090_NETWORK_ERROR\] Connection to \S+ failed after \d+ attempts"
+    ),
+    # The gate's TCP reachability probe failed, so the voter was never called.
+    re.compile(r"unreachable: the TCP reachability probe of "),
+)
 _FUTURE_SKEW = timedelta(seconds=300)
 _BLOCK = re.compile(
     r"```" + re.escape(RECEIPT_FENCE) + r"[ \t]*\r?\n(?P<body>.*?)\r?\n```",
@@ -134,6 +159,23 @@ def is_timeout_failure(result: ModelExternalReviewResult) -> bool:
     return (not result.success) and TIMEOUT_ERROR_CODE in (result.error or "")
 
 
+def is_unavailable_failure(result: ModelExternalReviewResult) -> bool:
+    """True when the voter's endpoint was unavailable (502/503/504, no connection)."""
+    error = result.error or ""
+    return (not result.success) and any(p.match(error) for p in _UNAVAILABLE_ERRORS)
+
+
+def substitutable_failure(
+    result: ModelExternalReviewResult,
+) -> SubstituteFailure | None:
+    """How the voter was lost to the lab, or None when receipts may not replace it."""
+    if is_timeout_failure(result):
+        return FAILURE_TIMED_OUT
+    if is_unavailable_failure(result):
+        return FAILURE_UNAVAILABLE
+    return None
+
+
 def _check(
     receipt: ModelReviewReceipt,
     review: ModelPullRequestReviewView,
@@ -181,10 +223,14 @@ class HandlerReviewReceiptSubstitute:
     """The node's handler: the voters' results and the PR's reviews in, a decision out."""
 
     def handle(self, request: ModelSubstituteVoteRequest) -> ModelSubstituteDecision:
-        """Decide which timed-out voters valid clean receipts stand in for."""
+        """Decide which lost voters valid clean receipts stand in for."""
         result = request.result
-        timed_out = [r for r in result.results if is_timeout_failure(r)]
-        if not timed_out:
+        lost = [
+            (r, kind)
+            for r in result.results
+            if (kind := substitutable_failure(r)) is not None
+        ]
+        if not lost:
             return ModelSubstituteDecision()
         policy = request.policy
         if policy is None:
@@ -235,10 +281,10 @@ class HandlerReviewReceiptSubstitute:
 
         available = [r.reviewer_id for r in policy.reviewers if r.reviewer_id in clean]
         records: list[ModelSubstituteVoteRecord] = []
-        for voter in timed_out:
+        for voter, kind in lost:
             if len(available) < policy.receipts_per_vote:
                 refusals.append(
-                    f"voter {voter.model!r} timed out and {len(available)} unused clean "
+                    f"voter {voter.model!r} {kind} and {len(available)} unused clean "
                     f"receipt(s) remain for head {request.head_sha[:12]}; "
                     f"{policy.receipts_per_vote} required"
                 )
@@ -248,6 +294,7 @@ class HandlerReviewReceiptSubstitute:
             records.append(
                 ModelSubstituteVoteRecord(
                     voter_id=voter.model,
+                    failure=kind,
                     replaced_error=voter.error or "",
                     reviewer_ids=tuple(group),
                     head_sha=request.head_sha,
@@ -296,13 +343,17 @@ def apply_substitutes(
 
 
 __all__ = [
+    "FAILURE_TIMED_OUT",
+    "FAILURE_UNAVAILABLE",
     "TIMEOUT_ERROR_CODE",
     "HandlerReviewReceiptSubstitute",
     "apply_substitutes",
     "handle",
     "is_timeout_failure",
+    "is_unavailable_failure",
     "receipt_signature",
     "receipts_in_body",
     "render_receipt_block",
     "sign_receipt",
+    "substitutable_failure",
 ]

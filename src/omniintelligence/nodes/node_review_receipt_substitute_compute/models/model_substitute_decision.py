@@ -13,7 +13,7 @@ from omniintelligence.review_pairing.models_external_review import (
 
 
 class ModelSubstituteDecision(BaseModel):
-    """Which timed-out voters valid receipts stand in for, and every refusal."""
+    """Which lost voters valid receipts stand in for, and every refusal."""
 
     model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
 

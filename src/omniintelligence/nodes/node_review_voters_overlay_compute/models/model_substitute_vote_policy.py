@@ -1,9 +1,9 @@
 # SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
 
-"""When a timed-out voter's vote may come from an off-CI review receipt (OMN-20947).
+"""When a lost voter's vote may come from an off-CI review receipt (OMN-20947).
 
-A voter that times out casts no vote, and with two required voters one lost
+A voter that times out, or whose endpoint is unavailable, casts no vote, and with two required voters one lost
 vote is no quorum, so the gate fails closed. This policy lets a run accept,
 in place of that one lost vote, clean review receipts from approved reviewers
 that ran outside CI against the exact head commit. It is optional and absent
@@ -59,7 +59,7 @@ class ModelSubstituteReviewer(BaseModel):
 
 
 class ModelSubstituteVotePolicy(BaseModel):
-    """Which receipts may replace the vote of a voter that timed out."""
+    """Which receipts may replace the vote of a voter that timed out or was unavailable."""
 
     model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
 
