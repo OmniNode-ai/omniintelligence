@@ -11,6 +11,9 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from omniintelligence.nodes.node_review_voters_overlay_compute.models.model_review_voter import (
     ModelReviewVoter,
 )
+from omniintelligence.nodes.node_review_voters_overlay_compute.models.model_substitute_vote_policy import (
+    ModelSubstituteVotePolicy,
+)
 
 REVIEW_VOTERS_OVERLAY_SCHEMA_VERSION = "review_voters_overlay.v1"
 
@@ -27,6 +30,11 @@ class ModelReviewVotersOverlay(BaseModel):
         "bifrost_lane_overlay.v3 file backend_id values resolve against.",
     )
     voters: tuple[ModelReviewVoter, ...] = Field(min_length=1)
+    substitute_votes: ModelSubstituteVotePolicy | None = Field(
+        default=None,
+        description="Off-CI review receipts that may stand in for a voter that "
+        "timed out (OMN-20947). Absent: no receipt is ever accepted.",
+    )
 
     @model_validator(mode="after")
     def _validate_overlay(self) -> Self:
@@ -54,6 +62,15 @@ class ModelReviewVotersOverlay(BaseModel):
                 f"voters {uses_backend} name a backend_id but the overlay "
                 "declares no backend_overlay to resolve it against"
             )
+        if self.substitute_votes is not None:
+            clashes = sorted(
+                {r.reviewer_id for r in self.substitute_votes.reviewers} & set(ids)
+            )
+            if clashes:
+                raise ValueError(
+                    f"substitute reviewer ids {clashes} are also voter ids; a "
+                    "receipt must never read as the voter it stands in for"
+                )
         return self
 
 

@@ -55,8 +55,11 @@ Exit Codes:
        on it; treating it as a pass makes the quorum vacuous. With
        ``--voters-overlay`` it also means a REQUIRED voter did not vote
        (unreachable or failed); the voter is named on stderr (OMN-20910).
+       A required voter that TIMED OUT counts as voted only when the overlay
+       declares ``substitute_votes`` and the pull request carries enough
+       valid, clean, signed review receipts for ``--head-sha`` (OMN-20947).
 
-Reference: OMN-5793, OMN-5819, OMN-6228, OMN-18479, OMN-20910
+Reference: OMN-5793, OMN-5819, OMN-6228, OMN-18479, OMN-20910, OMN-20947
 """
 
 from __future__ import annotations
@@ -69,8 +72,20 @@ import subprocess
 import sys
 import time
 import urllib.parse
+from datetime import UTC, datetime
 from pathlib import Path
 
+from omniintelligence.nodes.node_review_receipt_substitute_compute.handlers.handler_review_receipt_substitute import (
+    apply_substitutes,
+    is_timeout_failure,
+)
+from omniintelligence.nodes.node_review_receipt_substitute_compute.handlers.handler_review_receipt_substitute import (
+    handle as decide_substitute_votes,
+)
+from omniintelligence.nodes.node_review_receipt_substitute_compute.models import (
+    ModelPullRequestReviewView,
+    ModelSubstituteVoteRequest,
+)
 from omniintelligence.nodes.node_review_voters_overlay_compute.models.model_review_voter_roster import (
     ModelReviewVoterRoster,
 )
@@ -173,6 +188,18 @@ def build_parser() -> argparse.ArgumentParser:
             "focus, timeout and required flag come from it. Excludes --model. "
             "No API fallback is substituted for a voter, and a required voter "
             "that is unreachable or fails makes the run exit 2, naming it."
+        ),
+    )
+    parser.add_argument(
+        "--head-sha",
+        type=str,
+        default=None,
+        metavar="SHA",
+        help=(
+            "The pull request head commit this run reviews (with --pr). Needed "
+            "only when the voters overlay declares substitute_votes: a voter "
+            "that times out may then be replaced by clean off-CI review "
+            "receipts bound to exactly this commit (OMN-20947)."
         ),
     )
     parser.add_argument(
@@ -402,6 +429,96 @@ def _record_unreachable(
             "results": [*result.results, *failed],
         }
     )
+
+
+def _fetch_pr_reviews(repo: str, pr: int) -> list[ModelPullRequestReviewView]:
+    """Every review on the pull request, as the gate reads them (OMN-20947)."""
+    completed = subprocess.run(
+        [
+            "gh",
+            "api",
+            "--paginate",
+            f"repos/{repo}/pulls/{pr}/reviews?per_page=100",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=60,
+    )
+    reviews: list[ModelPullRequestReviewView] = []
+    for item in _parse_paginated_gh_json(completed.stdout):
+        if not isinstance(item, dict):
+            continue
+        user = item.get("user")
+        login = user.get("login") if isinstance(user, dict) else None
+        reviews.append(
+            ModelPullRequestReviewView(
+                author_login=str(login or ""),
+                commit_id=str(item.get("commit_id") or ""),
+                state=str(item.get("state") or ""),
+                body=str(item.get("body") or ""),
+            )
+        )
+    return reviews
+
+
+def _substitute_timed_out_voters(
+    result: ModelMultiReviewResult,
+    roster: ModelReviewVoterRoster,
+    *,
+    repo: str | None,
+    pr: int | None,
+    head_sha: str | None,
+) -> ModelMultiReviewResult:
+    """Let clean off-CI receipts stand in for voters that timed out (OMN-20947).
+
+    Does nothing unless a voter timed out. Every reason a receipt is not
+    accepted is printed, so a run that stays red says why.
+    """
+    if not any(is_timeout_failure(r) for r in result.results):
+        return result
+    policy = roster.substitute_votes
+    if policy is None:
+        return result
+    if pr is None or not repo or not head_sha:
+        print(
+            "WARNING: a review voter timed out; substitute receipts need --pr, "
+            "--repo and --head-sha, so none were read.",
+            file=sys.stderr,
+        )
+        return result
+    try:
+        reviews = _fetch_pr_reviews(repo, pr)
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError) as exc:
+        print(
+            f"WARNING: could not read pull request reviews for substitute "
+            f"receipts: {exc}",
+            file=sys.stderr,
+        )
+        return result
+    key = os.environ.get(policy.signing_key_env, "")
+    decision = decide_substitute_votes(
+        ModelSubstituteVoteRequest(
+            result=result,
+            policy=policy,
+            reviews=tuple(reviews),
+            repo=repo,
+            pr=pr,
+            head_sha=head_sha,
+            key=key.encode() if key else None,
+            now=datetime.now(tz=UTC),
+        )
+    )
+    for reason in decision.refusals:
+        print(f"Substitute receipt not accepted: {reason}", file=sys.stderr)
+    for record in decision.records:
+        print(
+            f"Substitute vote: voter {record.voter_id!r} timed out; clean receipts "
+            f"from {', '.join(record.reviewer_ids)} (posted by "
+            f"{', '.join(record.review_authors)}) at {record.head_sha} stand in.",
+            file=sys.stderr,
+        )
+    return apply_substitutes(result, decision)
 
 
 def _endpoint_label(model_key: str) -> str:
@@ -807,6 +924,10 @@ def main(argv: list[str] | None = None) -> int:
         run_review(review_content, model_keys, review_type=review_type, persona=persona)
     )
     result = _record_unreachable(result, skipped)
+    if roster is not None:
+        result = _substitute_timed_out_voters(
+            result, roster, repo=args.repo, pr=args.pr, head_sha=args.head_sha
+        )
 
     # Resolve cross-model agreement (OMN-18479). The verdict travels in the
     # emitted document so no caller has to re-derive one by summing

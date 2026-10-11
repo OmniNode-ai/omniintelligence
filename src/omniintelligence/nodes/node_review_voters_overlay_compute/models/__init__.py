@@ -22,6 +22,10 @@ from omniintelligence.nodes.node_review_voters_overlay_compute.models.model_revi
 from omniintelligence.nodes.node_review_voters_overlay_compute.models.model_review_voters_overlay_request import (
     ModelReviewVotersOverlayRequest,
 )
+from omniintelligence.nodes.node_review_voters_overlay_compute.models.model_substitute_vote_policy import (
+    ModelSubstituteReviewer,
+    ModelSubstituteVotePolicy,
+)
 
 __all__ = [
     "REVIEW_VOTERS_OVERLAY_SCHEMA_VERSION",
@@ -32,4 +36,6 @@ __all__ = [
     "ModelReviewVoterRoster",
     "ModelReviewVotersOverlay",
     "ModelReviewVotersOverlayRequest",
+    "ModelSubstituteReviewer",
+    "ModelSubstituteVotePolicy",
 ]
