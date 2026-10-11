@@ -310,7 +310,7 @@ repos:
   # (OMN-20304)"). The rev moved from 6363509770 to the OMN-20304 commit for
   # both hooks; the lifecycle validator's source is identical at the two commits.
   - repo: https://github.com/OmniNode-ai/omnibase_core
-    rev: f50d00fc7918d0b12ccd0d3497160325e32e7ac5  # pragma: allowlist secret
+    rev: 031148215620031436cba30619bbae67c0bb38ad  # pragma: allowlist secret
     hooks:
       - id: no-noncanonical-lifecycle-classes
         args: [--allowlist, .onex_ratchets/noncanonical_class_allowlist.yaml, src/omniintelligence]
@@ -778,6 +778,14 @@ repos:
   # ---------------------------------------------------------------------------
   - repo: local
     hooks:
+      - id: imperative-contract-guard-caller
+        name: Imperative guard caller and shrink-only allowlist (OMN-21005)
+        entry: uv run pytest tests/ci/test_imperative_contract_guard_caller_omn21005.py -q -n 0
+        language: system
+        pass_filenames: false
+        files: ^(\.github/(workflows/(imperative-contract-guard|ci)\.yml|imperative-contract-allowlist\.yaml)|\.pre-commit-config\.yaml|tests/ci/test_imperative_contract_guard_caller_omn21005\.py|contracts/OMN-21005\.yaml)$
+        stages: [pre-commit]
+
       - id: workflow-script-refs
         name: Workflow-referenced repo-local scripts exist (OMN-16664)
         entry: uv run python tests/ci/test_workflow_script_refs_exist.py

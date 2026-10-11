@@ -18,4 +18,7 @@ permissions:
 jobs:
   imperative-contract-guard:
     # self-gating-ok: central guard is intentionally shared across repos; caller PRs do not modify the referenced workflow.
-    uses: OmniNode-ai/onex_change_control/.github/workflows/imperative-contract-guard.yml@c0c49e1240ffaa6db1fe36f74b50c0acd345d7b2
+    # OMN-21005: caller-owned historical allowlist; core enforces shrink-only changes.
+    uses: OmniNode-ai/omnibase_core/.github/workflows/imperative-contract-guard.yml@031148215620031436cba30619bbae67c0bb38ad
+    with:
+      allowlist-path: .github/imperative-contract-allowlist.yaml
