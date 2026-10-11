@@ -21,6 +21,12 @@ if TYPE_CHECKING:
 _DEFAULT_PORTS: dict[str, int] = {"http": 80, "https": 443}
 
 
+def _host_port(base_url: str) -> tuple[str, int]:
+    parsed = urllib.parse.urlsplit(base_url)
+    port = parsed.port or _DEFAULT_PORTS[parsed.scheme]
+    return parsed.hostname or "", port
+
+
 class ModelResolvedReviewVoter(BaseModel):
     """A voter plus the base URL it resolved to and where that came from."""
 
@@ -29,6 +35,11 @@ class ModelResolvedReviewVoter(BaseModel):
     voter: ModelReviewVoter
     base_url: str = Field(description="scheme://host[:port][/prefix], no API path.")
     source: str = Field(description="'backend <id> in <file>' or 'endpoint_url'.")
+    overflow_base_urls: tuple[str, ...] = Field(
+        default=(),
+        description="The voter's overflow endpoints, resolved like base_url, in "
+        "the order they are tried after it.",
+    )
     backend_served_model_id: str | None = Field(
         default=None,
         description="The served model the delegation overlay records for the "
@@ -41,9 +52,11 @@ class ModelResolvedReviewVoter(BaseModel):
 
     @property
     def host_port(self) -> tuple[str, int]:
-        parsed = urllib.parse.urlsplit(self.base_url)
-        port = parsed.port or _DEFAULT_PORTS[parsed.scheme]
-        return parsed.hostname or "", port
+        return _host_port(self.base_url)
+
+    @property
+    def overflow_host_ports(self) -> tuple[tuple[str, int], ...]:
+        return tuple(_host_port(url) for url in self.overflow_base_urls)
 
     def endpoint_config(self) -> ModelEndpointConfig:
         """The adapter's per-call config for this voter.
@@ -59,6 +72,8 @@ class ModelResolvedReviewVoter(BaseModel):
         return ModelEndpointConfig(
             env_var="",
             default_url=self.base_url,
+            overflow_urls=self.overflow_base_urls,
+            overflow_after_seconds=voter.overflow_after_seconds,
             kind="code_review",
             timeout_seconds=voter.timeout_seconds,
             api_model_id=voter.api_model_id,
@@ -89,8 +104,14 @@ class ModelResolvedReviewVoter(BaseModel):
         top_p = "default" if voter.top_p is None else f"{voter.top_p:g}"
         focus = "focus=yes" if voter.review_focus else "focus=none"
         role = "required" if voter.required else "optional"
+        overflow = (
+            f"; overflow -> {', '.join(self.overflow_base_urls)}"
+            if self.overflow_base_urls
+            else ""
+        )
         return (
-            f"{voter.voter_id} [{role}] -> {self.base_url} via {self.source}; "
+            f"{voter.voter_id} [{role}] -> {self.base_url} via {self.source}"
+            f"{overflow}; "
             f"{model}; temperature={temperature} top_p={top_p}; {focus}; "
             f"timeout={voter.timeout_seconds:g}s"
         )

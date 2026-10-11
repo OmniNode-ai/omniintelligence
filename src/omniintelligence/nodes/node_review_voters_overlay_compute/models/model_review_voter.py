@@ -35,6 +35,25 @@ class ModelReviewVoter(BaseModel):
         description="An explicit OpenAI-compatible endpoint, for a voter no "
         "delegation backend describes.",
     )
+    overflow_endpoint_urls: tuple[str, ...] = Field(
+        default=(),
+        description="Ordered OpenAI-compatible endpoints tried after the "
+        "primary one, when it is full or unavailable: it answers 503 or 429, "
+        "refuses the connection, or sends no reply within "
+        "overflow_after_seconds. Each is the same voter on another host, with "
+        "its model read from that endpoint like the primary's. Empty (the "
+        "default) is the single-endpoint voter every pre-existing overlay "
+        "declares.",
+    )
+    overflow_after_seconds: float | None = Field(
+        default=None,
+        gt=0.0,
+        le=1800.0,
+        description="How long the primary endpoint, and each overflow "
+        "endpoint but the last, may take to reply before the next one is "
+        "tried. Only with overflow_endpoint_urls. Absent: timeout_seconds. "
+        "The last endpoint always gets timeout_seconds and max_retries.",
+    )
     model_id_source: Literal["served", "declared"] = Field(
         default="served",
         description="served: the endpoint's one /v1/models id, read at call "
@@ -61,6 +80,30 @@ class ModelReviewVoter(BaseModel):
             raise ValueError(
                 f"voter {self.voter_id!r} must name exactly one of backend_id "
                 "or endpoint_url"
+            )
+        if self.overflow_after_seconds is not None and not self.overflow_endpoint_urls:
+            raise ValueError(
+                f"voter {self.voter_id!r} sets overflow_after_seconds but "
+                "declares no overflow_endpoint_urls"
+            )
+        if self.overflow_after_seconds is not None and (
+            self.overflow_after_seconds > self.timeout_seconds
+        ):
+            raise ValueError(
+                f"voter {self.voter_id!r} overflow_after_seconds "
+                f"({self.overflow_after_seconds:g}) exceeds its "
+                f"timeout_seconds ({self.timeout_seconds:g}); the primary "
+                "endpoint could never be given up on in time"
+            )
+        blank = [url for url in self.overflow_endpoint_urls if not url.strip()]
+        if blank:
+            raise ValueError(
+                f"voter {self.voter_id!r} has a blank overflow_endpoint_urls entry"
+            )
+        if len(set(self.overflow_endpoint_urls)) != len(self.overflow_endpoint_urls):
+            raise ValueError(
+                f"voter {self.voter_id!r} repeats an overflow endpoint: "
+                f"{list(self.overflow_endpoint_urls)}"
             )
         if self.model_id_source == "declared" and not self.api_model_id:
             raise ValueError(

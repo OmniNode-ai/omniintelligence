@@ -157,6 +157,10 @@ def _resolve(
 
     resolved: list[ModelResolvedReviewVoter] = []
     for voter in overlay.voters:
+        overflow_base_urls = tuple(
+            _base_url(url, voter.voter_id, "overflow_endpoint_urls entry")
+            for url in voter.overflow_endpoint_urls
+        )
         if voter.backend_id is not None:
             backend = backends.get(voter.backend_id)
             if backend is None:
@@ -181,6 +185,7 @@ def _resolve(
                     voter=voter,
                     base_url=base_url,
                     source=f"backend {voter.backend_id} in {backend_name}",
+                    overflow_base_urls=overflow_base_urls,
                     backend_served_model_id=backend.served_model_id,
                 )
             )
@@ -190,7 +195,10 @@ def _resolve(
             )
             resolved.append(
                 ModelResolvedReviewVoter(
-                    voter=voter, base_url=base_url, source="endpoint_url"
+                    voter=voter,
+                    base_url=base_url,
+                    source="endpoint_url",
+                    overflow_base_urls=overflow_base_urls,
                 )
             )
     return tuple(resolved), overlay
@@ -233,6 +241,14 @@ def probe_target_lines(roster: ModelReviewVoterRoster) -> list[str]:
     for voter in roster.voters:
         host, port = voter.host_port
         lines.append(f"TARGET|{voter.voter_id}|{host}|{port}|{voter.base_url}")
+        # An overflow endpoint is a call target like any other: the workflows
+        # build the transport's one-host allowlist from these lines, so a
+        # target left out here would be refused at the moment it is needed.
+        for index, (host, port) in enumerate(voter.overflow_host_ports, start=1):
+            lines.append(
+                f"TARGET|{voter.voter_id}+overflow{index}|{host}|{port}|"
+                f"{voter.overflow_base_urls[index - 1]}"
+            )
     return lines
 
 

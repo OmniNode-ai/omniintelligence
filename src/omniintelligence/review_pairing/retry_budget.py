@@ -54,8 +54,11 @@ class ModelRetryBudgetResult:
         total_attempts: 1 + max_retries.
         backoff_seconds: Total exponential-backoff sleep across all retries.
         worst_case_seconds: total_attempts * per_attempt_timeout_seconds
-            + backoff_seconds -- the full wall-clock ceiling for this model
-            alone if every attempt times out.
+            + backoff_seconds + overflow_seconds -- the full wall-clock
+            ceiling for this model alone if every attempt times out.
+        overflow_seconds: Time spent giving up on every endpoint but the last
+            (one un-retried attempt each) before the last endpoint's own
+            attempts begin; 0 for a model with no overflow endpoints.
     """
 
     model_key: str
@@ -63,6 +66,7 @@ class ModelRetryBudgetResult:
     total_attempts: int
     backoff_seconds: float
     worst_case_seconds: float
+    overflow_seconds: float = 0.0
 
 
 def resolve_live_max_retries_default() -> int:
@@ -171,6 +175,11 @@ def compute_sequential_worst_case(
             config.timeout_seconds, resolved_max_retries
         )
         backoff_seconds = worst_case - (total_attempts * config.timeout_seconds)
+        overflow_seconds = len(config.overflow_urls) * min(
+            config.timeout_seconds,
+            config.overflow_after_seconds or config.timeout_seconds,
+        )
+        worst_case += overflow_seconds
         results.append(
             ModelRetryBudgetResult(
                 model_key=model_key,
@@ -178,6 +187,7 @@ def compute_sequential_worst_case(
                 total_attempts=total_attempts,
                 backoff_seconds=backoff_seconds,
                 worst_case_seconds=worst_case,
+                overflow_seconds=overflow_seconds,
             )
         )
     return results
@@ -188,8 +198,9 @@ def format_budget_breakdown(results: list[ModelRetryBudgetResult]) -> str:
     step output."""
     lines = [
         f"  {r.model_key}: {r.total_attempts} attempts x "
-        f"{r.per_attempt_timeout_seconds:g}s + {r.backoff_seconds:g}s backoff "
-        f"= {r.worst_case_seconds:g}s"
+        f"{r.per_attempt_timeout_seconds:g}s + {r.backoff_seconds:g}s backoff"
+        + (f" + {r.overflow_seconds:g}s overflow" if r.overflow_seconds else "")
+        + f" = {r.worst_case_seconds:g}s"
         for r in results
     ]
     return "\n".join(lines)

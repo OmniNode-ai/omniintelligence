@@ -23,6 +23,7 @@ import logging
 import os
 import re
 import socket
+import sys
 import time
 import urllib.parse
 from collections.abc import Mapping
@@ -56,6 +57,7 @@ from omniintelligence.review_pairing.prompts.adversarial_reviewer import (
     USER_PROMPT_TEMPLATE_PR,
 )
 from omniintelligence.review_pairing.served_model_resolver import (
+    ServedModelResolutionError,
     resolve_served_model_id,
 )
 
@@ -143,8 +145,24 @@ def _probe_tcp(
     return False
 
 
+def _probe_url(url: str) -> bool:
+    """TCP-probe one endpoint URL; a URL that does not parse is unreachable."""
+    try:
+        parsed = urllib.parse.urlparse(url)
+        host = parsed.hostname or ""
+        port = parsed.port or 80
+    except Exception:  # noqa: BLE001
+        return False
+    return _probe_tcp(host, port)
+
+
 def probe_local_reachability(model_keys: list[str]) -> dict[str, bool]:
-    """TCP-probe reachability for each local model endpoint in model_keys."""
+    """TCP-probe reachability for each local model endpoint in model_keys.
+
+    A model with overflow endpoints is reachable when ANY of its endpoints is,
+    primary first: an unreachable primary is exactly the case an overflow
+    endpoint exists for, so it must not drop the voter before the call.
+    """
     results: dict[str, bool] = {}
     for key in model_keys:
         if key not in _LOCAL_MODEL_KEYS:
@@ -158,14 +176,9 @@ def probe_local_reachability(model_keys: list[str]) -> dict[str, bool]:
             # empty host would be answered by whatever listens locally.
             results[key] = False
             continue
-        try:
-            parsed = urllib.parse.urlparse(url)
-            host = parsed.hostname or ""
-            port = parsed.port or 80
-        except Exception:  # noqa: BLE001
-            results[key] = False
-            continue
-        results[key] = _probe_tcp(host, port)
+        results[key] = any(
+            _probe_url(candidate) for candidate in (url, *config.overflow_urls)
+        )
     return results
 
 
@@ -390,6 +403,34 @@ def _build_extra_body(config: ModelEndpointConfig) -> dict[str, Any]:
     return extra_body
 
 
+# The base URL each model key's most recent successful call was served by
+# (OMN-20910 follow-up): the endpoint a vote came from, which differs from the
+# resolved one when an overflow endpoint answered. Calls are sequential.
+SERVED_BASE_URLS: dict[str, str] = {}
+
+
+def _failover_errors() -> tuple[type[BaseException], ...]:
+    """What moves a call to the next endpoint: full, unavailable or silent.
+
+    A rejected request (400/422), an authentication failure or a malformed
+    reply would fail the same way on the next endpoint, so they are not here.
+    """
+    from omnibase_infra.errors import (
+        InfraConnectionError,
+        InfraRateLimitedError,
+        InfraTimeoutError,
+        InfraUnavailableError,
+    )
+
+    return (
+        InfraConnectionError,
+        InfraRateLimitedError,
+        InfraTimeoutError,
+        InfraUnavailableError,
+        ServedModelResolutionError,
+    )
+
+
 async def call_model(
     system_prompt: str,
     user_prompt: str,
@@ -443,103 +484,142 @@ async def call_model(
     if not base_url:
         raise ValueError(endpoint_not_configured_message(model_key, config))
 
-    # OMN-14176 / OMN-12815: the OpenAI-compatible effect posts ``endpoint_url``
-    # VERBATIM and performs no base_url + path construction. Registry URLs are
-    # host:port only, so resolve the COMPLETE chat-completion URL here or the
-    # transport raises "endpoint_url is required and must be the COMPLETE
-    # contract endpoint URL" and every review DEGRADES with "all models failed".
-    _normalized_url = base_url.rstrip("/")
-    if _normalized_url.endswith("/chat/completions"):
-        endpoint_url = _normalized_url
-    else:
-        endpoint_url = f"{_normalized_url}/v1/chat/completions"
-
-    transport = TransportHolderLlmHttp(
-        target_name=f"ai-reviewer-{model_key}",
-        max_timeout_seconds=config.timeout_seconds + 30.0,
-    )
-    handler = HandlerLlmOpenaiCompatible(transport)
-
-    # OMN-15115: max_retries is an OPTIONAL per-model registry override.
-    # ``None`` means "no override" -- omit the kwarg entirely so
-    # ModelLlmInferenceRequest applies its own default (3), which mirrors the
-    # transport's historical hardcoded retry count. Only build an explicit
-    # kwargs dict entry when the registry declares a real override, so models
-    # that don't set it are provably unaffected by this change.
-    _request_kwargs: _OptionalRequestKwargs = {}
-    if config.max_retries is not None:
-        _request_kwargs["max_retries"] = config.max_retries
-    # OMN-20422: top_p is an OPTIONAL per-model registry override, sent only
-    # when declared, so an entry that sets none sends what it always sent.
-    if config.top_p is not None:
-        _request_kwargs["top_p"] = config.top_p
     # OMN-20422: a per-model review focus extends the system prompt for that
     # voter only. Empty (the default) leaves the prompt byte-identical.
     if config.review_focus:
         system_prompt = f"{system_prompt}\n\n## Reviewer Focus\n\n{config.review_focus}"
 
-    request = ModelLlmInferenceRequest(
-        base_url=base_url,
-        endpoint_url=endpoint_url,
-        operation_type=EnumLlmOperationType.CHAT_COMPLETION,
-        model=_resolve_api_model_id(model_key, config, base_url),
-        messages=({"role": "user", "content": user_prompt},),
-        system_prompt=system_prompt,
-        max_tokens=_DEFAULT_MAX_TOKENS,
-        temperature=(
-            config.temperature
-            if config.temperature is not None
-            else _DEFAULT_TEMPERATURE
-        ),
-        timeout_seconds=config.timeout_seconds,
-        **_request_kwargs,
-        # OMN-14176: enable_thinking is a DECLARATIVE per-model registry field
-        # (model_registry.yaml), not a code-baked constant -- flipping it for
-        # a model is a config edit, not a code change + redeploy. The
-        # extra_body passthrough itself (OMN-12816) already exists on this
-        # request model and is proven in production by node_generation_consumer
-        # (omnimarket) for SEA generation determinism; this reads the same
-        # config.enable_thinking the registry declares per model and threads
-        # it through. When a thinking-capable model is allowed to reason
-        # (enable_thinking=True), it can spend most of max_tokens on an
-        # unwrapped reasoning preamble (observed live: 3496/4096 tokens, no
-        # <think> opener but an unmatched </think> closer) that both defeats
-        # the strip-think-tags step below (needs both tags) and, on slower
-        # backends, risks consuming the full budget before an answer is ever
-        # generated. qwen3-review and local-studio-planner are configured
-        # enable_thinking: false in the registry; confirmed live on both
-        # vLLM (5090) and llama.cpp (4090) that the toggle suppresses the
-        # preamble entirely at generation time.
-        #
-        # OMN-17492: gpt-oss reads reasoning_effort from the same
-        # chat_template_kwargs; it is sent only when the registry declares it,
-        # so every other entry sends exactly what it sent before. (The model
-        # behind local-studio-planner has been Qwen3.6-35B-A3B since
-        # 2026-10-08, OMN-17427; see its registry entry for what that does to
-        # this field.) There is no cloud wire shape: private diffs go only to
-        # lab models (2026-09-25).
-        extra_body=_build_extra_body(config),
+    # Overflow (OMN-20910 follow-up): endpoints are tried in order. Every one
+    # but the last gets one attempt of at most ``overflow_after_seconds``, so a
+    # 503, a refused connection or a silent endpoint costs one attempt and the
+    # next endpoint is the retry. The last endpoint keeps the model's own
+    # timeout and ``max_retries``, and a model with no overflow has exactly one
+    # endpoint, which is that last one: its behaviour is unchanged.
+    endpoints = (base_url, *config.overflow_urls)
+    giveup_seconds = min(
+        config.timeout_seconds, config.overflow_after_seconds or config.timeout_seconds
     )
 
-    response = await handler.handle(request)
-    text = str(response.generated_text)
+    async def _attempt(
+        endpoint_base: str, timeout_seconds: float, max_retries: int | None
+    ) -> str:
+        # OMN-14176 / OMN-12815: the OpenAI-compatible effect posts ``endpoint_url``
+        # VERBATIM and performs no base_url + path construction. Registry URLs are
+        # host:port only, so resolve the COMPLETE chat-completion URL here or the
+        # transport raises "endpoint_url is required and must be the COMPLETE
+        # contract endpoint URL" and every review DEGRADES with "all models failed".
+        _normalized_url = endpoint_base.rstrip("/")
+        if _normalized_url.endswith("/chat/completions"):
+            endpoint_url = _normalized_url
+        else:
+            endpoint_url = f"{_normalized_url}/v1/chat/completions"
 
-    # Qwen3 models emit <think>...</think> reasoning blocks before the
-    # actual response. Strip through the LAST </think> to get the JSON
-    # content. Some backends / chat templates emit only the CLOSING </think>
-    # marker with no matching opener (observed live, OMN-14176) -- a paired-
-    # tag regex cannot match that case, so this takes everything after the
-    # last </think> regardless of whether an opener is present. Defense in
-    # depth in case extra_body above is ever bypassed or a future model
-    # reverts to emitting reasoning despite the toggle. A response with no
-    # </think> at all (reasoning never closed, e.g. truncated at max_tokens)
-    # has nothing to strip here -- that failure mode is addressed by
-    # suppressing reasoning at request time (extra_body above), not by
-    # post-hoc stripping.
-    if "</think>" in text:
-        text = text.rsplit("</think>", 1)[1].strip()
+        transport = TransportHolderLlmHttp(
+            target_name=f"ai-reviewer-{model_key}",
+            max_timeout_seconds=timeout_seconds + 30.0,
+        )
+        handler = HandlerLlmOpenaiCompatible(transport)
 
-    return text
+        _request_kwargs: _OptionalRequestKwargs = {}
+        if max_retries is not None:
+            _request_kwargs["max_retries"] = max_retries
+        # OMN-20422: top_p is an OPTIONAL per-model registry override, sent only
+        # when declared, so an entry that sets none sends what it always sent.
+        if config.top_p is not None:
+            _request_kwargs["top_p"] = config.top_p
+        request = ModelLlmInferenceRequest(
+            base_url=endpoint_base,
+            endpoint_url=endpoint_url,
+            operation_type=EnumLlmOperationType.CHAT_COMPLETION,
+            model=_resolve_api_model_id(model_key, config, endpoint_base),
+            messages=({"role": "user", "content": user_prompt},),
+            system_prompt=system_prompt,
+            max_tokens=_DEFAULT_MAX_TOKENS,
+            temperature=(
+                config.temperature
+                if config.temperature is not None
+                else _DEFAULT_TEMPERATURE
+            ),
+            timeout_seconds=timeout_seconds,
+            **_request_kwargs,
+            # OMN-14176: enable_thinking is a DECLARATIVE per-model registry field
+            # (model_registry.yaml), not a code-baked constant -- flipping it for
+            # a model is a config edit, not a code change + redeploy. The
+            # extra_body passthrough itself (OMN-12816) already exists on this
+            # request model and is proven in production by node_generation_consumer
+            # (omnimarket) for SEA generation determinism; this reads the same
+            # config.enable_thinking the registry declares per model and threads
+            # it through. When a thinking-capable model is allowed to reason
+            # (enable_thinking=True), it can spend most of max_tokens on an
+            # unwrapped reasoning preamble (observed live: 3496/4096 tokens, no
+            # <think> opener but an unmatched </think> closer) that both defeats
+            # the strip-think-tags step below (needs both tags) and, on slower
+            # backends, risks consuming the full budget before an answer is ever
+            # generated. qwen3-review and local-studio-planner are configured
+            # enable_thinking: false in the registry; confirmed live on both
+            # vLLM (5090) and llama.cpp (4090) that the toggle suppresses the
+            # preamble entirely at generation time.
+            #
+            # OMN-17492: gpt-oss reads reasoning_effort from the same
+            # chat_template_kwargs; it is sent only when the registry declares it,
+            # so every other entry sends exactly what it sent before. (The model
+            # behind local-studio-planner has been Qwen3.6-35B-A3B since
+            # 2026-10-08, OMN-17427; see its registry entry for what that does to
+            # this field.) There is no cloud wire shape: private diffs go only to
+            # lab models (2026-09-25).
+            extra_body=_build_extra_body(config),
+        )
+
+        response = await handler.handle(request)
+        text = str(response.generated_text)
+
+        # Qwen3 models emit <think>...</think> reasoning blocks before the
+        # actual response. Strip through the LAST </think> to get the JSON
+        # content. Some backends / chat templates emit only the CLOSING </think>
+        # marker with no matching opener (observed live, OMN-14176) -- a paired-
+        # tag regex cannot match that case, so this takes everything after the
+        # last </think> regardless of whether an opener is present. Defense in
+        # depth in case extra_body above is ever bypassed or a future model
+        # reverts to emitting reasoning despite the toggle. A response with no
+        # </think> at all (reasoning never closed, e.g. truncated at max_tokens)
+        # has nothing to strip here -- that failure mode is addressed by
+        # suppressing reasoning at request time (extra_body above), not by
+        # post-hoc stripping.
+        if "</think>" in text:
+            text = text.rsplit("</think>", 1)[1].strip()
+        return text
+
+    failover_errors = _failover_errors()
+    for index, endpoint_base in enumerate(endpoints):
+        is_last = index == len(endpoints) - 1
+        try:
+            text = await _attempt(
+                endpoint_base,
+                config.timeout_seconds if is_last else giveup_seconds,
+                config.max_retries if is_last else 0,
+            )
+        except failover_errors as exc:
+            if is_last:
+                raise
+            print(
+                f"Model '{model_key}' endpoint {index + 1} of {len(endpoints)} "
+                f"({endpoint_base}) is full or unavailable "
+                f"({type(exc).__name__}); trying overflow endpoint "
+                f"{endpoints[index + 1]}.",
+                file=sys.stderr,
+                flush=True,
+            )
+            continue
+        SERVED_BASE_URLS[model_key] = endpoint_base
+        if index:
+            print(
+                f"Model '{model_key}' served by overflow endpoint {index} "
+                f"({endpoint_base}).",
+                file=sys.stderr,
+                flush=True,
+            )
+        return text
+    raise AssertionError("unreachable: the last endpoint returns or raises")
 
 
 def try_parse_review_response(raw_text: str) -> list[dict[str, Any]] | None:
