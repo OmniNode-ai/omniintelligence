@@ -43,9 +43,6 @@ entries:
     family: M
     content_sha1: bdcc05754defea4c38f4ff12c870ac6360c9f81d
   - path: src/omniintelligence/models/events/model_llm_call_completed_event.py
-    family: E-LAN
-    content_sha1: d8ac31827906b31f73ce9ee4809cdee26f9e3b90
-  - path: src/omniintelligence/models/events/model_llm_call_completed_event.py
     family: M
     content_sha1: 12c4084791f6e4e3d321f3ebcb0ef5956c8afa47
   - path: src/omniintelligence/nodes/node_chunk_classifier_compute/node_tests/test_handler_chunk_classifier.py
@@ -54,9 +51,6 @@ entries:
   - path: src/omniintelligence/nodes/node_contract_eval_compute/contract.yaml
     family: M
     content_sha1: 8bfa2e249eac086dd5ba76998a8e7fad795e856e
-  - path: src/omniintelligence/nodes/node_embedding_generation_effect/contract.yaml
-    family: E-LAN
-    content_sha1: 03e6a4a54e4b363254b8cb80f2c3c06c9a5f156c
   - path: src/omniintelligence/nodes/node_embedding_generation_effect/contract.yaml
     family: M
     content_sha1: 0037b8a892c077a1c41ff0c2a5c857a703dc806e
@@ -85,12 +79,6 @@ entries:
     family: M
     content_sha1: bfd5d7727fdf1c19dc7988979812620dfe8b6c7d
   - path: src/omniintelligence/nodes/node_gmail_intent_evaluator_effect/contract.yaml
-    family: E-LAN
-    content_sha1: 2b798e955aebeb7fe3fef0c39b16cb6c8e043e2e
-  - path: src/omniintelligence/nodes/node_gmail_intent_evaluator_effect/contract.yaml
-    family: M
-    content_sha1: 2b798e955aebeb7fe3fef0c39b16cb6c8e043e2e
-  - path: src/omniintelligence/nodes/node_gmail_intent_evaluator_effect/contract.yaml
     family: M
     content_sha1: 6ec1dbd793100b2e2d076f9f74b56b5e69161e25
   - path: src/omniintelligence/nodes/node_gmail_intent_evaluator_effect/handlers/handler_gmail_intent_evaluate.py
@@ -99,15 +87,6 @@ entries:
   - path: src/omniintelligence/nodes/node_gmail_intent_evaluator_effect/handlers/handler_gmail_intent_evaluate.py
     family: M
     content_sha1: b8e0f32ef08ade0be0f49a78c3b66ee2f9b91e38
-  - path: src/omniintelligence/nodes/node_llm_routing_decision_effect/node_tests/conftest.py
-    family: E-LAN
-    content_sha1: 4611d265b487c00abfb08d9466e481c360fadc03
-  - path: src/omniintelligence/nodes/node_llm_routing_decision_effect/node_tests/conftest.py
-    family: E-LAN
-    content_sha1: 4611d265b487c00abfb08d9466e481c360fadc03
-  - path: src/omniintelligence/nodes/node_navigation_retriever_effect/contract.yaml
-    family: E-LAN
-    content_sha1: 03e6a4a54e4b363254b8cb80f2c3c06c9a5f156c
   - path: src/omniintelligence/nodes/node_navigation_retriever_effect/contract.yaml
     family: M
     content_sha1: 0037b8a892c077a1c41ff0c2a5c857a703dc806e
@@ -156,18 +135,6 @@ entries:
   - path: src/omniintelligence/review_pairing/adapters/adapter_ai_reviewer.py
     family: M
     content_sha1: 258569b23ba16397589ce2ba0dcf991cbf9e3aa3
-  - path: src/omniintelligence/review_pairing/model_registry.yaml
-    family: E
-    content_sha1: 46545d286be9855cf1a82df23c2a4534507a186b
-  - path: src/omniintelligence/review_pairing/model_registry.yaml
-    family: E
-    content_sha1: 9dfbccccada26c4f3715c4644c58b9d4d2405a62
-  - path: src/omniintelligence/review_pairing/model_registry.yaml
-    family: E-LAN
-    content_sha1: 46545d286be9855cf1a82df23c2a4534507a186b
-  - path: src/omniintelligence/review_pairing/model_registry.yaml
-    family: E-LAN
-    content_sha1: 9dfbccccada26c4f3715c4644c58b9d4d2405a62
   - path: src/omniintelligence/review_pairing/model_registry.yaml
     family: M
     content_sha1: 0ac25a0c1cf6a878547190da9120c8a4684d5ae2
@@ -267,27 +234,6 @@ entries:
   - path: tests/unit/nodes/node_navigation_retriever_effect/test_model_navigation_retrieve_input.py
     family: E-LAN
     content_sha1: 2bae5bf932c912d09d6f95133228b28d6552c032
-  - path: tests/unit/review_pairing/adapters/test_adapter_ai_reviewer.py
-    family: E-LAN
-    content_sha1: 31533901afccf02fe0c08ad74f5db8ea13b86cdd
-  - path: tests/unit/review_pairing/adapters/test_adapter_ai_reviewer_fallback.py
-    family: E-LAN
-    content_sha1: 6fa43d4f325d308b04f6b4569d79a766ecd4b320
-  - path: tests/unit/review_pairing/test_gpt_oss_reviewer_registered_omn17492.py
-    family: E-LAN
-    content_sha1: 119904ada2e1ec8f07d25e12e88fc0913a9c29bf
-  - path: tests/unit/review_pairing/test_model_registry_loader.py
-    family: E-LAN
-    content_sha1: 47f257db9c3391820e57927e45f64ff6e0892ded
-  - path: tests/unit/review_pairing/test_model_registry_loader.py
-    family: E-LAN
-    content_sha1: c3d321c14bd19f782e1f712bf587174bb921ed8e
-  - path: tests/unit/review_pairing/test_quorum_distinct_reviewers_omn17492.py
-    family: E-LAN
-    content_sha1: 6961b2be80b83e061afeaf31ed4c5d387bf5a6a8
-  - path: tests/unit/review_pairing/test_quorum_distinct_reviewers_omn17492.py
-    family: E-LAN
-    content_sha1: 6ed3d1520e438641b563cffc3ca4dd9f95e720c5
   - path: tests/unit/rl/test_export.py
     family: E-LAN
     content_sha1: 6dd6860e5b1d6a8c974ae576f91fb442a611da17

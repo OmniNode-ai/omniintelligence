@@ -203,7 +203,7 @@ def test_adapter_sends_the_resolved_id_for_a_served_entry(
     config = MODEL_REGISTRY["qwen3-review"]
     assert config.api_model_id == ""
 
-    resolved = _resolve_api_model_id("qwen3-review", config, config.default_url)
+    resolved = _resolve_api_model_id("qwen3-review", config, "http://reviewer.test:1")
     assert resolved == "whatever-is-served-today"
 
 
