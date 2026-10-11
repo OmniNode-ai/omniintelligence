@@ -91,6 +91,23 @@ _UNAVAILABLE_ERRORS = (
     ),
     # The gate's TCP reachability probe failed, so the voter was never called.
     re.compile(r"unreachable: the TCP reachability probe of "),
+    # The served-model-id read (GET /v1/models) that precedes the review call
+    # found the endpoint unavailable: a gateway or unavailable status, a
+    # refused, unroutable or dropped connection, or no answer in time. urllib
+    # renders each of these without the reply body and the URL holds no space,
+    # so the cause is matched right after the URL and nothing an endpoint
+    # returns can make another failure match.
+    re.compile(
+        r"could not read the served model id from \S+: (?:"
+        r"HTTP Error (?:502|503|504): "
+        r"|<urlopen error \[Errno \d+\] (?:Connection refused|No route to host"
+        r"|Network is unreachable|Connection reset by peer)>\. "
+        r"|<urlopen error timed out>\. "
+        r"|timed out\. "
+        r"|\[Errno \d+\] Connection reset by peer\. "
+        r"|Remote end closed connection without response\. "
+        r")"
+    ),
 )
 _FUTURE_SKEW = timedelta(seconds=300)
 _BLOCK = re.compile(
@@ -160,7 +177,11 @@ def is_timeout_failure(result: ModelExternalReviewResult) -> bool:
 
 
 def is_unavailable_failure(result: ModelExternalReviewResult) -> bool:
-    """True when the voter's endpoint was unavailable (502/503/504, no connection)."""
+    """True when the voter's endpoint was unavailable (502/503/504, no connection).
+
+    Covers the review call itself, the gate's reachability probe, and the
+    served-model-id read that precedes the call for a ``served`` voter.
+    """
     error = result.error or ""
     return (not result.success) and any(p.match(error) for p in _UNAVAILABLE_ERRORS)
 

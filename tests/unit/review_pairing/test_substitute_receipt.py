@@ -23,8 +23,12 @@ same rules; the error strings come from the real transport error classes.
 
 from __future__ import annotations
 
+import http.server
 import json
+import socket
 import textwrap
+import threading
+import time
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -63,6 +67,10 @@ from omniintelligence.review_pairing.models_external_review import (
 )
 from omniintelligence.review_pairing.prompts.adversarial_reviewer import (
     PROMPT_VERSION,
+)
+from omniintelligence.review_pairing.served_model_resolver import (
+    ServedModelResolutionError,
+    resolve_served_model_id,
 )
 
 _CLI = "omniintelligence.review_pairing.cli_review"
@@ -741,3 +749,148 @@ class TestFailureKind:
             )
         assert not result.success
         assert substitutable_failure(result) == kind
+
+
+class _StatusHandler(http.server.BaseHTTPRequestHandler):
+    """Answers every GET with the server's configured status and body."""
+
+    def do_GET(self) -> None:
+        server = self.server
+        assert isinstance(server, _StatusServer)
+        if server.delay_seconds:
+            time.sleep(server.delay_seconds)
+        self.send_response(server.status)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(server.body.encode())
+
+
+class _StatusServer(http.server.ThreadingHTTPServer):
+    daemon_threads = True
+
+    def __init__(self, status: int, body: str, delay_seconds: float) -> None:
+        super().__init__(("127.0.0.1", 0), _StatusHandler)
+        self.status = status
+        self.body = body
+        self.delay_seconds = delay_seconds
+
+
+def _served_model_error(
+    status: int | None, *, body: str = "Service Unavailable", delay: float = 0.0
+) -> str:
+    """The error the review adapter records when the real /v1/models read fails.
+
+    ``status=None`` reads from a port nothing listens on, so the connection is
+    refused. Every other case runs a loopback server that answers ``status``.
+    """
+    if status is None:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.bind(("127.0.0.1", 0))
+            port = sock.getsockname()[1]
+        url = f"http://127.0.0.1:{port}/v1/chat/completions"
+        server = None
+    else:
+        server = _StatusServer(status, body, delay)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        url = f"http://127.0.0.1:{server.server_address[1]}/v1/chat/completions"
+    try:
+        resolve_served_model_id(url, timeout_seconds=0.5, use_cache=False)
+    except ServedModelResolutionError as exc:
+        return _transport_error(exc)
+    finally:
+        if server is not None:
+            server.shutdown()
+            server.server_close()
+    raise AssertionError(f"the /v1/models read of {url} did not fail")
+
+
+@pytest.mark.unit
+class TestServedModelReadFailure:
+    """A ``served`` voter can be lost before its review call (OMN-20947).
+
+    The gate reads GET /v1/models first; a Studio that answers 503 there, or
+    refuses the connection, fails the voter with the resolver's error, not the
+    transport's. Each error here comes from a real urllib read of a loopback
+    server, so the text matched is the text the gate records.
+    """
+
+    @pytest.mark.parametrize(
+        ("status", "delay"),
+        [
+            pytest.param(503, 0.0, id="models-503"),
+            pytest.param(502, 0.0, id="models-502"),
+            pytest.param(504, 0.0, id="models-504"),
+            pytest.param(None, 0.0, id="models-connection-refused"),
+            pytest.param(200, 2.0, id="models-no-answer-in-time"),
+        ],
+    )
+    def test_an_unavailable_models_endpoint_is_an_unavailable_voter(
+        self, status: int | None, delay: float
+    ) -> None:
+        error = _served_model_error(status, delay=delay)
+        assert error.startswith("could not read the served model id from ")
+        assert substitutable_failure(_fail("second", error)) == FAILURE_UNAVAILABLE
+
+    @pytest.mark.parametrize(
+        ("status", "body"),
+        [
+            pytest.param(500, "HTTP Error 503: ", id="models-500-quoting-503"),
+            pytest.param(404, "not found", id="models-404"),
+            pytest.param(401, "unauthorized", id="models-401"),
+            pytest.param(200, "not json", id="models-not-json"),
+            pytest.param(
+                200,
+                json.dumps({"data": [{"id": "a"}, {"id": "b"}]}),
+                id="models-two-served",
+            ),
+        ],
+    )
+    def test_any_other_models_failure_is_not_substitutable(
+        self, status: int, body: str
+    ) -> None:
+        error = _served_model_error(status, body=body)
+        assert substitutable_failure(_fail("second", error)) is None
+
+    @pytest.mark.parametrize(
+        "status",
+        [pytest.param(503, id="models-503"), pytest.param(None, id="refused")],
+    )
+    def test_the_gate_substitutes_clean_receipts_for_it(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+        status: int | None,
+    ) -> None:
+        error = _served_model_error(status)
+        code, document, _ = _run_gate(
+            tmp_path,
+            [_receipt_review("codex"), _receipt_review("opus")],
+            second_error=error,
+        )
+
+        assert code == 0
+        records = document["substitute_votes"]
+        assert isinstance(records, list)
+        (record,) = records
+        assert record["failure"] == FAILURE_UNAVAILABLE
+        assert record["replaced_error"] == error
+        assert (
+            "Substitute vote: voter 'second' was unavailable" in capsys.readouterr().err
+        )
+
+    def test_the_same_receipt_rules_hold(self, tmp_path: Path) -> None:
+        """A receipt for another head is refused for this failure as well."""
+        code, document, _ = _run_gate(
+            tmp_path,
+            [_receipt_review("codex"), _receipt_review("opus", head=_OTHER)],
+            second_error=_served_model_error(503),
+        )
+        assert code == 2
+        assert not document.get("substitute_votes")
+
+    def test_without_receipts_the_gate_stays_red(self, tmp_path: Path) -> None:
+        code, document, _ = _run_gate(
+            tmp_path, [], second_error=_served_model_error(503)
+        )
+        assert code == 2
+        assert not document.get("substitute_votes")
