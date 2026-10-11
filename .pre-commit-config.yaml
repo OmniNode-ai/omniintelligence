@@ -721,7 +721,7 @@ repos:
         exclude: ^tests/|^examples/|^scripts/
 
       # OMN-10414 / OMN-13296: block skip-token bypasses in local hooks.
-      # Escape hatch: add '# skip-token-allowed: <receipt-id>' with a traceable approval receipt.
+      # There is no escape hatch (OMN-20074): a skip token is rejected whatever comment accompanies it.
       - id: reject-deploy-gate-skip-token
         name: Reject skip-gate bypass tokens (OMN-10414)
         entry: scripts/validation/reject_deploy_gate_skip_token.sh
