@@ -55,7 +55,7 @@ class MockRoutingFeedbackRepository:
 
     The upsert behaviour mirrors the real SQL (OMN-2622 schema):
     - First call for a given session_id inserts a row.
-    - Subsequent calls update outcome + processed_at (no duplicate rows).
+    - Subsequent calls update processed_at (no duplicate rows).
     - Skipped events (feedback_status == "skipped") do not call execute().
 
     Attributes:
@@ -98,23 +98,16 @@ class MockRoutingFeedbackRepository:
 
         # Handle upsert: INSERT ... ON CONFLICT (session_id) DO UPDATE
         if "INSERT INTO routing_feedback_scores" in query:
-            if len(args) >= 3:
+            if len(args) >= 2:
                 session_id = args[0]
-                outcome = args[1]
-                processed_at = args[2]
+                processed_at = args[1]
                 if session_id in self.rows:
-                    # ON CONFLICT DO UPDATE: update outcome + processed_at
-                    self.rows[session_id].update(
-                        {
-                            "outcome": outcome,
-                            "processed_at": processed_at,
-                        }
-                    )
+                    # ON CONFLICT DO UPDATE: update processed_at
+                    self.rows[session_id].update({"processed_at": processed_at})
                     return "UPDATE 1"
                 else:
                     self.rows[session_id] = {
                         "session_id": session_id,
-                        "outcome": outcome,
                         "processed_at": processed_at,
                         "created_at": processed_at,
                     }

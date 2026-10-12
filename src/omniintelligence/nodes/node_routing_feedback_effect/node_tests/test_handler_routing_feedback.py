@@ -93,7 +93,7 @@ class TestHappyPath:
         assert mock_repository.row_count() == 1
         row = mock_repository.get_row(sample_session_id)
         assert row is not None
-        assert row["outcome"] == "success"
+        assert row["session_id"] == sample_session_id
 
     @pytest.mark.asyncio
     async def test_processed_at_is_recent(
@@ -420,7 +420,7 @@ class TestKafkaPublishFailure:
 
         row = mock_repository.get_row(sample_session_id)
         assert row is not None
-        assert row["outcome"] == "success"
+        assert row["session_id"] == sample_session_id
 
 
 # =============================================================================
