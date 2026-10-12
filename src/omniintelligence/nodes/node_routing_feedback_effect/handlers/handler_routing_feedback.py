@@ -71,21 +71,20 @@ DLQ_TOPIC: Final[str] = f"{TOPIC_ROUTING_FEEDBACK_PROCESSED}.dlq"
 
 # Idempotent upsert for routing feedback scores.
 # Idempotency key: session_id
-# ON CONFLICT: update outcome + processed_at on re-delivery.
+# ON CONFLICT: update processed_at on re-delivery.
+# The table has no ``outcome`` column (migration 018 dropped it), so the
+# event's outcome rides on the processed event only.
 # Parameters:
 #   $1 = session_id (text)
-#   $2 = outcome (text)
-#   $3 = processed_at (timestamptz)
+#   $2 = processed_at (timestamptz)
 SQL_UPSERT_ROUTING_FEEDBACK = """
 INSERT INTO routing_feedback_scores (
     session_id,
-    outcome,
     processed_at
 )
-VALUES ($1, $2, $3)
+VALUES ($1, $2)
 ON CONFLICT (session_id)
 DO UPDATE SET
-    outcome = EXCLUDED.outcome,
     processed_at = EXCLUDED.processed_at
 ;"""
 
@@ -195,11 +194,10 @@ async def _process_routing_feedback_inner(
 
     # Step 1: Upsert to routing_feedback_scores with idempotency key session_id.
     # ON CONFLICT (session_id) DO UPDATE ensures at-least-once Kafka delivery
-    # is safe — re-delivering the same session updates the outcome + processed_at.
+    # is safe — re-delivering the same session updates processed_at.
     status = await repository.execute(
         SQL_UPSERT_ROUTING_FEEDBACK,
         event.session_id,
-        event.outcome,
         now,
     )
 
