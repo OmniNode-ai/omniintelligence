@@ -261,6 +261,7 @@ async def run_review(
     *,
     review_type: str = "plan",
     persona: ModelPersonaConfig | None = None,
+    repository: str | None = None,
 ) -> ModelMultiReviewResult:
     """Execute multi-model review.
 
@@ -272,6 +273,8 @@ async def run_review(
         review_type: "plan" for plan review, "pr" for PR diff review.
         persona: Optional persona config. When provided, persona content is
             prepended to the system prompt for each LLM call.
+        repository: Repository sent to each LLM voter as metadata.repository
+            (OMN-20106). None sends no metadata.
 
     Returns:
         Aggregated ModelMultiReviewResult.
@@ -311,6 +314,7 @@ async def run_review(
                 model=model_key,
                 review_type=review_type,
                 system_prompt_prefix=persona.content if persona is not None else None,
+                repository=repository,
             )
         elapsed = time.monotonic() - call_started_at
         # OMN-17492: record WHICH reviewer this key is (endpoint + model), so
@@ -941,7 +945,13 @@ def main(argv: list[str] | None = None) -> int:
 
     # Run review.
     result = asyncio.run(
-        run_review(review_content, model_keys, review_type=review_type, persona=persona)
+        run_review(
+            review_content,
+            model_keys,
+            review_type=review_type,
+            persona=persona,
+            repository=args.repo,
+        )
     )
     result = _record_unreachable(result, skipped)
     if roster is not None:

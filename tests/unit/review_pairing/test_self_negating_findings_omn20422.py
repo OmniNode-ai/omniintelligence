@@ -215,7 +215,11 @@ class TestQuorum:
         }
 
         async def _call(
-            system_prompt: str, user_prompt: str, model_key: str = ""
+            system_prompt: str,
+            user_prompt: str,
+            model_key: str = "",
+            *,
+            repository: str | None = None,
         ) -> str:
             return replies[model_key]
 
