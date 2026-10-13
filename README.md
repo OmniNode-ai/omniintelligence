@@ -45,7 +45,7 @@ OmniIntelligence is the intelligence platform for the ONEX ecosystem. It provide
 - Claude Code hook event processing (`UserPromptSubmit`, `Stop`, and others)
 - REST API for pattern query by enforcement nodes (`GET /api/v1/patterns`)
 
-For the full node list see [Node Inventory](https://github.com/OmniNode-ai/knowledge-base/blob/main/reference/omniintelligence-node-inventory.md).
+For the full node list see [Node Inventory](https://github.com/OmniNode-ai/knowledge_base/blob/main/reference/omniintelligence-node-inventory.md).
 
 ---
 
@@ -131,7 +131,7 @@ OmniIntelligence is built on the ONEX Four-Node Architecture. Nodes are thin she
 
 **Dash integration boundary (architectural rule):** omnidash must never query this repo's database directly — the intended path is Kafka topics projected into `omnidash_analytics`. This repo's producer side is verified live; the omnidash-side consumer wiring is not (tracked on OMN-16577).
 
-For topology diagrams and full pipeline details see [ONEX Four-Node Architecture](https://github.com/OmniNode-ai/knowledge-base/blob/main/architecture/omniintelligence-four-node-architecture.md).
+For topology diagrams and full pipeline details see [ONEX Four-Node Architecture](https://github.com/OmniNode-ai/knowledge_base/blob/main/architecture/omniintelligence-four-node-architecture.md).
 
 ---
 
@@ -142,13 +142,13 @@ architecture page for OmniIntelligence lives in the knowledge base — that is t
 single home for docs, and this README plus [CLAUDE.md](CLAUDE.md) are the only
 narrative files that stay here.
 
-**[knowledge-base](https://github.com/OmniNode-ai/knowledge-base)** (public) — platform architecture:
+**[knowledge-base](https://github.com/OmniNode-ai/knowledge_base)** (public) — platform architecture:
 
 | Page | Purpose |
 |------|---------|
-| [ONEX Four-Node Architecture](https://github.com/OmniNode-ai/knowledge-base/blob/main/architecture/omniintelligence-four-node-architecture.md) | Node topology, data flow, pipeline diagrams |
-| [Node inventory](https://github.com/OmniNode-ai/knowledge-base/blob/main/reference/omniintelligence-node-inventory.md) | Full node inventory sourced from `pyproject.toml` |
-| [Event surface](https://github.com/OmniNode-ai/knowledge-base/blob/main/reference/omniintelligence-event-surface.md) | Produced, consumed, dashboard-visible, and deprecated topics |
+| [ONEX Four-Node Architecture](https://github.com/OmniNode-ai/knowledge_base/blob/main/architecture/omniintelligence-four-node-architecture.md) | Node topology, data flow, pipeline diagrams |
+| [Node inventory](https://github.com/OmniNode-ai/knowledge_base/blob/main/reference/omniintelligence-node-inventory.md) | Full node inventory sourced from `pyproject.toml` |
+| [Event surface](https://github.com/OmniNode-ai/knowledge_base/blob/main/reference/omniintelligence-event-surface.md) | Produced, consumed, dashboard-visible, and deprecated topics |
 
 New markdown outside the allowed set is rejected by the `kb-doc-gate` CI check
 (config: [`.kb-doc-gate.yaml`](.kb-doc-gate.yaml)); write the page in the

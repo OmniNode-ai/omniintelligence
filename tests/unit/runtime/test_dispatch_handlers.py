@@ -32,6 +32,10 @@ from uuid import UUID, uuid4
 
 import pytest
 
+from omniintelligence.nodes.node_pattern_storage_effect.models import (
+    EnumPatternState,
+    ModelPatternStoredEvent,
+)
 from omniintelligence.protocols import (
     ProtocolIdempotencyStore,
     ProtocolIntentClassifier,
@@ -1759,7 +1763,10 @@ class TestPatternStorageDispatchHandler:
         mock_kafka.publish.assert_called_once()
         kafka_call = mock_kafka.publish.call_args
         assert kafka_call.kwargs["key"] == str(pattern_id)
-        assert kafka_call.kwargs["value"]["event_type"] == "PatternStored"
+        published = ModelPatternStoredEvent.model_validate(kafka_call.kwargs["value"])
+        assert published.pattern_id == pattern_id
+        assert published.domain == "python"
+        assert published.state == EnumPatternState.CANDIDATE
 
     @pytest.mark.asyncio
     async def test_pattern_storage_handler_missing_pattern_id(

@@ -1,0 +1,202 @@
+---
+schema_version: "1.0.0"
+ticket_id: "OMN-20074"
+title: "Repo-owned DoD evidence caller for omniintelligence, S5 shadow count"
+summary: "omniintelligence owns its DoD evidence contract and delegates verification to the receipt-gate
+  reusable in caller-evidence mode, in shadow mode with the OCC difference step on, so every pull request
+  records the new-path verdict beside OCC's verdict on the same head. No repo-evidence context is required
+  and no OCC caller is removed. A focused test checks the base-branch caller wiring, the immutable pin,
+  the shadow inputs and this contract."
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: "req-repo-evidence-gate"
+    statement: |-
+      omniintelligence must wire a base-branch caller evidence gate that runs beside OCC in shadow mode, and bind every repo-owned acceptance criterion to runnable test evidence.
+    acceptance:
+      - id: "AC1"
+        statement: |-
+          AC1: omniintelligence carries a caller workflow for the receipt-gate's caller-evidence mode that runs from the base branch (pull_request_target) on dev and main with read-only permissions and no secrets -- falsifier: uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k base_branch
+      - id: "AC2"
+        statement: |-
+          AC2: the caller pins the reusable by the full sha of the omnibase_core#1914 squash commit, the pin omnibase_core's own caller uses, with a verifier-version of 0.4.305 or later -- falsifier: uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k current_receipt_gate
+      - id: "AC3"
+        statement: |-
+          AC3: the caller sets evidence-source caller, shadow "true" and compare-with-occ "true", so the S5 shadow count records the new-path verdict beside OCC's on the same head and no repo-evidence check-run concludes anything but success -- falsifier: uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k shadow_mode
+      - id: "AC4"
+        statement: |-
+          AC4: the shadow caller removes no OCC caller: call-occ-autobind.yml and call-occ-companion-effect.yml stay until the S6 ruling -- falsifier: uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k removes_no_occ_caller
+      - id: "AC5"
+        statement: |-
+          AC5: every acceptance criterion of this contract names a falsifier that is also a dod_evidence check and runs an existing test file -- falsifier: uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k falsifier_per_criterion
+  - id: "req-precommit-hooks-from-core"
+    statement: |-
+      omniintelligence's no-hardcoded-topics and no-untracked-todos pre-commit hooks come from omnibase_core, which exports them under the same hook ids, instead of from onex_change_control, with every exclude and setting unchanged.
+    acceptance:
+      - id: "AC6"
+        statement: |-
+          AC6: .pre-commit-config.yaml declares no-hardcoded-topics and no-untracked-todos once each, in an omnibase_core block pinned to a full commit sha, with each exclude and setting unchanged and no onex_change_control block -- falsifier: uv run pytest tests/ci/test_precommit_hooks_core_omn20074.py -q
+      - id: "AC7"
+        statement: |-
+          AC7: omnibase_core's no-untracked-todos handler reproduces the printed output and exit code that onex_change_control's check-todo-format at rev 8d7e85bc00e7f1b1306d1cb40949be1ab6e7e91a recorded for 17 replayed cases -- falsifier: uv run pytest tests/ci/test_todo_format_replay_omn20074.py -q
+  - id: "req-shadow-occ-context"
+    statement: |-
+      omniintelligence's S5 shadow must read OCC's verdict from a check-run this repository actually reports, so a run records a verdict instead of waiting out the lookup and reading not_compared.
+    acceptance:
+      - id: "AC8"
+        statement: |-
+          AC8: the caller passes occ-context equal to call-reject-skip-token / occ-preflight / eligibility, the nested name the reject-skip caller job reports, instead of the reusable's default occ-preflight / eligibility that this repository never reports -- falsifier: uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k occ_context
+  - id: "req-contract-validation-core"
+    statement: |-
+      omniintelligence's contract-validation workflow validates the branch ticket's contract with omnibase_core's ModelTicketContract at the locked core version instead of the onex_change_control validators, under unchanged workflow and job names.
+    acceptance:
+      - id: "AC10"
+        statement: |-
+          AC10: .github/workflows/contract-validation.yml names no onex_change_control (no auth preflight, no validator checkout, no validate-yaml), validates with omnibase_core's ModelTicketContract at the uv.lock core version that carries the binds_ac rules (0.47.39 or later), and keeps its workflow name Contract Validation and its job name contract-validation -- falsifier: uv run pytest tests/ci/test_contract_validation_core_validator_omn20074.py -q -k test_workflow_
+      - id: "AC11"
+        statement: |-
+          AC11: the contract-validation step's own run block passes this repository's branch-ticket contract, skips a branch with no ticket or no contract, and fails a planted binds_ac entry that is not a criterion label, a planted binds_ac item of check_type command_exit_0 and a planted malformed contract, each naming the file, the first two also the rule -- falsifier: uv run pytest tests/ci/test_contract_validation_core_validator_omn20074.py -q
+  - id: "req-arch-handler-compliance-from-core"
+    statement: |-
+      omniintelligence's handler contract compliance job runs the validator from omnibase_core, installed at a full commit sha, with the same flags and the same allowlist file, instead of installing onex_change_control.
+    acceptance:
+      - id: "AC12"
+        statement: |-
+          AC12: the handler-contract-compliance job of omni-standards-compliance.yml installs omnibase-core at a full sha, runs python -m omnibase_core.handlers.handler_arch_handler_contract_compliance --repo-root . --allowlist-path arch-handler-contract-compliance-allowlist.yaml, and installs nothing from onex_change_control -- falsifier: uv run pytest tests/ci/test_arch_handler_compliance_core_omn20074.py -q
+evidence_requirements:
+  - kind: "tests"
+    description: "The caller workflow has the required base-branch trigger and read-only permissions."
+    command: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k base_branch"
+  - kind: "tests"
+    description: "The caller pins the current receipt-gate by full sha."
+    command: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k current_receipt_gate"
+  - kind: "tests"
+    description: "The caller runs in shadow mode and compares with OCC."
+    command: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k shadow_mode"
+  - kind: "tests"
+    description: "The OCC callers stay."
+    command: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k removes_no_occ_caller"
+  - kind: "tests"
+    description: "Every criterion of this contract is bound to a runnable check."
+    command: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k falsifier_per_criterion"
+  - kind: "tests"
+    description: "Migrated hooks sit in an omnibase_core block at a full sha, excludes unchanged."
+    command: "uv run pytest tests/ci/test_precommit_hooks_core_omn20074.py -q"
+  - kind: "tests"
+    description: "The omnibase_core todo-format handler replays the recorded change-control decisions."
+    command: "uv run pytest tests/ci/test_todo_format_replay_omn20074.py -q"
+  - kind: "tests"
+    description: "The shadow's OCC lookup names a job this repository reports."
+    command: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k occ_context"
+  - kind: "tests"
+    description: "The contract-validation workflow reads no onex_change_control, validates with omnibase_core
+      at the locked core and keeps its names."
+    command: "uv run pytest tests/ci/test_contract_validation_core_validator_omn20074.py -q -k test_workflow_"
+  - kind: "tests"
+    description: "The contract-validation step passes this repository's branch contract and refuses both
+      planted binds_ac shapes and a malformed contract."
+    command: "uv run pytest tests/ci/test_contract_validation_core_validator_omn20074.py -q"
+    description: "The handler contract compliance job installs omnibase_core at a full sha and runs its
+      validator with the same flags and allowlist."
+    command: "uv run pytest tests/ci/test_arch_handler_compliance_core_omn20074.py -q"
+emergency_bypass:
+  enabled: false
+  justification: ""
+  follow_up_ticket_id: ""
+dod_evidence:
+  - id: "dod-repo-evidence-ac1"
+    description: "The caller workflow has the required base-branch trigger and read-only permissions."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k base_branch"
+        cwd: "${OMNI_HOME}/omniintelligence"
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k bare_call_with_no_secrets"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC1"]
+  - id: "dod-repo-evidence-ac2"
+    description: "The caller pins the current receipt-gate by full sha."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k current_receipt_gate"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC2"]
+  - id: "dod-repo-evidence-ac3"
+    description: "The caller runs in shadow mode and compares with OCC."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k shadow_mode"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC3"]
+  - id: "dod-repo-evidence-ac4"
+    description: "The OCC callers stay."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k removes_no_occ_caller"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC4"]
+  - id: "dod-repo-evidence-ac5"
+    description: "Every criterion of this contract is bound to a runnable check."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k falsifier_per_criterion"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC5"]
+  - id: "dod-precommit-hooks-from-core-ac6"
+    description: "Migrated hooks sit in an omnibase_core block at a full sha, excludes unchanged."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_precommit_hooks_core_omn20074.py -q"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC6"]
+  - id: "dod-todo-format-replay-ac7"
+    description: "The omnibase_core todo-format handler replays the recorded change-control decisions."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_todo_format_replay_omn20074.py -q"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC7"]
+  - id: "dod-shadow-occ-context-ac8"
+    description: "The shadow's OCC lookup names a job this repository reports."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k occ_context"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC8"]
+  - id: "dod-contract-validation-core-ac10"
+    description: "The workflow test proves no onex_change_control reference, the locked core version and
+      the unchanged names."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_contract_validation_core_validator_omn20074.py -q -k
+          test_workflow_"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC10"]
+  - id: "dod-contract-validation-core-ac11"
+    description: "The step's own run block passes the branch contract and fails each planted shape naming
+      the file."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_contract_validation_core_validator_omn20074.py -q"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC11"]
+  - id: "dod-arch-handler-compliance-from-core-ac12"
+    description: "The handler contract compliance job installs omnibase_core at a full sha and runs its
+      validator with the same flags and allowlist."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_arch_handler_compliance_core_omn20074.py -q"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC12"]

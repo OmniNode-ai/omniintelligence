@@ -12,13 +12,32 @@
 # WITHHELD AT ADOPTION, and they must stay withheld:
 #   (none — every root entry in this repo is legitimate)
 #
-# mode: report — the gate records every finding with a per-class count and
-# exits 0. It flips to enforce when the residue is FIXED, never by moving the
-# residue into this file: that is the recurrence mechanism the OMN-17992
-# programme exists to remove.
+# mode: report — the gate records every finding with a per-class count. The
+# five classes named in enforce_classes below FAIL the run on the lines a change
+# adds (OMN-20783); the whole-tree residue stays reported on every run and is
+# cleared under OMN-19836. Mode flips to enforce when the residue is FIXED,
+# never by moving the residue into this file: that is the recurrence mechanism
+# the OMN-17992 programme exists to remove.
 
 mode: report
 suppression_registry: ".public-repo-hygiene-suppressions.yaml"
+
+# OMN-20783: the same five classes omniclaude has enforced since OMN-19835 and
+# OMN-19837 fail the run on the lines a pull request ADDS. The tree already
+# carries a residue in these classes, so a whole-tree enforce would fail every
+# unrelated pull request; with enforce_scope: added-lines a pull request that
+# adds a private repository name, internal knowledge-base prose, a lab lane id,
+# a person's name or a lab address or host nickname goes red, and one that
+# touches none of them stays green. The scan and the report stay whole-tree.
+# No allowlist entry is added for the residue. Drop enforce_scope only when all
+# five classes are at zero.
+enforce_scope: added-lines
+enforce_classes:
+  - "private-repo-name"
+  - "internal-kb-prose"
+  - "lab-config"
+  - "person-name"
+  - "private-network"
 
 allowed_top_level:
   - ".claude"

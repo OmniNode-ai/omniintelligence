@@ -207,6 +207,75 @@ jobs:
           restore-keys: |
             pre-commit-${{ runner.os }}-${{ env.PYTHON_VERSION }}-
 
+      # OMN-20783: the public-repo-hygiene pre-commit hook reads the PRIVATE
+      # denylist vocabulary from OMNI_HYGIENE_VOCAB_PATH and fails closed (exit
+      # 2, THE GATE DID NOT RUN) without it, so this job, which runs every hook
+      # over the tree, fetches the same two private files
+      # .github/workflows/public-repo-hygiene.yml fetches. The repository names
+      # live in org variables, not here. Unset variables fail the job: an
+      # unreachable vocabulary reads exactly like a clean bill of health.
+      - name: Resolve the private hygiene vocabulary repos
+        id: hygiene-vocab-repos
+        env:
+          VOCAB_REPO: ${{ vars.OMNI_HYGIENE_VOCAB_REPO }}
+          LAB_VOCAB_REPO: ${{ vars.OMNI_HYGIENE_LAB_VOCAB_REPO }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VOCAB_REPO}" ] || [ -z "${LAB_VOCAB_REPO}" ]; then
+            echo "::error::OMNI_HYGIENE_VOCAB_REPO or OMNI_HYGIENE_LAB_VOCAB_REPO" \
+                 "is unset, so the private denylist vocabulary cannot be located." \
+                 "The public-repo-hygiene hook refuses to run without it."
+            exit 1
+          fi
+          echo "vocab=${VOCAB_REPO}" >> "$GITHUB_OUTPUT"
+          echo "lab_vocab=${LAB_VOCAB_REPO}" >> "$GITHUB_OUTPUT"
+
+      - name: Mint token for the private hygiene vocabulary repos
+        id: hygiene-vocab-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.ONEXBOT_APP_ID }}
+          private-key: ${{ secrets.ONEXBOT_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ steps.hygiene-vocab-repos.outputs.vocab }},${{ steps.hygiene-vocab-repos.outputs.lab_vocab }}
+          permission-contents: read
+
+      - name: Fetch the private hygiene vocabulary
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ github.repository_owner }}/${{ steps.hygiene-vocab-repos.outputs.vocab }}
+          token: ${{ steps.hygiene-vocab-token.outputs.token }}
+          path: tmp/hygiene-vocabulary
+          persist-credentials: false
+          sparse-checkout: |
+            docs/workflows/_shared/public_repo_hygiene_vocabulary.yaml
+          sparse-checkout-cone-mode: false
+
+      - name: Fetch the private hygiene lab vocabulary
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ github.repository_owner }}/${{ steps.hygiene-vocab-repos.outputs.lab_vocab }}
+          token: ${{ steps.hygiene-vocab-token.outputs.token }}
+          path: tmp/hygiene-lab-vocabulary
+          persist-credentials: false
+          sparse-checkout: |
+            vocabularies/public_repo_hygiene_lab_vocabulary.yaml
+          sparse-checkout-cone-mode: false
+
+      # The hook finds the lab vocabulary beside the main one by file name.
+      - name: Point the hygiene hook at its vocabulary
+        run: |
+          set -euo pipefail
+          vocab=tmp/hygiene-vocabulary/docs/workflows/_shared/public_repo_hygiene_vocabulary.yaml
+          lab_vocab=tmp/hygiene-lab-vocabulary/vocabularies/public_repo_hygiene_lab_vocabulary.yaml
+          test -f "${vocab}"
+          test -f "${lab_vocab}"
+          cp "${lab_vocab}" "$(dirname "${vocab}")/public_repo_hygiene_lab_vocabulary.yaml"
+          echo "OMNI_HYGIENE_VOCAB_PATH=${GITHUB_WORKSPACE}/${vocab}" >> "$GITHUB_ENV"
+
+      - name: Imperative guard caller and shrink-only allowlist (OMN-21005)
+        run: uv run pytest tests/ci/test_imperative_contract_guard_caller_omn21005.py -q -n 0
+
       # Verbose mode enables hook profiling - shows execution time for each hook
       # This helps identify slow hooks and track performance regressions
       # See .pre-commit-config.yaml for profiling documentation and thresholds
@@ -1196,7 +1265,7 @@ jobs:
     name: Cross-Repo Boundary Parity
     runs-on: ubuntu-latest
     steps:
-      - uses: OmniNode-ai/onex_change_control/.github/actions/validate-boundaries@dd2620d18001495b8d0f493b421b38399e9aab4b
+      - uses: OmniNode-ai/omnibase_core/.github/actions/validate-boundaries@de3398d1fcf7a6f48451f680b74b1a6c6c383b8a # omnibase_core dev (OMN-20074 H/F)
         with:
           checks: "boundary-parity,migration-conflicts"
           warn-only: "false"
@@ -1269,7 +1338,7 @@ jobs:
       - name: Shape-gate independence (OMN-20298)
         run: |
           uv run --no-project \
-            --with 'omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core@d17f5be8be88a8d35fc6a69e13cb8c1896c3025b' \
+            --with 'omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core@031148215620031436cba30619bbae67c0bb38ad' \
             python -m omnibase_core.handlers.handler_shape_gate_independence
 
   no-noncanonical-lifecycle-classes:
@@ -1292,7 +1361,7 @@ jobs:
       - name: Ratchet non-canonical lifecycle-word classes against frozen allowlist (OMN-14350)
         run: |
           uv run --no-project \
-            --with 'omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core@f50d00fc7918d0b12ccd0d3497160325e32e7ac5' \
+            --with 'omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core@031148215620031436cba30619bbae67c0bb38ad' \
             python -m omnibase_core.validators.no_noncanonical_lifecycle_classes \
             --check-stale \
             --allowlist .onex_ratchets/noncanonical_class_allowlist.yaml \
@@ -1397,7 +1466,7 @@ jobs:
     runs-on: ${{ github.event_name != 'pull_request' && github.event_name != 'merge_group' && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]') || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]') }}
     timeout-minutes: 15
     env:
-      CANONICAL_FILE_SHAPE_CORE: "omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core@f50d00fc7918d0b12ccd0d3497160325e32e7ac5"
+      CANONICAL_FILE_SHAPE_CORE: "omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core@031148215620031436cba30619bbae67c0bb38ad"
     steps:
       - name: Checkout code
         uses: actions/checkout@v7

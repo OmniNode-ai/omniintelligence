@@ -310,7 +310,7 @@ repos:
   # (OMN-20304)"). The rev moved from 6363509770 to the OMN-20304 commit for
   # both hooks; the lifecycle validator's source is identical at the two commits.
   - repo: https://github.com/OmniNode-ai/omnibase_core
-    rev: f50d00fc7918d0b12ccd0d3497160325e32e7ac5  # pragma: allowlist secret
+    rev: 031148215620031436cba30619bbae67c0bb38ad  # pragma: allowlist secret
     hooks:
       - id: no-noncanonical-lifecycle-classes
         args: [--allowlist, .onex_ratchets/noncanonical_class_allowlist.yaml, src/omniintelligence]
@@ -365,9 +365,11 @@ repos:
             |node_intent_classifier_compute/handlers/handler_adaptive_classification\.py
             |node_gmail_intent_evaluator_effect/handlers/handler_gmail_intent_evaluate\.py
           )$
-  # Hardcoded topic string detection — sourced from onex_change_control (OMN-5259)
-  - repo: https://github.com/OmniNode-ai/onex_change_control
-    rev: 8d7e85bc00e7f1b1306d1cb40949be1ab6e7e91a  # pragma: allowlist secret
+  # Hardcoded topic string detection and ticketed TODO format — sourced from omnibase_core
+  # (OMN-5259; OMN-20074, OCC retirement S8: same hook ids, no longer pulled from
+  # the change-control repository)
+  - repo: https://github.com/OmniNode-ai/omnibase_core
+    rev: 4a4177335d11b138a29fe28e2f4c5575afa92b2b  # pragma: allowlist secret
     hooks:
       - id: no-hardcoded-topics
         # Pre-existing violations excluded pending migration to canonical constants.
@@ -505,7 +507,7 @@ repos:
       # --------------------------------------------------------------------------
       - id: onex-validate-clean-root
         name: onex-validate-clean-root
-        entry: python scripts/validation/validate_clean_root.py
+        entry: uv run --frozen python scripts/validation/validate_clean_root.py
         language: system
         pass_filenames: false
         always_run: true
@@ -519,7 +521,7 @@ repos:
       # --------------------------------------------------------------------------
       - id: onex-validate-naming
         name: onex-validate-naming
-        entry: python scripts/validation/validate_naming.py
+        entry: uv run --frozen python scripts/validation/validate_naming.py
         language: system
         pass_filenames: true
         types_or: [python, yaml]
@@ -719,7 +721,7 @@ repos:
         exclude: ^tests/|^examples/|^scripts/
 
       # OMN-10414 / OMN-13296: block skip-token bypasses in local hooks.
-      # Escape hatch: add '# skip-token-allowed: <receipt-id>' with a traceable approval receipt.
+      # There is no escape hatch (OMN-20074): a skip token is rejected whatever comment accompanies it.
       - id: reject-deploy-gate-skip-token
         name: Reject skip-gate bypass tokens (OMN-10414)
         entry: scripts/validation/reject_deploy_gate_skip_token.sh
@@ -776,6 +778,14 @@ repos:
   # ---------------------------------------------------------------------------
   - repo: local
     hooks:
+      - id: imperative-contract-guard-caller
+        name: Imperative guard caller and shrink-only allowlist (OMN-21005)
+        entry: uv run pytest tests/ci/test_imperative_contract_guard_caller_omn21005.py -q -n 0
+        language: system
+        pass_filenames: false
+        files: ^(\.github/(workflows/(imperative-contract-guard|ci)\.yml|imperative-contract-allowlist\.yaml)|\.pre-commit-config\.yaml|tests/ci/test_imperative_contract_guard_caller_omn21005\.py|contracts/OMN-21005\.yaml)$
+        stages: [pre-commit]
+
       - id: workflow-script-refs
         name: Workflow-referenced repo-local scripts exist (OMN-16664)
         entry: uv run python tests/ci/test_workflow_script_refs_exist.py
@@ -851,13 +861,37 @@ repos:
   # file is present, the repo looks protected, and nothing is checking. This
   # refuses that state — the baseline owes a pre-commit reader AND a CI reader,
   # and it is the local half of the same gate .github/workflows/
-  # secrets-baseline-wiring.yml runs in CI, pinned to the same omniclaude SHA so
-  # the two verdicts cannot diverge. Advancing it is those two lines, together.
+  # secrets-baseline-wiring.yml runs in CI. The hook is declared in the
+  # omniclaude entry below, which also carries the public-repo-hygiene hook
+  # (OMN-20783): one entry, one pinned revision. The wiring gate script is
+  # byte-identical between the revision this hook was pinned to before that
+  # entry existed and the one it is pinned to now.
+  # --------------------------------------------------------------------------
+
+  # --------------------------------------------------------------------------
+  # public-repo hygiene gate (OMN-20783)
+  #
+  # The local half of .github/workflows/public-repo-hygiene.yml, pinned to the
+  # SAME omniclaude SHA so the two verdicts cannot diverge. Advancing it is
+  # those two lines, together. The hook runs the gate with --diff-staged: the
+  # five classes in .public-repo-hygiene.yaml `enforce_classes` fail the commit
+  # on the lines it ADDS, and the whole-tree residue is still reported.
+  #
+  # The denylist vocabulary is private, so the gate reads it from the path in
+  # OMNI_HYGIENE_VOCAB_PATH and fails closed (exit 2, THE GATE DID NOT RUN)
+  # when that is unset or not a file. The lab vocabulary is read from the file
+  # named public_repo_hygiene_lab_vocabulary.yaml beside it. CI sets both up in
+  # the pre-commit job of .github/workflows/ci.yml; a developer points the
+  # variable at a checkout of the private vocabulary. No hook arg, files filter
+  # or exclude narrows it: the content classes apply to every file type.
   # --------------------------------------------------------------------------
   - repo: https://github.com/OmniNode-ai/omniclaude
-    rev: 42b994826519e8d6bc21d0ca915803084c7c3955  # pragma: allowlist secret
+    rev: 0c9f9146d8dd0446fc5c10952aa57247b3a880ae  # pragma: allowlist secret
     hooks:
       - id: secrets-baseline-wired
+      - id: public-repo-hygiene
+      - id: deployment-config
+        require_serial: true
 
   - repo: local
     hooks:

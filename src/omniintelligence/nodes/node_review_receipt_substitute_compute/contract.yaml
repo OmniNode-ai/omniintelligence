@@ -1,0 +1,104 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# ONEX Node Contract
+# Node: NodeReviewReceiptSubstituteCompute
+#
+# Decides which Hostile Reviewer voters that timed out or were unavailable
+# may count as voted,
+# from signed off-CI review receipts bound to the head commit.
+# Operator RULING 2026-10-11T01:52:39Z: while a lab review voter times out,
+# approved reviewers review the pull request outside CI and CI reads their
+# result.
+#
+# Reference: OMN-20947
+
+name: "node_review_receipt_substitute_compute"
+version: "1.0.0"
+contract_version: {major: 1, minor: 0, patch: 0}
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+node_type: "COMPUTE_GENERIC"
+
+status: "active"
+
+description: >
+  Reads the review receipts in a pull request's reviews and decides, for each required voter whose call
+  timed out or whose endpoint was unavailable (HTTP 502/503/504, a refused or failed connection, a failed
+  reachability probe), whether clean receipts from the voters overlay's approved substitute reviewers
+  stand in for its vote. A receipt counts only when it is HMAC-signed with the overlay-named key, posted
+  by an account the overlay names for its reviewer, bound to the exact head commit in its payload and
+  by the review's commit, within its validity window, and clean. A valid receipt with findings refuses
+  substitution, an overlay with no substitute_votes policy accepts nothing, and receipts never form a
+  quorum alone. Pure computation: the reviews, the key and the clock are inputs; every refusal is returned
+  as data.
+input_model:
+  name: "ModelSubstituteVoteRequest"
+  module: "omniintelligence.nodes.node_review_receipt_substitute_compute.models.model_substitute_vote_request"
+  description: "The voters' results, the overlay policy, the PR's reviews, the head commit, the key, the
+    clock."
+
+output_model:
+  name: "ModelSubstituteDecision"
+  module: "omniintelligence.nodes.node_review_receipt_substitute_compute.models.model_substitute_decision"
+  description: "The substituted voters with the receipts that stand in, and every refusal."
+
+operations:
+  - name: "decide_substitute_votes"
+    description: "Decide which timed-out or unavailable voters signed clean receipts stand in for"
+    input_fields:
+      - result
+      - policy
+      - reviews
+      - repo
+      - pr
+      - head_sha
+      - key
+      - now
+    output_fields:
+      - records
+      - refusals
+
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    - operation: "decide_substitute_votes"
+      handler:
+        function: "handle"
+        module: "omniintelligence.nodes.node_review_receipt_substitute_compute.handlers.handler_review_receipt_substitute"
+        type: "sync"
+      description: "Decide substitute votes from signed review receipts"
+
+dependencies: []
+
+error_handling:
+  error_types:
+    - name: "ReviewReceiptRefused"
+      error_code: "RRS_001"
+      description: "A receipt is malformed, unsigned, stale, for another commit, from an unnamed account
+        or carries findings; returned as decision data"
+      recoverable: false
+      retry_strategy: "none"
+
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-10-11"
+  updated: "2026-10-11"
+  tags:
+    - compute
+    - review
+    - hostile-reviewer
+    - receipt
+  references:
+    - ticket: "OMN-20947"
+      url: "https://linear.app/omninode/issue/OMN-20947"
+      description: "A signed off-CI review receipt may stand in for a timed-out or unavailable voter"

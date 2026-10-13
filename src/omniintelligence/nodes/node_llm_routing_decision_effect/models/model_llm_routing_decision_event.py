@@ -50,7 +50,7 @@ class ModelLlmRoutingDecisionEvent(BaseModel):
         ...     llm_confidence=0.92,
         ...     llm_latency_ms=45,
         ...     fallback_used=False,
-        ...     model_used="http://192.168.86.201:8001",
+        ...     model_used="http://192.0.2.10:8001",
         ...     fuzzy_top_candidate="agent-api",
         ...     llm_selected_candidate="agent-api",
         ...     agreement=True,
