@@ -60,6 +60,10 @@ from omniintelligence.nodes.node_claude_hook_event_effect.models import (
 from omniintelligence.nodes.node_pattern_compliance_effect.handlers.protocols import (
     ProtocolLlmClient,
 )
+from omniintelligence.nodes.node_pattern_storage_effect.models import (
+    EnumPatternState,
+    ModelPatternStoredEvent,
+)
 from omniintelligence.runtime.contract_topics import canonical_topic_to_dispatch_alias
 from omniintelligence.topics import IntelligenceCommandTopic, IntentTopic
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
@@ -157,9 +161,7 @@ DISPATCH_ALIAS_CI_RECOVERY = canonical_topic_to_dispatch_alias(
     IntelligenceCommandTopic.CI_RECOVERY_DETECTED
 )
 """Dispatch-compatible alias for CI recovery handler (OMN-6598)."""
-_FALLBACK_TOPIC_PATTERN_STORED = canonical_topic_to_dispatch_alias(
-    IntentTopic.PATTERN_STORED
-)
+_FALLBACK_TOPIC_PATTERN_STORED = IntentTopic.PATTERN_STORED.value
 """Fallback publish topic when contract-resolved topic is unavailable."""
 _FALLBACK_TOPIC_COMPLIANCE_EVALUATED = canonical_topic_to_dispatch_alias(
     IntentTopic.COMPLIANCE_EVALUATED
@@ -309,10 +311,12 @@ class PermanentDispatchFailureError(ValueError):
 #
 # "for claude-hook-event" / "for cursor-hook-event" are intentionally specific
 # to those two handlers.  Other handlers (session-outcome,
-# pattern-lifecycle-transition, pattern-storage, compliance-evaluate) also raise
+# pattern-lifecycle-transition, compliance-evaluate) also raise
 # ValueError("Unexpected payload type ... for <handler-name> ...") but those are
 # NOT permanent failures -- the dispatch engine should NACK them so they can be
-# retried.
+# retried. Pattern-storage raises PermanentDispatchFailureError for the
+# structural rejections (non-object payload, invalid pattern_id, missing
+# signature or signature_hash); only its database errors are retried.
 _PERMANENT_FAILURE_MARKERS: tuple[str, ...] = (
     PermanentDispatchFailureError.__name__,
     "Permanent reshape failure",
@@ -1425,7 +1429,7 @@ def create_pattern_storage_dispatch_handler(
                 f"for pattern-storage (correlation_id={ctx_correlation_id})"
             )
             logger.warning(msg)
-            raise ValueError(msg)
+            raise PermanentDispatchFailureError(msg)
 
         # Determine event type from payload
         event_type = payload.get("event_type", "")
@@ -1439,13 +1443,16 @@ def create_pattern_storage_dispatch_handler(
             with contextlib.suppress(ValueError):
                 raw_pattern_id = UUID(str(raw_pattern_id))
             if not isinstance(raw_pattern_id, UUID):
-                logger.warning(
-                    "Invalid UUID for pattern_id: %r, generating new ID "
-                    "(correlation_id=%s)",
-                    raw_pattern_id,
-                    ctx_correlation_id,
+                # A pattern id the producer sent but we cannot read is a
+                # malformed event, not a missing one: storing it under a fresh
+                # id would publish a pattern-stored event for a pattern no
+                # producer knows.
+                msg = (
+                    f"Pattern storage event has an invalid pattern_id, rejecting "
+                    f"(event_type={event_type}, correlation_id={ctx_correlation_id})"
                 )
-                raw_pattern_id = None
+                logger.warning(msg)
+                raise PermanentDispatchFailureError(msg)
 
         pattern_id = raw_pattern_id or uuid4()
         # Prefer 'signature' (omniclaude producers) over 'pattern_signature' (DB column name).
@@ -1461,11 +1468,12 @@ def create_pattern_storage_dispatch_handler(
                 f"correlation_id={ctx_correlation_id})"
             )
             logger.warning(msg)
-            raise ValueError(msg)
+            raise PermanentDispatchFailureError(msg)
 
         signature_hash = str(payload.get("signature_hash", ""))
-        # Reject if signature_hash is empty -- raise so the dispatch engine
-        # nacks the message instead of silently acking on the empty-string path.
+        # Reject if signature_hash is empty. A retry cannot supply it, so the
+        # failure is permanent: the callback acknowledges and logs the message
+        # instead of redelivering it forever.
         if not signature_hash:
             msg = (
                 f"Pattern storage event missing signature_hash, rejecting "
@@ -1473,7 +1481,7 @@ def create_pattern_storage_dispatch_handler(
                 f"correlation_id={ctx_correlation_id})"
             )
             logger.warning(msg)
-            raise ValueError(msg)
+            raise PermanentDispatchFailureError(msg)
         # Default 'general' must exist in domain_taxonomy (FK constraint).
         # Bound untrusted input to 128 chars to prevent oversized payloads.
         domain_id = str(payload.get("domain_id", payload.get("domain", "general")))[
@@ -1639,18 +1647,21 @@ def create_pattern_storage_dispatch_handler(
         # Emit pattern-stored event to Kafka if producer available
         if kafka_producer is not None:
             try:
+                stored_event = ModelPatternStoredEvent(
+                    pattern_id=pattern_id,
+                    signature=signature,
+                    signature_hash=signature_hash,
+                    domain=domain_id,
+                    version=version,
+                    confidence=confidence,
+                    state=EnumPatternState.CANDIDATE,
+                    stored_at=now,
+                    correlation_id=ctx_correlation_id,
+                )
                 await kafka_producer.publish(
                     topic=publish_topic or _FALLBACK_TOPIC_PATTERN_STORED,
                     key=str(pattern_id),
-                    value={
-                        "event_type": "PatternStored",
-                        "pattern_id": str(pattern_id),
-                        "signature_hash": signature_hash,
-                        "domain_id": domain_id,
-                        "version": version,
-                        "stored_at": now.isoformat(),
-                        "correlation_id": str(ctx_correlation_id),
-                    },
+                    value=stored_event.model_dump(mode="json"),
                 )
             except Exception:
                 logger.warning(
@@ -4041,6 +4052,20 @@ def create_dispatch_callback(
                 )
                 if hasattr(msg, "nack"):
                     await msg.nack()
+                return
+
+            if not isinstance(payload_dict, dict):
+                # Valid JSON that is not an object can never become a routable
+                # event; ACK so it is not redelivered, and keep the evidence.
+                logger.error(
+                    "Message body is JSON %s, not an object, ACKing to prevent "
+                    "infinite retry (correlation_id=%s). Message discarded "
+                    "(permanent parse failure).",
+                    type(payload_dict).__name__,
+                    msg_correlation_id,
+                )
+                if hasattr(msg, "ack"):
+                    await msg.ack()
                 return
 
             # Extract correlation_id from payload if available

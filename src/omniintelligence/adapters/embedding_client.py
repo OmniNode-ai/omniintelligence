@@ -13,7 +13,7 @@ This client lives in omniintelligence.adapters (not inside nodes/) to comply
 with ARCH-002, which prohibits nodes from importing transport libraries
 directly. Nodes receive clients via dependency injection.
 
-Endpoint: `LLM_EMBEDDING_URL` env var → `http://192.168.86.200:8100`
+Endpoint: `LLM_EMBEDDING_URL` env var (required; no default is shipped)
 Model: Qwen3-Embedding-8B-4bit | Dimension: 1024 | Distance: Cosine
 
 Example:

@@ -20,7 +20,7 @@ asked for there:
   identity.
 
 The endpoint is the URL the adapter will call, with the key's env-var
-override applied, normalised so that spelling differences (a trailing
+override and any review_pairing overlay applied, normalised so that spelling differences (a trailing
 ``/v1``, an implicit default port, letter case in the host) do not make one
 endpoint look like two. A key with no URL (a CLI reviewer such as ``codex``,
 or an entry whose URL is unset) is its own reviewer, ``key:<name>``.
@@ -33,6 +33,7 @@ from __future__ import annotations
 import urllib.parse
 from collections.abc import Mapping
 
+from omniintelligence.review_pairing.model_registry_loader import resolve_endpoint_url
 from omniintelligence.review_pairing.models_external_review import (
     ModelEndpointConfig,
 )
@@ -63,6 +64,7 @@ def reviewer_identity(
     model_key: str,
     config: ModelEndpointConfig | None,
     environ: Mapping[str, str],
+    served_base_url: str | None = None,
 ) -> str:
     """Return the distinct-reviewer identity of ``model_key``.
 
@@ -70,6 +72,9 @@ def reviewer_identity(
         model_key: Registry key the caller asked for.
         config: That key's registry entry, or None when it has none.
         environ: Environment to read the key's URL override from.
+        served_base_url: The endpoint that actually answered, when it is not
+            the resolved one (an overflow endpoint took the call). A vote is
+            counted against the host that cast it.
 
     Returns:
         ``<normalised endpoint>#<model>`` where ``<model>`` is
@@ -78,7 +83,7 @@ def reviewer_identity(
     """
     if config is None:
         return f"key:{model_key}"
-    url = environ.get(config.env_var) or config.default_url
+    url = served_base_url or resolve_endpoint_url(model_key, config, environ)
     if not url.strip():
         return f"key:{model_key}"
     # The two model forms live in separate namespaces (``served`` vs

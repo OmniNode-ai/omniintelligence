@@ -310,7 +310,7 @@ repos:
   # (OMN-20304)"). The rev moved from 6363509770 to the OMN-20304 commit for
   # both hooks; the lifecycle validator's source is identical at the two commits.
   - repo: https://github.com/OmniNode-ai/omnibase_core
-    rev: f50d00fc7918d0b12ccd0d3497160325e32e7ac5  # pragma: allowlist secret
+    rev: 031148215620031436cba30619bbae67c0bb38ad  # pragma: allowlist secret
     hooks:
       - id: no-noncanonical-lifecycle-classes
         args: [--allowlist, .onex_ratchets/noncanonical_class_allowlist.yaml, src/omniintelligence]
@@ -507,7 +507,7 @@ repos:
       # --------------------------------------------------------------------------
       - id: onex-validate-clean-root
         name: onex-validate-clean-root
-        entry: python scripts/validation/validate_clean_root.py
+        entry: uv run --frozen python scripts/validation/validate_clean_root.py
         language: system
         pass_filenames: false
         always_run: true
@@ -521,7 +521,7 @@ repos:
       # --------------------------------------------------------------------------
       - id: onex-validate-naming
         name: onex-validate-naming
-        entry: python scripts/validation/validate_naming.py
+        entry: uv run --frozen python scripts/validation/validate_naming.py
         language: system
         pass_filenames: true
         types_or: [python, yaml]
@@ -721,7 +721,7 @@ repos:
         exclude: ^tests/|^examples/|^scripts/
 
       # OMN-10414 / OMN-13296: block skip-token bypasses in local hooks.
-      # Escape hatch: add '# skip-token-allowed: <receipt-id>' with a traceable approval receipt.
+      # There is no escape hatch (OMN-20074): a skip token is rejected whatever comment accompanies it.
       - id: reject-deploy-gate-skip-token
         name: Reject skip-gate bypass tokens (OMN-10414)
         entry: scripts/validation/reject_deploy_gate_skip_token.sh
@@ -778,6 +778,14 @@ repos:
   # ---------------------------------------------------------------------------
   - repo: local
     hooks:
+      - id: imperative-contract-guard-caller
+        name: Imperative guard caller and shrink-only allowlist (OMN-21005)
+        entry: uv run pytest tests/ci/test_imperative_contract_guard_caller_omn21005.py -q -n 0
+        language: system
+        pass_filenames: false
+        files: ^(\.github/(workflows/(imperative-contract-guard|ci)\.yml|imperative-contract-allowlist\.yaml)|\.pre-commit-config\.yaml|tests/ci/test_imperative_contract_guard_caller_omn21005\.py|contracts/OMN-21005\.yaml)$
+        stages: [pre-commit]
+
       - id: workflow-script-refs
         name: Workflow-referenced repo-local scripts exist (OMN-16664)
         entry: uv run python tests/ci/test_workflow_script_refs_exist.py
@@ -878,10 +886,12 @@ repos:
   # or exclude narrows it: the content classes apply to every file type.
   # --------------------------------------------------------------------------
   - repo: https://github.com/OmniNode-ai/omniclaude
-    rev: 6e47aa311ac5d177d116d9597b07966a233d2463  # pragma: allowlist secret
+    rev: 0c9f9146d8dd0446fc5c10952aa57247b3a880ae  # pragma: allowlist secret
     hooks:
       - id: secrets-baseline-wired
       - id: public-repo-hygiene
+      - id: deployment-config
+        require_serial: true
 
   - repo: local
     hooks:

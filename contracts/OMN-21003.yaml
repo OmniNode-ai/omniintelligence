@@ -1,0 +1,63 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+schema_version: "1.0.0"
+ticket_id: OMN-21003
+title: "omniintelligence: pr-title check runs the omnimarket node"
+summary: Run the released title decision node under the existing required context.
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: req-local-pr-title-node
+    statement: Preserve the required title context and the retired reusable verdicts with a pinned release
+      node.
+    acceptance:
+      - id: AC1
+        statement: "AC1: The PR Title Check workflow produces `pr-title / check-title` by running `omnimarket.nodes.node_pr_title_check_compute`
+          from a pinned omnimarket release and no workflow line in pr-title-check.yml references onex_change_control
+          -- falsifier: uv run pytest tests/ci/test_pr_title_check_omnimarket_node.py -q -n 0 parses the
+          workflow and fails at the merge base"
+      - id: AC2
+        statement: "AC2: The installed node verdicts equal the old reusable at c0c49e1240ffaa6db1fe36f74b50c0acd345d7b2
+          on a table of titles and authors covering every exempt rule, a passing OMN title and a failing
+          title -- falsifier: uv run pytest tests/ci/test_pr_title_check_omnimarket_node.py -q -n 0 runs
+          every case through the installed node and fails on any differing verdict"
+      - id: AC3
+        statement: "AC3: .github/required-checks.yaml names the pr-title row as a local producer -- falsifier:
+          uv run pytest tests/ci/test_pr_title_check_omnimarket_node.py -q -n 0 fails when the pr-title
+          row is absent or is not local"
+evidence_requirements:
+  - kind: tests
+    description: Focused workflow, manifest and installed-node parity checks.
+    command: "uv run --no-project --with pytest --with pytest-asyncio --with pytest-xdist --with pyyaml
+      pytest tests/ci/test_pr_title_check_omnimarket_node.py -q -n 0"
+emergency_bypass:
+  enabled: false
+  justification: ""
+  follow_up_ticket_id: ""
+dod_evidence:
+  - id: dod-pr-title-ac1
+    description: workflow criterion is exercised by the focused test file.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: "uv run --no-project --with pytest --with pytest-asyncio --with pytest-xdist --with
+          pyyaml pytest tests/ci/test_pr_title_check_omnimarket_node.py -q -n 0 -k workflow"
+    binds_ac: [AC1]
+  - id: dod-pr-title-ac2
+    description: verdicts criterion is exercised by the focused test file.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: "uv run --no-project --with pytest --with pytest-asyncio --with pytest-xdist --with
+          pyyaml pytest tests/ci/test_pr_title_check_omnimarket_node.py -q -n 0 -k verdicts"
+    binds_ac: [AC2]
+  - id: dod-pr-title-ac3
+    description: manifest criterion is exercised by the focused test file.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: "uv run --no-project --with pytest --with pytest-asyncio --with pytest-xdist --with
+          pyyaml pytest tests/ci/test_pr_title_check_omnimarket_node.py -q -n 0 -k manifest"
+    binds_ac: [AC3]

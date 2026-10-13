@@ -40,6 +40,13 @@ gates:
       Final aggregator for Quality Gate + path-filtered production code jobs (Lint, Type Check, Unit Tests).
       REQUIRED because this repo uses path filtering -- ensures skipped jobs are distinguished as "skipped
       by policy" vs "missing due to misconfiguration".
+  - check_name: "pr-title / check-title"
+    workflow_file: pr-title-check.yml
+    workflow_job_key: pr-title
+    producer_kind: local
+    rationale: >-
+      PR title ticket-reference check: the job runs omnimarket node_pr_title_check_compute from pinned
+      release 0.4.310 (OMN-21003).
 # ── Checks (documentation only -- not used for branch protection) ─────────────
 # These are the individual jobs aggregated by Quality Gate.
 # Listed here for documentation and cross-referencing purposes only.
