@@ -435,6 +435,8 @@ async def call_model(
     system_prompt: str,
     user_prompt: str,
     model_key: str = _DEFAULT_MODEL_KEY,
+    *,
+    repository: str | None = None,
 ) -> str:
     """Invoke LLM via HandlerLlmOpenaiCompatible, or Claude API for api_fallback models.
 
@@ -442,6 +444,9 @@ async def call_model(
         system_prompt: System prompt for the model.
         user_prompt: User prompt with plan content.
         model_key: Key in MODEL_REGISTRY for endpoint resolution.
+        repository: The repository the reviewed content belongs to, sent as
+            metadata.repository so a cloud voter can refuse a repository whose
+            code never goes to a cloud model (OMN-20106). None sends no metadata.
 
     Returns:
         Raw text response from the model.
@@ -527,6 +532,9 @@ async def call_model(
         # when declared, so an entry that sets none sends what it always sent.
         if config.top_p is not None:
             _request_kwargs["top_p"] = config.top_p
+        extra_body = _build_extra_body(config)
+        if repository:
+            extra_body["metadata"] = {"repository": repository}
         request = ModelLlmInferenceRequest(
             base_url=endpoint_base,
             endpoint_url=endpoint_url,
@@ -565,9 +573,10 @@ async def call_model(
             # so every other entry sends exactly what it sent before. (The model
             # behind local-studio-planner has been Qwen3.6-35B-A3B since
             # 2026-10-08, OMN-17427; see its registry entry for what that does to
-            # this field.) There is no cloud wire shape: private diffs go only to
-            # lab models (2026-09-25).
-            extra_body=_build_extra_body(config),
+            # this field.) A voter is told the repository in metadata.repository;
+            # a cloud voter's endpoint enforces the operator ruling of
+            # 2026-10-13T20:50:03Z: one repository never goes to a cloud model.
+            extra_body=extra_body,
         )
 
         response = await handler.handle(request)
@@ -962,6 +971,7 @@ async def async_parse_raw(
     pr_id: int = 0,
     commit_sha: str = "0000000",
     system_prompt_prefix: str | None = None,
+    repository: str | None = None,
 ) -> ModelExternalReviewResult:
     """Full review transaction: prompt, call, parse, convert.
 
@@ -980,6 +990,8 @@ async def async_parse_raw(
         commit_sha: Commit SHA.
         system_prompt_prefix: Optional content to prepend to the system prompt
             (e.g., persona content). When set, prepended with a separator.
+        repository: Repository sent to the model as metadata.repository
+            (OMN-20106). None sends no metadata.
 
     Returns:
         ModelExternalReviewResult with review findings or error.
@@ -991,7 +1003,9 @@ async def async_parse_raw(
             review_type=review_type,
             system_prompt_prefix=system_prompt_prefix,
         )
-        raw_text = await call_model(system_prompt, user_prompt, model_key=model)
+        raw_text = await call_model(
+            system_prompt, user_prompt, model_key=model, repository=repository
+        )
         parsed = try_parse_review_response(raw_text)
         if parsed is None:
             # OMN-20422: retry once with the same prompt, then fail the vote.
@@ -1001,7 +1015,9 @@ async def async_parse_raw(
                 len(raw_text),
             )
             first_length = len(raw_text)
-            raw_text = await call_model(system_prompt, user_prompt, model_key=model)
+            raw_text = await call_model(
+                system_prompt, user_prompt, model_key=model, repository=repository
+            )
             parsed = try_parse_review_response(raw_text)
             if parsed is None:
                 return unparseable_reply_result(
