@@ -25,8 +25,11 @@ status: "active"
 description: >
   Validates a review_voters_overlay.v1 document and resolves each Hostile Reviewer voter's endpoint, either
   from a backend of the lab delegation overlay (bifrost_lane_overlay.v3) or from the voter's own endpoint_url,
-  with its model selection, sampling, focus prompt, timeout and required flag. Pure computation over the
-  two documents' text; a refusal is returned as data naming the voter.
+  with its model selection, sampling, focus prompt, timeout and required flag, and carries the overlay's
+  optional substitute_votes policy (OMN-20947: which off-CI reviewers' signed receipts may stand in for
+  a voter that timed out or was unavailable, how many per vote, how long a receipt is valid, and the signing-key
+  variable name; absent means no receipt is accepted). Pure computation over the two documents' text;
+  a refusal is returned as data naming the voter.
 input_model:
   name: "ModelReviewVotersOverlayRequest"
   module: "omniintelligence.nodes.node_review_voters_overlay_compute.models.model_review_voters_overlay_request"
@@ -47,6 +50,7 @@ operations:
       - backend_overlay_source
     output_fields:
       - voters
+      - substitute_votes
       - error
       - error_voter_id
 
@@ -80,7 +84,7 @@ metadata:
   author: "OmniNode Team"
   license: "MIT"
   created: "2026-10-10"
-  updated: "2026-10-10"
+  updated: "2026-10-11"
   tags:
     - compute
     - review
@@ -90,3 +94,6 @@ metadata:
     - ticket: "OMN-20910"
       url: "https://linear.app/omninode/issue/OMN-20910"
       description: "Review-voter models live in a contract overlay"
+    - ticket: "OMN-20947"
+      url: "https://linear.app/omninode/issue/OMN-20947"
+      description: "A signed off-CI review receipt may stand in for a timed-out or unavailable voter"

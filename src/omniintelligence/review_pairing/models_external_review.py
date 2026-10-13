@@ -134,6 +134,24 @@ class ModelEndpointConfig(BaseModel, frozen=True, extra="forbid"):
             "(default) sends no top_p, so the endpoint keeps its own default."
         ),
     )
+    overflow_urls: tuple[str, ...] = Field(
+        default=(),
+        description=(
+            "Ordered base URLs tried after the resolved endpoint when it is "
+            "full or unavailable (503, 429, refused, or no reply within "
+            "overflow_after_seconds). Empty (default) is a single-endpoint "
+            "model, so every existing entry is unaffected."
+        ),
+    )
+    overflow_after_seconds: float | None = Field(
+        default=None,
+        gt=0.0,
+        description=(
+            "Per-attempt budget of every endpoint but the last when "
+            "overflow_urls is set; None means timeout_seconds. Those attempts "
+            "are not retried: the next endpoint is the retry."
+        ),
+    )
     review_focus: str = Field(
         default="",
         description=(
@@ -429,6 +447,32 @@ class ModelExternalReviewResult(BaseModel, frozen=True):
     )
 
 
+# How a voter was lost to the lab, when receipts may stand in for it (OMN-20947).
+SubstituteFailure = Literal["timed out", "was unavailable"]
+
+
+class ModelSubstituteVoteRecord(BaseModel, frozen=True):
+    """A lost voter whose vote came from off-CI review receipts (OMN-20947).
+
+    Attributes:
+        voter_id: The overlay voter that was lost.
+        failure: How it was lost: it timed out, or its endpoint was unavailable.
+        replaced_error: The voter's own failure, kept verbatim.
+        reviewer_ids: The approved reviewers whose clean receipts stood in.
+        head_sha: The commit every receipt was signed for.
+        review_authors: The accounts that posted those receipts.
+    """
+
+    voter_id: str = Field(description="Voter that was lost.")
+    failure: SubstituteFailure = Field(description="How the voter was lost to the lab.")
+    replaced_error: str = Field(description="That voter's failure, verbatim.")
+    reviewer_ids: tuple[str, ...] = Field(description="Reviewers standing in.")
+    head_sha: str = Field(description="Commit the receipts are bound to.")
+    review_authors: tuple[str, ...] = Field(
+        description="Accounts whose pull request reviews carried the receipts."
+    )
+
+
 class ModelMultiReviewResult(BaseModel, frozen=True):
     """Aggregated output from multiple model reviews.
 
@@ -485,5 +529,13 @@ class ModelMultiReviewResult(BaseModel, frozen=True):
             "Set when no model review was attempted because there was "
             "nothing to review (e.g. an empty PR diff). None means models "
             "were genuinely attempted (OMN-18409)."
+        ),
+    )
+    substitute_votes: list[ModelSubstituteVoteRecord] = Field(
+        default_factory=list,
+        description=(
+            "Voters that timed out or were unavailable and whose vote came "
+            "from off-CI review receipts (OMN-20947). Empty unless the overlay "
+            "allows substitution."
         ),
     )

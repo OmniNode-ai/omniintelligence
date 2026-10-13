@@ -1,0 +1,67 @@
+---
+schema_version: 1.0.0
+ticket_id: OMN-21005
+title: omniintelligence's imperative contract guard calls core with its own shrink-only allowlist
+summary: The imperative-contract-guard caller uses omnibase_core's reusable at 031148215620031436cba30619bbae67c0bb38ad
+  with the caller-owned allowlist moved unchanged from the historical guard. The canonical-file-shape
+  hook and CI job use the same core commit to read the caller's shrink-only declaration. The allowlist
+  is under .github/imperative-contract-allowlist.yaml and is declared by allowlist-path.
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: req-core-guard-caller
+    statement: The caller uses core's reusable, owns the unchanged allowlist, and retains refusal behaviour.
+    acceptance:
+      - id: AC1
+        statement: 'AC1: omniintelligence''s imperative-contract-guard caller uses omnibase_core''s reusable
+          at a full sha (031148215 or later on core dev) and no workflow in omniintelligence references
+          onex_change_control for this guard -- falsifier: a test in tests/ci added by the PR parses the
+          caller workflow and fails at the merge base (uv run pytest on that file)'
+      - id: AC2
+        statement: 'AC2: omniintelligence carries its own allowlist file whose entries equal, path for
+          path, the omniintelligence entries the onex_change_control guard used at c0c49e12, and the reusable''s
+          ratchet refuses an allowlist that gains a path -- falsifier: the same test file compares the
+          allowlist to the recorded c0c49e12 entries and a planted extra path is refused by the core ratchet
+          handler (uv run pytest on that file)'
+      - id: AC3
+        statement: 'AC3: The guard still refuses what it refused before on omniintelligence''s tree --
+          falsifier: on a lab host, the core handler run over omniintelligence''s tree with a planted
+          imperative contract exits non-zero, and over the clean tree exits 0, with the same verdicts
+          as the onex_change_control script at c0c49e12 on both inputs, recorded on the PR body Lab: line'
+evidence_requirements:
+  - kind: tests
+    description: Caller wiring, unchanged historical paths, shrink-only ratchet and live planted-handler
+      refusal.
+    command: uv run pytest tests/ci/test_imperative_contract_guard_caller_omn21005.py -q -n 0
+emergency_bypass:
+  enabled: false
+  justification: ''
+  follow_up_ticket_id: ''
+dod_evidence:
+  - id: dod-omn21005-ac1-core-caller
+    description: The parsed caller pins core, retains its job/context and names its own allowlist.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_imperative_contract_guard_caller_omn21005.py -q -n 0
+    binds_ac:
+      - AC1
+  - id: dod-omn21005-ac2-own-shrink-only-allowlist
+    description: The recorded paths match; core admits unchanged and shrinking lists and refuses a planted
+      extra path.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_imperative_contract_guard_caller_omn21005.py -q -n 0
+    binds_ac:
+      - AC2
+  - id: dod-omn21005-ac3-live-guard-refusal
+    description: The core guard accepts the clean tree and refuses raw HTTP in the live demotion handler;
+      pinned core/OCC parity is recorded on the Lab line.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_imperative_contract_guard_caller_omn21005.py -q -n 0
+    binds_ac:
+      - AC3

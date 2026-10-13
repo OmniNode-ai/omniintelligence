@@ -37,7 +37,8 @@ Verdict model (mirrors the omniclaude/omnibase_core ports)
 ------------------------------------------------------------
 * ``PASS`` (0)    — evidence is durable, or the gate does not apply
   (non-PR event; trusted dependency-bot author, mirroring occ-preflight's
-  OMN-13762 exemption).
+  OMN-13762 exemption; or the OCC writer app when the producer's head-SHA-bound
+  outcome is DECLINED with skip:DEPENDENCY_PIN_ONLY, OMN-20161).
 * ``PENDING`` (2) — evidence may still become durable without a new commit:
   Evidence-Source not yet PATCHed onto the body by occ-autobind, companion
   still OPEN (auto-merge in flight), or a transient API error. The runner
@@ -46,7 +47,9 @@ Verdict model (mirrors the omniclaude/omnibase_core ports)
   companion CLOSED without merging (the incident state), cited SHA not an
   ancestor of an OCC durable branch (squash-only merges guarantee a
   feature-branch head SHA never becomes one — the OMN-15216 defect), or a
-  malformed Evidence-Source value.
+  malformed Evidence-Source value; or no Evidence-Source with a head-bound
+  producer ERROR (OMN-18069) or permanent DECLINED (skip:NO_RED_DERIVABLE_CHECK
+  or skip:DEFER_HAND_AUTHORED), requiring hand-authored evidence (OMN-18647).
 
 The companion-must-merge-first ordering is safe: onex_change_control PRs have
 no reverse dependency on product-PR merge state (occ-preflight validates OCC's
@@ -62,6 +65,7 @@ import re
 import subprocess  # fixed argv, no shell, trusted gh binary
 import sys
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 OCC_REPO_DEFAULT = "OmniNode-ai/onex_change_control"
@@ -83,11 +87,51 @@ DEPENDENCY_BOT_AUTHORS: frozenset[str] = frozenset(
     }
 )
 
+# OMN-20161: the OCC writer app is exempt ONLY when the producer's outcome for
+# the PR's current head SHA is the dependency-pin-only DECLINE.
+OCC_WRITER_BOT_AUTHORS: frozenset[str] = frozenset(
+    {
+        "onexbot-occ-writer[bot]",
+        "app/onexbot-occ-writer",
+        "onexbot-occ-writer",
+    }
+)
+
+# OMN-20161 -- the one DECLINED reason meaning "this PR owes no companion".
+AUTOBIND_OUTCOME_DECLINED = "DECLINED"
+AUTOBIND_NO_COMPANION_REQUIRED_REASONS: tuple[str, ...] = ("skip:DEPENDENCY_PIN_ONLY",)
+
 # Events on which the gate enforces (mirrors occ-preflight's event scope).
 ENFORCED_EVENTS: frozenset[str] = frozenset({"pull_request", "merge_group"})
 
 EVIDENCE_SOURCE_RE = re.compile(
     r"^Evidence-Source:\s+(\S.*)$", re.IGNORECASE | re.MULTILINE
+)
+# OMN-18069 -- the autobind producer's terminal outcome, posted as a check-run on
+# the product PR's own head SHA by
+# omnimarket/.../handlers/occ_autobind_outcome.py. The name and the marker
+# prefix are a cross-repo contract; changing either is a two-repo change.
+AUTOBIND_OUTCOME_CHECK_NAME = "occ-autobind / outcome"
+AUTOBIND_OUTCOME_MARKER_PREFIX = "occ-autobind-outcome:"
+AUTOBIND_OUTCOME_ERROR = "ERROR"
+# OMN-18647 -- DECLINED is not one verdict, it is four, and only two of them are
+# permanent. The producer spells which in the marker line's ``reason=`` field
+# (omnimarket/.../handlers/occ_companion_emitter.py):
+#
+#   skip:NO_RED_DERIVABLE_CHECK  no changed-file candidate is RED-derivable, so
+#                                hand-authored evidence is required (OMN-15247)
+#   skip:DEFER_HAND_AUTHORED     deliberately deferred to a hand-authored
+#                                companion (OMN-15247 contention path)
+#
+# Both mean the bus path will never mint for this head. The other two --
+# ``skip:LEASE_HELD`` (another producer is minting right now, OMN-14793) and the
+# OMN-14741 F-17 suppressions (draft, closed, not a mergeable product PR) --
+# genuinely do resolve themselves, and polling through them is correct. Treating
+# every DECLINED as terminal would fail a draft PR that is about to be marked
+# ready, which is why this set is a denylist of reasons and not the verdict.
+AUTOBIND_PERMANENT_DECLINE_REASONS = (
+    "skip:NO_RED_DERIVABLE_CHECK",
+    "skip:DEFER_HAND_AUTHORED",
 )
 OCC_PR_REF_RE = re.compile(r"^OCC#(\d+)$", re.IGNORECASE)
 HEX_SHA_RE = re.compile(r"^[0-9a-f]{7,40}$")
@@ -145,6 +189,31 @@ class GhFetcher:
             return None
         return data if isinstance(data, dict) else None
 
+    def check_runs(self, repo: str, head_sha: str) -> list[dict[str, object]] | None:
+        """Check-runs on *head_sha*, or ``None`` when the read itself failed.
+
+        ``None`` is deliberately distinct from ``[]``: an empty list is
+        evidence that no outcome was posted, a failed read is evidence of
+        nothing at all, and this gate must never convert the second into the
+        first (rule 16 -- an empty result is not evidence of absence).
+        """
+        raw = self._run(
+            [
+                "gh",
+                "api",
+                f"repos/{repo}/commits/{head_sha}/check-runs?per_page=100",
+                "--jq",
+                ".check_runs",
+            ]
+        )
+        if raw is None:
+            return None
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            return None
+        return data if isinstance(data, list) else None
+
     def compare_status(self, repo: str, base: str, head_sha: str) -> str | None:
         """``identical``/``behind`` ⇒ ``head_sha`` is an ancestor of ``base``."""
         raw = self._run(
@@ -165,6 +234,101 @@ def parse_evidence_source(body: str) -> str | None:
     return match.group(1).strip() if match else None
 
 
+def read_autobind_outcome(
+    check_runs: Sequence[object],
+) -> tuple[str, str] | None:
+    """Return ``(outcome, reason)`` from the newest autobind outcome check-run.
+
+    OMN-18069. The producer writes a machine-readable first line into the
+    check-run summary:
+
+    ``occ-autobind-outcome: ERROR repo=... pr=... correlation_id=... reason=...``
+
+    Returns ``None`` when no such check-run is present, which is the ordinary
+    case for a PR whose autobind has not reported yet.
+    """
+    latest: dict[str, object] | None = None
+    for run in check_runs:
+        if not isinstance(run, dict):
+            continue
+        if str(run.get("name") or "") != AUTOBIND_OUTCOME_CHECK_NAME:
+            continue
+        if str(run.get("status") or "") != "completed":
+            continue
+        if latest is None or str(run.get("completed_at") or "") >= str(
+            latest.get("completed_at") or ""
+        ):
+            latest = run
+    if latest is None:
+        return None
+
+    output = latest.get("output")
+    summary = ""
+    if isinstance(output, dict):
+        summary = str(output.get("summary") or "")
+    for line in summary.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith(AUTOBIND_OUTCOME_MARKER_PREFIX):
+            continue
+        payload = stripped[len(AUTOBIND_OUTCOME_MARKER_PREFIX) :].strip()
+        if not payload:
+            break
+        outcome = payload.split(None, 1)[0]
+        reason = ""
+        marker = "reason="
+        if marker in payload:
+            reason = payload.split(marker, 1)[1].strip()
+        return outcome, reason
+    return None
+
+
+def is_no_companion_required(reason: str) -> bool:
+    """Whether a DECLINED ``reason=`` names the dependency-pin-only verdict.
+
+    Matched on the reason TOKEN at the start of the field, never on prose after
+    it, so a message that merely mentions the token cannot read as the verdict.
+    """
+    return any(
+        reason.strip().startswith(marker)
+        for marker in AUTOBIND_NO_COMPANION_REQUIRED_REASONS
+    )
+
+
+def _pin_only_outcome_proven(fetcher: GhFetcher, repo: str, head_sha: str) -> bool:
+    """True only when *head_sha* carries a DECLINED, pin-only producer outcome.
+
+    Fails CLOSED in every other shape: no head SHA, an unreadable check-run
+    list, an absent outcome, MINTED/ERROR, or any other DECLINED reason all
+    return False, leaving the gate exactly where it was. The check-runs are
+    fetched for *head_sha* alone, so an outcome bound to another commit is
+    invisible here.
+    """
+    if not head_sha:
+        return False
+    check_runs = fetcher.check_runs(repo, head_sha)
+    if check_runs is None:
+        return False
+    parsed = read_autobind_outcome(check_runs)
+    if parsed is None:
+        return False
+    outcome, reason = parsed
+    if outcome.strip().upper() != AUTOBIND_OUTCOME_DECLINED:
+        return False
+    return is_no_companion_required(reason)
+
+
+def is_permanent_decline(reason: str) -> bool:
+    """Whether a DECLINED ``reason=`` names a verdict that cannot resolve itself.
+
+    OMN-18647. Matched on the reason token the producer writes, never on the
+    prose after it, so rewording a message cannot silently change a verdict.
+    """
+    stripped = reason.strip()
+    return any(
+        stripped.startswith(marker) for marker in AUTOBIND_PERMANENT_DECLINE_REASONS
+    )
+
+
 def resolve_pr_number(
     event_name: str, pr_number: str, merge_group_head_ref: str
 ) -> str:
@@ -176,6 +340,55 @@ def resolve_pr_number(
         if match:
             return match.group(1)
     return ""
+
+
+def _terminal_autobind_error(
+    fetcher: GhFetcher, repo: str, pr_number: str, head_sha: str
+) -> str | None:
+    """The producer's ERROR reason for *head_sha*, or ``None``.
+
+    Fail-OPEN by design, and only here: an unreadable check-run list, a missing
+    head SHA, or any non-ERROR outcome all return ``None`` and leave the caller
+    on its existing PENDING path. This short-circuit may only ever turn a
+    would-be timeout into a fast, reasoned failure -- it must never be able to
+    fail a PR on its own, because the evidence it reads is written by a
+    different repo's runtime and an outage there would otherwise become an
+    outage here.
+    """
+    if not head_sha:
+        return None
+    check_runs = fetcher.check_runs(repo, head_sha)
+    if check_runs is None:
+        return None
+    parsed = read_autobind_outcome(check_runs)
+    if parsed is None:
+        return None
+    outcome, reason = parsed
+    if outcome.upper() != AUTOBIND_OUTCOME_ERROR:
+        return None
+    return reason or "(no reason recorded)"
+
+
+def _terminal_autobind_decline(
+    fetcher: GhFetcher, repo: str, head_sha: str
+) -> str | None:
+    """The producer's permanent DECLINED reason for *head_sha*, or ``None``.
+
+    OMN-18647. An unreadable outcome or a recoverable decline leaves the gate
+    PENDING; only the permanent reason tokens mean the bus will never mint.
+    """
+    if not head_sha:
+        return None
+    check_runs = fetcher.check_runs(repo, head_sha)
+    if check_runs is None:
+        return None
+    parsed = read_autobind_outcome(check_runs)
+    if parsed is None:
+        return None
+    outcome, reason = parsed
+    if outcome.upper() != AUTOBIND_OUTCOME_DECLINED or not is_permanent_decline(reason):
+        return None
+    return reason
 
 
 def evaluate_once(
@@ -205,7 +418,7 @@ def evaluate_once(
     if evidence_source_override is None:
         # Live body, never the event payload: occ-autobind PATCHes
         # Evidence-Source onto the body AFTER the triggering event fired.
-        pr_data = fetcher.pr_view(repo, pr_number, "body,author")
+        pr_data = fetcher.pr_view(repo, pr_number, "body,author,headRefOid")
         if pr_data is None:
             return Verdict(
                 EXIT_PENDING, f"could not fetch {repo}#{pr_number} (retryable)"
@@ -222,11 +435,59 @@ def evaluate_once(
                 "exemption mirrored; no OCC evidence applicable",
             )
 
+        head_sha = str(pr_data.get("headRefOid") or "")
+
+        # OMN-20161: the writer app is exempt only on the derived verdict, and
+        # before the Evidence-Source stamp is consulted, so a pin-only PR that
+        # already cites a hand companion is still exempt. Humans and near-miss
+        # logins never reach the outcome read.
+        if author in OCC_WRITER_BOT_AUTHORS and _pin_only_outcome_proven(
+            fetcher, repo, head_sha
+        ):
+            return Verdict(
+                EXIT_PASS,
+                f"OCC writer app '{author}' with a dependency-pin-only producer "
+                f"outcome bound to head {head_sha[:12]} "
+                f"({AUTOBIND_NO_COMPANION_REQUIRED_REASONS[0]}) — no OCC evidence "
+                "companion is owed (OMN-20161)",
+            )
+
         evidence_source = parse_evidence_source(str(pr_data.get("body") or ""))
     else:
         evidence_source = evidence_source_override
+        head_sha = ""
 
     if not evidence_source:
+        # OMN-18069: before deciding this is "still in flight", ask the producer.
+        # On 2026-09-09 the autobind effect consumed 37 commands and minted
+        # nothing; this gate spent its full 1500-second deadline on each of them
+        # and then reported only that a deadline had passed -- never the reason,
+        # which the runtime already knew and had already typed. A terminal ERROR
+        # outcome on the head SHA means the companion is not coming, so waiting
+        # is not merely wasteful, it is wrong.
+        outcome = _terminal_autobind_error(fetcher, repo, pr_number, head_sha)
+        if outcome is not None:
+            return Verdict(
+                EXIT_FAIL,
+                f"{repo}#{pr_number} has no 'Evidence-Source:' line and the "
+                f"occ-autobind producer reported {AUTOBIND_OUTCOME_ERROR} for this "
+                f"head: {outcome}. The OCC companion will NOT appear on its own -- "
+                "repair the reported fault and re-run the publisher, or hand-author "
+                "the companion (OMN-18069).",
+            )
+        # OMN-18647: a permanent decline requires hand-authored evidence,
+        # while lease-held and draft/closed suppressions may still resolve.
+        decline = _terminal_autobind_decline(fetcher, repo, head_sha)
+        if decline is not None:
+            return Verdict(
+                EXIT_FAIL,
+                f"{repo}#{pr_number} has no 'Evidence-Source:' line and the "
+                f"occ-autobind producer reported {AUTOBIND_OUTCOME_DECLINED} "
+                f"for this head: {decline}. This is a deliberate, permanent "
+                "refusal -- the bus path will not mint for this head and "
+                "re-running the publisher will not change it. Hand-authored "
+                "OCC evidence is required (OMN-15247; OMN-18647).",
+            )
         return Verdict(
             EXIT_PENDING,
             f"{repo}#{pr_number} body has no 'Evidence-Source:' line yet "

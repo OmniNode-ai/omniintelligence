@@ -98,11 +98,13 @@ jobs:
         with:
           version: ${{ env.UV_VERSION }}
 
-      - name: Install onex_change_control (pinned)
-        run: uv pip install --system "onex_change_control @ git+https://github.com/OmniNode-ai/onex_change_control.git@6f08269895488c9ce30a866e6415f1de9f6d1afc"
+      - name: Install omnibase_core (pinned)
+        # --no-config: pyproject.toml [tool.uv] override-dependencies pins omnibase-core to the
+        # PyPI range and would replace this git sha with a release that lacks the validator.
+        run: uv pip install --system --no-config "omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core.git@c584a652ae32c7e672521f660872c354d6e36325"
 
       - name: Run handler contract compliance check
         run: |
-          python -m onex_change_control.validators.arch_handler_contract_compliance \
+          python -m omnibase_core.handlers.handler_arch_handler_contract_compliance \
             --repo-root . \
             --allowlist-path arch-handler-contract-compliance-allowlist.yaml

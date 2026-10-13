@@ -11,6 +11,9 @@ from pydantic import BaseModel, ConfigDict, Field
 from omniintelligence.nodes.node_review_voters_overlay_compute.models.model_resolved_review_voter import (
     ModelResolvedReviewVoter,
 )
+from omniintelligence.nodes.node_review_voters_overlay_compute.models.model_substitute_vote_policy import (
+    ModelSubstituteVotePolicy,
+)
 
 if TYPE_CHECKING:
     from omniintelligence.review_pairing.models_external_review import (
@@ -29,6 +32,10 @@ class ModelReviewVoterRoster(BaseModel):
 
     overlay_source: str
     voters: tuple[ModelResolvedReviewVoter, ...] = ()
+    substitute_votes: ModelSubstituteVotePolicy | None = Field(
+        default=None,
+        description="The overlay's substitute-vote policy (OMN-20947), or None.",
+    )
     error: str = Field(default="", description="Why the overlay was refused.")
     error_voter_id: str = Field(
         default="", description="The voter the refusal is about, when one is."

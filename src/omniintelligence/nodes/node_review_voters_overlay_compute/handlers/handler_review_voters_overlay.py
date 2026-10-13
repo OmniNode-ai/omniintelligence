@@ -144,9 +144,21 @@ def _base_url(url: str, voter_id: str, what: str) -> str:
     return f"{parsed.scheme}://{netloc}{path.rstrip('/')}"
 
 
+def _refuse_overflow_equal_to_primary(
+    voter_id: str, base_url: str, overflow_base_urls: tuple[str, ...]
+) -> None:
+    """An overflow endpoint that is the primary is a retry spelled as a failover."""
+    if base_url in overflow_base_urls:
+        raise _RefusalError(
+            f"overflow_endpoint_urls names the voter's own endpoint {base_url!r}; "
+            "an overflow endpoint must be a different one",
+            voter_id,
+        )
+
+
 def _resolve(
     request: ModelReviewVotersOverlayRequest,
-) -> tuple[ModelResolvedReviewVoter, ...]:
+) -> tuple[tuple[ModelResolvedReviewVoter, ...], ModelReviewVotersOverlay]:
     source = request.overlay_source
     overlay = _validate(
         _parse_mapping(request.overlay_yaml, f"overlay {source}"), source
@@ -157,6 +169,10 @@ def _resolve(
 
     resolved: list[ModelResolvedReviewVoter] = []
     for voter in overlay.voters:
+        overflow_base_urls = tuple(
+            _base_url(url, voter.voter_id, "overflow_endpoint_urls entry")
+            for url in voter.overflow_endpoint_urls
+        )
         if voter.backend_id is not None:
             backend = backends.get(voter.backend_id)
             if backend is None:
@@ -176,11 +192,15 @@ def _resolve(
                 voter.voter_id,
                 f"backend {voter.backend_id!r} endpoint_url",
             )
+            _refuse_overflow_equal_to_primary(
+                voter.voter_id, base_url, overflow_base_urls
+            )
             resolved.append(
                 ModelResolvedReviewVoter(
                     voter=voter,
                     base_url=base_url,
                     source=f"backend {voter.backend_id} in {backend_name}",
+                    overflow_base_urls=overflow_base_urls,
                     backend_served_model_id=backend.served_model_id,
                 )
             )
@@ -188,12 +208,18 @@ def _resolve(
             base_url = _base_url(
                 voter.endpoint_url or "", voter.voter_id, "endpoint_url"
             )
+            _refuse_overflow_equal_to_primary(
+                voter.voter_id, base_url, overflow_base_urls
+            )
             resolved.append(
                 ModelResolvedReviewVoter(
-                    voter=voter, base_url=base_url, source="endpoint_url"
+                    voter=voter,
+                    base_url=base_url,
+                    source="endpoint_url",
+                    overflow_base_urls=overflow_base_urls,
                 )
             )
-    return tuple(resolved)
+    return tuple(resolved), overlay
 
 
 class HandlerReviewVotersOverlay:
@@ -208,7 +234,7 @@ class HandlerReviewVotersOverlay:
         is returned as data with the voter it concerns, never raised.
         """
         try:
-            voters = _resolve(request)
+            voters, overlay = _resolve(request)
         except _RefusalError as refusal:
             return ModelReviewVoterRoster(
                 overlay_source=request.overlay_source,
@@ -216,7 +242,9 @@ class HandlerReviewVotersOverlay:
                 error_voter_id=refusal.voter_id,
             )
         return ModelReviewVoterRoster(
-            overlay_source=request.overlay_source, voters=voters
+            overlay_source=request.overlay_source,
+            voters=voters,
+            substitute_votes=overlay.substitute_votes,
         )
 
 
@@ -231,6 +259,14 @@ def probe_target_lines(roster: ModelReviewVoterRoster) -> list[str]:
     for voter in roster.voters:
         host, port = voter.host_port
         lines.append(f"TARGET|{voter.voter_id}|{host}|{port}|{voter.base_url}")
+        # An overflow endpoint is a call target like any other: the workflows
+        # build the transport's one-host allowlist from these lines, so a
+        # target left out here would be refused at the moment it is needed.
+        for index, (host, port) in enumerate(voter.overflow_host_ports, start=1):
+            lines.append(
+                f"TARGET|{voter.voter_id}+overflow{index}|{host}|{port}|"
+                f"{voter.overflow_base_urls[index - 1]}"
+            )
     return lines
 
 

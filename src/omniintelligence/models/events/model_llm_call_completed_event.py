@@ -37,7 +37,7 @@ class ModelLLMCallCompletedEvent(BaseModel):
         min_length=1, description="LLM model identifier, e.g. 'qwen3-coder-30b'"
     )
     endpoint_url: str = Field(
-        min_length=1, description="LLM endpoint URL, e.g. 'http://192.168.86.201:8000'"
+        min_length=1, description="LLM endpoint URL, e.g. 'http://192.0.2.10:8000'"
     )
     input_tokens: int = Field(
         ge=0, description="Prompt tokens from API response usage.prompt_tokens"
