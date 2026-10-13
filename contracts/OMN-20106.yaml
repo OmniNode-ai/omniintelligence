@@ -1,0 +1,40 @@
+---
+schema_version: "1.0.0"
+ticket_id: "OMN-20106"
+title: "The PR review tells every voter which repository the diff belongs to, so a cloud voter can refuse
+  the one repository that never goes to a cloud model"
+summary: "Operator RULING 2026-10-13T20:50:03Z keeps one repository's code away from cloud models and
+  allows cloud review of every other repository. The cloud review voter endpoint refuses that repository
+  and refuses a review that names no repository. cli_review already receives --repo from the Hostile Reviewer
+  workflow; it now passes it through run_review and async_parse_raw to call_model, which sends it in the
+  signed request body as metadata.repository. A review with no repository sends exactly the body it sent
+  before."
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: "req-review-names-repository"
+    statement: |-
+      Every LLM voter of a PR review receives the PR's repository as metadata.repository, and a review with no repository sends no metadata.
+    acceptance:
+      - id: "AC1"
+        statement: |-
+          AC1: call_model sends metadata.repository when given a repository and no metadata otherwise, async_parse_raw passes its repository to call_model, and run_review passes its repository to every LLM voter -- falsifier: uv run pytest tests/unit/review_pairing/test_review_names_repository_omn20106.py -q
+evidence_requirements:
+  - kind: "tests"
+    description: "The repository reaches the voter request body; with none, the body is unchanged."
+    command: "uv run pytest tests/unit/review_pairing/test_review_names_repository_omn20106.py -q"
+emergency_bypass:
+  enabled: false
+  justification: ""
+  follow_up_ticket_id: ""
+dod_evidence:
+  - id: "dod-omn20106-ac1-review-names-repository"
+    description: "call_model puts the repository in extra_body metadata, async_parse_raw and run_review
+      pass it through, and a review with no repository sends no metadata."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/review_pairing/test_review_names_repository_omn20106.py
+          -q"
+    binds_ac: ["AC1"]

@@ -557,6 +557,7 @@ async def run_review(
     review_type: str = "plan",
     persona: ModelPersonaConfig | None = None,
     standing_rules: ModelReviewStandingRules | None = None,
+    repository: str | None = None,
 ) -> ModelMultiReviewResult:
     """Execute multi-model review.
 
@@ -570,6 +571,8 @@ async def run_review(
             prepended to the system prompt for each LLM call.
         standing_rules: The reviewed repository's standing rules (OMN-20784).
             Handed to every model; when None the call is exactly as before.
+        repository: Repository sent to each LLM voter as metadata.repository
+            (OMN-20106). None sends no metadata.
 
     Returns:
         Aggregated ModelMultiReviewResult.
@@ -613,6 +616,7 @@ async def run_review(
                     model=model_key,
                     review_type=review_type,
                     system_prompt_prefix=prefix,
+                    repository=repository,
                 )
             else:
                 result = await llm_async_parse_raw(
@@ -621,6 +625,7 @@ async def run_review(
                     review_type=review_type,
                     system_prompt_prefix=prefix,
                     standing_rules=standing_rules,
+                    repository=repository,
                 )
         elapsed = time.monotonic() - call_started_at
         # OMN-17492: record WHICH reviewer this key is (endpoint + model), so
@@ -1307,6 +1312,7 @@ def main(argv: list[str] | None = None) -> int:
             review_type=review_type,
             persona=persona,
             standing_rules=standing_rules,
+            repository=args.repo,
         )
     )
     result = _record_unreachable(result, skipped)
