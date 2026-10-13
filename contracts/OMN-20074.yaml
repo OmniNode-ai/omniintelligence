@@ -64,6 +64,13 @@ requirements:
       - id: "AC12"
         statement: |-
           AC12: the handler-contract-compliance job of omni-standards-compliance.yml installs omnibase-core at a full sha, runs python -m omnibase_core.handlers.handler_arch_handler_contract_compliance --repo-root . --allowlist-path arch-handler-contract-compliance-allowlist.yaml, and installs nothing from onex_change_control -- falsifier: uv run pytest tests/ci/test_arch_handler_compliance_core_omn20074.py -q
+  - id: "req-codeql-from-core"
+    statement: |-
+      omniintelligence's CodeQL caller uses omnibase_core's codeql-reusable.yml instead of onex_change_control's, with the job id, the inputs and the required context unchanged.
+    acceptance:
+      - id: "AC13"
+        statement: |-
+          AC13: security-scan.yml's codeql job calls OmniNode-ai/omnibase_core/.github/workflows/codeql-reusable.yml at the full sha 3fbb43eaff028a30edccb1b9b794e0a3f3d9523c and names no onex_change_control, and the job id, name and inputs are unchanged so the required context CodeQL / CodeQL Analysis (python) is unchanged -- falsifier: uv run pytest tests/ci/test_codeql_from_core_omn20074.py -q
 evidence_requirements:
   - kind: "tests"
     description: "The caller workflow has the required base-branch trigger and read-only permissions."
@@ -97,9 +104,13 @@ evidence_requirements:
     description: "The contract-validation step passes this repository's branch contract and refuses both
       planted binds_ac shapes and a malformed contract."
     command: "uv run pytest tests/ci/test_contract_validation_core_validator_omn20074.py -q"
+  - kind: "tests"
     description: "The handler contract compliance job installs omnibase_core at a full sha and runs its
       validator with the same flags and allowlist."
     command: "uv run pytest tests/ci/test_arch_handler_compliance_core_omn20074.py -q"
+  - kind: "tests"
+    description: "The CodeQL caller uses the omnibase_core reusable at a full sha, shape unchanged."
+    command: "uv run pytest tests/ci/test_codeql_from_core_omn20074.py -q"
 emergency_bypass:
   enabled: false
   justification: ""
@@ -200,3 +211,11 @@ dod_evidence:
         check_value: "uv run pytest tests/ci/test_arch_handler_compliance_core_omn20074.py -q"
         cwd: "${OMNI_HOME}/omniintelligence"
     binds_ac: ["AC12"]
+  - id: "dod-codeql-from-core-ac13"
+    description: "The CodeQL caller uses the omnibase_core reusable at a full sha, shape unchanged."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_codeql_from_core_omn20074.py -q"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC13"]
