@@ -137,7 +137,11 @@ class TestQuorumReadsDegradedOnUnparseableSecondVoter:
         from omniintelligence.review_pairing.quorum import evaluate_quorum
 
         async def _reply(
-            system_prompt: str, user_prompt: str, model_key: str = ""
+            system_prompt: str,
+            user_prompt: str,
+            model_key: str = "",
+            *,
+            repository: str | None = None,
         ) -> str:
             return "[]" if model_key == "qwen3-review" else _GARBAGE
 
