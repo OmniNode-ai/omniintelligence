@@ -85,6 +85,13 @@ requirements:
       - id: "AC15"
         statement: |-
           AC15: no event-triggered workflow calls an OCC reusable or waits on an OCC job, call-occ-autobind.yml, call-occ-companion-effect.yml and call-receipt-gate.yml and their helper scripts are gone, CI Summary and the required-checks manifest name no OCC context, the runner-IP caller pins the reusable without a nested preflight, and the repo-evidence caller passes shadow "false" and compare-with-occ "false" -- falsifier: uv run pytest tests/ci/test_no_occ_callers_omn20074.py -q
+  - id: "req-contract-compliance-own-contracts"
+    statement: |-
+      omniintelligence's Contract Compliance Check validates this repository's own ticket contracts with the omnibase_core in uv.lock, and the unused onex-change-control dependency, its uv source and its lock entry are gone.
+    acceptance:
+      - id: "AC16"
+        statement: |-
+          AC16: the contract-compliance job of ci.yml checks out no onex_change_control, installs this repository with uv sync --frozen and validates every top-level contracts/OMN-*.yaml with omnibase_core's ModelTicketContract (a malformed contract or an empty contracts directory fails), under the unchanged name Contract Compliance Check, and pyproject.toml and uv.lock name no onex-change-control -- falsifier: uv run pytest tests/unit/tools/test_contract_compliance_selector.py -q
 evidence_requirements:
   - kind: "tests"
     description: "The caller workflow has the required base-branch trigger and read-only permissions."
@@ -132,6 +139,10 @@ evidence_requirements:
     description: "No OCC caller, OCC-waiting job or OCC context remains, and the caller enforces without
       comparing."
     command: "uv run pytest tests/ci/test_no_occ_callers_omn20074.py -q"
+  - kind: "tests"
+    description: "The Contract Compliance Check validates this repository's contracts with the locked
+      omnibase_core and no onex-change-control dependency remains."
+    command: "uv run pytest tests/unit/tools/test_contract_compliance_selector.py -q"
 emergency_bypass:
   enabled: false
   justification: ""
@@ -257,3 +268,12 @@ dod_evidence:
         check_value: "uv run pytest tests/ci/test_no_occ_callers_omn20074.py -q"
         cwd: "${OMNI_HOME}/omniintelligence"
     binds_ac: ["AC15"]
+  - id: "dod-contract-compliance-own-contracts-ac16"
+    description: "The Contract Compliance Check validates this repository's contracts with the locked
+      omnibase_core and no onex-change-control dependency remains."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/tools/test_contract_compliance_selector.py -q"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC16"]
