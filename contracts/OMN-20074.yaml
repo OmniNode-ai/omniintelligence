@@ -99,6 +99,13 @@ requirements:
       - id: "AC17"
         statement: |-
           AC17: the contract-validation job of ci.yml names no onex_change_control, points at .github/workflows/contract-validation.yml and omnibase_core's ModelTicketContract, and keeps its name Contract Validation -- falsifier: uv run pytest tests/ci/test_ci_contract_validation_notice_omn20074.py -q
+  - id: "req-boundary-parity-without-occ"
+    statement: |-
+      The boundary-parity job of ci.yml calls omnibase_core's validate-boundaries action at a merge that no longer declares the retired change-control boundary, and reads no change-control repository.
+    acceptance:
+      - id: "AC18"
+        statement: |-
+          AC18: the boundary-parity job of ci.yml uses OmniNode-ai/omnibase_core/.github/actions/validate-boundaries at the full sha of the omnibase_core#1972 merge (c1f8e8fe0c513c0ac70ad666433a3ce1cec136c1), its repos input omits the change-control repository, and its name and other inputs are unchanged -- falsifier: uv run pytest tests/ci/test_validate_boundaries_caller_omn20965.py -q
 evidence_requirements:
   - kind: "tests"
     description: "The caller workflow has the required base-branch trigger and read-only permissions."
@@ -153,6 +160,10 @@ evidence_requirements:
   - kind: "tests"
     description: "The ci.yml contract-validation job names the validator that runs and no onex_change_control."
     command: "uv run pytest tests/ci/test_ci_contract_validation_notice_omn20074.py -q"
+  - kind: "tests"
+    description: "The boundary-parity job pins omnibase_core's action at the #1972 merge and reads no
+      change-control repository."
+    command: "uv run pytest tests/ci/test_validate_boundaries_caller_omn20965.py -q"
 emergency_bypass:
   enabled: false
   justification: ""
@@ -295,3 +306,12 @@ dod_evidence:
         check_value: "uv run pytest tests/ci/test_ci_contract_validation_notice_omn20074.py -q"
         cwd: "${OMNI_HOME}/omniintelligence"
     binds_ac: ["AC17"]
+  - id: "dod-boundary-parity-without-occ-ac18"
+    description: "The boundary-parity job pins omnibase_core's action at the #1972 merge and reads no
+      change-control repository."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_validate_boundaries_caller_omn20965.py -q"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC18"]
