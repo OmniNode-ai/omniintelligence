@@ -2,10 +2,10 @@
 schema_version: 1.0.0
 ticket_id: OMN-17427
 title: The retry of an unparseable review reply runs with a larger token budget
-summary: A Hostile Reviewer reply that reaches the 4096-token cap stops mid-JSON and does not parse;
-  the one retry resent the same cap, so a long review failed twice and the required voter did not
-  vote. The retry now asks for 8192 tokens. The first call, the per-call timeout, the number of
-  calls and the quorum are unchanged.
+summary: A Hostile Reviewer reply that reaches the 4096-token cap stops mid-JSON and does not parse; the
+  one retry resent the same cap, so a long review failed twice and the required voter did not vote. The
+  retry now asks for 8192 tokens. The first call, the per-call timeout, the number of calls and the quorum
+  are unchanged.
 is_seam_ticket: false
 interface_change: false
 interfaces_touched: []
@@ -16,8 +16,8 @@ requirements:
     acceptance:
       - id: AC1
         statement: 'AC1: async_parse_raw retries an unparseable reply once with max_tokens=_RETRY_MAX_TOKENS
-          (8192) and the same prompt and model, the first call keeps the 4096 default, and call_model sends
-          the budget it is given on the inference request -- falsifier: tests/unit/review_pairing/test_unparseable_retry_token_budget.py
+          (8192) and the same prompt and model, the first call keeps the 4096 default, and call_model
+          sends the budget it is given on the inference request -- falsifier: tests/unit/review_pairing/test_unparseable_retry_token_budget.py
           fails at the merge base (uv run pytest on that file)'
       - id: AC2
         statement: 'AC2: a reply that does not parse on both calls still marks the voter failed (parse_failed,
@@ -39,7 +39,8 @@ dod_evidence:
     source: manual
     checks:
       - check_type: test_passes
-        check_value: uv run pytest tests/unit/review_pairing/test_unparseable_retry_token_budget.py -q -n 0
+        check_value: uv run pytest tests/unit/review_pairing/test_unparseable_retry_token_budget.py -q
+          -n 0
     binds_ac:
       - AC1
   - id: dod-omn17427-ac2-failed-vote-kept

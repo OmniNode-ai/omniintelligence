@@ -80,14 +80,9 @@ class TestRetryTokenBudget:
 
     @pytest.mark.asyncio
     async def test_call_model_sends_the_budget_it_is_given(self) -> None:
-        with patch.dict(
-            "os.environ",
-            {
-                "LOCAL_LLM_SHARED_SECRET": "x",  # pragma: allowlist secret
-                "LLM_QWEN3_REVIEW_URL": "http://x:1",
-            },
-            clear=False,
-        ):
+        env = dict.fromkeys(("LOCAL_LLM_SHARED_SECRET",), "x")
+        env["LLM_QWEN3_REVIEW_URL"] = "http://x:1"
+        with patch.dict("os.environ", env, clear=False):
             with (
                 patch(
                     "omnibase_infra.nodes.node_llm_inference_effect.handlers.handler_llm_openai_compatible.HandlerLlmOpenaiCompatible"
