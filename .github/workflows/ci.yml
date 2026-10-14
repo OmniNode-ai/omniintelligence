@@ -1258,18 +1258,18 @@ jobs:
   # CI Summary - Final aggregator for all gates (OMN-2227)
   # ============================================================================
   # CROSS-REPO BOUNDARY PARITY (OMN-5772)
-  # Validates Kafka topic + migration boundaries against onex_change_control.
+  # Validates Kafka topic + migration boundaries across the sibling repos.
   # ============================================================================
 
   boundary-parity:
     name: Cross-Repo Boundary Parity
     runs-on: ubuntu-latest
     steps:
-      - uses: OmniNode-ai/omnibase_core/.github/actions/validate-boundaries@de3398d1fcf7a6f48451f680b74b1a6c6c383b8a # omnibase_core dev (OMN-20074 H/F)
+      - uses: OmniNode-ai/omnibase_core/.github/actions/validate-boundaries@c1f8e8fe0c513c0ac70ad666433a3ce1cec136c1 # omnibase_core dev, carries #1972 (OMN-20074)
         with:
           checks: "boundary-parity,migration-conflicts"
           warn-only: "false"
-          repos: "omniclaude,omnidash,omniintelligence,omnibase_infra,omnibase_core,omnimemory,omnimarket,onex_change_control"
+          repos: "omniclaude,omnidash,omniintelligence,omnibase_infra,omnibase_core,omnimemory,omnimarket"
 
   # ============================================================================
   # API-STABLE check_name: "CI Summary"
