@@ -1,10 +1,11 @@
 # SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
-"""OMN-20074: omniintelligence's repo-evidence caller runs in S5 shadow mode.
+"""OMN-20074: omniintelligence's repo-evidence caller runs in shadow mode.
 
-The caller records the new-path verdict beside OCC's on the same head and must
-block nothing: the reusable's ``shadow`` input makes ``repo-evidence / verify``
-and ``repo-evidence / dod-verify`` conclude success, and no OCC caller is removed.
+The S5 comparison with OCC has ended (S6 precursor, ``compare-with-occ`` is
+"false"). The caller must still block nothing: the reusable's ``shadow`` input
+makes ``repo-evidence / verify`` and ``repo-evidence / dod-verify`` conclude
+success, and no OCC caller is removed yet.
 
 Failure modes this catches: the caller dropped ``shadow`` or ``compare-with-occ``
 (the check-run would carry a real refusal); the pin moved to a branch name or an
@@ -87,12 +88,14 @@ def test_current_receipt_gate_verifier_version_is_at_or_above_the_floor() -> Non
     assert version >= VERIFIER_FLOOR
 
 
-def test_caller_is_in_shadow_mode_and_compares_with_occ() -> None:
+def test_caller_is_in_shadow_mode_and_ends_the_occ_comparison() -> None:
     inputs = _job()["with"]
     assert inputs["evidence-source"] == "caller"
     # Quoted strings: the reusable's boolean-like inputs are string inputs.
     assert inputs["shadow"] == "true"
-    assert inputs["compare-with-occ"] == "true"
+    # OMN-20074 S6: the S5 comparison ended, so dev stops waiting for an OCC
+    # verdict before the cut-over removes its producers.
+    assert inputs["compare-with-occ"] == "false"
     version = tuple(int(part) for part in inputs["verifier-version"].split("."))
     assert version >= VERIFIER_FLOOR
 
