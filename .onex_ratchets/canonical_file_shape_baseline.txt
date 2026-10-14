@@ -13,9 +13,7 @@ scripts/check_no_cloud_bus_wrapper.sh
 scripts/check_no_untyped_metadata.py
 scripts/ci/__init__.py
 scripts/ci/canonical_handler_shape_baseline.py
-scripts/ci/check_occ_companion_merged.py
 scripts/ci/detect_test_paths.py
-scripts/ci/occ_manual_replay_precheck.py
 scripts/ci/run_runtime_profiles_validator.py
 scripts/ci/test_selection_loader.py
 scripts/ci/test_selection_models.py
