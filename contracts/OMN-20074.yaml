@@ -92,6 +92,13 @@ requirements:
       - id: "AC16"
         statement: |-
           AC16: the contract-compliance job of ci.yml checks out no onex_change_control, installs this repository with uv sync --frozen and validates every top-level contracts/OMN-*.yaml with omnibase_core's ModelTicketContract (a malformed contract or an empty contracts directory fails), under the unchanged name Contract Compliance Check, and pyproject.toml and uv.lock name no onex-change-control -- falsifier: uv run pytest tests/unit/tools/test_contract_compliance_selector.py -q
+  - id: "req-ci-contract-validation-notice"
+    statement: |-
+      The contract-validation job of ci.yml names the validator that actually runs, not the retired change-control one.
+    acceptance:
+      - id: "AC17"
+        statement: |-
+          AC17: the contract-validation job of ci.yml names no onex_change_control, points at .github/workflows/contract-validation.yml and omnibase_core's ModelTicketContract, and keeps its name Contract Validation -- falsifier: uv run pytest tests/ci/test_ci_contract_validation_notice_omn20074.py -q
 evidence_requirements:
   - kind: "tests"
     description: "The caller workflow has the required base-branch trigger and read-only permissions."
@@ -143,6 +150,9 @@ evidence_requirements:
     description: "The Contract Compliance Check validates this repository's contracts with the locked
       omnibase_core and no onex-change-control dependency remains."
     command: "uv run pytest tests/unit/tools/test_contract_compliance_selector.py -q"
+  - kind: "tests"
+    description: "The ci.yml contract-validation job names the validator that runs and no onex_change_control."
+    command: "uv run pytest tests/ci/test_ci_contract_validation_notice_omn20074.py -q"
 emergency_bypass:
   enabled: false
   justification: ""
@@ -277,3 +287,11 @@ dod_evidence:
         check_value: "uv run pytest tests/unit/tools/test_contract_compliance_selector.py -q"
         cwd: "${OMNI_HOME}/omniintelligence"
     binds_ac: ["AC16"]
+  - id: "dod-ci-contract-validation-notice-ac17"
+    description: "The ci.yml contract-validation job names the validator that runs and no onex_change_control."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_ci_contract_validation_notice_omn20074.py -q"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC17"]

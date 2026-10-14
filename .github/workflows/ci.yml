@@ -758,7 +758,7 @@ jobs:
       - name: Find and validate contracts
         id: contract-validation
         run: |
-          echo "::notice::Node contract validation is enforced by .github/workflows/contract-validation.yml via the central onex_change_control validator."
+          echo "::notice::Node contract validation is enforced by .github/workflows/contract-validation.yml with omnibase_core's ModelTicketContract (OMN-20074)."
           echo "::notice::Skipping the legacy in-CI contract_linter path; current node contracts use the canonical ONEX contract schema."
           echo "contract_count=0" >> "$GITHUB_OUTPUT"
           echo "validation_duration=0s" >> "$GITHUB_OUTPUT"
