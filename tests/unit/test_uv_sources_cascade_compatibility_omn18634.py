@@ -48,12 +48,12 @@ _UV_LOCK = _REPO_ROOT / "uv.lock"
 #: git source is the only way to depend on it at all -- NOT that its pin is
 #: currently fresh, and NOT that a ticket promises to refresh it later.
 #:
-#: onex-change-control: not published to PyPI (``GET /pypi/onex-change-control/json``
-#: returns 404, checked 2026-09-18), so there is no registry release to resolve.
+#: Empty since OMN-20074 dropped the unused onex-change-control pin, the one
+#: distribution that was not on PyPI.
 #:
 #: omnimarket is deliberately ABSENT: it publishes to PyPI (0.4.126 at the time
 #: of this fix) and its releases carry the current ``omnibase-compat`` pin.
-_GIT_OVERRIDE_ALLOWLIST: frozenset[str] = frozenset({"onex-change-control"})
+_GIT_OVERRIDE_ALLOWLIST: frozenset[str] = frozenset()
 
 
 #: uv's own source-kind keys that make an entry a version-control checkout

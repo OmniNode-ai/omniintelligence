@@ -151,8 +151,6 @@ dev = [
     "pre-commit>=4.5.0",
     # Optional radon dependency included in dev for test coverage of radon code path
     "radon>=6.0.0",
-    # Centralized governance hooks (OMN-5135)
-    "onex-change-control>=0.1.0",
 ]
 
 # Core node system dependencies
@@ -236,7 +234,6 @@ all = [
 ]
 
 [tool.uv.sources]
-onex-change-control = { git = "https://github.com/OmniNode-ai/onex_change_control.git", rev = "dd2620d18001495b8d0f493b421b38399e9aab4b" } # pragma: allowlist secret  # OMN-18634: onex-change-control publishes no PyPI release, so a git source is the only way to depend on it and the cascade never tries to move it. The rev was originally aligned (OMN-15129) to the SHA the removed omnimarket@54fa07dd override nested; with that override gone it stands on its own and is refreshed independently.
 # omnimarket git-rev override removed under OMN-18634 (2026-09-18): the pinned rev
 # 54fa07dd (omnimarket 0.4.3, 2026-07-10) declares `omnibase-compat==0.5.6` exactly,
 # while every omnibase-infra release from 0.38.22 on declares `omnibase-compat==0.5.7`
