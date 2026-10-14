@@ -84,7 +84,7 @@ requirements:
     acceptance:
       - id: "AC15"
         statement: |-
-          AC15: no event-triggered workflow calls an OCC reusable or waits on an OCC job, call-occ-autobind.yml, call-occ-companion-effect.yml and call-receipt-gate.yml and their helper scripts are gone, CI Summary and the required-checks manifest name no OCC context, and the repo-evidence caller passes shadow "false" and compare-with-occ "false" -- falsifier: uv run pytest tests/ci/test_no_occ_callers_omn20074.py -q
+          AC15: no event-triggered workflow calls an OCC reusable or waits on an OCC job, call-occ-autobind.yml, call-occ-companion-effect.yml and call-receipt-gate.yml and their helper scripts are gone, CI Summary and the required-checks manifest name no OCC context, the runner-IP caller pins the reusable without a nested preflight, and the repo-evidence caller passes shadow "false" and compare-with-occ "false" -- falsifier: uv run pytest tests/ci/test_no_occ_callers_omn20074.py -q
 evidence_requirements:
   - kind: "tests"
     description: "The caller workflow has the required base-branch trigger and read-only permissions."

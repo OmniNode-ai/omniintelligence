@@ -29,6 +29,9 @@ REPO_ROOT = Path(
 WORKFLOWS = REPO_ROOT / ".github" / "workflows"
 REQUIRED_CHECKS = REPO_ROOT / ".github" / "required-checks.yaml"
 CALLER_PATH = WORKFLOWS / "call-repo-evidence-gate.yml"
+# 8-character prefix of omniclaude#2656's squash commit: the runner-IP reusable no
+# longer runs a nested OCC preflight.
+RUNNER_IP_PIN_PREFIX = "a45ba68f"
 
 _OCC_REUSABLE = re.compile(r"^(?:call-)?occ-[a-z0-9-]+\.ya?ml$")
 _OCC_JOB = re.compile(r"occ-(preflight|companion|autobind)")
@@ -200,3 +203,10 @@ def test_no_occ_callers_required_checks_manifest_names_no_occ_context() -> None:
     }
     assert names, "the manifest lists no gate"
     assert not _OCC_CONTEXTS & names
+
+
+def test_no_occ_callers_runner_ip_reusable_has_no_nested_preflight() -> None:
+    job = _workflows()["ban-hardcoded-runner-ip.yml"]["jobs"]["ban-hardcoded-runner-ip"]
+    prefix = "OmniNode-ai/omniclaude/.github/workflows/ban-hardcoded-runner-ip.yml@"
+    assert re.fullmatch(prefix + "[0-9a-f]{40}", job["uses"])
+    assert job["uses"].split("@", 1)[1].startswith(RUNNER_IP_PIN_PREFIX)
