@@ -220,6 +220,7 @@ class TestQuorum:
             model_key: str = "",
             *,
             repository: str | None = None,
+            max_tokens: int = 0,
         ) -> str:
             return replies[model_key]
 
