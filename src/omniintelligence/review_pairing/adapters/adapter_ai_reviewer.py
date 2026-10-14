@@ -95,6 +95,11 @@ _DEFAULT_MODEL_KEY: str = _REGISTRY_CONTRACT.default_model_key
 # Default max tokens for review response.
 _DEFAULT_MAX_TOKENS: int = 4096
 
+# Max tokens for the one retry of a reply that did not parse (OMN-17427). A
+# review that reaches the default cap stops mid-JSON and does not parse; the
+# retry gets room to finish it. The per-call timeout is unchanged.
+_RETRY_MAX_TOKENS: int = 2 * _DEFAULT_MAX_TOKENS
+
 # Default temperature for consistent review output.
 _DEFAULT_TEMPERATURE: float = 0.3
 
@@ -342,6 +347,7 @@ async def _call_claude_api(
     system_prompt: str,
     user_prompt: str,
     config: ModelEndpointConfig,
+    max_tokens: int = _DEFAULT_MAX_TOKENS,
 ) -> str:
     """Call the Anthropic Claude API for api_fallback models.
 
@@ -360,7 +366,7 @@ async def _call_claude_api(
     payload = json.dumps(
         {
             "model": config.api_model_id or "claude-sonnet-4-6",
-            "max_tokens": _DEFAULT_MAX_TOKENS,
+            "max_tokens": max_tokens,
             "system": system_prompt,
             "messages": [{"role": "user", "content": user_prompt}],
         }
@@ -437,6 +443,7 @@ async def call_model(
     model_key: str = _DEFAULT_MODEL_KEY,
     *,
     repository: str | None = None,
+    max_tokens: int = _DEFAULT_MAX_TOKENS,
 ) -> str:
     """Invoke LLM via HandlerLlmOpenaiCompatible, or Claude API for api_fallback models.
 
@@ -447,6 +454,7 @@ async def call_model(
         repository: The repository the reviewed content belongs to, sent as
             metadata.repository so a cloud voter can refuse a repository whose
             code never goes to a cloud model (OMN-20106). None sends no metadata.
+        max_tokens: Most tokens the reply may hold.
 
     Returns:
         Raw text response from the model.
@@ -461,7 +469,7 @@ async def call_model(
         raise ValueError(f"Unknown model '{model_key}'. Valid: {valid}")
 
     if config.kind == "api_fallback":
-        return await _call_claude_api(system_prompt, user_prompt, config)
+        return await _call_claude_api(system_prompt, user_prompt, config, max_tokens)
     if config.kind == "cli_fallback":
         raise ValueError(
             f"Model '{model_key}' is handled by its CLI adapter, not the LLM adapter."
@@ -542,7 +550,7 @@ async def call_model(
             model=_resolve_api_model_id(model_key, config, endpoint_base),
             messages=({"role": "user", "content": user_prompt},),
             system_prompt=system_prompt,
-            max_tokens=_DEFAULT_MAX_TOKENS,
+            max_tokens=max_tokens,
             temperature=(
                 config.temperature
                 if config.temperature is not None
@@ -1009,14 +1017,23 @@ async def async_parse_raw(
         parsed = try_parse_review_response(raw_text)
         if parsed is None:
             # OMN-20422: retry once with the same prompt, then fail the vote.
+            # OMN-17427: the retry gets a larger token budget, because a reply
+            # cut off at the default cap is the usual reason a review does not
+            # parse, and the same cap cuts the retry off the same way.
             logger.warning(
-                "Model '%s' reply did not parse (%d chars); retrying once",
+                "Model '%s' reply did not parse (%d chars); retrying once "
+                "with max_tokens=%d",
                 model,
                 len(raw_text),
+                _RETRY_MAX_TOKENS,
             )
             first_length = len(raw_text)
             raw_text = await call_model(
-                system_prompt, user_prompt, model_key=model, repository=repository
+                system_prompt,
+                user_prompt,
+                model_key=model,
+                repository=repository,
+                max_tokens=_RETRY_MAX_TOKENS,
             )
             parsed = try_parse_review_response(raw_text)
             if parsed is None:

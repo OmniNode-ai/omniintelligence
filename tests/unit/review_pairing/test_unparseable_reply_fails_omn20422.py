@@ -80,7 +80,11 @@ class TestAsyncParseRawUnparseableReply:
         with patch.object(adapter_ai_reviewer, "call_model", call):
             await adapter_ai_reviewer.async_parse_raw("# Plan", model="qwen3-review")
 
-        assert call.await_args_list[0] == call.await_args_list[1]
+        first, retry = call.await_args_list
+        assert first.args == retry.args
+        assert first.kwargs["model_key"] == retry.kwargs["model_key"]
+        # OMN-17427: only the token budget differs on the retry.
+        assert retry.kwargs["max_tokens"] == adapter_ai_reviewer._RETRY_MAX_TOKENS
 
     @pytest.mark.asyncio
     async def test_reply_fixed_on_retry_succeeds(self) -> None:
@@ -142,6 +146,7 @@ class TestQuorumReadsDegradedOnUnparseableSecondVoter:
             model_key: str = "",
             *,
             repository: str | None = None,
+            max_tokens: int = 0,
         ) -> str:
             return "[]" if model_key == "qwen3-review" else _GARBAGE
 
