@@ -130,7 +130,7 @@ def test_contract_compliance_accepts_a_valid_contract_and_skips_nested_v1(
     shutil.copy(_valid_contract(), workspace / "contracts" / "OMN-20074.yaml")
     # contracts/v1 holds a different shape; selecting it would fail this run.
     (workspace / "contracts" / "v1" / "OMN-15669.yaml").write_text(
-        "schema_version: occ-contract/v1\n", encoding="utf-8"
+        "schema_version: nested-contract/v1\n", encoding="utf-8"
     )
 
     result = _run_validation_script(

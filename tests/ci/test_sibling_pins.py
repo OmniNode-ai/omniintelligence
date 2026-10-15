@@ -99,7 +99,7 @@ jobs:
   steps:
     runs-on: ubuntu-latest
     steps:
-      - uses: OmniNode-ai/onex_change_control/.github/actions/y@main
+      - uses: OmniNode-ai/omnimarket/.github/actions/y@main
       - uses: actions/checkout@v7
         with: {{repository: OmniNode-ai/omnibase_core}}
       - uses: actions/checkout@v7
@@ -112,7 +112,7 @@ jobs:
     assert moving_sibling_reads(doc) == [
         "uses: OmniNode-ai/omnibase_core/.github/workflows/x.yml@main",
         "uses: OmniNode-ai/omniclaude/.github/workflows/x.yml@dev",
-        "uses: OmniNode-ai/onex_change_control/.github/actions/y@main",
+        "uses: OmniNode-ai/omnimarket/.github/actions/y@main",
         "checkout OmniNode-ai/omnibase_core ref=<default branch>",
         "checkout OmniNode-ai/omnibase_core ref=dev",
         "git clone of omnibase_core",

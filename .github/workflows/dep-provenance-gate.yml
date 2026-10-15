@@ -12,10 +12,8 @@
 # This gate is a pure static provenance check (no network calls). It FAILS if
 # any of omnibase-core / omnibase-spi / omnibase-compat (hyphen or underscore
 # spelling) has a git / rev / branch / tag source override in pyproject.toml's
-# [tool.uv.sources] block. onex-change-control is intentionally NOT checked (it
-# follows an immutable-main pin release model). A single line may be exempted
-# with an inline '# raw-override-ok: <ticket>' comment carrying a non-empty
-# token.
+# [tool.uv.sources] block. A single line may be exempted with an inline
+# '# raw-override-ok: <ticket>' comment carrying a non-empty token.
 #
 # Scoping: the whole-file gate runs only when a PR actually modifies
 # pyproject.toml (a forbidden override cannot be introduced without editing

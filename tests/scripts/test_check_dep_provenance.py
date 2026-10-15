@@ -111,21 +111,8 @@ def test_reject_tag_override(mod, tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# ALLOW: occ-only override (the current legitimate state)
+# ALLOW: no override at all
 # ---------------------------------------------------------------------------
-
-
-def test_allow_occ_only_override(mod, tmp_path: Path) -> None:
-    """onex-change-control git pin is intentional (immutable-main model)."""
-    block = (
-        "[tool.uv.sources]\n"
-        'onex-change-control = { git = "https://github.com/OmniNode-ai/onex_change_control.git", '
-        'rev = "2dd26ade7caaa7131e532473ec9d8a207d0e77ab" }\n'  # pragma: allowlist secret
-    )
-    path = _write_pyproject(tmp_path, block)
-
-    assert mod.find_violations(path.read_text()) == []
-    assert mod.main(["--pyproject", str(path)]) == 0
 
 
 def test_allow_no_uv_sources_block(mod, tmp_path: Path) -> None:
@@ -296,24 +283,6 @@ def test_stale_pin_empty_escape_token_still_fails(mod, tmp_path: Path) -> None:
         path.read_text(), max_commits_behind=50, resolver=resolver
     )
     assert len(violations) == 1
-
-
-def test_onex_change_control_exempt_from_staleness(mod, tmp_path: Path) -> None:
-    """occ follows an immutable-main pin model — never checked for staleness."""
-    block = (
-        "[tool.uv.sources]\n"
-        'onex-change-control = { git = "https://github.com/OmniNode-ai/onex_change_control.git", '
-        'rev = "dd2620d18001495b8d0f493b421b38399e9aab4b" }  # pragma: allowlist secret\n'
-    )
-    path = _write_pyproject(tmp_path, block)
-
-    def resolver(*_args, **_kwargs):  # should never be called
-        raise AssertionError("resolver must not be invoked for exempt packages")
-
-    violations = mod.find_staleness_violations(
-        path.read_text(), max_commits_behind=50, resolver=resolver
-    )
-    assert violations == []
 
 
 def test_branch_and_tag_pins_exempt_from_staleness(mod, tmp_path: Path) -> None:
