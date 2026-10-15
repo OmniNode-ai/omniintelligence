@@ -4,11 +4,11 @@
 """The Mac Studio planner is registered as a reviewer that is a different model.
 
 Operator ruling of 2026-09-25 (ledger RULING, OMN-17492): hostile review uses
-local models, the Mac Studio planner (gpt-oss-120b then, Qwen3.6-35B-A3B since
-2026-10-08, OMN-17427) plus the .201 models. Before this,
+local models, the Mac Studio planner (Qwen3.8-27B since 2026-10-09, per the
+delegation overlay's local-studio-planner entry) plus the other local models. Before this,
 the only local review keys (``qwen3-review`` and the since-deleted aliases
 ``qwen3-review-b`` and ``deepseek-r1``) all resolved to ONE endpoint,
-``.201:8000``, which serves one model, so every two-model "agreement" was that
+the shared local review endpoint, which serves one model, so every two-model "agreement" was that
 model agreeing with itself.
 
 These tests pin three things:
@@ -18,11 +18,12 @@ These tests pin three things:
 * Its endpoint is not the endpoint any existing local key uses, so it can
   never be the same model under a second name.
 * ``reasoning_effort`` is a declarative per-model field that reaches the wire
-  inside ``chat_template_kwargs``. It mattered for gpt-oss-120b: measured on
-  2026-09-25 against ``.200:8130``, effort ``high`` spent all 4096 completion
-  tokens on reasoning and returned an empty answer on a 98-line diff
+  inside ``chat_template_kwargs``. It mattered for the model first served on
+  the planner endpoint: measured on 2026-09-25, effort ``high`` spent all 4096
+  completion tokens on reasoning and returned an empty answer on a 98-line diff
   (omnimarket#2871), while ``low`` and ``medium`` answered. The Qwen3.6-35B-A3B
-  template served there since 2026-10-08 does not read it.
+  template served there from 2026-10-08 did not read it; the template of the
+  Qwen3.8-27B served since 2026-10-09 has not been re-read.
 
 Reference: OMN-17492, OMN-18479, OMN-18623.
 """

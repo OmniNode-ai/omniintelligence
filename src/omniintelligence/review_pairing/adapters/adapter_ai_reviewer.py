@@ -576,11 +576,12 @@ async def call_model(
             # vLLM (5090) and llama.cpp (4090) that the toggle suppresses the
             # preamble entirely at generation time.
             #
-            # OMN-17492: gpt-oss reads reasoning_effort from the same
-            # chat_template_kwargs; it is sent only when the registry declares it,
-            # so every other entry sends exactly what it sent before. (The model
-            # behind local-studio-planner has been Qwen3.6-35B-A3B since
-            # 2026-10-08, OMN-17427; see its registry entry for what that does to
+            # OMN-17492: a local model whose chat template reads
+            # reasoning_effort gets it from the same chat_template_kwargs; it is
+            # sent only when the registry declares it, so every other entry
+            # sends exactly what it sent before. (The model behind
+            # local-studio-planner is Qwen3.8-27B since 2026-10-09, per the
+            # delegation overlay; see its registry entry for what that does to
             # this field.) A voter is told the repository in metadata.repository;
             # a cloud voter's endpoint enforces the operator ruling of
             # 2026-10-13T20:50:03Z: one repository never goes to a cloud model.
