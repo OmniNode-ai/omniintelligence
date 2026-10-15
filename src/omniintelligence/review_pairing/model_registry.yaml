@@ -145,10 +145,10 @@ models:
       this is added emphasis, not a narrower remit. Label each finding with the category that best describes
       the defect itself."
 
-  # local-studio-planner -- ADDED as gpt-oss-review (OMN-17492, 2026-09-25)
-  # under the operator ruling of 2026-09-25T12:40Z (ledger RULING, "we have
-  # gpt oss 120 on this machine, why don't we use it as a review model?"), and
-  # renamed local-studio-planner by OMN-17427 (2026-10-08). The first local
+  # local-studio-planner -- ADDED under a model-named key (OMN-17492,
+  # 2026-09-25) under the operator ruling of 2026-09-25T12:40Z (ledger RULING:
+  # use the model served on the Mac Studio as a review model), and renamed
+  # local-studio-planner by OMN-17427 (2026-10-08). The first local
   # reviewer that is a DIFFERENT MODEL from the one behind qwen3-review:
   # qwen3-review, qwen3-review-b and deepseek-r1 all resolved to one endpoint
   # serving one model, so any two of them agreeing was one model agreeing with
@@ -166,12 +166,15 @@ models:
   # model_id_source: served, per the OMN-18623 ruling that no local reviewer
   # declares a model id.
   # timeout_seconds, max_retries and reasoning_effort below were measured on
-  # gpt-oss-120b (OMN-17492) and have not been re-measured on the model now
-  # served. reasoning_effort in particular is read from chat_template_kwargs by
-  # the gpt-oss chat template; the template now served does not contain the
-  # string reasoning_effort (GET /props, chat_template, 2026-10-08), so the
-  # value is sent and not read. It is left in place because dropping it is a
-  # change of request shape this rename does not measure.
+  # the model first served there (OMN-17492) and have not been re-measured on
+  # the model now served (Qwen3.8-27B since 2026-10-09, per the delegation
+  # overlay's local-studio-planner entry). reasoning_effort in particular is
+  # read from chat_template_kwargs only by a template that declares it; the
+  # template read on 2026-10-08 (GET /props, chat_template, then
+  # Qwen3.6-35B-A3B) did not contain the string reasoning_effort, and it has
+  # not been re-read for Qwen3.8-27B, so the value is sent and may not be read.
+  # It is left in place because dropping it is a change of request shape this
+  # rename does not measure.
   local-studio-planner:
     env_var: "LLM_LOCAL_STUDIO_PLANNER_URL"
     default_url: ""
