@@ -2,21 +2,21 @@
 # SPDX-License-Identifier: MIT
 """Fail-closed gate: a workflow may not execute a repo-local script that is absent.
 
-OMN-16664 (root cause). The OMN-15017 fan-out copied `call-occ-autobind.yml`
-and `call-occ-companion-effect.yml` into this repo. Both carry a
+OMN-16664 (root cause). The OMN-15017 fan-out copied two caller workflows
+into this repo. Both carry a
 `workflow_dispatch` manual-replay job whose first real step is
 
-    run: python3 scripts/ci/occ_manual_replay_precheck.py pr_state.json
+    run: python3 scripts/ci/manual_replay_precheck.py pr_state.json
 
-but the fan-out never carried `scripts/ci/occ_manual_replay_precheck.py` with
+but the fan-out never carried `scripts/ci/manual_replay_precheck.py` with
 them. Live shape (omnibase_compat run 33001337186, omnimemory run
 33019346585):
 
-    python3: can't open file '/home/runner/work/.../occ_manual_replay_precheck.py'
+    python3: can't open file '/home/runner/work/.../manual_replay_precheck.py'
     [Errno 2] No such file or directory
 
-That entrypoint is the ONLY sanctioned recovery when the OCC born path misses
-a mint, so the documented remediation was a dead end in every fanned-in repo
+That entrypoint is the ONLY sanctioned recovery when the primary path misses
+a run, so the documented remediation was a dead end in every fanned-in repo
 for weeks. It failed CLOSED, so nothing bad was ever published — the cost was
 a recovery path that silently did not exist, discovered only when someone
 needed it during an incident.
@@ -33,10 +33,10 @@ tree. Statically, from parsed YAML — no network, no GitHub token, no runner.
 
 ## What is deliberately NOT asserted, and why
 
-* **Steps with a `working-directory`.** The OCC workflows check
-  `OmniNode-ai/omnimarket` out into `.occ-autobind-src` and then run
-  `python scripts/publish_occ_autobind_command.py` with
-  `working-directory: .occ-autobind-src`. That path is a claim about
+* **Steps with a `working-directory`.** The fanned-in workflows check
+  `OmniNode-ai/omnimarket` out into `.foreign-src` and then run
+  `python scripts/publish_command.py` with
+  `working-directory: .foreign-src`. That path is a claim about
   *omnimarket's* tree, resolved at runtime into a directory that does not and
   should not exist here. Demanding it locally would be a false positive that
   gets the gate disabled, which is worse than the gap.
@@ -51,7 +51,7 @@ tree. Statically, from parsed YAML — no network, no GitHub token, no runner.
   `uses: actions/checkout` carrying an explicit `repository:` and no non-root
   `path:` — a self-checkout omits `repository:`, which is what separates the
   two.
-* **Paths under another prefix** (`.occ-autobind-src/scripts/x.py`,
+* **Paths under another prefix** (`.foreign-src/scripts/x.py`,
   `../foo/scripts/x.py`). Same reason: not a claim about this tree.
 
 Both exclusions are returned by `collect_script_references` and printed by the
@@ -85,7 +85,7 @@ WORKFLOWS_DIR = REPO_ROOT / ".github" / "workflows"
 
 #: A repo-root-relative script path as it appears inside a shell `run:` body.
 #: The lookbehind rejects any token that already carries a directory prefix
-#: (`.occ-autobind-src/scripts/x.py`, `../scripts/x.py`) or is a suffix of a
+#: (`.foreign-src/scripts/x.py`, `../scripts/x.py`) or is a suffix of a
 #: longer word — those are not claims about this repo's tree.
 _SCRIPT_TOKEN_RE = re.compile(r"(?<![\w./~-])(scripts/[\w./-]*\.(?:py|sh))")
 
@@ -380,14 +380,14 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - working-directory: .occ-autobind-src
-        run: python scripts/publish_occ_autobind_command.py --lane dev
+      - working-directory: .foreign-src
+        run: python scripts/publish_command.py --lane dev
 """,
     )
     references, skipped = collect_script_references(tmp_path)
     assert references == []
     assert [(s.workflow, s.job) for s in skipped] == [("w.yml", "build")]
-    assert ".occ-autobind-src" in skipped[0].reason
+    assert ".foreign-src" in skipped[0].reason
 
 
 def test_extractor_honours_job_and_workflow_run_defaults(tmp_path: Path) -> None:
@@ -462,7 +462,7 @@ def test_foreign_checkout_redirected_by_path_does_not_disable_a_job(
 ) -> None:
     """`path:` keeps the workspace root as this repo, so scanning continues.
 
-    This is the OCC shape: omnimarket lands in `.occ-autobind-src`, and the
+    This is the fanned-in shape: omnimarket lands in `.foreign-src`, and the
     precheck step that follows still runs against this repo's tree — which is
     exactly the step OMN-16664 is about, so it must stay in scope.
     """
@@ -480,14 +480,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: OmniNode-ai/omnimarket
-          path: .occ-autobind-src
-      - run: python3 scripts/ci/occ_manual_replay_precheck.py pr_state.json
+          path: .foreign-src
+      - run: python3 scripts/ci/manual_replay_precheck.py pr_state.json
 """,
     )
     references, skipped = collect_script_references(tmp_path)
-    assert [ref.path for ref in references] == [
-        "scripts/ci/occ_manual_replay_precheck.py"
-    ]
+    assert [ref.path for ref in references] == ["scripts/ci/manual_replay_precheck.py"]
     assert skipped == []
 
 
@@ -504,7 +502,7 @@ jobs:
     steps:
       - run: |
           # python3 scripts/ci/commented_out.py
-          python3 .occ-autobind-src/scripts/ci/other_repo.py
+          python3 .foreign-src/scripts/ci/other_repo.py
           python3 ../scripts/ci/parent.py
           python3 scripts/ci/real.py
 """,

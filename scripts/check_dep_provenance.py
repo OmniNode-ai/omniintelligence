@@ -20,11 +20,6 @@ Forbidden first-party deps (both hyphen and underscore spellings):
 A ``[tool.uv.sources]`` entry for any of the above with a ``git`` / ``rev`` /
 ``branch`` / ``tag`` key is a forbidden override and fails the gate.
 
-``onex-change-control`` is deliberately NOT checked by the forbidden-override
-check — it follows an immutable-main pin release model (different from the
-three PyPI-released deps), so its git pin is intentional and must remain
-allowed.
-
 Escape hatch (Rule-10 style): a forbidden source line may carry an inline
 comment ``# raw-override-ok: <ticket>`` with a NON-EMPTY token. This exempts the
 single line. An empty token (``# raw-override-ok:`` with nothing after) does NOT
@@ -41,8 +36,7 @@ pin (fixed SHA) is checked for how many commits behind the source repo's
 ``dev`` HEAD it is. More than ``--max-commits-behind`` (default 50) fails
 closed. ``branch``/``tag`` pins track a moving ref and are exempt from this
 specific check (they cannot go stale the way a frozen SHA can).
-``onex-change-control`` is exempt from the staleness check too, for the same
-immutable-main-model reason as the forbidden-override check. The same
+No package is exempt from the staleness check. The same
 ``# raw-override-ok: <ticket>`` annotation exempts a staleness violation on
 that line (a deliberate, ticket-tracked hold).
 
@@ -213,11 +207,6 @@ def find_violations(text: str) -> list[str]:
 #: signals.
 DEFAULT_MAX_COMMITS_BEHIND = 50
 
-#: Packages exempt from the staleness check for the same reason they are
-#: exempt from the forbidden-override check: an intentional, non-dev-line pin
-#: model (immutable-main releases), not a repo tracking `dev`.
-_STALENESS_EXEMPT_PACKAGES: frozenset[str] = frozenset({"onex-change-control"})
-
 
 class StalenessResolutionError(RuntimeError):
     """Raised when commits-behind cannot be determined. Callers must treat
@@ -314,7 +303,7 @@ def find_staleness_violations(
 
     Checks every `[tool.uv.sources]` entry that carries a git `rev` (a frozen
     SHA — `branch`/`tag` pins track a moving ref and are exempt from this
-    specific check). `onex-change-control` is exempt (immutable-main model).
+    specific check).
     A line with a valid non-empty `# raw-override-ok: <ticket>` escape is
     exempt. An unresolvable SHA is a violation, not a skip (fail-closed).
     """
@@ -326,8 +315,6 @@ def find_staleness_violations(
     violations: list[str] = []
 
     for pkg, attrs in entries.items():
-        if pkg in _STALENESS_EXEMPT_PACKAGES:
-            continue
         git_url = attrs.get("git")
         pinned_sha = attrs.get("rev")
         if not git_url or not pinned_sha:
