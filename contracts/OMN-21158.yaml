@@ -3,12 +3,10 @@ schema_version: 1.0.0
 ticket_id: OMN-21158
 title: Canonical CI fingerprint handler with re-executed verbatim proof
 summary: 'First sequential rewrite: bind the typed fingerprint handler and preserve the existing algorithm
-  and runtime bridge. Other nodes remain pending. #magic___^_^___line #magic___^_^___line | node | attempted
-  | verifier accepted | rejected | pending | #magic___^_^___line | --- | --- | --- | --- | --- | #magic___^_^___line
-  | node_ci_fingerprint_compute | 1 | 1 | 0 | 0 | #magic___^_^___line #magic___^_^___line Observed 1/1
-  verifier acceptance; the local-only 70% bar and 30-day no-revert condition are not established. The
-  prepared ticket comment must be posted by the launching host; the remote write was blocked by approval
-  policy.'
+  and runtime bridge. Other nodes remain pending. Attempt table: | node | attempted | verifier accepted
+  | rejected | pending | | node_ci_fingerprint_compute | 1 | 1 | 0 | 0 | Observed 1/1 verifier acceptance;
+  the local-only 70% bar and 30-day no-revert condition are not established. The prepared ticket comment
+  must be posted by the launching host; the remote write was blocked by approval policy.'
 is_seam_ticket: false
 interface_change: false
 interfaces_touched: []
@@ -59,14 +57,16 @@ dod_evidence:
     binds_ac:
       - AC2
   - id: dod-omn21158-ac3-attempts
-    description: The attempt table is in this contract summary. The prepared ticket comment requires a
-      launching-host write before publication because the remote write was blocked; AC3 remains pending
-      until then.
+    description: The attempt table is in this contract summary and its one accepted attempt is backed
+      by the verifier's handflip parity receipt for the node. The prepared ticket comment requires a launching-host
+      write before publication because the remote write was blocked; AC3 remains pending until then.
     source: manual
     checks:
       - check_type: command
-        check_value: uv run --frozen python -c 'from pathlib import Path; import yaml; s=yaml.safe_load(Path("contracts/OMN-21158.yaml").read_text())["summary"];
+        check_value: uv run --frozen python -c 'import json; from pathlib import Path; import yaml; s=yaml.safe_load(Path("contracts/OMN-21158.yaml").read_text())["summary"];
           assert "| node_ci_fingerprint_compute | 1 | 1 | 0 | 0 |" in s; assert "70%" in s; assert "30-day"
-          in s'
+          in s; r=json.loads(Path("scripts/ci/adequacy_receipts/omniintelligence.nodes.node_ci_fingerprint_compute.handflip.json").read_text());
+          assert r["node_id"] == "omniintelligence.nodes.node_ci_fingerprint_compute"; assert r["parity"]["status"]
+          == "pass"'
     binds_ac:
       - AC3
