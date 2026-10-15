@@ -73,7 +73,7 @@ _RETIRED_MODEL_IDS: tuple[str, ...] = (
     "Qwen3.8-27B",
 )
 
-# The family the .200:8130 planner served until 2026-10-08, retired by OMN-17427
+# The family the local-studio-planner endpoint served until 2026-10-08, retired by OMN-17427
 # and removed from every config by OMN-19432. A pattern, not an id, so any
 # spelling of it pasted into the registry as a value is refused. Built from
 # parts so this file is not itself a hit for the grep that proves the removal.

@@ -2,12 +2,12 @@
 schema_version: "1.0.0"
 ticket_id: "OMN-19432"
 title: "omniintelligence names no retired model name outside recorded evidence"
-summary: "The review registry's local-studio-planner provenance comments, the reasoning_effort
-  field description and note, the adapter comment and the review_pairing tests no longer name the
-  retired model. The rung is described by what the delegation overlay serves on it now
-  (Qwen3.8-27B on .200:8130 since 2026-10-09). The retired-id ratchet gains a family pattern with
-  a positive control, so a re-introduction in the registry is refused. The recorded reviewer
-  replies in tests/unit/review_pairing/fixtures/reviewer_replies_omn20422.json stay unchanged."
+summary: "The review registry's local-studio-planner provenance comments, the reasoning_effort field description
+  and note, the adapter comment and the review_pairing tests no longer name the retired model. The rung
+  is described by what the delegation overlay serves on it now (Qwen3.8-27B on the planner endpoint since
+  2026-10-09). The retired-id ratchet gains a family pattern with a positive control, so a re-introduction
+  in the registry is refused. The recorded reviewer replies in tests/unit/review_pairing/fixtures/reviewer_replies_omn20422.json
+  stay unchanged."
 is_seam_ticket: false
 interface_change: false
 interfaces_touched: []
@@ -16,12 +16,13 @@ requirements:
     statement: "No registry value or comment in omniintelligence names the retired model."
     acceptance:
       - id: "AC1"
-        statement: "AC1: model_registry.yaml carries no spelling of the retired model family --
-          falsifier: pytest of test_registry_text_names_no_retired_model_family fails on the dev
-          registry and passes on this branch"
+        statement: "AC1: model_registry.yaml carries no spelling of the retired model family -- falsifier:
+          pytest of test_registry_text_names_no_retired_model_family fails on the dev registry and passes
+          on this branch"
       - id: "AC2"
-        statement: "AC2: the family pattern matches every spelling and misses the served model --
-          falsifier: pytest of test_retired_model_family_pattern_is_live"
+        statement: "AC2: the family pattern matches every spelling and misses the served model -- falsifier:
+          pytest of test_retired_model_family_pattern_is_live together with test_registry_text_names_no_retired_model_family,
+          which fails on the dev registry"
 evidence_requirements:
   - kind: "tests"
     description: "The registry names no retired model family and the pattern is live."
@@ -36,8 +37,7 @@ dod_evidence:
     source: "manual"
     checks:
       - check_type: "test_passes"
-        check_value: "uv run pytest tests/unit/review_pairing/test_no_hardcoded_model_id.py -q -k
-          registry_text_names_no_retired_model_family"
+        check_value: "uv run pytest tests/unit/review_pairing/test_no_hardcoded_model_id.py -q -k registry_text_names_no_retired_model_family"
         cwd: "${OMNI_HOME}/omniintelligence"
     binds_ac: ["AC1"]
   - id: "dod-omn19432-ac2-family-pattern-is-live"
@@ -45,7 +45,7 @@ dod_evidence:
     source: "manual"
     checks:
       - check_type: "test_passes"
-        check_value: "uv run pytest tests/unit/review_pairing/test_no_hardcoded_model_id.py -q -k
-          retired_model_family_pattern_is_live"
+        check_value: "uv run pytest tests/unit/review_pairing/test_no_hardcoded_model_id.py -q -k 'retired_model_family_pattern_is_live
+          or registry_text_names_no_retired_model_family'"
         cwd: "${OMNI_HOME}/omniintelligence"
     binds_ac: ["AC2"]
