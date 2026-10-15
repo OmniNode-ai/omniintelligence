@@ -25,7 +25,6 @@ NON_CANONICAL: tuple[str, ...] = (
     "omniintelligence.nodes.node_chunk_classifier_compute",
     "omniintelligence.nodes.node_ci_error_classifier_compute",
     "omniintelligence.nodes.node_ci_failure_tracker_effect",
-    "omniintelligence.nodes.node_ci_fingerprint_compute",
     "omniintelligence.nodes.node_code_crawler_effect",
     "omniintelligence.nodes.node_code_entity_bridge_compute",
     "omniintelligence.nodes.node_compliance_evaluate_effect",

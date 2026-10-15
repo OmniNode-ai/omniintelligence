@@ -24,6 +24,15 @@ output_model:
   module: "omniintelligence.nodes.node_ci_fingerprint_compute.models.model_output"
   description: "SHA-256 hex digest fingerprint."
 
+handler_routing:
+  routing_strategy: "single_handler"
+  handlers:
+    - operation: "compute_fingerprint"
+      handler:
+        module: "omniintelligence.nodes.node_ci_fingerprint_compute.handlers.handler_fingerprint"
+        class: "HandlerCiFingerprint"
+        type: "sync"
+
 event_bus:
 
 dependencies: []
