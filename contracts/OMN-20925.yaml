@@ -1,0 +1,75 @@
+---
+schema_version: "1.0.0"
+ticket_id: "OMN-20925"
+title: "omniintelligence's skip-token caller pins the omniclaude reusable at a revision with no nested
+  occ-preflight"
+summary: "omniclaude#2540 (4358450cc on omniclaude dev) removed the nested occ-preflight job from the
+  reject-deploy-gate-skip.yml reusable. omniintelligence's call-reject-skip.yml moves to omniclaude dev
+  revision cb11e382966e354126cba07441e8f2b05faedee4, which has 4358450cc as an ancestor, so the caller
+  stops reporting call-reject-skip-token / occ-preflight / eligibility and keeps the scan context. The
+  caller passed no inputs before and the new reusable declares none."
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: "req-skip-reusable-repin"
+    statement: |-
+      omniintelligence's call-reject-skip.yml calls the omniclaude skip-token reusable at a revision that carries omniclaude#2540, so the scan still runs and no nested change-control preflight context is reported.
+    acceptance:
+      - id: "AC1"
+        statement: |-
+          AC1: In each of omnibase_spi, omnibase_compat and omniintelligence, `.github/workflows/call-reject-skip.yml` on the PR head calls omniclaude's `reject-deploy-gate-skip.yml` at a sha that has 4358450cc as an ancestor -- falsifier: `git -C omniclaude merge-base --is-ancestor 4358450cc <pinned sha>` exits 0 for each repo's pinned sha, and `git -C omniclaude show <pinned sha>:.github/workflows/reject-deploy-gate-skip.yml | grep -c occ-preflight.yml@` returns 0
+      - id: "AC2"
+        statement: |-
+          AC2: The skip-token scan still runs and still refuses a skip token on each repo's PR -- falsifier: the PR's own `call-reject-skip-token / scan` (or the repo's equivalent scan context) check run concludes success on the PR head and no `call-reject-skip-token / occ-preflight / eligibility` context is reported for that head; plus the reusable's scan step, run locally against a planted staged line carrying a skip-token prefix, exits non-zero (recorded in the PR body's Lab: line)
+      - id: "AC3"
+        statement: |-
+          AC3: Each PR changes only `call-reject-skip.yml`, its own `contracts/<this ticket>.yaml`, and at most a focused test of the pin -- falsifier: `git diff --name-only origin/dev...HEAD` per repo lists nothing else
+evidence_requirements:
+  - kind: "ci"
+    description: "The caller pins the reusable at cb11e382966e354126cba07441e8f2b05faedee4 and the pin
+      names no nested occ-preflight workflow."
+    command: "grep -qE 'reject-deploy-gate-skip\\.yml@cb11e382966e354126cba07441e8f2b05faedee4( |$)' .github/workflows/call-reject-skip.yml
+      && ! grep -q 'occ-preflight\\.yml@' .github/workflows/call-reject-skip.yml"
+  - kind: "ci"
+    description: "The caller still calls the skip-token reusable from the scan caller job on pull_request
+      and merge_group."
+    command: "grep -q 'call-reject-skip-token:' .github/workflows/call-reject-skip.yml && grep -q 'reject-deploy-gate-skip\\.yml@'
+      .github/workflows/call-reject-skip.yml && grep -q 'pull_request:' .github/workflows/call-reject-skip.yml
+      && grep -q 'merge_group:' .github/workflows/call-reject-skip.yml"
+  - kind: "ci"
+    description: "The branch changes only call-reject-skip.yml and this contract."
+    command: "git diff --quiet origin/dev...HEAD -- . ':(exclude).github/workflows/call-reject-skip.yml'
+      ':(exclude)contracts/OMN-20925.yaml'"
+emergency_bypass:
+  enabled: false
+  justification: ""
+  follow_up_ticket_id: ""
+dod_evidence:
+  - id: "dod-omn20925-ac1"
+    description: "The caller pins omniclaude dev revision cb11e382966e354126cba07441e8f2b05faedee4, which
+      has 4358450cc as an ancestor."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: "grep -qE 'reject-deploy-gate-skip\\.yml@cb11e382966e354126cba07441e8f2b05faedee4(
+          |$)' .github/workflows/call-reject-skip.yml && ! grep -q 'occ-preflight\\.yml@' .github/workflows/call-reject-skip.yml"
+    binds_ac: ["AC1"]
+  - id: "dod-omn20925-ac2"
+    description: "The caller still calls the skip-token reusable from the scan caller job on pull_request
+      and merge_group."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: "grep -q 'call-reject-skip-token:' .github/workflows/call-reject-skip.yml && grep
+          -q 'reject-deploy-gate-skip\\.yml@' .github/workflows/call-reject-skip.yml && grep -q 'pull_request:'
+          .github/workflows/call-reject-skip.yml && grep -q 'merge_group:' .github/workflows/call-reject-skip.yml"
+    binds_ac: ["AC2"]
+  - id: "dod-omn20925-ac3"
+    description: "The branch changes only call-reject-skip.yml and this contract."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: "git diff --quiet origin/dev...HEAD -- . ':(exclude).github/workflows/call-reject-skip.yml'
+          ':(exclude)contracts/OMN-20925.yaml'"
+    binds_ac: ["AC3"]

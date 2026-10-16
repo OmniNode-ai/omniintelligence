@@ -16,13 +16,14 @@ Reference: OMN-5789, OMN-5819, OMN-19395, OMN-20784
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from omniintelligence.models.review.model_review_standing_rules import (
     ModelReviewStandingRules,
 )
 
-PROMPT_VERSION: str = "1.4.0"
+PROMPT_VERSION: str = "1.5.0"
 """Semantic version of the adversarial review prompt.
 
 Propagated into ModelExternalReviewResult.prompt_version so review results
@@ -44,6 +45,8 @@ Changelog:
              blocked omniclaude#2629, a bump of two ``[tool.uv.sources]`` revs
              between full SHAs, once with a finding whose own text said "No
              finding here". OMN-20422.
+    1.4.0 -- A failed review retries with JSON-only instructions and the
+             findings schema, preserving the original evidence. OMN-20717.
 """
 
 SYSTEM_PROMPT: str = (
@@ -250,3 +253,12 @@ def render_standing_rules_section(rules: ModelReviewStandingRules) -> str:
         body = rule.text.strip().replace("\n", "\n    ")
         lines.append(f"- [{rule.id}] ({kind}) {body}")
     return "\n".join(lines)
+
+
+JSON_ONLY_RETRY: str = (
+    "\n\nJSON ONLY. The previous attempt did not produce a complete review. "
+    "Review the original evidence again. Return ONLY a complete JSON array, "
+    "without analysis, reasoning, markdown or commentary. Include every supported "
+    "defect; return [] only when you found no defects. Use this exact JSON schema:\n"
+    + json.dumps(FINDINGS_RESPONSE_FORMAT["json_schema"]["schema"])
+)

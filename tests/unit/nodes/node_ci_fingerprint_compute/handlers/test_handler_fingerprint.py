@@ -6,12 +6,113 @@
 Ticket: OMN-3556
 """
 
+import json
+from unittest.mock import MagicMock
+from uuid import uuid4
+
 import pytest
 
+from omniintelligence.nodes.node_ci_fingerprint_compute.handlers import (
+    handler_fingerprint,
+)
 from omniintelligence.nodes.node_ci_fingerprint_compute.handlers.handler_fingerprint import (
     _extract_frames,
     compute_error_fingerprint,
 )
+from omniintelligence.nodes.node_ci_fingerprint_compute.models.model_input import (
+    ModelCiFingerprintInput,
+)
+from omniintelligence.nodes.node_ci_fingerprint_compute.models.model_output import (
+    ModelCiFingerprintOutput,
+)
+
+FINGERPRINT_CASES = [
+    {"case": "empty", "input": {"failure_output": "", "failing_tests": []}},
+    {
+        "case": "no_frames",
+        "input": {
+            "failure_output": "AssertionError: failed at 0xdeadbeef",
+            "failing_tests": ["tests/test_b.py::test_b", "tests/test_a.py::test_a"],
+        },
+    },
+    {
+        "case": "stack",
+        "input": {
+            "failure_output": '  File "/app/pkg_a/foo.py", line 42, in outer\n  File "/app/pkg_b/foo.py", line 17, in inner\n',
+            "failing_tests": ["test_b", "test_a"],
+        },
+    },
+    {
+        "case": "reversed_stack",
+        "input": {
+            "failure_output": '  File "/app/pkg_b/foo.py", line 17, in inner\n  File "/app/pkg_a/foo.py", line 42, in outer\n',
+            "failing_tests": ["test_a", "test_b"],
+        },
+    },
+    {
+        "case": "windows",
+        "input": {
+            "failure_output": '  File "C:\\app\\pkg\\foo.py", line 9, in run\n<Thing at 0xF0Ac>\n',
+            "failing_tests": ["test_repeat", "test_repeat"],
+        },
+    },
+    {
+        "case": "basename",
+        "input": {
+            "failure_output": '  File "worker.py", line 1, in main\n',
+            "failing_tests": [],
+        },
+    },
+    {
+        "case": "unicode",
+        "input": {
+            "failure_output": '  File "/app/paquete/café.py", line 5, in ejecutar\nError: λ\n',
+            "failing_tests": ["test_λ"],
+        },
+    },
+]
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+@pytest.mark.parametrize("payload", FINGERPRINT_CASES, ids=lambda p: p["case"])
+async def test_canonical_dispatch_matches_preserved_core(
+    payload: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Exercise the production bridge against the git-preserved algorithm."""
+    handler_class = getattr(handler_fingerprint, "HandlerCiFingerprint", None)
+    assert handler_class is not None, (
+        "contract handler must expose canonical handle(request)"
+    )
+    request = ModelCiFingerprintInput.model_validate(payload["input"])
+    # The flip gate separately re-derives these function bodies from git.
+    expected = compute_error_fingerprint(
+        failure_output=request.failure_output, failing_tests=request.failing_tests
+    )
+    result = handler_class().handle(request)
+    assert isinstance(result, ModelCiFingerprintOutput)
+    assert result.fingerprint == expected
+    assert len(result.fingerprint) == 64
+
+    # The production factory must reach the canonical handler via node.compute().
+    from omniintelligence.runtime.dispatch_handlers import (
+        create_ci_fingerprint_dispatch_handler,
+    )
+
+    calls = []
+    original = handler_class.handle
+
+    def track_handle(self, request):
+        calls.append(request)
+        return original(self, request)
+
+    monkeypatch.setattr(handler_class, "handle", track_handle)
+    bridge = create_ci_fingerprint_dispatch_handler(correlation_id=uuid4())
+    envelope = MagicMock()
+    envelope.payload = request.model_dump(mode="json")
+    dispatched = json.loads(await bridge(envelope, MagicMock()))
+    assert dispatched["fingerprint"] == expected
+    assert calls == [request], "production bridge must invoke canonical handle(request)"
 
 
 @pytest.mark.unit

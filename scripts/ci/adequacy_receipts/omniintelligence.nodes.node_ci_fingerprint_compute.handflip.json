@@ -1,0 +1,26 @@
+{
+  "base_ref": "958956586a93",
+  "canonical_handler_module": "omniintelligence.nodes.node_ci_fingerprint_compute.handlers.handler_fingerprint",
+  "legacy_handler_module": "omniintelligence.nodes.node_ci_fingerprint_compute.handlers.handler_fingerprint",
+  "node_id": "omniintelligence.nodes.node_ci_fingerprint_compute",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:d8418c607cd1649de840963c2dd6f4fef9021de8ced6a9c82c15c4ac228320e4"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_ci_fingerprint_compute/handlers/test_handler_fingerprint.py::test_canonical_dispatch_matches_preserved_core[empty]",
+      "tests/unit/nodes/node_ci_fingerprint_compute/handlers/test_handler_fingerprint.py::test_canonical_dispatch_matches_preserved_core[no_frames]",
+      "tests/unit/nodes/node_ci_fingerprint_compute/handlers/test_handler_fingerprint.py::test_canonical_dispatch_matches_preserved_core[stack]",
+      "tests/unit/nodes/node_ci_fingerprint_compute/handlers/test_handler_fingerprint.py::test_canonical_dispatch_matches_preserved_core[reversed_stack]",
+      "tests/unit/nodes/node_ci_fingerprint_compute/handlers/test_handler_fingerprint.py::test_canonical_dispatch_matches_preserved_core[windows]",
+      "tests/unit/nodes/node_ci_fingerprint_compute/handlers/test_handler_fingerprint.py::test_canonical_dispatch_matches_preserved_core[basename]",
+      "tests/unit/nodes/node_ci_fingerprint_compute/handlers/test_handler_fingerprint.py::test_canonical_dispatch_matches_preserved_core[unicode]"
+    ]
+  },
+  "preserved_symbols": [
+    "_extract_frames",
+    "compute_error_fingerprint"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

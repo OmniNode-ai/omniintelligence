@@ -1,0 +1,70 @@
+---
+schema_version: "1.0.0"
+ticket_id: "OMN-20784"
+title: "Gated PR review carries the reviewed repository's standing rules"
+summary: >-
+  The review CLI loads a typed standing-rules file, read from the protected base ref when gated, renders
+  every rule by id into each reviewer's system prompt with its version and digest, binds findings that
+  cite a rule id, and blocks a pull request that removes, demotes or rewords a mandatory base rule.
+is_seam_ticket: false
+interface_change: true
+interfaces_touched: ["public_api"]
+requirements:
+  - id: "standing-rules"
+    statement: "A gated review tests the change against the reviewed repository's standing rules."
+    acceptance:
+      - id: "AC1"
+        statement: "A gated review without a valid rules file exits before any diff fetch or model call."
+      - id: "AC2"
+        statement: "Every reviewer's system prompt renders each rule by id with the rules' version and
+          digest."
+      - id: "AC3"
+        statement: "A finding citing a mandatory rule id is bound to it and blocks the quorum."
+      - id: "AC4"
+        statement: "A pull request that removes, demotes or rewords a mandatory base rule is BLOCKED with
+          no model call."
+evidence_requirements:
+  - kind: "tests"
+    description: "Standing-rules schema, gating, rendering, binding and base-rule protection tests."
+    command: "uv run pytest tests/unit/review_pairing/test_standing_rules_omn20784.py -q -n 0"
+emergency_bypass:
+  enabled: false
+  justification: ""
+  follow_up_ticket_id: ""
+dod_evidence:
+  - id: "gated-review-requires-rules"
+    description: "--gated without a valid rules file exits 1 before any diff fetch or model call."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/review_pairing/test_standing_rules_omn20784.py -q -n 0
+          -k gated_review_requires_rules"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC1"]
+  - id: "standing-rules-rendered"
+    description: "Rules reach every reviewer's system prompt by id, with version and digest."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/review_pairing/test_standing_rules_omn20784.py -q -n 0
+          -k standing_rules_rendered_and_digested"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC2"]
+  - id: "rule-cited-finding-blocks"
+    description: "A finding citing a mandatory rule is bound to it and raised to a blocking severity."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/review_pairing/test_standing_rules_omn20784.py -q -n 0
+          -k rule_cited_finding_blocks"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC3"]
+  - id: "pr-cannot-weaken-base-rules"
+    description: "Removing, demoting, rewording or invalidating a mandatory base rule yields BLOCKED."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/review_pairing/test_standing_rules_omn20784.py -q -n 0
+          -k pr_cannot_weaken_base_rules"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC4"]

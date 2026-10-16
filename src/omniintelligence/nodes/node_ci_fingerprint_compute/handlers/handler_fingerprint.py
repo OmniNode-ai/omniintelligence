@@ -12,6 +12,13 @@ import hashlib
 import json
 import re
 
+from omniintelligence.nodes.node_ci_fingerprint_compute.models.model_input import (
+    ModelCiFingerprintInput,
+)
+from omniintelligence.nodes.node_ci_fingerprint_compute.models.model_output import (
+    ModelCiFingerprintOutput,
+)
+
 _FRAME_RE = re.compile(r'File "([^"]+)", line \d+, in (\w+)')
 _MEMORY_RE = re.compile(r"0x[0-9a-fA-F]+")
 
@@ -56,7 +63,20 @@ def compute_error_fingerprint(
     return hashlib.sha256(payload.encode()).hexdigest()
 
 
+class HandlerCiFingerprint:
+    """Typed entry point for the unchanged CI fingerprint algorithm."""
+
+    def handle(self, request: ModelCiFingerprintInput) -> ModelCiFingerprintOutput:
+        """Compute the fingerprint from the contract's typed request."""
+        fingerprint = compute_error_fingerprint(
+            failure_output=request.failure_output,
+            failing_tests=request.failing_tests,
+        )
+        return ModelCiFingerprintOutput(fingerprint=fingerprint)
+
+
 __all__ = [
+    "HandlerCiFingerprint",
     "_extract_frames",
     "compute_error_fingerprint",
 ]

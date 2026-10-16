@@ -1,0 +1,21 @@
+{
+  "branch_coverage_pct": 55.17,
+  "candidate_count": 7,
+  "coverage_target": 80.0,
+  "handler_module": "omniintelligence.nodes.node_ci_fingerprint_compute.handlers.handler_fingerprint",
+  "handler_module_sha256": "sha256:bc97c7b2e823ef16d266df2ae4152aaf33edf3947f135196e00adb3227dc307b",
+  "meets_target": false,
+  "node_id": "omniintelligence.nodes.node_ci_fingerprint_compute",
+  "receipt_schema": "adequacy_receipt.v1",
+  "recorded_at": "2026-10-15T15:50:37.184386+00:00",
+  "recorder_schema": "adequacy_receipt.v1",
+  "selected_count": 1,
+  "selected_input_hashes": [
+    "sha256:d8418c607cd1649de840963c2dd6f4fef9021de8ced6a9c82c15c4ac228320e4"
+  ],
+  "uncovered_waiver": {
+    "reason": "Coverage starts after module import, so imports, regex constants, function/class definitions and __all__ are outside the measured call window. The selected corpus exercises frame extraction with and without frames, normalization, test sorting and the typed wrapper. Both algorithm functions are git-re-derived unchanged and all seven production-bridge parity cases execute the preserved function; an independent git-legacy replay compares all seven outputs byte-for-byte.",
+    "uncovered_branch_count": 0
+  },
+  "volatile_mask": []
+}

@@ -116,6 +116,16 @@ class ModelEndpointConfig(BaseModel, frozen=True, extra="forbid"):
         ),
     )
 
+    context_window_tokens: int = Field(
+        default=32768,
+        ge=8192,
+        description=(
+            "Smallest context window of this voter's primary and overflow endpoints. "
+            "Input, retry instructions and output must fit together; larger PRs "
+            "are reviewed in complete file batches (or parts of oversized files)."
+        ),
+    )
+
     temperature: float | None = Field(
         default=None,
         ge=0.0,
@@ -195,11 +205,11 @@ class ModelEndpointConfig(BaseModel, frozen=True, extra="forbid"):
         default=None,
         description=(
             "Optional reasoning effort for a local model whose chat template "
-            "reads chat_template_kwargs.reasoning_effort (gpt-oss, OMN-17492). "
+            "reads chat_template_kwargs.reasoning_effort (OMN-17492). "
             "None (default) sends nothing, so existing entries are unaffected. "
             "It shares max_tokens with the answer: measured 2026-09-25 on "
-            "gpt-oss-120b, 'high' spent all 4096 tokens on reasoning and "
-            "returned no answer on a 98-line diff."
+            "the model then served by local-studio-planner, 'high' spent all "
+            "4096 tokens on reasoning and returned no answer on a 98-line diff."
         ),
     )
 

@@ -1,16 +1,16 @@
 # SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
-"""OMN-20074: omniintelligence's repo-evidence caller runs in S5 shadow mode.
+"""OMN-20074: omniintelligence's repo-evidence caller enforces repo-owned evidence.
 
-The caller records the new-path verdict beside OCC's on the same head and must
-block nothing: the reusable's ``shadow`` input makes ``repo-evidence / verify``
-and ``repo-evidence / dod-verify`` conclude success, and no OCC caller is removed.
+S6 cut-over: ``shadow`` and ``compare-with-occ`` are both "false", so
+``repo-evidence / dod-verify`` carries a real verdict and admission never waits for
+OCC's. Every OCC caller is gone (see ``test_no_occ_callers_omn20074.py``).
 
-Failure modes this catches: the caller dropped ``shadow`` or ``compare-with-occ``
-(the check-run would carry a real refusal); the pin moved to a branch name or an
-older reusable; the caller moved to ``pull_request`` (a PR could then edit what
-judges it); a job name was added (the context prefix would change); an OCC caller
-was removed before the S6 ruling; the repo contract lost a falsifier.
+Failure modes this catches: the caller turned ``shadow`` or ``compare-with-occ``
+back on (admission would wait on a verdict nobody reports); the pin moved to a
+branch name or an older reusable; the caller moved to ``pull_request`` (a PR could
+then edit what judges it); a job name was added (the context prefix would change);
+an OCC caller came back; the repo contract lost a falsifier.
 """
 
 from __future__ import annotations
@@ -87,33 +87,32 @@ def test_current_receipt_gate_verifier_version_is_at_or_above_the_floor() -> Non
     assert version >= VERIFIER_FLOOR
 
 
-def test_caller_is_in_shadow_mode_and_compares_with_occ() -> None:
+def test_caller_shadow_mode_is_off_and_the_evidence_source_is_the_caller() -> None:
     inputs = _job()["with"]
     assert inputs["evidence-source"] == "caller"
     # Quoted strings: the reusable's boolean-like inputs are string inputs.
-    assert inputs["shadow"] == "true"
-    assert inputs["compare-with-occ"] == "true"
+    assert inputs["shadow"] == "false"
     version = tuple(int(part) for part in inputs["verifier-version"].split("."))
     assert version >= VERIFIER_FLOOR
 
 
-def test_shadow_occ_context_is_a_job_name_the_repo_reports() -> None:
-    # The reusable's default lookup, `occ-preflight / eligibility`, names a job
-    # this repository never reports: its OCC preflight runs nested inside the
-    # reject-skip caller, so the check-run is `<caller job> / occ-preflight /
-    # eligibility`. Without this input the shadow waits and reads not_compared.
-    jobs = _load(WORKFLOWS / "call-reject-skip.yml")["jobs"]
-    assert "call-reject-skip-token" in jobs
-    assert "/reject-deploy-gate-skip.yml@" in jobs["call-reject-skip-token"]["uses"]
-    assert (
-        _job()["with"]["occ-context"]
-        == "call-reject-skip-token / occ-preflight / eligibility"
-    )
+def test_caller_ends_the_occ_comparison() -> None:
+    assert _job()["with"]["compare-with-occ"] == "false"
 
 
-def test_shadow_caller_removes_no_occ_caller() -> None:
-    for name in ("call-occ-autobind.yml", "call-occ-companion-effect.yml"):
-        assert (WORKFLOWS / name).is_file(), f"{name} must stay until the S6 ruling"
+def test_caller_passes_no_occ_context() -> None:
+    # With the comparison off there is no OCC verdict to look up, and no job in
+    # this repository reports one.
+    assert "occ-context" not in _job()["with"]
+
+
+def test_occ_callers_are_removed() -> None:
+    for name in (
+        "call-occ-autobind.yml",
+        "call-occ-companion-effect.yml",
+        "call-receipt-gate.yml",
+    ):
+        assert not (WORKFLOWS / name).exists(), f"{name} is retired at S6"
 
 
 def test_repo_contract_names_a_falsifier_per_criterion() -> None:

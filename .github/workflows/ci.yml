@@ -758,7 +758,7 @@ jobs:
       - name: Find and validate contracts
         id: contract-validation
         run: |
-          echo "::notice::Node contract validation is enforced by .github/workflows/contract-validation.yml via the central onex_change_control validator."
+          echo "::notice::Node contract validation is enforced by .github/workflows/contract-validation.yml with omnibase_core's ModelTicketContract (OMN-20074)."
           echo "::notice::Skipping the legacy in-CI contract_linter path; current node contracts use the canonical ONEX contract schema."
           echo "contract_count=0" >> "$GITHUB_OUTPUT"
           echo "validation_duration=0s" >> "$GITHUB_OUTPUT"
@@ -1258,18 +1258,18 @@ jobs:
   # CI Summary - Final aggregator for all gates (OMN-2227)
   # ============================================================================
   # CROSS-REPO BOUNDARY PARITY (OMN-5772)
-  # Validates Kafka topic + migration boundaries against onex_change_control.
+  # Validates Kafka topic + migration boundaries across the sibling repos.
   # ============================================================================
 
   boundary-parity:
     name: Cross-Repo Boundary Parity
     runs-on: ubuntu-latest
     steps:
-      - uses: OmniNode-ai/omnibase_core/.github/actions/validate-boundaries@de3398d1fcf7a6f48451f680b74b1a6c6c383b8a # omnibase_core dev (OMN-20074 H/F)
+      - uses: OmniNode-ai/omnibase_core/.github/actions/validate-boundaries@c1f8e8fe0c513c0ac70ad666433a3ce1cec136c1 # omnibase_core dev, carries #1972 (OMN-20074)
         with:
           checks: "boundary-parity,migration-conflicts"
           warn-only: "false"
-          repos: "omniclaude,omnidash,omniintelligence,omnibase_infra,omnibase_core,omnimemory,omnimarket,onex_change_control"
+          repos: "omniclaude,omnidash,omniintelligence,omnibase_infra,omnibase_core,omnimemory,omnimarket"
 
   # ============================================================================
   # API-STABLE check_name: "CI Summary"
@@ -1284,38 +1284,47 @@ jobs:
     if: github.event_name == 'pull_request' || github.event_name == 'merge_group' || github.event_name == 'push'
     steps:
       - uses: actions/checkout@v7
-      - name: Checkout onex_change_control
-        uses: actions/checkout@v7
-        with:
-          repository: OmniNode-ai/onex_change_control
-          # Pinned to the onex-change-control rev in pyproject.toml; never the live default branch.
-          ref: dd2620d18001495b8d0f493b421b38399e9aab4b
-          path: onex_change_control
-
+      # OMN-20074 S6: validate this repository's own contracts with locked omnibase_core.
       - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
-          cache-dependency-glob: 'onex_change_control/uv.lock'
+          cache-dependency-glob: uv.lock
 
-      - name: Install onex_change_control
-        working-directory: onex_change_control
-        run: uv sync --all-extras
+      - name: Install dependencies
+        run: uv sync --frozen
 
       - name: Validate contract YAML files
-        working-directory: onex_change_control
         run: |
-          # The top level is the legacy ModelTicketContract namespace. Nested
-          # contracts/v1 uses occ-contract/v1 and has its own OMN-15669 gate.
-          mapfile -t CONTRACTS < <(
-            find "$GITHUB_WORKSPACE/onex_change_control/contracts" -maxdepth 1 -type f -name "OMN-*.yaml" 2>/dev/null
-          )
-          if [ "${#CONTRACTS[@]}" -eq 0 ]; then
-            echo "No contract YAML files found — skipping validation"
-            exit 0
-          fi
-          uv run validate-yaml "${CONTRACTS[@]}"
-        env:
-          GH_TOKEN: ${{ github.token }}
+          set -euo pipefail
+          # Top-level ticket contracts only: contracts/v1 holds a different shape.
+          mapfile -t CONTRACTS < <(find contracts -maxdepth 1 -type f -name "OMN-*.yaml")
+          uv run python3 - "${CONTRACTS[@]}" <<'PY'
+          import sys
+          from pathlib import Path
+
+          from omnibase_core.models.errors.model_onex_error import ModelOnexError
+          from omnibase_core.models.ticket.model_ticket_contract import ModelTicketContract
+
+          # Named contracts, or every contracts/OMN-*.yaml when none are named.
+          paths = [Path(arg) for arg in sys.argv[1:]] or sorted(Path("contracts").glob("OMN-*.yaml"))
+          if not paths:
+              print("::error::contracts/ holds no OMN-*.yaml ticket contract")
+              sys.exit(1)
+
+          broken = []
+          for path in paths:
+              try:
+                  ModelTicketContract.from_yaml(path.read_text(encoding="utf-8"))
+              except (OSError, ModelOnexError) as exc:
+                  broken.append((path, " ".join(str(exc).split())))
+
+          for path, reason in broken:
+              print(f"::error file={path.as_posix()}::{path.as_posix()}: {reason}")
+          if broken:
+              print(f"ERROR: {len(broken)} of {len(paths)} ticket contract(s) fail omnibase_core's ModelTicketContract.")
+              sys.exit(1)
+          print(f"OK: {len(paths)} ticket contract(s) pass omnibase_core's ModelTicketContract.")
+          PY
 
   shape-gate-independence:
     name: Shape-Gate Independence (OMN-20298)
@@ -1366,91 +1375,6 @@ jobs:
             --check-stale \
             --allowlist .onex_ratchets/noncanonical_class_allowlist.yaml \
             src/omniintelligence
-
-  occ-companion-merged:
-    name: OCC Companion Merged Gate (OMN-15214)
-    # OMN-16443 (port of the OMN-15214 canary, omnibase_infra #2486, and the
-    # OMN-15221 omniclaude fold-in): makes the 2026-07-26 OCC hygiene-sweep
-    # trigger state — an OPEN onex_change_control evidence companion whose
-    # product PR already MERGED — unreachable via the merge path on this repo.
-    # Live-incident-motivated: omniintelligence#838 merged 2026-08-24T02:02:37Z
-    # while its own companion onex_change_control#6966 did not merge until
-    # 2026-08-24T02:26:38Z — 24 minutes AFTER the product PR. The evidence
-    # turned out fine post-hoc, but no gate existed to catch the ordering
-    # violation. The durable fix is ordering: the companion must MERGE BEFORE
-    # the product PR can. This job polls the PR's live Evidence-Source (live
-    # body, not event payload — occ-autobind PATCHes it in after PR open) and
-    # greens ONLY when the cited OCC companion PR is MERGED or the cited OCC
-    # commit SHA is an ancestor of onex_change_control dev/main. A companion
-    # CLOSED without merging fails immediately (that IS the incident state).
-    #
-    # Wired into `ci-summary`'s needs: + a strict success-only check below —
-    # deliberately NOT a new top-level required context: a context that does
-    # not report on every PR shape wedges merges indefinitely under branch
-    # protection, and occ-autobind itself is network-flaky. Unconditional (no
-    # needs/if) so ci-summary always WAITS for it and a skip/cancel fails
-    # closed; internal event scoping no-ops on push/workflow_dispatch (mirrors
-    # occ-preflight). GitHub-hosted + pure gh API polling: zero self-hosted/LAN
-    # dependency, and the poll window absorbs autobind mint + companion
-    # auto-merge latency instead of converting them into instant reds.
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    permissions:
-      contents: read
-      pull-requests: read
-    env:
-      GH_REPO: ${{ github.repository }}
-      PR_NUMBER: ${{ github.event.pull_request.number }}
-      MERGE_GROUP_HEAD_REF: ${{ github.event.merge_group.head_ref }}
-      # Poll window (seconds) — bounded well under ci-summary's own deadline so
-      # this gate reaches a terminal state first; PENDING converts to FAIL.
-      DEADLINE_SECONDS: "1500"
-      POLL_INTERVAL_SECONDS: "30"
-    steps:
-      - name: Checkout (gate script)
-        uses: actions/checkout@v7
-      # Mint a short-lived onexbot-occ-writer App installation token and
-      # export it as GH_TOKEN — job-level `env:` is resolved before any step
-      # runs, so it cannot reference a step output directly. `|| github.token`
-      # fallback kept for resilience. Same app already used by this repo's
-      # sibling-lock-refresh.yml.
-      #
-      # OMN-16552: GitHub Actions does not expose repository secrets to a
-      # pull_request run authored by Dependabot (secret-exfiltration
-      # protection), so on a Dependabot PR ONEXBOT_OCC_APP_ID/PRIVATE_KEY
-      # resolve empty and this mint hard-fails BEFORE the Python script's own
-      # DEPENDENCY_BOT_AUTHORS exemption ever runs — the job never reaches
-      # "Require cited OCC evidence...". Skip minting only when the author is
-      # a known dependency-bot login AND the title has a deps-bump prefix
-      # (both, not either, mirroring — but stricter than — the OR the
-      # pr-title-check-reusable.yml exemption uses, so a human cannot dress a
-      # PR as a bump to dodge evidence enforcement). The job itself stays
-      # unconditional (no job-level `if:`) so CI Summary's
-      # skip/cancel-fails-closed STRICT_SUCCESS_JOBS semantics hold; only
-      # this one step is skipped. "Export GH_TOKEN" already falls back to
-      # `github.token` when app-token has no output, and the script's author
-      # exemption needs only same-repo `gh pr view` access — no cross-repo
-      # onex_change_control read — so the default token is sufficient here.
-      - name: Mint onexbot-occ-writer app token
-        id: app-token
-        if: >-
-          !(
-            contains(fromJSON('["dependabot[bot]","github-actions[bot]"]'), github.event.pull_request.user.login) &&
-            (
-              startsWith(github.event.pull_request.title, 'chore(deps') ||
-              startsWith(github.event.pull_request.title, 'build(deps') ||
-              startsWith(github.event.pull_request.title, 'Bump ')
-            )
-          )
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-        with:
-          app-id: ${{ secrets.ONEXBOT_OCC_APP_ID }}
-          private-key: ${{ secrets.ONEXBOT_OCC_PRIVATE_KEY }}
-          owner: OmniNode-ai
-      - name: Export GH_TOKEN
-        run: echo "GH_TOKEN=${{ steps.app-token.outputs.token || github.token }}" >> "$GITHUB_ENV"
-      - name: Require cited OCC evidence to be merged/durable before product merge
-        run: python3 scripts/ci/check_occ_companion_merged.py
 
   # Canonical-file-shape ratchet (OMN-20304). Operator ruling 2026-10-01: no
   # new scripts, plugins or exceptions in any repository. Refuses a new code
@@ -1531,7 +1455,7 @@ jobs:
         && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
         || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
       }}
-    needs: [changes, quality-gate, lint, type-check, test-unit, compliance, no-noncanonical-lifecycle-classes, shape-gate-independence, detect-secrets, occ-companion-merged, canonical-file-shape]
+    needs: [changes, quality-gate, lint, type-check, test-unit, compliance, no-noncanonical-lifecycle-classes, shape-gate-independence, detect-secrets, canonical-file-shape]
     if: always()
 
     steps:
@@ -1549,16 +1473,6 @@ jobs:
           # 'success' passes; skipped/cancelled/failure ALL block.
           if [[ "${{ needs.shape-gate-independence.result }}" != "success" ]]; then
             echo "::error::shape-gate-independence did not pass (result: ${{ needs.shape-gate-independence.result }}) - fail-closed (OMN-20298)"
-            exit 1
-          fi
-
-          # OMN-15214/OMN-16443: strict fail-closed gate on cited OCC evidence
-          # durability - only 'success' passes; skipped/cancelled/failure ALL
-          # block. It is in needs: so this job WAITS for it (no race). Prevents
-          # the merge-order violation that let omniintelligence#838 merge 24
-          # minutes before its companion onex_change_control#6966.
-          if [[ "${{ needs.occ-companion-merged.result }}" != "success" ]]; then
-            echo "::error::occ-companion-merged gate did not pass (result: ${{ needs.occ-companion-merged.result }}) - fail-closed (OMN-15214/OMN-16443)"
             exit 1
           fi
 

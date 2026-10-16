@@ -47,6 +47,7 @@ it is a red test rather than something a reviewer has to catch.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -70,11 +71,13 @@ _RETIRED_MODEL_IDS: tuple[str, ...] = (
     "qwen3.8",
     "Qwen3.6-35B-A3B",
     "Qwen3.8-27B",
-    # OMN-17492: the id .200:8130 served until 2026-10-08 (OMN-17427 moved it
-    # to Qwen3.6-35B-A3B, already retired above). Pinned here so it is never
-    # pasted in as a declared value; the entry reads it from /v1/models.
-    "gpt-oss-120b",
 )
+
+# The family the local-studio-planner endpoint served until 2026-10-08, retired by OMN-17427
+# and removed from every config by OMN-19432. A pattern, not an id, so any
+# spelling of it pasted into the registry as a value is refused. Built from
+# parts so this file is not itself a hit for the grep that proves the removal.
+_RETIRED_MODEL_FAMILY = re.compile("gpt" + "[-_ ]?" + "oss", re.IGNORECASE)
 
 
 # The environment variables the deployment binds to a self-hosted, single-model
@@ -117,8 +120,8 @@ def test_the_scope_is_not_empty() -> None:
         "ratchet depends on has changed shape and it has gone vacuous."
     )
     # OMN-17492: the lab pair, Qwen3.8-27B on .201:8000 and the .200:8130
-    # planner (gpt-oss-120b until 2026-10-08, then Qwen3.6-35B-A3B). The
-    # deepseek-r1 and qwen3-review-b aliases are deleted.
+    # planner (Qwen3.8-27B since 2026-10-09). The deepseek-r1 and
+    # qwen3-review-b aliases are deleted.
     assert set(keys) == {
         "qwen3-review",
         "local-studio-planner",
@@ -166,7 +169,9 @@ def test_no_retired_model_id_appears_as_a_declared_value() -> None:
         elif isinstance(node, list):
             for index, value in enumerate(node):
                 walk(value, f"{path}[{index}]")
-        elif isinstance(node, str) and node in _RETIRED_MODEL_IDS:
+        elif isinstance(node, str) and (
+            node in _RETIRED_MODEL_IDS or _RETIRED_MODEL_FAMILY.search(node)
+        ):
             found.append(f"  {path} = {node!r}")
 
     walk(raw, "registry")
@@ -176,6 +181,20 @@ def test_no_retired_model_id_appears_as_a_declared_value() -> None:
         "belong to whatever the host happens to serve; the registry must not "
         "name one (OMN-16407 / OMN-17786 / OMN-18623)."
     )
+
+
+def test_retired_model_family_pattern_is_live() -> None:
+    """Positive control: the pattern matches every spelling and misses a served model."""
+    for separator in ("-", "_", " ", ""):
+        assert _RETIRED_MODEL_FAMILY.search(f"local-gpt{separator}oss-120b"), separator
+        assert _RETIRED_MODEL_FAMILY.search(f"GPT{separator}OSS"), separator
+    assert not _RETIRED_MODEL_FAMILY.search("Qwen3.8-27B")
+
+
+def test_registry_text_names_no_retired_model_family() -> None:
+    """OMN-19432: neither a value nor a provenance comment names the retired family."""
+    text = _REGISTRY_PATH.read_text(encoding="utf-8")
+    assert _RETIRED_MODEL_FAMILY.search(text) is None
 
 
 def test_served_source_refuses_a_declared_id_at_load_time() -> None:

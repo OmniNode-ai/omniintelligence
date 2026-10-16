@@ -23,10 +23,10 @@ requirements:
           AC2: the caller pins the reusable by the full sha of the omnibase_core#1914 squash commit, the pin omnibase_core's own caller uses, with a verifier-version of 0.4.305 or later -- falsifier: uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k current_receipt_gate
       - id: "AC3"
         statement: |-
-          AC3: the caller sets evidence-source caller, shadow "true" and compare-with-occ "true", so the S5 shadow count records the new-path verdict beside OCC's on the same head and no repo-evidence check-run concludes anything but success -- falsifier: uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k shadow_mode
+          AC3: the caller sets evidence-source caller and shadow "false", with compare-with-occ set by AC14, so repo-evidence / dod-verify carries the real verdict of this repository's own contracts -- falsifier: uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k shadow_mode
       - id: "AC4"
         statement: |-
-          AC4: the shadow caller removes no OCC caller: call-occ-autobind.yml and call-occ-companion-effect.yml stay until the S6 ruling -- falsifier: uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k removes_no_occ_caller
+          AC4: the S6 cut-over removed the OCC callers call-occ-autobind.yml, call-occ-companion-effect.yml and call-receipt-gate.yml -- falsifier: uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k occ_callers_are_removed
       - id: "AC5"
         statement: |-
           AC5: every acceptance criterion of this contract names a falsifier that is also a dod_evidence check and runs an existing test file -- falsifier: uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k falsifier_per_criterion
@@ -46,7 +46,7 @@ requirements:
     acceptance:
       - id: "AC8"
         statement: |-
-          AC8: the caller passes occ-context equal to call-reject-skip-token / occ-preflight / eligibility, the nested name the reject-skip caller job reports, instead of the reusable's default occ-preflight / eligibility that this repository never reports -- falsifier: uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k occ_context
+          AC8: the caller passes no occ-context input, because the comparison is off and no job in this repository reports an OCC verdict -- falsifier: uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k occ_context
   - id: "req-contract-validation-core"
     statement: |-
       omniintelligence's contract-validation workflow validates the branch ticket's contract with omnibase_core's ModelTicketContract at the locked core version instead of the onex_change_control validators, under unchanged workflow and job names.
@@ -71,6 +71,48 @@ requirements:
       - id: "AC13"
         statement: |-
           AC13: security-scan.yml's codeql job calls OmniNode-ai/omnibase_core/.github/workflows/codeql-reusable.yml at the full sha 3fbb43eaff028a30edccb1b9b794e0a3f3d9523c and names no onex_change_control, and the job id, name and inputs are unchanged so the required context CodeQL / CodeQL Analysis (python) is unchanged -- falsifier: uv run pytest tests/ci/test_codeql_from_core_omn20074.py -q
+  - id: "req-s6-comparison-off"
+    statement: |-
+      omniintelligence's dev repo-evidence caller must stop comparing with OCC before the S6 cut-over removes OCC's verdict producers, so the cut-over pull request is judged by a caller that does not wait for a verdict nobody will report.
+    acceptance:
+      - id: "AC14"
+        statement: |-
+          AC14: the caller passes compare-with-occ "false" -- falsifier: uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k ends_the_occ_comparison
+  - id: "req-s6-no-occ-callers"
+    statement: |-
+      omniintelligence has no OCC caller, no job that waits on the OCC companion or preflight, and no OCC context in CI Summary or the required-checks manifest, and its repo-evidence caller enforces without shadow or comparison.
+    acceptance:
+      - id: "AC15"
+        statement: |-
+          AC15: no event-triggered workflow calls an OCC reusable or waits on an OCC job, call-occ-autobind.yml, call-occ-companion-effect.yml and call-receipt-gate.yml and their helper scripts are gone, CI Summary and the required-checks manifest name no OCC context, the runner-IP caller pins the reusable without a nested preflight, and the repo-evidence caller passes shadow "false" and compare-with-occ "false" -- falsifier: uv run pytest tests/ci/test_no_occ_callers_omn20074.py -q
+  - id: "req-contract-compliance-own-contracts"
+    statement: |-
+      omniintelligence's Contract Compliance Check validates this repository's own ticket contracts with the omnibase_core in uv.lock, and the unused onex-change-control dependency, its uv source and its lock entry are gone.
+    acceptance:
+      - id: "AC16"
+        statement: |-
+          AC16: the contract-compliance job of ci.yml checks out no onex_change_control, installs this repository with uv sync --frozen and validates every top-level contracts/OMN-*.yaml with omnibase_core's ModelTicketContract (a malformed contract or an empty contracts directory fails), under the unchanged name Contract Compliance Check, and pyproject.toml and uv.lock name no onex-change-control -- falsifier: uv run pytest tests/unit/tools/test_contract_compliance_selector.py -q
+  - id: "req-ci-contract-validation-notice"
+    statement: |-
+      The contract-validation job of ci.yml names the validator that actually runs, not the retired change-control one.
+    acceptance:
+      - id: "AC17"
+        statement: |-
+          AC17: the contract-validation job of ci.yml names no onex_change_control, points at .github/workflows/contract-validation.yml and omnibase_core's ModelTicketContract, and keeps its name Contract Validation -- falsifier: uv run pytest tests/ci/test_ci_contract_validation_notice_omn20074.py -q
+  - id: "req-boundary-parity-without-occ"
+    statement: |-
+      The boundary-parity job of ci.yml calls omnibase_core's validate-boundaries action at a merge that no longer declares the retired change-control boundary, and reads no change-control repository.
+    acceptance:
+      - id: "AC18"
+        statement: |-
+          AC18: the boundary-parity job of ci.yml uses OmniNode-ai/omnibase_core/.github/actions/validate-boundaries at the full sha of the omnibase_core#1972 merge (c1f8e8fe0c513c0ac70ad666433a3ce1cec136c1), its repos input omits the change-control repository, and its name and other inputs are unchanged -- falsifier: uv run pytest tests/ci/test_validate_boundaries_caller_omn20965.py -q
+  - id: "req-no-occ-residue"
+    statement: |-
+      No script, workflow guard or handshake spec of omniintelligence still depends on the retired change-control repository: no package is exempt from the staleness check, main-target-guard asks for no OCC receipt and refuses every pull request onto main, the validator-requirements spec names no change-control repository, and the skip-token hook points at repo contracts.
+    acceptance:
+      - id: "AC19"
+        statement: |-
+          AC19: scripts/check_dep_provenance.py exempts no package from the staleness check, main-target-guard.yml refuses every pull request onto main with no OCC receipt shape, validator-requirements.yaml names no change-control repository and sources its two migrated hooks from omnibase_core, and reject_deploy_gate_skip_token.sh points at contracts/OMN-<n>.yaml -- falsifier: uv run pytest tests/ci/test_occ_residue_removed_omn20074.py -q
 evidence_requirements:
   - kind: "tests"
     description: "The caller workflow has the required base-branch trigger and read-only permissions."
@@ -79,11 +121,11 @@ evidence_requirements:
     description: "The caller pins the current receipt-gate by full sha."
     command: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k current_receipt_gate"
   - kind: "tests"
-    description: "The caller runs in shadow mode and compares with OCC."
+    description: "The caller runs with shadow off and the verdict of this repository's own contracts."
     command: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k shadow_mode"
   - kind: "tests"
-    description: "The OCC callers stay."
-    command: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k removes_no_occ_caller"
+    description: "The OCC callers are removed."
+    command: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k occ_callers_are_removed"
   - kind: "tests"
     description: "Every criterion of this contract is bound to a runnable check."
     command: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k falsifier_per_criterion"
@@ -94,7 +136,7 @@ evidence_requirements:
     description: "The omnibase_core todo-format handler replays the recorded change-control decisions."
     command: "uv run pytest tests/ci/test_todo_format_replay_omn20074.py -q"
   - kind: "tests"
-    description: "The shadow's OCC lookup names a job this repository reports."
+    description: "The caller passes no OCC lookup name."
     command: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k occ_context"
   - kind: "tests"
     description: "The contract-validation workflow reads no onex_change_control, validates with omnibase_core
@@ -111,6 +153,28 @@ evidence_requirements:
   - kind: "tests"
     description: "The CodeQL caller uses the omnibase_core reusable at a full sha, shape unchanged."
     command: "uv run pytest tests/ci/test_codeql_from_core_omn20074.py -q"
+  - kind: "tests"
+    description: "The caller passes compare-with-occ false."
+    command: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k ends_the_occ_comparison"
+  - kind: "tests"
+    description: "No OCC caller, OCC-waiting job or OCC context remains, and the caller enforces without
+      comparing."
+    command: "uv run pytest tests/ci/test_no_occ_callers_omn20074.py -q"
+  - kind: "tests"
+    description: "The Contract Compliance Check validates this repository's contracts with the locked
+      omnibase_core and no onex-change-control dependency remains."
+    command: "uv run pytest tests/unit/tools/test_contract_compliance_selector.py -q"
+  - kind: "tests"
+    description: "The ci.yml contract-validation job names the validator that runs and no onex_change_control."
+    command: "uv run pytest tests/ci/test_ci_contract_validation_notice_omn20074.py -q"
+  - kind: "tests"
+    description: "The boundary-parity job pins omnibase_core's action at the #1972 merge and reads no
+      change-control repository."
+    command: "uv run pytest tests/ci/test_validate_boundaries_caller_omn20965.py -q"
+  - kind: "tests"
+    description: "No package is exempt from the staleness check, main-target-guard admits no pull request
+      onto main, the handshake spec and the skip-token hook name no change-control repository."
+    command: "uv run pytest tests/ci/test_occ_residue_removed_omn20074.py -q"
 emergency_bypass:
   enabled: false
   justification: ""
@@ -136,7 +200,7 @@ dod_evidence:
         cwd: "${OMNI_HOME}/omniintelligence"
     binds_ac: ["AC2"]
   - id: "dod-repo-evidence-ac3"
-    description: "The caller runs in shadow mode and compares with OCC."
+    description: "The caller runs with shadow off and the verdict of this repository's own contracts."
     source: "manual"
     checks:
       - check_type: "test_passes"
@@ -144,11 +208,11 @@ dod_evidence:
         cwd: "${OMNI_HOME}/omniintelligence"
     binds_ac: ["AC3"]
   - id: "dod-repo-evidence-ac4"
-    description: "The OCC callers stay."
+    description: "The OCC callers are removed."
     source: "manual"
     checks:
       - check_type: "test_passes"
-        check_value: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k removes_no_occ_caller"
+        check_value: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k occ_callers_are_removed"
         cwd: "${OMNI_HOME}/omniintelligence"
     binds_ac: ["AC4"]
   - id: "dod-repo-evidence-ac5"
@@ -176,7 +240,7 @@ dod_evidence:
         cwd: "${OMNI_HOME}/omniintelligence"
     binds_ac: ["AC7"]
   - id: "dod-shadow-occ-context-ac8"
-    description: "The shadow's OCC lookup names a job this repository reports."
+    description: "The caller passes no OCC lookup name."
     source: "manual"
     checks:
       - check_type: "test_passes"
@@ -219,3 +283,55 @@ dod_evidence:
         check_value: "uv run pytest tests/ci/test_codeql_from_core_omn20074.py -q"
         cwd: "${OMNI_HOME}/omniintelligence"
     binds_ac: ["AC13"]
+  - id: "dod-s6-comparison-off-ac14"
+    description: "The caller passes compare-with-occ false."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k ends_the_occ_comparison"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC14"]
+  - id: "dod-s6-no-occ-callers-ac15"
+    description: "No OCC caller, OCC-waiting job or OCC context remains, and the caller enforces without
+      comparing."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_no_occ_callers_omn20074.py -q"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC15"]
+  - id: "dod-contract-compliance-own-contracts-ac16"
+    description: "The Contract Compliance Check validates this repository's contracts with the locked
+      omnibase_core and no onex-change-control dependency remains."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/tools/test_contract_compliance_selector.py -q"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC16"]
+  - id: "dod-ci-contract-validation-notice-ac17"
+    description: "The ci.yml contract-validation job names the validator that runs and no onex_change_control."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_ci_contract_validation_notice_omn20074.py -q"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC17"]
+  - id: "dod-boundary-parity-without-occ-ac18"
+    description: "The boundary-parity job pins omnibase_core's action at the #1972 merge and reads no
+      change-control repository."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_validate_boundaries_caller_omn20965.py -q"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC18"]
+  - id: "dod-no-occ-residue-ac19"
+    description: "No package is exempt from the staleness check, main-target-guard admits no pull request
+      onto main, the handshake spec and the skip-token hook name no change-control repository."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_occ_residue_removed_omn20074.py -q"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC19"]

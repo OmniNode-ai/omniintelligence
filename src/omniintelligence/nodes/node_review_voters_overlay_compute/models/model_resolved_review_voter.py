@@ -81,6 +81,7 @@ class ModelResolvedReviewVoter(BaseModel):
             enable_thinking=voter.enable_thinking,
             max_retries=voter.max_retries,
             constrain_findings_schema=voter.constrain_findings_schema,
+            context_window_tokens=voter.context_window_tokens,
             temperature=voter.temperature,
             top_p=voter.top_p,
             review_focus=voter.review_focus,

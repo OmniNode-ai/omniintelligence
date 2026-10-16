@@ -18,6 +18,7 @@ Reference: OMN-5790
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -27,7 +28,7 @@ import sys
 import time
 import urllib.parse
 from collections.abc import Mapping
-from typing import Any, TypedDict
+from typing import Any, TypedDict, Unpack
 from uuid import uuid4
 
 from omniintelligence.models.review.model_review_standing_rules import (
@@ -60,6 +61,10 @@ from omniintelligence.review_pairing.prompts.adversarial_reviewer import (
     USER_PROMPT_TEMPLATE_PR,
     render_standing_rules_section,
 )
+from omniintelligence.review_pairing.prompts.adversarial_reviewer import (
+    JSON_ONLY_RETRY as _JSON_ONLY_RETRY,
+)
+from omniintelligence.review_pairing.retry_budget import compute_sequential_worst_case
 from omniintelligence.review_pairing.served_model_resolver import (
     ServedModelResolutionError,
     resolve_served_model_id,
@@ -98,6 +103,13 @@ _DEFAULT_MODEL_KEY: str = _REGISTRY_CONTRACT.default_model_key
 
 # Default max tokens for review response.
 _DEFAULT_MAX_TOKENS: int = 4096
+
+# Default retry budget. Larger reviews scale both caps together, up to
+# _MAX_REVIEW_TOKENS initially and twice that on the JSON-only retry.
+_RETRY_MAX_TOKENS: int = 2 * _DEFAULT_MAX_TOKENS
+
+_MAX_REVIEW_TOKENS: int = 8192
+_CONTEXT_MARGIN: int = 1024
 
 # Default temperature for consistent review output.
 _DEFAULT_TEMPERATURE: float = 0.3
@@ -315,6 +327,11 @@ class _OptionalRequestKwargs(TypedDict, total=False):
     top_p: float
 
 
+class _OutputBudgetKwargs(TypedDict, total=False):
+    max_tokens: int
+    json_only: bool
+
+
 def _resolve_api_model_id(
     model_key: str,
     config: ModelEndpointConfig,
@@ -353,6 +370,7 @@ async def _call_claude_api(
     system_prompt: str,
     user_prompt: str,
     config: ModelEndpointConfig,
+    max_tokens: int = _DEFAULT_MAX_TOKENS,
 ) -> str:
     """Call the Anthropic Claude API for api_fallback models.
 
@@ -371,7 +389,7 @@ async def _call_claude_api(
     payload = json.dumps(
         {
             "model": config.api_model_id or "claude-sonnet-4-6",
-            "max_tokens": _DEFAULT_MAX_TOKENS,
+            "max_tokens": max_tokens,
             "system": system_prompt,
             "messages": [{"role": "user", "content": user_prompt}],
         }
@@ -397,7 +415,9 @@ async def _call_claude_api(
         raise RuntimeError(f"Unexpected Claude API response shape: {data!r}") from exc
 
 
-def _build_extra_body(config: ModelEndpointConfig) -> dict[str, Any]:
+def _build_extra_body(
+    config: ModelEndpointConfig, *, json_only: bool = False
+) -> dict[str, Any]:
     """Request-body keys the OpenAI-compatible effect merges in verbatim.
 
     ``chat_template_kwargs`` always (OMN-14176; ``reasoning_effort`` only when
@@ -405,9 +425,13 @@ def _build_extra_body(config: ModelEndpointConfig) -> dict[str, Any]:
     that sets ``constrain_findings_schema`` (OMN-20422), so every other entry
     sends exactly what it sent before.
     """
-    template_kwargs: dict[str, Any] = {"enable_thinking": config.enable_thinking}
+    template_kwargs: dict[str, Any] = {
+        "enable_thinking": False if json_only else config.enable_thinking
+    }
     if config.reasoning_effort is not None:
-        template_kwargs["reasoning_effort"] = config.reasoning_effort
+        template_kwargs["reasoning_effort"] = (
+            "low" if json_only else config.reasoning_effort
+        )
     extra_body: dict[str, Any] = {"chat_template_kwargs": template_kwargs}
     if config.constrain_findings_schema:
         extra_body["response_format"] = FINDINGS_RESPONSE_FORMAT
@@ -448,6 +472,8 @@ async def call_model(
     model_key: str = _DEFAULT_MODEL_KEY,
     *,
     repository: str | None = None,
+    max_tokens: int = _DEFAULT_MAX_TOKENS,
+    json_only: bool = False,
 ) -> str:
     """Invoke LLM via HandlerLlmOpenaiCompatible, or Claude API for api_fallback models.
 
@@ -458,6 +484,7 @@ async def call_model(
         repository: The repository the reviewed content belongs to, sent as
             metadata.repository so a cloud voter can refuse a repository whose
             code never goes to a cloud model (OMN-20106). None sends no metadata.
+        max_tokens: Most tokens the reply may hold.
 
     Returns:
         Raw text response from the model.
@@ -472,7 +499,7 @@ async def call_model(
         raise ValueError(f"Unknown model '{model_key}'. Valid: {valid}")
 
     if config.kind == "api_fallback":
-        return await _call_claude_api(system_prompt, user_prompt, config)
+        return await _call_claude_api(system_prompt, user_prompt, config, max_tokens)
     if config.kind == "cli_fallback":
         raise ValueError(
             f"Model '{model_key}' is handled by its CLI adapter, not the LLM adapter."
@@ -543,7 +570,7 @@ async def call_model(
         # when declared, so an entry that sets none sends what it always sent.
         if config.top_p is not None:
             _request_kwargs["top_p"] = config.top_p
-        extra_body = _build_extra_body(config)
+        extra_body = _build_extra_body(config, json_only=json_only)
         if repository:
             extra_body["metadata"] = {"repository": repository}
         request = ModelLlmInferenceRequest(
@@ -553,7 +580,7 @@ async def call_model(
             model=_resolve_api_model_id(model_key, config, endpoint_base),
             messages=({"role": "user", "content": user_prompt},),
             system_prompt=system_prompt,
-            max_tokens=_DEFAULT_MAX_TOKENS,
+            max_tokens=max_tokens,
             temperature=(
                 config.temperature
                 if config.temperature is not None
@@ -579,11 +606,12 @@ async def call_model(
             # vLLM (5090) and llama.cpp (4090) that the toggle suppresses the
             # preamble entirely at generation time.
             #
-            # OMN-17492: gpt-oss reads reasoning_effort from the same
-            # chat_template_kwargs; it is sent only when the registry declares it,
-            # so every other entry sends exactly what it sent before. (The model
-            # behind local-studio-planner has been Qwen3.6-35B-A3B since
-            # 2026-10-08, OMN-17427; see its registry entry for what that does to
+            # OMN-17492: a local model whose chat template reads
+            # reasoning_effort gets it from the same chat_template_kwargs; it is
+            # sent only when the registry declares it, so every other entry
+            # sends exactly what it sent before. (The model behind
+            # local-studio-planner is Qwen3.8-27B since 2026-10-09, per the
+            # delegation overlay; see its registry entry for what that does to
             # this field.) A voter is told the repository in metadata.repository;
             # a cloud voter's endpoint enforces the operator ruling of
             # 2026-10-13T20:50:03Z: one repository never goes to a cloud model.
@@ -998,6 +1026,113 @@ def unparseable_reply_result(
     )
 
 
+def _review_output_tokens(content: str, config: ModelEndpointConfig) -> int:
+    """Scale output with evidence size, leaving room for a doubled retry."""
+    sized = _DEFAULT_MAX_TOKENS + (len(content.encode()) // 8192) * 1024
+    return min(sized, _MAX_REVIEW_TOKENS, config.context_window_tokens // 4)
+
+
+def _try_parse_complete_review(raw_text: str) -> list[dict[str, Any]] | None:
+    """JSON syntax alone is no vote: require the published finding fields.
+
+    Keep the permissive extraction API for callers that parse historical data,
+    but never turn an error object, scalar array or incomplete finding into a
+    successful vote with zero findings.
+    """
+    # Do not extract an incidental [] from unfinished prose/reasoning and
+    # count it as a clean review. The vote must be the complete answer.
+    text = raw_text.strip()
+    fence = re.fullmatch(r"```(?:json)?\s*\n?(.*?)\s*```", text, re.DOTALL)
+    if fence:
+        text = fence.group(1)
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    if isinstance(parsed, dict):
+        parsed = [parsed]
+    if not isinstance(parsed, list):
+        return None
+    item_schema = FINDINGS_RESPONSE_FORMAT["json_schema"]["schema"]["items"]
+    # standing_rule_id (OMN-20784) is only meaningful when standing rules were
+    # supplied, so a reply that omits it is still a complete finding.
+    required = set(item_schema["required"]) - {"standing_rule_id"}
+    for finding in parsed:
+        if not isinstance(finding, dict) or not (
+            required <= set(finding) <= set(item_schema["properties"])
+        ):
+            return None
+        for name, value in finding.items():
+            field = item_schema["properties"][name]
+            if value is None and "null" in field["type"]:
+                continue
+            if not isinstance(value, str):
+                return None
+            if "enum" in field and value not in field["enum"]:
+                return None
+    return parsed
+
+
+def _review_chunks(content: str, max_bytes: int) -> list[str]:
+    """Pack whole files, splitting oversized files at hunk/line boundaries.
+
+    UTF-8 bytes conservatively bound byte-tokenizer input without assuming an
+    English characters-per-token ratio for code or non-ASCII text. No evidence
+    is truncated. An indivisible line/header that cannot fit fails the vote.
+    """
+    if max_bytes <= 0:
+        raise ValueError("review context cannot fit prompts and reserved output")
+    if len(content.encode()) <= max_bytes:
+        return [content]
+    files = re.split(r"(?=^diff --git )", content, flags=re.MULTILINE)
+    parts: list[str] = []
+    for file in files:
+        if not file:
+            continue
+        if len(file.encode()) <= max_bytes:
+            parts.append(file)
+            continue
+        # Repeat the file header and the current original hunk header in each
+        # continuation, so every excerpt retains its path and diff coordinates.
+        lines = file.splitlines(keepends=True)
+        header_end = next(
+            (i for i, line in enumerate(lines) if line.startswith("@@")), 0
+        )
+        header = "".join(lines[:header_end])
+        continuation = ""
+        if header:
+            continuation = (
+                "[File excerpt; repeated hunk header is original context, "
+                "and this excerpt may continue that hunk.]\n"
+            )
+        prefix = continuation + header
+        current = prefix
+        hunk_header = ""
+        for line in lines[header_end:]:
+            if line.startswith("@@"):
+                hunk_header = line
+            if len((current + line).encode()) > max_bytes:
+                if current == prefix:
+                    raise ValueError("review context cannot fit a diff line and header")
+                parts.append(current)
+                current = prefix + (hunk_header if not line.startswith("@@") else "")
+            if len((current + line).encode()) > max_bytes:
+                raise ValueError("review context cannot fit a diff line and header")
+            current += line
+        if current != prefix:
+            parts.append(current)
+    batches: list[str] = []
+    current = ""
+    for part in parts:
+        if current and len((current + part).encode()) > max_bytes:
+            batches.append(current)
+            current = ""
+        current += part
+    if current:
+        batches.append(current)
+    return batches
+
+
 async def async_parse_raw(
     plan_content: str,
     *,
@@ -1037,35 +1172,128 @@ async def async_parse_raw(
     """
     try:
         _validate_model_key(model)
-        system_prompt, user_prompt = build_review_prompt(
-            plan_content,
+        config = MODEL_REGISTRY[model]
+        # Batching must not multiply the sequential budget the CI preflight
+        # reserves for this voter. All calls and parse retries share it; an
+        # incomplete review expires as a failed vote before the job is killed.
+        budgets = compute_sequential_worst_case([model], configs={model: config})
+        deadline = time.monotonic() + (
+            budgets[0].worst_case_seconds if budgets else config.timeout_seconds
+        )
+
+        async def call_before_deadline(
+            system: str, user: str, **kwargs: Unpack[_OutputBudgetKwargs]
+        ) -> str:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError("review budget exhausted; review is incomplete")
+            try:
+                return await asyncio.wait_for(
+                    call_model(
+                        system, user, model_key=model, repository=repository, **kwargs
+                    ),
+                    timeout=remaining,
+                )
+            except TimeoutError as exc:
+                raise TimeoutError(
+                    "review budget exhausted; review is incomplete"
+                ) from exc
+
+        system_prompt, empty_user_prompt = build_review_prompt(
+            "",
             review_type=review_type,
             system_prompt_prefix=system_prompt_prefix,
             standing_rules=standing_rules,
         )
-        raw_text = await call_model(
-            system_prompt, user_prompt, model_key=model, repository=repository
+        # Reserve the largest possible retry output, focus, schema, chat framing
+        # and chunk labels BEFORE batching. This also covers overflow endpoints:
+        # the overlay's window is the smallest window of all its endpoints.
+        overhead = len(
+            (
+                system_prompt
+                + empty_user_prompt
+                + _JSON_ONLY_RETRY
+                + config.review_focus
+                + "\n\n## Reviewer Focus\n\n"
+            ).encode()
         )
-        parsed = try_parse_review_response(raw_text)
-        if parsed is None:
-            # OMN-20422: retry once with the same prompt, then fail the vote.
-            logger.warning(
-                "Model '%s' reply did not parse (%d chars); retrying once",
-                model,
-                len(raw_text),
+        reserved_output = min(2 * _MAX_REVIEW_TOKENS, config.context_window_tokens // 2)
+        chunks = _review_chunks(
+            plan_content,
+            config.context_window_tokens - reserved_output - overhead - _CONTEXT_MARGIN,
+        )
+        all_parsed: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for index, chunk in enumerate(chunks, 1):
+            chunk_system, user_prompt = build_review_prompt(
+                chunk,
+                review_type=review_type,
+                system_prompt_prefix=system_prompt_prefix,
+                standing_rules=standing_rules,
             )
-            first_length = len(raw_text)
-            raw_text = await call_model(
-                system_prompt, user_prompt, model_key=model, repository=repository
-            )
-            parsed = try_parse_review_response(raw_text)
-            if parsed is None:
-                return unparseable_reply_result(
-                    model, len(raw_text), earlier_lengths=(first_length,)
+            if len(chunks) > 1:
+                chunk_system += (
+                    f"\nReview chunk {index}/{len(chunks)} of the same change. "
+                    "Review every supplied change; other files are in other chunks. "
+                    "Do not infer a missing implementation from an absent file."
                 )
+            output_tokens = _review_output_tokens(chunk, config)
+            if len(chunks) > 1:
+                print(
+                    f"Model '{model}' reviewing chunk {index}/{len(chunks)} "
+                    f"({len(chunk.encode())} input bytes, max_tokens={output_tokens}).",
+                    file=sys.stderr,
+                    flush=True,
+                )
+            budget_kwargs: _OutputBudgetKwargs = (
+                {"max_tokens": output_tokens}
+                if output_tokens != _DEFAULT_MAX_TOKENS
+                else {}
+            )
+            raw_text = await call_before_deadline(
+                chunk_system,
+                user_prompt,
+                **budget_kwargs,
+            )
+            parsed = _try_parse_complete_review(raw_text)
+            if parsed is None:
+                first_length = len(raw_text)
+                retry_tokens = 2 * output_tokens
+                logger.warning(
+                    "Model '%s' chunk %d/%d reply did not parse (%d chars); "
+                    "retrying once with JSON ONLY and max_tokens=%d",
+                    model,
+                    index,
+                    len(chunks),
+                    first_length,
+                    retry_tokens,
+                )
+                raw_text = await call_before_deadline(
+                    chunk_system + _JSON_ONLY_RETRY,
+                    user_prompt,
+                    max_tokens=retry_tokens,
+                    json_only=True,
+                )
+                parsed = _try_parse_complete_review(raw_text)
+                if parsed is None:
+                    failure = unparseable_reply_result(
+                        model, len(raw_text), earlier_lengths=(first_length,)
+                    )
+                    if len(chunks) > 1:
+                        failure = failure.model_copy(
+                            update={
+                                "error": f"chunk {index}/{len(chunks)}: {failure.error}"
+                            }
+                        )
+                    return failure
+            for finding in parsed:
+                key = json.dumps(finding, sort_keys=True)
+                if key not in seen:
+                    seen.add(key)
+                    all_parsed.append(finding)
         # OMN-20422: a finding whose own text says there is no defect is
         # recorded as dropped and never reaches the quorum.
-        parsed, dropped = split_self_negating(parsed)
+        parsed, dropped = split_self_negating(all_parsed)
         findings = to_review_findings(
             parsed,
             model,

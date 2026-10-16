@@ -1,0 +1,62 @@
+---
+schema_version: "1.0.0"
+ticket_id: "OMN-20717"
+title: "Large adversarial reviews return structured votes or fail closed"
+summary: >-
+  The existing review adapter retries malformed votes with JSON-only instructions, a findings schema and
+  a larger output budget. It reviews oversized input in file batches, merges findings and fails the whole
+  voter when any batch fails. The existing two-model quorum is unchanged.
+is_seam_ticket: false
+interface_change: true
+interfaces_touched: ["public_api"]
+requirements:
+  - id: "review-json"
+    statement: "A large free-text reply is retried as a structured review of the same evidence."
+    acceptance:
+      - id: "AC1"
+        statement: "A saved 20 KB free-text reproduction recovers through a JSON-only schema retry."
+      - id: "AC2"
+        statement: "Over-context diffs retain every file and changed line across batches and merge findings."
+      - id: "AC3"
+        statement: "A failed batch or JSON without review findings fails the voter; quorum remains at
+          least two."
+evidence_requirements:
+  - kind: "tests"
+    description: "Structured retry, output sizing, complete coverage and failed-vote regressions."
+    command: "uv run pytest tests/unit/review_pairing/test_large_diff_json_review.py -q -n 0"
+emergency_bypass:
+  enabled: false
+  justification: ""
+  follow_up_ticket_id: ""
+dod_evidence:
+  - id: "review-json-retry"
+    description: "The saved free-text fixture requires the strict JSON retry; output budget grows with
+      input."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/review_pairing/test_large_diff_json_review.py -q -n 0 -k
+          'saved_long_prose or output_tokens or disables_reasoning'"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC1"]
+  - id: "review-full-diff"
+    description: "Whole files and oversized-file continuations retain all changed lines and merge findings."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/review_pairing/test_large_diff_json_review.py -q -n 0 -k
+          'over_context or oversized_file'"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC2"]
+  - id: "review-failed-vote"
+    description: "Invalid replies and incomplete chunk coverage cannot become successful votes."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/review_pairing/test_large_diff_json_review.py -q -n 0 -k
+          'failed_chunk or json_without'"
+        cwd: "${OMNI_HOME}/omniintelligence"
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/review_pairing/test_review_quorum.py -q -n 0"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC3"]

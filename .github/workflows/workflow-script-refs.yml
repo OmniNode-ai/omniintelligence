@@ -11,12 +11,11 @@
 # WHAT IT ASSERTS: every `scripts/**` path that a `run:` step in
 # .github/workflows/ executes from the repository root exists in the tree.
 #
-# ROOT CAUSE (OMN-16664): the OMN-15017 fan-out copied call-occ-autobind.yml
-# and call-occ-companion-effect.yml into this repo without carrying
-# scripts/ci/occ_manual_replay_precheck.py, which both of them run. Every
-# manual OCC replay dispatched here died at `[Errno 2] No such file or
-# directory` before the precheck could decide anything -- the sanctioned
-# recovery path for a missed mint was a dead end, discovered only when
+# ROOT CAUSE (OMN-16664): the OMN-15017 fan-out copied two caller workflows
+# into this repo without carrying scripts/ci/manual_replay_precheck.py, which
+# both of them run. Every manual replay dispatched here died at
+# `[Errno 2] No such file or directory` before the precheck could decide
+# anything -- the sanctioned recovery path was a dead end, discovered only when
 # somebody needed it mid-incident (omnibase_compat run 33001337186).
 #
 # The gate's logic, its unit tests, and the reasons for its two deliberate

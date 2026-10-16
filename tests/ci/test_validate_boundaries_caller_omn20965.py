@@ -6,7 +6,8 @@
 OMN-20074 moved the validate-boundaries composite action out of the
 change-control repository. The ``boundary-parity`` job in ci.yml keeps its job id, name
 and check-run context and changes only its ``uses:`` line, to the full commit
-sha of the merge that added the action (omnibase_core#1942).
+sha of omnibase_core#1972, a later merge of the action that no longer lists the
+change-control repository among the repos it reads.
 """
 
 from __future__ import annotations
@@ -26,8 +27,9 @@ WORKFLOWS = REPO_ROOT / ".github" / "workflows"
 JOB_ID = "boundary-parity"
 CONTEXT = "Cross-Repo Boundary Parity"
 ACTION = "OmniNode-ai/omnibase_core/.github/actions/validate-boundaries"
-# First eight hex digits of the omnibase_core#1942 merge; the rest must still be a full sha.
-ACTION_SHA_PREFIX = "de3398d1"
+# First eight hex digits of the omnibase_core#1972 merge, which dropped the
+# change-control boundary from the kafka manifest; the rest must still be a full sha.
+ACTION_SHA_PREFIX = "c1f8e8fe"
 _PINNED_USES = re.compile(rf"^{re.escape(ACTION)}@{ACTION_SHA_PREFIX}[0-9a-f]{{32}}$")
 _RETIRED_ACTION = re.compile(
     r"onex_change_control/\.github/actions/validate-boundaries"
@@ -75,7 +77,7 @@ def test_inputs_and_job_name_are_unchanged() -> None:
     assert step["with"] == {
         "checks": "boundary-parity,migration-conflicts",
         "warn-only": "false",
-        "repos": "omniclaude,omnidash,omniintelligence,omnibase_infra,omnibase_core,omnimemory,omnimarket,onex_change_control",
+        "repos": "omniclaude,omnidash,omniintelligence,omnibase_infra,omnibase_core,omnimemory,omnimarket",
     }
 
 

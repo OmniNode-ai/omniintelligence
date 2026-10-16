@@ -52,9 +52,9 @@ pytestmark = pytest.mark.unit
 
 _POLICY = ModelReviewQuorumPolicy()
 _QWEN = "http://192.0.2.10:8000"
-_GPT_OSS = "http://192.0.2.11:8130"
+_PLANNER = "http://192.0.2.11:8130"
 _QWEN_ID = f"{_QWEN}#served"
-_GPT_OSS_ID = f"{_GPT_OSS}#served"
+_PLANNER_ID = f"{_PLANNER}#served"
 
 
 def _finding(model: str) -> ModelReviewFindingObserved:
@@ -127,13 +127,13 @@ class TestQuorumCountsDistinctReviewers:
         summary = evaluate_quorum(
             _multi(
                 _result("qwen3-review", _QWEN_ID),
-                _result("local-studio-planner", _GPT_OSS_ID),
+                _result("local-studio-planner", _PLANNER_ID),
             ),
             _POLICY,
         )
         assert summary.quorum_met is True
         assert summary.verdict is EnumQuorumVerdict.BLOCKED
-        assert summary.distinct_reviewers_succeeded == (_QWEN_ID, _GPT_OSS_ID)
+        assert summary.distinct_reviewers_succeeded == (_QWEN_ID, _PLANNER_ID)
         assert summary.blocking_findings[0].agreement_count == 2
 
     def test_an_alias_agreeing_with_itself_does_not_block(self) -> None:
@@ -142,7 +142,7 @@ class TestQuorumCountsDistinctReviewers:
             _multi(
                 _result("qwen3-review", _QWEN_ID),
                 _result("alias", _QWEN_ID),
-                _result("local-studio-planner", _GPT_OSS_ID, raises=False),
+                _result("local-studio-planner", _PLANNER_ID, raises=False),
             ),
             _POLICY,
         )
@@ -171,7 +171,7 @@ class TestReviewerIdentity:
     def test_different_endpoint_is_a_different_reviewer(self) -> None:
         env: dict[str, str] = {}
         assert reviewer_identity("a", _config(_QWEN), env) != reviewer_identity(
-            "b", _config(_GPT_OSS), env
+            "b", _config(_PLANNER), env
         )
 
     def test_default_port_is_explicit(self) -> None:
@@ -182,8 +182,8 @@ class TestReviewerIdentity:
 
     def test_env_override_moves_the_identity(self) -> None:
         config = _config(_QWEN)
-        moved = reviewer_identity("a", config, {"LLM_TEST_REVIEW_URL": _GPT_OSS})
-        assert moved == _GPT_OSS_ID
+        moved = reviewer_identity("a", config, {"LLM_TEST_REVIEW_URL": _PLANNER})
+        assert moved == _PLANNER_ID
         assert reviewer_identity("a", config, {}) == _QWEN_ID
 
     def test_declared_ids_on_one_endpoint_are_different_reviewers(self) -> None:
@@ -233,13 +233,13 @@ class TestRegistryHasNoAliases:
         registry = load_registry()
         environ = {
             registry.models["qwen3-review"].env_var: _QWEN,
-            registry.models["local-studio-planner"].env_var: _GPT_OSS,
+            registry.models["local-studio-planner"].env_var: _PLANNER,
         }
         pair = {
             reviewer_identity(k, registry.models[k], environ)
             for k in ("qwen3-review", "local-studio-planner")
         }
-        assert pair == {_QWEN_ID, _GPT_OSS_ID}
+        assert pair == {_QWEN_ID, _PLANNER_ID}
 
     def test_no_two_registry_keys_name_one_reviewer(self) -> None:
         """No registry ships an endpoint (OMN-20936), so two keys can only name
@@ -289,7 +289,7 @@ class TestCliStampsIdentity:
         import asyncio
 
         monkeypatch.setenv("LLM_QWEN3_REVIEW_URL", _QWEN)
-        monkeypatch.setenv("LLM_LOCAL_STUDIO_PLANNER_URL", _GPT_OSS)
+        monkeypatch.setenv("LLM_LOCAL_STUDIO_PLANNER_URL", _PLANNER)
 
         from omniintelligence.review_pairing import cli_review
 
@@ -308,5 +308,5 @@ class TestCliStampsIdentity:
             )
         assert [r.reviewer_identity for r in result.results] == [
             _QWEN_ID,
-            _GPT_OSS_ID,
+            _PLANNER_ID,
         ]
