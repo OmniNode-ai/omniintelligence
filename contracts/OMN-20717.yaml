@@ -1,0 +1,68 @@
+---
+schema_version: 1.0.0
+ticket_id: OMN-20717
+title: A large diff still yields review JSON from a Hostile Reviewer voter that answers in prose
+summary: On omnimarket PRs 3989 and 4002 the correctness voter answered a large diff with free text twice
+  (15895 then 32638 chars), the retry resent the same prompt, and the gate read degraded_quorum with 0
+  findings. The retry is now JSON-only (strict instruction with the schema, constrained decoding, an output
+  budget sized to the diff), and a multi-file diff that still does not answer is reviewed in file chunks
+  whose findings are merged. A voter that never produces review JSON still fails its vote.
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: req-json-only-retry
+    statement: A voter whose first reply is prose gets a JSON-only retry with a budget sized to the diff,
+      and a large diff is reviewed in file chunks when the whole-diff retry also fails; a voter that never
+      answers in JSON still fails its vote and the quorum is not lowered.
+    acceptance:
+      - id: AC1
+        statement: 'AC1: the retry of an unparseable reply carries the strict JSON instruction with the
+          findings schema, requests constrained decoding whatever the voter sets, and uses an output budget
+          that grows with the diff -- falsifier: tests/unit/review_pairing/test_large_diff_json_retry_omn20717.py
+          fails at the merge base (uv run pytest on that file)'
+      - id: AC2
+        statement: 'AC2: a multi-file diff whose whole-diff retry still does not parse is reviewed in
+          file chunks and the findings are merged, and a chunk or a diff that never yields review JSON
+          fails the vote (parse_failed, success false) -- falsifier: the same test file, TestChunkedReview'
+      - id: AC3
+        statement: 'AC3: the first call, the number of whole-diff calls before chunking, and the failed-vote
+          path of earlier tickets are unchanged -- falsifier: tests/unit/review_pairing/test_unparseable_retry_token_budget.py
+          and tests/unit/review_pairing/test_unparseable_reply_fails_omn20422.py fail'
+evidence_requirements:
+  - kind: tests
+    description: JSON-only retry, output budget, file chunks, merge, failed vote, response_format wiring.
+    command: uv run pytest tests/unit/review_pairing/test_large_diff_json_retry_omn20717.py tests/unit/review_pairing/test_unparseable_retry_token_budget.py
+      tests/unit/review_pairing/test_unparseable_reply_fails_omn20422.py -q -n 0
+emergency_bypass:
+  enabled: false
+  justification: ''
+  follow_up_ticket_id: ''
+dod_evidence:
+  - id: dod-omn20717-ac1-json-only-retry
+    description: The retry is JSON-only with constrained decoding and a diff-sized budget.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/review_pairing/test_large_diff_json_retry_omn20717.py -q
+          -n 0
+    binds_ac:
+      - AC1
+  - id: dod-omn20717-ac2-file-chunks
+    description: A diff that stays unparseable is reviewed in file chunks; a non-answer fails the vote.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/review_pairing/test_large_diff_json_retry_omn20717.py -q
+          -n 0
+    binds_ac:
+      - AC2
+  - id: dod-omn20717-ac3-earlier-behaviour
+    description: The first call and the earlier failed-vote and token-budget tests still hold.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/review_pairing/test_unparseable_retry_token_budget.py tests/unit/review_pairing/test_unparseable_reply_fails_omn20422.py
+          -q -n 0
+    binds_ac:
+      - AC3

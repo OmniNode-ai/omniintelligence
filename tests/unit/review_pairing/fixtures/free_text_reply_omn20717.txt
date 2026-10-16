@@ -1,0 +1,158 @@
+Let me analyze this diff carefully, file by file, before I settle on what to report.
+
+## 1. `src/omnimarket/nodes/node_dashboard_projection_compute/handlers/handler_projection.py`
+Reading the hunk for the projection rows here, the first thing I notice is that the new code path at the top of the function
+reads `rows[1]` before checking that `rows` is non-empty. If the caller passes an empty sequence the lookup raises
+IndexError, and since the handler is documented to return structured errors rather than raise, that is a contract
+violation. But wait, let me re-read: the caller in `dispatch_handlers.py` guards with `if not rows: return`, so in
+practice the empty case may never reach this function. I should not report something I cannot show is reachable.
+Looking again at the second hunk, the `correlation_id` is threaded into the log call but not into the returned model,
+which matters because the repository requires end-to-end tracing. That one looks real: the output model has no
+`correlation_id` field at all. Hmm, however the base class may add it. Checking the neighbouring models in the diff
+context lines [1], they do declare it explicitly, so this file is the odd one out.
+
+Another candidate: the retry loop uses `range(3)` and sleeps `2 ** attempt` seconds, so the worst case is 7 seconds per
+call, times 2 calls in the batch; with the default timeout of 120 seconds that stays inside the budget, so not a
+defect. I considered whether the `except Exception` swallows `asyncio.CancelledError`; on Python 3.11+ it does not,
+because CancelledError derives from BaseException. So no finding there either.
+Reading the hunk for the projection rows here, the first thing I notice is that the new code path at the top of the function
+reads `rows[2]` before checking that `rows` is non-empty. If the caller passes an empty sequence the lookup raises
+IndexError, and since the handler is documented to return structured errors rather than raise, that is a contract
+violation. But wait, let me re-read: the caller in `dispatch_handlers.py` guards with `if not rows: return`, so in
+practice the empty case may never reach this function. I should not report something I cannot show is reachable.
+Looking again at the second hunk, the `correlation_id` is threaded into the log call but not into the returned model,
+which matters because the repository requires end-to-end tracing. That one looks real: the output model has no
+`correlation_id` field at all. Hmm, however the base class may add it. Checking the neighbouring models in the diff
+context lines [2], they do declare it explicitly, so this file is the odd one out.
+
+Another candidate: the retry loop uses `range(3)` and sleeps `2 ** attempt` seconds, so the worst case is 7 seconds per
+call, times 3 calls in the batch; with the default timeout of 120 seconds that stays inside the budget, so not a
+defect. I considered whether the `except Exception` swallows `asyncio.CancelledError`; on Python 3.11+ it does not,
+because CancelledError derives from BaseException. So no finding there either.
+Reading the hunk for the projection rows here, the first thing I notice is that the new code path at the top of the function
+reads `rows[3]` before checking that `rows` is non-empty. If the caller passes an empty sequence the lookup raises
+IndexError, and since the handler is documented to return structured errors rather than raise, that is a contract
+violation. But wait, let me re-read: the caller in `dispatch_handlers.py` guards with `if not rows: return`, so in
+practice the empty case may never reach this function. I should not report something I cannot show is reachable.
+Looking again at the second hunk, the `correlation_id` is threaded into the log call but not into the returned model,
+which matters because the repository requires end-to-end tracing. That one looks real: the output model has no
+`correlation_id` field at all. Hmm, however the base class may add it. Checking the neighbouring models in the diff
+context lines [3], they do declare it explicitly, so this file is the odd one out.
+
+Another candidate: the retry loop uses `range(3)` and sleeps `2 ** attempt` seconds, so the worst case is 7 seconds per
+call, times 4 calls in the batch; with the default timeout of 120 seconds that stays inside the budget, so not a
+defect. I considered whether the `except Exception` swallows `asyncio.CancelledError`; on Python 3.11+ it does not,
+because CancelledError derives from BaseException. So no finding there either.
+
+Summary for `src/omnimarket/nodes/node_dashboard_projection_compute/handlers/handler_projection.py`: possible finding about the missing correlation_id on the output model (moderate confidence),
+possible empty-sequence IndexError (low confidence, probably unreachable). I will decide at the end which of these are
+worth reporting. Test coverage for the changed branch is present in the added tests but only for the happy path; the
+failure branch that returns the structured error is not exercised, which I would flag as a completeness gap.
+
+## 2. `src/omnimarket/nodes/node_dashboard_projection_compute/models/model_projection_request.py`
+Reading the hunk for the request model here, the first thing I notice is that the new code path at the top of the function
+reads `rows[1]` before checking that `rows` is non-empty. If the caller passes an empty sequence the lookup raises
+IndexError, and since the handler is documented to return structured errors rather than raise, that is a contract
+violation. But wait, let me re-read: the caller in `dispatch_handlers.py` guards with `if not rows: return`, so in
+practice the empty case may never reach this function. I should not report something I cannot show is reachable.
+Looking again at the second hunk, the `correlation_id` is threaded into the log call but not into the returned model,
+which matters because the repository requires end-to-end tracing. That one looks real: the output model has no
+`correlation_id` field at all. Hmm, however the base class may add it. Checking the neighbouring models in the diff
+context lines [4], they do declare it explicitly, so this file is the odd one out.
+
+Another candidate: the retry loop uses `range(3)` and sleeps `2 ** attempt` seconds, so the worst case is 7 seconds per
+call, times 2 calls in the batch; with the default timeout of 120 seconds that stays inside the budget, so not a
+defect. I considered whether the `except Exception` swallows `asyncio.CancelledError`; on Python 3.11+ it does not,
+because CancelledError derives from BaseException. So no finding there either.
+Reading the hunk for the request model here, the first thing I notice is that the new code path at the top of the function
+reads `rows[2]` before checking that `rows` is non-empty. If the caller passes an empty sequence the lookup raises
+IndexError, and since the handler is documented to return structured errors rather than raise, that is a contract
+violation. But wait, let me re-read: the caller in `dispatch_handlers.py` guards with `if not rows: return`, so in
+practice the empty case may never reach this function. I should not report something I cannot show is reachable.
+Looking again at the second hunk, the `correlation_id` is threaded into the log call but not into the returned model,
+which matters because the repository requires end-to-end tracing. That one looks real: the output model has no
+`correlation_id` field at all. Hmm, however the base class may add it. Checking the neighbouring models in the diff
+context lines [5], they do declare it explicitly, so this file is the odd one out.
+
+Another candidate: the retry loop uses `range(3)` and sleeps `2 ** attempt` seconds, so the worst case is 7 seconds per
+call, times 3 calls in the batch; with the default timeout of 120 seconds that stays inside the budget, so not a
+defect. I considered whether the `except Exception` swallows `asyncio.CancelledError`; on Python 3.11+ it does not,
+because CancelledError derives from BaseException. So no finding there either.
+Reading the hunk for the request model here, the first thing I notice is that the new code path at the top of the function
+reads `rows[3]` before checking that `rows` is non-empty. If the caller passes an empty sequence the lookup raises
+IndexError, and since the handler is documented to return structured errors rather than raise, that is a contract
+violation. But wait, let me re-read: the caller in `dispatch_handlers.py` guards with `if not rows: return`, so in
+practice the empty case may never reach this function. I should not report something I cannot show is reachable.
+Looking again at the second hunk, the `correlation_id` is threaded into the log call but not into the returned model,
+which matters because the repository requires end-to-end tracing. That one looks real: the output model has no
+`correlation_id` field at all. Hmm, however the base class may add it. Checking the neighbouring models in the diff
+context lines [6], they do declare it explicitly, so this file is the odd one out.
+
+Another candidate: the retry loop uses `range(3)` and sleeps `2 ** attempt` seconds, so the worst case is 7 seconds per
+call, times 4 calls in the batch; with the default timeout of 120 seconds that stays inside the budget, so not a
+defect. I considered whether the `except Exception` swallows `asyncio.CancelledError`; on Python 3.11+ it does not,
+because CancelledError derives from BaseException. So no finding there either.
+
+Summary for `src/omnimarket/nodes/node_dashboard_projection_compute/models/model_projection_request.py`: possible finding about the missing correlation_id on the output model (moderate confidence),
+possible empty-sequence IndexError (low confidence, probably unreachable). I will decide at the end which of these are
+worth reporting. Test coverage for the changed branch is present in the added tests but only for the happy path; the
+failure branch that returns the structured error is not exercised, which I would flag as a completeness gap.
+
+## 3. `src/omnimarket/nodes/node_release_train_effect/handlers/handler_release_train.py`
+Reading the hunk for the release tagging here, the first thing I notice is that the new code path at the top of the function
+reads `rows[1]` before checking that `rows` is non-empty. If the caller passes an empty sequence the lookup raises
+IndexError, and since the handler is documented to return structured errors rather than raise, that is a contract
+violation. But wait, let me re-read: the caller in `dispatch_handlers.py` guards with `if not rows: return`, so in
+practice the empty case may never reach this function. I should not report something I cannot show is reachable.
+Looking again at the second hunk, the `correlation_id` is threaded into the log call but not into the returned model,
+which matters because the repository requires end-to-end tracing. That one looks real: the output model has no
+`correlation_id` field at all. Hmm, however the base class may add it. Checking the neighbouring models in the diff
+context lines [7], they do declare it explicitly, so this file is the odd one out.
+
+Another candidate: the retry loop uses `range(3)` and sleeps `2 ** attempt` seconds, so the worst case is 7 seconds per
+call, times 2 calls in the batch; with the default timeout of 120 seconds that stays inside the budget, so not a
+defect. I considered whether the `except Exception` swallows `asyncio.CancelledError`; on Python 3.11+ it does not,
+because CancelledError derives from BaseException. So no finding there either.
+Reading the hunk for the release tagging here, the first thing I notice is that the new code path at the top of the function
+reads `rows[2]` before checking that `rows` is non-empty. If the caller passes an empty sequence the lookup raises
+IndexError, and since the handler is documented to return structured errors rather than raise, that is a contract
+violation. But wait, let me re-read: the caller in `dispatch_handlers.py` guards with `if not rows: return`, so in
+practice the empty case may never reach this function. I should not report something I cannot show is reachable.
+Looking again at the second hunk, the `correlation_id` is threaded into the log call but not into the returned model,
+which matters because the repository requires end-to-end tracing. That one looks real: the output model has no
+`correlation_id` field at all. Hmm, however the base class may add it. Checking the neighbouring models in the diff
+context lines [8], they do declare it explicitly, so this file is the odd one out.
+
+Another candidate: the retry loop uses `range(3)` and sleeps `2 ** attempt` seconds, so the worst case is 7 seconds per
+call, times 3 calls in the batch; with the default timeout of 120 seconds that stays inside the budget, so not a
+defect. I considered whether the `except Exception` swallows `asyncio.CancelledError`; on Python 3.11+ it does not,
+because CancelledError derives from BaseException. So no finding there either.
+Reading the hunk for the release tagging here, the first thing I notice is that the new code path at the top of the function
+reads `rows[3]` before checking that `rows` is non-empty. If the caller passes an empty sequence the lookup raises
+IndexError, and since the handler is documented to return structured errors rather than raise, that is a contract
+violation. But wait, let me re-read: the caller in `dispatch_handlers.py` guards with `if not rows: return`, so in
+practice the empty case may never reach this function. I should not report something I cannot show is reachable.
+Looking again at the second hunk, the `correlation_id` is threaded into the log call but not into the returned model,
+which matters because the repository requires end-to-end tracing. That one looks real: the output model has no
+`correlation_id` field at all. Hmm, however the base class may add it. Checking the neighbouring models in the diff
+context lines [9], they do declare it explicitly, so this file is the odd one out.
+
+Another candidate: the retry loop uses `range(3)` and sleeps `2 ** attempt` seconds, so the worst case is 7 seconds per
+call, times 4 calls in the batch; with the default timeout of 120 seconds that stays inside the budget, so not a
+defect. I considered whether the `except Exception` swallows `asyncio.CancelledError`; on Python 3.11+ it does not,
+because CancelledError derives from BaseException. So no finding there either.
+
+Summary for `src/omnimarket/nodes/node_release_train_effect/handlers/handler_release_train.py`: possible finding about the missing correlation_id on the output model (moderate confidence),
+possible empty-sequence IndexError (low confidence, probably unreachable). I will decide at the end which of these are
+worth reporting. Test coverage for the changed branch is present in the added tests but only for the happy path; the
+failure branch that returns the structured error is not exercised, which I would flag as a completeness gap.
+
+## 4. `src/omnimarket/nodes/node_release_train_effect/contract.yaml`
+Reading the hunk for the handler routing here, the first thing I notice is that the new code path at the top of the function
+reads `rows[1]` before checking that `rows` is non-empty. If the caller passes an empty sequence the lookup raises
+IndexError, and since the handler is documented to return structured errors rather than raise, that is a contract
+violation. But wait, let me re-read: the caller in `dispatch_handlers.py` guards with `if not rows: return`, so in
+practice the empty case may never reach this function. I should not report something I cannot show is reachable.
+Looking again at the second hunk, the `correlation_id` is threaded into the log call but not into the returned model,
+which matters because the repository requires end-to-end tracing. That one looks real: the output model has no
+`correlation_id` field at all. Hmm, however the base class may add it. Checking t

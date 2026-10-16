@@ -100,6 +100,20 @@ _DEFAULT_MAX_TOKENS: int = 4096
 # retry gets room to finish it. The per-call timeout is unchanged.
 _RETRY_MAX_TOKENS: int = 2 * _DEFAULT_MAX_TOKENS
 
+# OMN-20717: the JSON-only retry sizes its output budget to the diff: one token
+# of review JSON for about this many characters of diff, on top of the default
+# budget, never below the plain retry budget and never above the cap. The
+# retry is schema-constrained, so the budget bounds the findings array, not a
+# prose preamble.
+_JSON_RETRY_CHARS_PER_BUDGET_TOKEN: int = 16
+_JSON_RETRY_MAX_TOKENS_CAP: int = 12288
+
+# OMN-20717: a diff the whole-diff retries could not get JSON for is reviewed in
+# file chunks of about this many characters (a file larger than this stays in a
+# chunk of its own), at most this many chunks.
+_CHUNK_TARGET_CHARS: int = 48_000
+_MAX_CHUNKS: int = 4
+
 # Default temperature for consistent review output.
 _DEFAULT_TEMPERATURE: float = 0.3
 
@@ -392,19 +406,22 @@ async def _call_claude_api(
         raise RuntimeError(f"Unexpected Claude API response shape: {data!r}") from exc
 
 
-def _build_extra_body(config: ModelEndpointConfig) -> dict[str, Any]:
+def _build_extra_body(
+    config: ModelEndpointConfig, *, force_findings_schema: bool = False
+) -> dict[str, Any]:
     """Request-body keys the OpenAI-compatible effect merges in verbatim.
 
     ``chat_template_kwargs`` always (OMN-14176; ``reasoning_effort`` only when
     the registry declares it, OMN-17492). ``response_format`` only for an entry
     that sets ``constrain_findings_schema`` (OMN-20422), so every other entry
-    sends exactly what it sent before.
+    sends exactly what it sent before. ``force_findings_schema`` sends it for
+    any entry (the JSON-only retry, OMN-20717).
     """
     template_kwargs: dict[str, Any] = {"enable_thinking": config.enable_thinking}
     if config.reasoning_effort is not None:
         template_kwargs["reasoning_effort"] = config.reasoning_effort
     extra_body: dict[str, Any] = {"chat_template_kwargs": template_kwargs}
-    if config.constrain_findings_schema:
+    if config.constrain_findings_schema or force_findings_schema:
         extra_body["response_format"] = FINDINGS_RESPONSE_FORMAT
     return extra_body
 
@@ -444,6 +461,7 @@ async def call_model(
     *,
     repository: str | None = None,
     max_tokens: int = _DEFAULT_MAX_TOKENS,
+    force_findings_schema: bool = False,
 ) -> str:
     """Invoke LLM via HandlerLlmOpenaiCompatible, or Claude API for api_fallback models.
 
@@ -455,6 +473,9 @@ async def call_model(
             metadata.repository so a cloud voter can refuse a repository whose
             code never goes to a cloud model (OMN-20106). None sends no metadata.
         max_tokens: Most tokens the reply may hold.
+        force_findings_schema: Constrain decoding to the findings array even for
+            a voter whose registry entry does not (the JSON-only retry,
+            OMN-20717). Ignored by an ``api_fallback`` model.
 
     Returns:
         Raw text response from the model.
@@ -540,7 +561,9 @@ async def call_model(
         # when declared, so an entry that sets none sends what it always sent.
         if config.top_p is not None:
             _request_kwargs["top_p"] = config.top_p
-        extra_body = _build_extra_body(config)
+        extra_body = _build_extra_body(
+            config, force_findings_schema=force_findings_schema
+        )
         if repository:
             extra_body["metadata"] = {"repository": repository}
         request = ModelLlmInferenceRequest(
@@ -971,6 +994,169 @@ def unparseable_reply_result(
     )
 
 
+# OMN-20717: appended to the user prompt of the JSON-only retry. The first call
+# of a large diff can come back as prose (the model reasons aloud until the
+# token cap and never reaches the array); the retry repeats the same review
+# request and then states the output contract in the last words the model reads.
+_JSON_ONLY_INSTRUCTION: str = (
+    "\n\n---\n\nRESPONSE FORMAT (strict). Your reply is machine-parsed. Reply "
+    "with ONLY a JSON array of findings: no prose, no reasoning, no commentary, "
+    "no markdown fence, nothing before the first [ and nothing after the last ]. "
+    "Do any analysis silently. If you find no defects, reply with [] . The array "
+    "must match this JSON schema:\n"
+    + json.dumps(FINDINGS_RESPONSE_FORMAT["json_schema"]["schema"])
+)
+
+_DIFF_FILE_HEADER = re.compile(r"(?m)^(?=diff --git )")
+
+
+def json_retry_max_tokens(content_chars: int) -> int:
+    """Output budget of the JSON-only retry for ``content_chars`` of content.
+
+    Grows with the diff (a bigger change can hold more findings), is never below
+    the plain retry budget and never above ``_JSON_RETRY_MAX_TOKENS_CAP``.
+    """
+    sized = _DEFAULT_MAX_TOKENS + content_chars // _JSON_RETRY_CHARS_PER_BUDGET_TOKEN
+    return min(_JSON_RETRY_MAX_TOKENS_CAP, max(_RETRY_MAX_TOKENS, sized))
+
+
+def split_diff_into_file_chunks(
+    content: str,
+    target_chars: int = _CHUNK_TARGET_CHARS,
+    max_chunks: int = _MAX_CHUNKS,
+) -> list[str]:
+    """Split a unified diff into chunks of whole files, in order, losing nothing.
+
+    Files are packed greedily into chunks of about ``target_chars``; a file
+    larger than that stays whole in a chunk of its own. The target grows until
+    there are at most ``max_chunks`` chunks. Content with no ``diff --git``
+    file headers (a plan, a single-file excerpt) is one chunk: it cannot be cut
+    at a file boundary, and is never cut anywhere else.
+    """
+    parts = [part for part in _DIFF_FILE_HEADER.split(content) if part]
+    if len(parts) < 2:
+        return [content]
+    while True:
+        chunks: list[str] = []
+        current = ""
+        for part in parts:
+            if current and len(current) + len(part) > target_chars:
+                chunks.append(current)
+                current = ""
+            current += part
+        chunks.append(current)
+        if len(chunks) <= max_chunks or len(chunks) == 1:
+            return chunks
+        target_chars = target_chars * 3 // 2
+
+
+def _finding_key(finding: Any) -> str:
+    if isinstance(finding, dict):
+        return f"{finding.get('location')}|{str(finding.get('title')).strip().lower()}"
+    return json.dumps(finding, sort_keys=True, default=str)
+
+
+def merge_chunk_findings(per_chunk: list[list[dict[str, Any]]]) -> list[dict[str, Any]]:
+    """Concatenate the findings of every chunk, dropping a repeat of one finding.
+
+    A repeat is the same location and title; the first one is kept.
+    """
+    seen: set[str] = set()
+    merged: list[dict[str, Any]] = []
+    for findings in per_chunk:
+        for finding in findings:
+            key = _finding_key(finding)
+            if key not in seen:
+                seen.add(key)
+                merged.append(finding)
+    return merged
+
+
+async def _json_only_review(
+    content: str,
+    *,
+    model: str,
+    review_type: str,
+    system_prompt_prefix: str | None,
+    repository: str | None,
+) -> tuple[list[dict[str, Any]] | None, int]:
+    """One JSON-only review request for ``content`` (OMN-20717).
+
+    The request carries the strict JSON instruction and the findings
+    ``response_format``. An endpoint that rejects ``response_format`` gets one
+    more request with the instruction alone; a timeout is not retried here.
+
+    Returns:
+        (parsed findings or None when the reply is not review JSON, reply length).
+    """
+    system_prompt, user_prompt = build_review_prompt(
+        content, review_type=review_type, system_prompt_prefix=system_prompt_prefix
+    )
+    user_prompt += _JSON_ONLY_INSTRUCTION
+    max_tokens = json_retry_max_tokens(len(content))
+    try:
+        raw_text = await call_model(
+            system_prompt,
+            user_prompt,
+            model_key=model,
+            repository=repository,
+            max_tokens=max_tokens,
+            force_findings_schema=True,
+        )
+    except Exception as exc:
+        if "timeout" in type(exc).__name__.lower():
+            raise
+        logger.warning(
+            "Model '%s' JSON-only request with response_format failed (%s); "
+            "retrying with the instruction alone",
+            model,
+            type(exc).__name__,
+        )
+        raw_text = await call_model(
+            system_prompt,
+            user_prompt,
+            model_key=model,
+            repository=repository,
+            max_tokens=max_tokens,
+        )
+    return try_parse_review_response(raw_text), len(raw_text)
+
+
+async def _review_in_file_chunks(
+    chunks: list[str],
+    *,
+    model: str,
+    review_type: str,
+    system_prompt_prefix: str | None,
+    repository: str | None,
+) -> tuple[list[dict[str, Any]] | None, int]:
+    """Review each chunk JSON-only and merge; None when any chunk does not parse.
+
+    A chunk that never yields review JSON fails the whole vote: the findings of
+    the other chunks are not a review of the diff.
+    """
+    per_chunk: list[list[dict[str, Any]]] = []
+    last_length = 0
+    for index, chunk in enumerate(chunks, start=1):
+        framed = (
+            f"[This is review chunk {index} of {len(chunks)} of one larger change, "
+            "split at file boundaries. Review only the files in this chunk; the "
+            "other chunks are reviewed separately. Report findings for these "
+            "files only.]\n\n" + chunk
+        )
+        parsed, last_length = await _json_only_review(
+            framed,
+            model=model,
+            review_type=review_type,
+            system_prompt_prefix=system_prompt_prefix,
+            repository=repository,
+        )
+        if parsed is None:
+            return None, last_length
+        per_chunk.append(parsed)
+    return merge_chunk_findings(per_chunk), last_length
+
+
 async def async_parse_raw(
     plan_content: str,
     *,
@@ -1017,30 +1203,47 @@ async def async_parse_raw(
         )
         parsed = try_parse_review_response(raw_text)
         if parsed is None:
-            # OMN-20422: retry once with the same prompt, then fail the vote.
-            # OMN-17427: the retry gets a larger token budget, because a reply
-            # cut off at the default cap is the usual reason a review does not
-            # parse, and the same cap cuts the retry off the same way.
+            # OMN-20422: a reply that is not review JSON is retried, then fails
+            # the vote. OMN-17427 gave the retry a larger token budget; a reply
+            # that is prose until the cap (OMN-20717, omnimarket#3989: 15895 then
+            # 32638 chars) is not helped by room, so the retry is JSON-only (strict
+            # instruction, schema, constrained decoding) with a budget sized to
+            # the diff. A diff of several files that still does not answer is
+            # reviewed in file chunks. A non-answer is never a pass: when nothing
+            # parses, the vote fails.
             logger.warning(
-                "Model '%s' reply did not parse (%d chars); retrying once "
+                "Model '%s' reply did not parse (%d chars); retrying JSON-only "
                 "with max_tokens=%d",
                 model,
                 len(raw_text),
-                _RETRY_MAX_TOKENS,
+                json_retry_max_tokens(len(plan_content)),
             )
-            first_length = len(raw_text)
-            raw_text = await call_model(
-                system_prompt,
-                user_prompt,
-                model_key=model,
-                repository=repository,
-                max_tokens=_RETRY_MAX_TOKENS,
-            )
-            parsed = try_parse_review_response(raw_text)
+            earlier_lengths = [len(raw_text)]
+            review_args: dict[str, Any] = {
+                "model": model,
+                "review_type": review_type,
+                "system_prompt_prefix": system_prompt_prefix,
+                "repository": repository,
+            }
+            parsed, reply_length = await _json_only_review(plan_content, **review_args)
             if parsed is None:
-                return unparseable_reply_result(
-                    model, len(raw_text), earlier_lengths=(first_length,)
-                )
+                chunks = split_diff_into_file_chunks(plan_content)
+                if len(chunks) > 1:
+                    earlier_lengths.append(reply_length)
+                    logger.warning(
+                        "Model '%s' JSON-only reply did not parse (%d chars); "
+                        "reviewing %d file chunks",
+                        model,
+                        reply_length,
+                        len(chunks),
+                    )
+                    parsed, reply_length = await _review_in_file_chunks(
+                        chunks, **review_args
+                    )
+                if parsed is None:
+                    return unparseable_reply_result(
+                        model, reply_length, earlier_lengths=tuple(earlier_lengths)
+                    )
         # OMN-20422: a finding whose own text says there is no defect is
         # recorded as dropped and never reaches the quorum.
         parsed, dropped = split_self_negating(parsed)

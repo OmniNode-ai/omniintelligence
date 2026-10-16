@@ -62,8 +62,10 @@ class TestRetryTokenBudget:
         first, retry = call.await_args_list
         assert "max_tokens" not in first.kwargs
         assert retry.kwargs["max_tokens"] == adapter_ai_reviewer._RETRY_MAX_TOKENS
-        # Same prompt and model on both calls; only the budget differs.
-        assert first.args == retry.args
+        # Same system prompt, model and review request on both calls; the retry
+        # adds the JSON-only instruction (OMN-20717) and the larger budget.
+        assert first.args[0] == retry.args[0]
+        assert retry.args[1].startswith(first.args[1])
         assert first.kwargs["model_key"] == retry.kwargs["model_key"]
 
     @pytest.mark.asyncio
