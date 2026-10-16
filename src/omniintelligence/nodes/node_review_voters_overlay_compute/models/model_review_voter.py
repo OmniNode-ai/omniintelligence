@@ -73,6 +73,7 @@ class ModelReviewVoter(BaseModel):
     enable_thinking: bool = Field(default=False)
     reasoning_effort: Literal["low", "medium", "high"] | None = Field(default=None)
     constrain_findings_schema: bool = Field(default=False)
+    context_window_tokens: int = Field(default=32768, ge=8192)
 
     @model_validator(mode="after")
     def _validate_shape(self) -> Self:

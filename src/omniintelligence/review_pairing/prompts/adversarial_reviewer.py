@@ -16,9 +16,10 @@ Reference: OMN-5789, OMN-5819, OMN-19395
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
-PROMPT_VERSION: str = "1.3.0"
+PROMPT_VERSION: str = "1.4.0"
 """Semantic version of the adversarial review prompt.
 
 Propagated into ModelExternalReviewResult.prompt_version so review results
@@ -40,6 +41,8 @@ Changelog:
              blocked omniclaude#2629, a bump of two ``[tool.uv.sources]`` revs
              between full SHAs, once with a finding whose own text said "No
              finding here". OMN-20422.
+    1.4.0 -- A failed review retries with JSON-only instructions and the
+             findings schema, preserving the original evidence. OMN-20717.
 """
 
 SYSTEM_PROMPT: str = (
@@ -217,3 +220,11 @@ FINDINGS_RESPONSE_FORMAT: dict[str, Any] = {
 prompt asks for (OMN-20422). Sent only for registry entries that set
 ``constrain_findings_schema``; the field list mirrors the Output Format section
 of ``SYSTEM_PROMPT``."""
+
+JSON_ONLY_RETRY: str = (
+    "\n\nJSON ONLY. The previous attempt did not produce a complete review. "
+    "Review the original evidence again. Return ONLY a complete JSON array, "
+    "without analysis, reasoning, markdown or commentary. Include every supported "
+    "defect; return [] only when you found no defects. Use this exact JSON schema:\n"
+    + json.dumps(FINDINGS_RESPONSE_FORMAT["json_schema"]["schema"])
+)
