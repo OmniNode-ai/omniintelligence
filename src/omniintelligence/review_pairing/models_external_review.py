@@ -113,6 +113,16 @@ class ModelEndpointConfig(BaseModel, frozen=True, extra="forbid"):
         ),
     )
 
+    context_window_tokens: int = Field(
+        default=32768,
+        ge=8192,
+        description=(
+            "Smallest context window of this voter's primary and overflow endpoints. "
+            "Input, retry instructions and output must fit together; larger PRs "
+            "are reviewed in complete file batches (or parts of oversized files)."
+        ),
+    )
+
     temperature: float | None = Field(
         default=None,
         ge=0.0,

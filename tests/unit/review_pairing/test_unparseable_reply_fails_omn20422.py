@@ -75,15 +75,17 @@ class TestAsyncParseRawUnparseableReply:
         assert _GARBAGE not in result.model_dump_json()
 
     @pytest.mark.asyncio
-    async def test_retry_uses_the_same_prompt(self) -> None:
+    async def test_retry_uses_the_same_evidence_and_stricter_json_prompt(self) -> None:
         call = AsyncMock(side_effect=[_GARBAGE, _GARBAGE])
         with patch.object(adapter_ai_reviewer, "call_model", call):
             await adapter_ai_reviewer.async_parse_raw("# Plan", model="qwen3-review")
 
         first, retry = call.await_args_list
-        assert first.args == retry.args
+        assert first.args[1] == retry.args[1]
+        assert retry.args[0] == first.args[0] + adapter_ai_reviewer._JSON_ONLY_RETRY
+        assert retry.kwargs["json_only"] is True
         assert first.kwargs["model_key"] == retry.kwargs["model_key"]
-        # OMN-17427: only the token budget differs on the retry.
+        # The retry retains the larger output budget.
         assert retry.kwargs["max_tokens"] == adapter_ai_reviewer._RETRY_MAX_TOKENS
 
     @pytest.mark.asyncio
