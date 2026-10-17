@@ -22,7 +22,11 @@ import os
 import shutil
 from pathlib import Path
 
+from omniintelligence.models.review.model_review_standing_rules import (
+    ModelReviewStandingRules,
+)
 from omniintelligence.review_pairing.adapters.adapter_ai_reviewer import (
+    build_review_prompt,
     split_self_negating,
     to_review_findings,
     try_parse_review_response,
@@ -34,9 +38,6 @@ from omniintelligence.review_pairing.models_external_review import (
 )
 from omniintelligence.review_pairing.prompts.adversarial_reviewer import (
     PROMPT_VERSION,
-    SYSTEM_PROMPT,
-    USER_PROMPT_TEMPLATE,
-    USER_PROMPT_TEMPLATE_PR,
 )
 
 logger = logging.getLogger(__name__)
@@ -142,6 +143,7 @@ async def async_parse_raw(
     pr_id: int = 0,
     commit_sha: str = "0000000",
     timeout_seconds: float = _CODEX_TIMEOUT_SECONDS,
+    standing_rules: ModelReviewStandingRules | None = None,
 ) -> ModelExternalReviewResult:
     """Run adversarial review via Codex CLI.
 
@@ -156,6 +158,7 @@ async def async_parse_raw(
         pr_id: Pull request number.
         commit_sha: Commit SHA.
         timeout_seconds: Subprocess timeout.
+        standing_rules: The reviewed repository's standing rules (OMN-20784).
 
     Returns:
         ModelExternalReviewResult with findings or error.
@@ -173,10 +176,12 @@ async def async_parse_raw(
             ),
         )
 
-    # Build the prompt.
-    template = USER_PROMPT_TEMPLATE_PR if review_type == "pr" else USER_PROMPT_TEMPLATE
-    user_prompt = template.format(plan_content=plan_content)
-    full_prompt = f"{SYSTEM_PROMPT}\n\n{user_prompt}"
+    # Build the prompt (the same builder as the LLM adapter, so the standing
+    # rules reach Codex exactly as they reach every other reviewer).
+    system_prompt, user_prompt = build_review_prompt(
+        plan_content, review_type=review_type, standing_rules=standing_rules
+    )
+    full_prompt = f"{system_prompt}\n\n{user_prompt}"
 
     try:
         process = await asyncio.create_subprocess_exec(
@@ -239,6 +244,7 @@ async def async_parse_raw(
         repo=repo,
         pr_id=pr_id,
         commit_sha=commit_sha,
+        standing_rules=standing_rules,
     )
 
     return ModelExternalReviewResult(

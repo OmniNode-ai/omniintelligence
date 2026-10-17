@@ -58,6 +58,13 @@ pre-commit run --all-files
 # Review calibration CLI
 uv run python -m omniintelligence.review_pairing \
   --file plan.md --ground-truth codex --challenger qwen3-review
+
+# Gated review with the reviewed repository's standing rules, read from the
+# protected base branch (OMN-20784); the rules file is that repository's overlay
+uv run python -m omniintelligence.review_pairing.cli_review \
+  --pr 433 --repo OmniNode-ai/omniintelligence --gated \
+  --rules-file <rules.yaml> --rules-base-ref origin/dev
+uv run python -m omniintelligence.review_pairing.cli_review validate-rules --rules-file <rules.yaml>
 ```
 
 Additional pytest markers (`slow`, `performance`, `drift`, `smoke`, `forecast`): see `[tool.pytest.ini_options] markers` in `pyproject.toml`.

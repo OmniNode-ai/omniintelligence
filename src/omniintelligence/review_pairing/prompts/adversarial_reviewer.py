@@ -11,7 +11,7 @@ consistently produces sharper adversarial reviews than generic prompts.
 
 Bump PROMPT_VERSION when modifying prompt content.
 
-Reference: OMN-5789, OMN-5819, OMN-19395
+Reference: OMN-5789, OMN-5819, OMN-19395, OMN-20784
 """
 
 from __future__ import annotations
@@ -19,7 +19,11 @@ from __future__ import annotations
 import json
 from typing import Any
 
-PROMPT_VERSION: str = "1.4.0"
+from omniintelligence.models.review.model_review_standing_rules import (
+    ModelReviewStandingRules,
+)
+
+PROMPT_VERSION: str = "1.5.0"
 """Semantic version of the adversarial review prompt.
 
 Propagated into ModelExternalReviewResult.prompt_version so review results
@@ -94,6 +98,8 @@ SYSTEM_PROMPT: str = (
     '- "proposed_fix": string, concrete suggestion for how to address it\n'
     '- "location": string or null, file path or section reference if '
     "applicable\n"
+    '- "standing_rule_id": string or null, the id of the standing rule the '
+    "change violates when the prompt lists standing rules, otherwise null\n"
     "\n"
     "Do not include any text outside the JSON array. Do not wrap the array "
     "in markdown fences. Output only the raw JSON array.\n"
@@ -201,6 +207,7 @@ FINDINGS_RESPONSE_FORMAT: dict[str, Any] = {
                     "evidence": {"type": "string"},
                     "proposed_fix": {"type": "string"},
                     "location": {"type": ["string", "null"]},
+                    "standing_rule_id": {"type": ["string", "null"]},
                 },
                 "required": [
                     "category",
@@ -210,6 +217,7 @@ FINDINGS_RESPONSE_FORMAT: dict[str, Any] = {
                     "evidence",
                     "proposed_fix",
                     "location",
+                    "standing_rule_id",
                 ],
                 "additionalProperties": False,
             },
@@ -220,6 +228,32 @@ FINDINGS_RESPONSE_FORMAT: dict[str, Any] = {
 prompt asks for (OMN-20422). Sent only for registry entries that set
 ``constrain_findings_schema``; the field list mirrors the Output Format section
 of ``SYSTEM_PROMPT``."""
+
+
+def render_standing_rules_section(rules: ModelReviewStandingRules) -> str:
+    """Render the reviewed repository's standing rules for the system prompt.
+
+    Every rule appears by id, with its text, so a finding can cite the id
+    (OMN-20784). The version and digest travel with the section, which ties the
+    rendered text to the rules the verdict record names.
+    """
+    lines = [
+        f"## Standing Rules of the Reviewed Repository "
+        f"(version {rules.version}, digest {rules.digest})",
+        "",
+        "These rules belong to the repository under review. Test every change "
+        "against each one. A change that violates a rule is a finding: set "
+        '"standing_rule_id" to that rule\'s id. A violated mandatory rule is '
+        'severity "critical". Cite only ids listed here; every other finding '
+        'sets "standing_rule_id" to null.',
+        "",
+    ]
+    for rule in rules.rules:
+        kind = "mandatory" if rule.mandatory else "standing"
+        body = rule.text.strip().replace("\n", "\n    ")
+        lines.append(f"- [{rule.id}] ({kind}) {body}")
+    return "\n".join(lines)
+
 
 JSON_ONLY_RETRY: str = (
     "\n\nJSON ONLY. The previous attempt did not produce a complete review. "

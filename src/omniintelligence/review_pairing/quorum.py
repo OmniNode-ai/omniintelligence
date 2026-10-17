@@ -78,10 +78,14 @@ _LOCATION_WITH_LINE: re.Pattern[str] = re.compile(
 def _normalise_rule(finding: ModelReviewFindingObserved) -> str:
     """Return a model-independent agreement key for a finding's rule.
 
-    ``ai-reviewer:{model_key}:{category}`` collapses to its category; any
+    A finding bound to a standing rule (OMN-20784) agrees on that rule, whatever
+    category each model filed it under. ``ai-reviewer:{model_key}:{category}``
+    otherwise collapses to its category; any
     other ``rule_id`` (ruff, mypy, eslint, github-checks) is already
     model-independent and is used whole.
     """
+    if finding.standing_rule_id is not None:
+        return f"standing:{finding.standing_rule_id}"
     if finding.category is not None:
         return f"category:{finding.category.value}"
     rule = finding.rule_id.strip().lower()
@@ -123,6 +127,7 @@ class _Cluster:
         self.severity = severity
         self.line = line
         self.message = finding.normalized_message
+        self.standing_rule_id = finding.standing_rule_id
         self.models: list[str] = [model]
         self.identities: list[str] = [identity]
         self.finding_ids: list[str] = [str(finding.finding_id)]
@@ -228,6 +233,7 @@ def evaluate_quorum(
             agreement_count=len(cluster.identities),
             blocking=is_blocking,
             finding_ids=tuple(cluster.finding_ids),
+            standing_rule_id=cluster.standing_rule_id,
         )
         if is_blocking:
             blocking.append(entry)
