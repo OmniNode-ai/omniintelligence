@@ -30,14 +30,9 @@ permissions:
 jobs:
   review-bot:
     name: Code Intelligence Review
-    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
-    runs-on: >-
-      ${{
-        github.event_name != 'pull_request'
-        && github.event_name != 'merge_group'
-        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
-        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
-      }}
+    # OMN-17427: this repository is public, so its CI runs on GitHub-hosted runners only
+    # (RULING 2026-10-16T07:07:09Z); check-public-runner-placement refuses any runs-on that is not a literal hosted label.
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout PR
         uses: actions/checkout@v7

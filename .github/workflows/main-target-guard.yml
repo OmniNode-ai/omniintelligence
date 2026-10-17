@@ -25,12 +25,9 @@ concurrency:
 jobs:
   main-target-guard:
     name: main-target-guard
-    runs-on: >-
-      ${{
-        (github.event.pull_request.head.repo.full_name != github.repository)
-        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
-        || fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
-      }}
+    # OMN-17427: this repository is public, so its CI runs on GitHub-hosted runners only
+    # (RULING 2026-10-16T07:07:09Z); check-public-runner-placement refuses any runs-on that is not a literal hosted label.
+    runs-on: ubuntu-latest
     timeout-minutes: 5
 
     steps:

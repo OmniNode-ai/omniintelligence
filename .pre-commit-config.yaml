@@ -317,6 +317,16 @@ repos:
         files: ^src/omniintelligence/.*\.py$
       - id: canonical-file-shape
 
+  # OMN-17427: public-repository runner placement (RULING 2026-10-16T07:07:09Z,
+  # "Ci runners should be for private repos only"). CI twin job
+  # public-runner-placement in .github/workflows/ci.yml; keep this rev equal to
+  # that job's release.
+  - repo: https://github.com/OmniNode-ai/omnibase_core
+    rev: v0.47.46
+    hooks:
+      - id: check-public-runner-placement
+        args: [--repo, omniintelligence, --visibility, public]
+
   # Canonical Inference Gate (OMN-13249, fleet rollout of OMN-13219).
   # Rejects NEW non-canonical model-inference surfaces: shelled model CLIs
   # (codex/claude/gemini/opencode) and *_MODEL/*_PROVIDER env reads. Structural
@@ -927,6 +937,18 @@ repos:
         files: ^(\.pre-commit-config\.yaml|scripts/validation/check_precommit_additional_dependencies\.sh|tests/test_precommit_additional_dependencies_omn19666\.sh|tests/fixtures/omn19666/.*)$
         stages: [pre-commit]
 
+  # Producer/consumer normalization symmetry (OMN-9333). This block sat below the
+  # top-level `exclude:` scalar, so YAML read it as the tail of the exclude regex
+  # and pre-commit never registered the hook; it now lives under `repos:` and the
+  # entry names the real omnibase_core module (checker_normalization_symmetry).
+  - repo: local
+    hooks:
+      - id: normalization-symmetry
+        name: normalization-symmetry
+        entry: uv run python -m omnibase_core.validation.checker_normalization_symmetry src
+        language: system
+        pass_filenames: false
+
 default_install_hook_types: [pre-commit, pre-push, commit-msg]
 default_stages: [pre-commit]
 
@@ -946,11 +968,3 @@ exclude: |
     # Git internals - not user code
     \.git/.*
   )$
-
-  - repo: local
-    hooks:
-      - id: normalization-symmetry
-        name: normalization-symmetry
-        entry: uv run python -m omnibase_core.validators.normalization-symmetry
-        language: system
-        pass_filenames: false

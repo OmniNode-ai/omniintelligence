@@ -24,11 +24,32 @@ requirements:
           success false), so the quorum still reads degraded and is never lowered -- falsifier: the same
           test file and tests/unit/review_pairing/test_unparseable_reply_fails_omn20422.py (uv run pytest
           on both files)'
+  - id: req-public-runner-placement
+    statement: 'Operator RULING 2026-10-16T07:07:09Z: CI runners are for private repositories only. omniintelligence
+      is public, so every workflow job runs on a literal GitHub-hosted label, the normalization-symmetry
+      hook is registered under repos and names a module that exists, and omnibase_core''s check-public-runner-placement
+      runs as a CI Summary required job and as a pre-commit hook at one core release.'
+    acceptance:
+      - id: AC3
+        statement: 'AC3: no workflow names the self-hosted fleet or computes a runs-on label from a variable,
+          the Public Runner Placement job is unconditional, hosted, carries a positive control and the
+          same core release as the pre-commit hook, and CI Summary requires its success -- falsifier:
+          uv run pytest tests/ci/test_public_runner_placement_omn17427.py -q -n 0 fails at the merge base,
+          where 33 workflow jobs fall back to the omnibase-ci fleet and neither the job nor the hook exists'
+      - id: AC4
+        statement: 'AC4: the normalization-symmetry hook is a registered hook under repos whose python
+          -m target is an importable omnibase_core module -- falsifier: uv run pytest tests/ci/test_public_runner_placement_omn17427.py::test_normalization_symmetry_hook_runs_an_importable_module
+          -q -n 0 fails at the merge base, where the hook block sits inside the top-level exclude scalar
+          and names omnibase_core.validators.normalization-symmetry'
 evidence_requirements:
   - kind: tests
     description: Retry budget, unchanged first call, request wiring and the failed-vote path.
     command: uv run pytest tests/unit/review_pairing/test_unparseable_retry_token_budget.py tests/unit/review_pairing/test_unparseable_reply_fails_omn20422.py
       -q -n 0
+  - kind: tests
+    description: The placement tests read every workflow file for the fleet fallback and a computed runs-on,
+      the ci.yml job, .pre-commit-config.yaml and the CI Summary wiring.
+    command: uv run pytest tests/ci/test_public_runner_placement_omn17427.py -q -n 0
 emergency_bypass:
   enabled: false
   justification: ''
@@ -52,3 +73,20 @@ dod_evidence:
           -q -n 0
     binds_ac:
       - AC2
+  - id: dod-omn17427-ac3-public-runner-placement
+    description: AC3 tests read the workflows, the CI job, the pre-commit hook and the CI Summary wiring.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_public_runner_placement_omn17427.py -q -n 0
+    binds_ac:
+      - AC3
+  - id: dod-omn17427-ac4-normalization-symmetry-hook
+    description: AC4 test reads the registered hook and resolves its module.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_public_runner_placement_omn17427.py::test_normalization_symmetry_hook_runs_an_importable_module
+          -q -n 0
+    binds_ac:
+      - AC4
