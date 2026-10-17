@@ -1,0 +1,37 @@
+---
+schema_version: "1.0.0"
+ticket_id: "OMN-19998"
+title: "An exhausted review budget is a timeout the substitute-vote policy may replace"
+summary: >-
+  A chunked review shares one voter's sequential worst-case budget. When that budget runs out the adapter
+  now fails the voter with the transport's timeout error, as a single call that ran past its timeout did
+  before chunking, so the substitute-vote policy reads it as a voter that timed out. The quorum, the budget
+  and the receipt rules are unchanged.
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: "review-budget-timeout"
+    statement: "A voter whose shared review budget runs out fails as a timed-out voter."
+    acceptance:
+      - id: "AC1"
+        statement: "An exhausted review budget fails the vote with the timeout error code, and the substitute-vote
+          policy classifies it as timed out."
+evidence_requirements:
+  - kind: "tests"
+    description: "The exhausted budget is a failed vote that the substitute-vote policy may replace."
+    command: "uv run pytest tests/unit/review_pairing/test_large_diff_json_review.py -q -n 0"
+emergency_bypass:
+  enabled: false
+  justification: ""
+  follow_up_ticket_id: ""
+dod_evidence:
+  - id: "review-budget-timeout-substitutable"
+    description: "An exhausted shared budget fails the vote as a timeout that receipts may replace."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/review_pairing/test_large_diff_json_review.py -q -n 0 -k
+          'exhausted_budget_is_a_substitutable_timeout'"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC1"]
