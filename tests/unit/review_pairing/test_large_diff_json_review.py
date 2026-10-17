@@ -19,6 +19,10 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from omniintelligence.nodes.node_review_receipt_substitute_compute.handlers.handler_review_receipt_substitute import (
+    FAILURE_TIMED_OUT,
+    substitutable_failure,
+)
 from omniintelligence.review_pairing.adapters import adapter_ai_reviewer as adapter
 
 pytestmark = [pytest.mark.unit, pytest.mark.asyncio]
@@ -150,6 +154,34 @@ async def test_chunks_share_the_voters_existing_total_wall_clock_budget() -> Non
         result = await adapter.async_parse_raw(file_diff("slow.py"), review_type="pr")
     assert not result.success
     assert result.error and "review budget exhausted" in result.error
+
+
+async def test_an_exhausted_budget_is_a_substitutable_timeout() -> None:
+    """A voter that runs out of its shared budget timed out (OMN-19998).
+
+    Before chunking, a Studio call that ran past its timeout failed with the
+    transport's timeout code, and the substitute-vote policy could replace it.
+    The shared deadline must fail the same way, or a large review on a slow
+    voter ends with no verdict and nothing may stand in for it.
+    """
+
+    async def slow_model(*args: object, **kwargs: object) -> str:
+        await asyncio.sleep(0.05)
+        return "[]"
+
+    with (
+        patch.object(adapter, "call_model", AsyncMock(side_effect=slow_model)),
+        patch.object(
+            adapter,
+            "compute_sequential_worst_case",
+            return_value=[SimpleNamespace(worst_case_seconds=0.001)],
+            create=True,
+        ),
+    ):
+        result = await adapter.async_parse_raw(file_diff("slow.py"), review_type="pr")
+    assert not result.success
+    assert result.error and "review budget exhausted" in result.error
+    assert substitutable_failure(result) == FAILURE_TIMED_OUT
 
 
 async def test_a_single_oversized_file_keeps_every_changed_line_and_path() -> None:

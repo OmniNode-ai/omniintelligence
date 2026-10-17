@@ -1133,6 +1133,26 @@ def _review_chunks(content: str, max_bytes: int) -> list[str]:
     return batches
 
 
+def _budget_exhausted(model: str, budget_seconds: float) -> Exception:
+    """The voter ran out of its shared review budget: a timeout (OMN-19998).
+
+    It carries the transport's timeout code, as a single call that ran past its
+    timeout did before chunking, so the substitute-vote policy treats it as a
+    voter that timed out rather than one that answered.
+    """
+    from omnibase_infra.enums import EnumInfraTransportType
+    from omnibase_infra.errors import InfraTimeoutError, ModelTimeoutErrorContext
+
+    return InfraTimeoutError(
+        f"review budget exhausted; review is incomplete (model {model!r})",
+        context=ModelTimeoutErrorContext(
+            transport_type=EnumInfraTransportType.HTTP,
+            operation="llm_review",
+            timeout_seconds=budget_seconds,
+        ),
+    )
+
+
 async def async_parse_raw(
     plan_content: str,
     *,
@@ -1177,16 +1197,17 @@ async def async_parse_raw(
         # reserves for this voter. All calls and parse retries share it; an
         # incomplete review expires as a failed vote before the job is killed.
         budgets = compute_sequential_worst_case([model], configs={model: config})
-        deadline = time.monotonic() + (
+        deadline_seconds = (
             budgets[0].worst_case_seconds if budgets else config.timeout_seconds
         )
+        deadline = time.monotonic() + deadline_seconds
 
         async def call_before_deadline(
             system: str, user: str, **kwargs: Unpack[_OutputBudgetKwargs]
         ) -> str:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
-                raise TimeoutError("review budget exhausted; review is incomplete")
+                raise _budget_exhausted(model, deadline_seconds)
             try:
                 return await asyncio.wait_for(
                     call_model(
@@ -1195,9 +1216,7 @@ async def async_parse_raw(
                     timeout=remaining,
                 )
             except TimeoutError as exc:
-                raise TimeoutError(
-                    "review budget exhausted; review is incomplete"
-                ) from exc
+                raise _budget_exhausted(model, deadline_seconds) from exc
 
         system_prompt, empty_user_prompt = build_review_prompt(
             "",
