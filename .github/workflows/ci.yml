@@ -86,14 +86,9 @@ jobs:
   # Detect which files changed to conditionally run production code jobs
   changes:
     name: Detect Changes
-    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
-    runs-on: >-
-      ${{
-        github.event_name != 'pull_request'
-        && github.event_name != 'merge_group'
-        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
-        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
-      }}
+    # OMN-17427: this repository is public, so its CI runs on GitHub-hosted runners only
+    # (RULING 2026-10-16T07:07:09Z); check-public-runner-placement refuses any runs-on that is not a literal hosted label.
+    runs-on: ubuntu-latest
     # Permissions required for dorny/paths-filter to access PR file list via GitHub API
     # Scoped to this job only (security best practice - least privilege)
     permissions:
@@ -127,14 +122,9 @@ jobs:
   # Assert no Poetry artifacts - enforces uv-only build toolchain
   assert-no-poetry:
     name: Assert No Poetry Artifacts
-    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
-    runs-on: >-
-      ${{
-        github.event_name != 'pull_request'
-        && github.event_name != 'merge_group'
-        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
-        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
-      }}
+    # OMN-17427: this repository is public, so its CI runs on GitHub-hosted runners only
+    # (RULING 2026-10-16T07:07:09Z); check-public-runner-placement refuses any runs-on that is not a literal hosted label.
+    runs-on: ubuntu-latest
     timeout-minutes: 5
 
     steps:
@@ -156,14 +146,9 @@ jobs:
   # Pre-commit hooks - comprehensive code quality validation
   pre-commit:
     name: Pre-commit Hooks
-    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
-    runs-on: >-
-      ${{
-        github.event_name != 'pull_request'
-        && github.event_name != 'merge_group'
-        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
-        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
-      }}
+    # OMN-17427: this repository is public, so its CI runs on GitHub-hosted runners only
+    # (RULING 2026-10-16T07:07:09Z); check-public-runner-placement refuses any runs-on that is not a literal hosted label.
+    runs-on: ubuntu-latest
     timeout-minutes: 20
 
     steps:
@@ -289,14 +274,9 @@ jobs:
   # Fast check (~1s) that catches configuration drift before it causes issues
   scope-alignment:
     name: Scope Alignment
-    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
-    runs-on: >-
-      ${{
-        github.event_name != 'pull_request'
-        && github.event_name != 'merge_group'
-        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
-        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
-      }}
+    # OMN-17427: this repository is public, so its CI runs on GitHub-hosted runners only
+    # (RULING 2026-10-16T07:07:09Z); check-public-runner-placement refuses any runs-on that is not a literal hosted label.
+    runs-on: ubuntu-latest
     timeout-minutes: 20
 
     steps:
@@ -349,14 +329,9 @@ jobs:
   # ==========================================================================
   ci-workflow-shape:
     name: CI Workflow Shape Gate
-    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
-    runs-on: >-
-      ${{
-        github.event_name != 'pull_request'
-        && github.event_name != 'merge_group'
-        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
-        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
-      }}
+    # OMN-17427: this repository is public, so its CI runs on GitHub-hosted runners only
+    # (RULING 2026-10-16T07:07:09Z); check-public-runner-placement refuses any runs-on that is not a literal hosted label.
+    runs-on: ubuntu-latest
     timeout-minutes: 10
 
     steps:
@@ -389,14 +364,9 @@ jobs:
   # Only runs when production code changes
   lint:
     name: Lint
-    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
-    runs-on: >-
-      ${{
-        github.event_name != 'pull_request'
-        && github.event_name != 'merge_group'
-        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
-        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
-      }}
+    # OMN-17427: this repository is public, so its CI runs on GitHub-hosted runners only
+    # (RULING 2026-10-16T07:07:09Z); check-public-runner-placement refuses any runs-on that is not a literal hosted label.
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: changes
     if: needs.changes.outputs.production_code == 'true'
@@ -449,14 +419,9 @@ jobs:
   # Only runs when production code changes
   type-check:
     name: Type Check
-    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
-    runs-on: >-
-      ${{
-        github.event_name != 'pull_request'
-        && github.event_name != 'merge_group'
-        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
-        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
-      }}
+    # OMN-17427: this repository is public, so its CI runs on GitHub-hosted runners only
+    # (RULING 2026-10-16T07:07:09Z); check-public-runner-placement refuses any runs-on that is not a literal hosted label.
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: changes
     if: needs.changes.outputs.production_code == 'true'
@@ -529,14 +494,9 @@ jobs:
   # diff maps to no module, and escalates when it cannot prove that safe.
   detect-changes:
     name: Detect Changes
-    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
-    runs-on: >-
-      ${{
-        github.event_name != 'pull_request'
-        && github.event_name != 'merge_group'
-        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
-        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
-      }}
+    # OMN-17427: this repository is public, so its CI runs on GitHub-hosted runners only
+    # (RULING 2026-10-16T07:07:09Z); check-public-runner-placement refuses any runs-on that is not a literal hosted label.
+    runs-on: ubuntu-latest
     outputs:
       is_full_suite: ${{ steps.detect.outputs.is_full_suite }}
       full_suite_reason: ${{ steps.detect.outputs.full_suite_reason }}
@@ -613,14 +573,9 @@ jobs:
   # FEATURE_FLAG_OFF so the full-suite pytest step runs.
   test-unit:
     name: Unit Tests (Split ${{ matrix.split }}/${{ needs.detect-changes.outputs.split_count }})
-    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
-    runs-on: >-
-      ${{
-        github.event_name != 'pull_request'
-        && github.event_name != 'merge_group'
-        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
-        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
-      }}
+    # OMN-17427: this repository is public, so its CI runs on GitHub-hosted runners only
+    # (RULING 2026-10-16T07:07:09Z); check-public-runner-placement refuses any runs-on that is not a literal hosted label.
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     # OMN-18578: no `if:`. This job runs on every event, for every diff. A
     # path filter deciding whether tests run at all was how 3 of the last 8
@@ -714,14 +669,9 @@ jobs:
   # Contract validation - validates ONEX contract YAML files
   contract-validation:
     name: Contract Validation
-    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
-    runs-on: >-
-      ${{
-        github.event_name != 'pull_request'
-        && github.event_name != 'merge_group'
-        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
-        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
-      }}
+    # OMN-17427: this repository is public, so its CI runs on GitHub-hosted runners only
+    # (RULING 2026-10-16T07:07:09Z); check-public-runner-placement refuses any runs-on that is not a literal hosted label.
+    runs-on: ubuntu-latest
     timeout-minutes: 20
 
     steps:
@@ -769,14 +719,9 @@ jobs:
   # Runs on all changes to catch purity violations early
   io-audit:
     name: I/O Audit
-    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
-    runs-on: >-
-      ${{
-        github.event_name != 'pull_request'
-        && github.event_name != 'merge_group'
-        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
-        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
-      }}
+    # OMN-17427: this repository is public, so its CI runs on GitHub-hosted runners only
+    # (RULING 2026-10-16T07:07:09Z); check-public-runner-placement refuses any runs-on that is not a literal hosted label.
+    runs-on: ubuntu-latest
     timeout-minutes: 20
 
     steps:
@@ -831,14 +776,9 @@ jobs:
   # Reference: ARCH-002 "Runtime owns all Kafka plumbing"
   cross-repo-validation:
     name: Cross-Repo Validation
-    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
-    runs-on: >-
-      ${{
-        github.event_name != 'pull_request'
-        && github.event_name != 'merge_group'
-        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
-        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
-      }}
+    # OMN-17427: this repository is public, so its CI runs on GitHub-hosted runners only
+    # (RULING 2026-10-16T07:07:09Z); check-public-runner-placement refuses any runs-on that is not a literal hosted label.
+    runs-on: ubuntu-latest
     timeout-minutes: 20
 
     steps:
@@ -883,14 +823,9 @@ jobs:
   # The freeze must be enforced on every PR regardless of which files changed.
   migration-freeze:
     name: Migration Freeze Check
-    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
-    runs-on: >-
-      ${{
-        github.event_name != 'pull_request'
-        && github.event_name != 'merge_group'
-        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
-        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
-      }}
+    # OMN-17427: this repository is public, so its CI runs on GitHub-hosted runners only
+    # (RULING 2026-10-16T07:07:09Z); check-public-runner-placement refuses any runs-on that is not a literal hosted label.
+    runs-on: ubuntu-latest
     timeout-minutes: 5
 
     steps:
@@ -905,14 +840,9 @@ jobs:
   # ============================================================================
   check-handshake:
     name: Verify Architecture Handshake
-    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
-    runs-on: >-
-      ${{
-        github.event_name != 'pull_request'
-        && github.event_name != 'merge_group'
-        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
-        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
-      }}
+    # OMN-17427: this repository is public, so its CI runs on GitHub-hosted runners only
+    # (RULING 2026-10-16T07:07:09Z); check-public-runner-placement refuses any runs-on that is not a literal hosted label.
+    runs-on: ubuntu-latest
     # Skip on fork PRs - forks may not have access to cross-repo checkout
     # Runs on: push events, workflow_dispatch, and PRs from the same repo
     if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name != 'pull_request'
@@ -969,14 +899,9 @@ jobs:
   # precedent.
   canon-shape-ratchet:
     name: Canonical Handler-Shape Ratchet
-    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
-    runs-on: >-
-      ${{
-        github.event_name != 'pull_request'
-        && github.event_name != 'merge_group'
-        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
-        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
-      }}
+    # OMN-17427: this repository is public, so its CI runs on GitHub-hosted runners only
+    # (RULING 2026-10-16T07:07:09Z); check-public-runner-placement refuses any runs-on that is not a literal hosted label.
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Checkout code
@@ -1018,14 +943,9 @@ jobs:
   # Uses detect-secrets-hook for proper baseline comparison (handles type+hash equality)
   detect-secrets:
     name: Detect Secrets
-    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
-    runs-on: >-
-      ${{
-        github.event_name != 'pull_request'
-        && github.event_name != 'merge_group'
-        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
-        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
-      }}
+    # OMN-17427: this repository is public, so its CI runs on GitHub-hosted runners only
+    # (RULING 2026-10-16T07:07:09Z); check-public-runner-placement refuses any runs-on that is not a literal hosted label.
+    runs-on: ubuntu-latest
     timeout-minutes: 5
 
     steps:
@@ -1100,14 +1020,9 @@ jobs:
   # ============================================================================
   compliance:
     name: Contract Compliance
-    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
-    runs-on: >-
-      ${{
-        github.event_name != 'pull_request'
-        && github.event_name != 'merge_group'
-        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
-        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
-      }}
+    # OMN-17427: this repository is public, so its CI runs on GitHub-hosted runners only
+    # (RULING 2026-10-16T07:07:09Z); check-public-runner-placement refuses any runs-on that is not a literal hosted label.
+    runs-on: ubuntu-latest
     timeout-minutes: 10
 
     steps:
@@ -1166,14 +1081,9 @@ jobs:
   # change without updating branch protection rules.
   quality-gate:
     name: Quality Gate
-    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
-    runs-on: >-
-      ${{
-        github.event_name != 'pull_request'
-        && github.event_name != 'merge_group'
-        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
-        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
-      }}
+    # OMN-17427: this repository is public, so its CI runs on GitHub-hosted runners only
+    # (RULING 2026-10-16T07:07:09Z); check-public-runner-placement refuses any runs-on that is not a literal hosted label.
+    runs-on: ubuntu-latest
     needs: [assert-no-poetry, pre-commit, scope-alignment, ci-workflow-shape, contract-validation, io-audit, cross-repo-validation, migration-freeze, check-handshake, canon-shape-ratchet, detect-secrets, contract-compliance]
     if: always()
 
@@ -1387,7 +1297,9 @@ jobs:
   # bad sample on every run and fails unless the ratchet refuses it.
   canonical-file-shape:
     name: Canonical File Shape (OMN-20304)
-    runs-on: ${{ github.event_name != 'pull_request' && github.event_name != 'merge_group' && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]') || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]') }}
+    # OMN-17427: this repository is public, so its CI runs on GitHub-hosted runners only
+    # (RULING 2026-10-16T07:07:09Z); check-public-runner-placement refuses any runs-on that is not a literal hosted label.
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
       CANONICAL_FILE_SHAPE_CORE: "omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core@031148215620031436cba30619bbae67c0bb38ad"
@@ -1445,17 +1357,71 @@ jobs:
               python -m omnibase_core.validators.canonical_file_shape --head HEAD
           fi
 
+  # Public-repository runner placement (OMN-17427). RULING 2026-10-16T07:07:09Z:
+  # "Ci runners should be for private repos only." omniintelligence is public, so the
+  # omnibase_core check refuses any job whose runs-on is not a literal GitHub-hosted
+  # label (this repository has no entry in the core baseline) and, against the
+  # merge base, a job added back. Same core release as the
+  # check-public-runner-placement pre-commit hook (rev v0.47.46).
+  # Unconditional: no `if:`, no `needs:`; CI Summary requires its success.
+  public-runner-placement:
+    name: Public Runner Placement (OMN-17427)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # The published release whose tag v0.47.46 is the pre-commit hook's rev.
+      RUNNER_PLACEMENT_CORE: "omnibase-core==0.47.46"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.8.3"
+      - name: Positive control (planted self-hosted job refused)
+        run: |
+          set -u
+          printf 'on: push\njobs:\n  planted:\n    runs-on: [self-hosted, omnibase-ci]\n    steps:\n      - run: "true"\n' \
+            > .github/workflows/zz-canary-planted.yml
+          git add .github/workflows/zz-canary-planted.yml
+          if uv run --no-project --with "$RUNNER_PLACEMENT_CORE" \
+            python -m omnibase_core.handlers.handler_public_runner_placement_cli --repo omniintelligence --visibility public \
+            .github/workflows/zz-canary-planted.yml; then
+            echo "POSITIVE CONTROL FAILED: planted self-hosted job was accepted"
+            exit 1
+          fi
+          echo "positive control: planted self-hosted job refused"
+          git rm -q --cached .github/workflows/zz-canary-planted.yml
+          rm .github/workflows/zz-canary-planted.yml
+      - name: Refuse new self-hosted jobs in this public repository
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          MQ_BASE: ${{ github.event.merge_group.base_sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          set -u
+          base="${PR_BASE:-${MQ_BASE:-${PUSH_BEFORE:-}}}"
+          args=(--repo omniintelligence --visibility public)
+          if [ -n "$base" ] && git cat-file -e "${base}^{commit}" 2>/dev/null; then
+            args+=(--base-ref "$(git merge-base "$base" HEAD)")
+          else
+            echo "no base revision on this event; checking the tree against the baseline only"
+          fi
+          uv run --no-project --with "$RUNNER_PLACEMENT_CORE" \
+            python -m omnibase_core.handlers.handler_public_runner_placement_cli "${args[@]}"
+
   ci-summary:
     name: CI Summary
-    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
-    runs-on: >-
-      ${{
-        github.event_name != 'pull_request'
-        && github.event_name != 'merge_group'
-        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
-        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
-      }}
-    needs: [changes, quality-gate, lint, type-check, test-unit, compliance, no-noncanonical-lifecycle-classes, shape-gate-independence, detect-secrets, canonical-file-shape]
+    # OMN-17427: this repository is public, so its CI runs on GitHub-hosted runners only
+    # (RULING 2026-10-16T07:07:09Z); check-public-runner-placement refuses any runs-on that is not a literal hosted label.
+    runs-on: ubuntu-latest
+    needs: [changes, quality-gate, lint, type-check, test-unit, compliance, no-noncanonical-lifecycle-classes, shape-gate-independence, detect-secrets, canonical-file-shape, public-runner-placement]
     if: always()
 
     steps:
@@ -1481,6 +1447,13 @@ jobs:
           # in needs: so this job WAITS for it (no race).
           if [[ "${{ needs.canonical-file-shape.result }}" != "success" ]]; then
             echo "::error::canonical-file-shape ratchet did not pass (result: ${{ needs.canonical-file-shape.result }}) - fail-closed (OMN-20304)"
+            exit 1
+          fi
+
+          # OMN-17427: strict fail-closed gate on public-repository runner
+          # placement - only 'success' passes; skipped/cancelled/failure ALL block.
+          if [[ "${{ needs.public-runner-placement.result }}" != "success" ]]; then
+            echo "::error::public-runner-placement did not pass (result: ${{ needs.public-runner-placement.result }}) - fail-closed (OMN-17427)"
             exit 1
           fi
 
@@ -1595,14 +1568,9 @@ jobs:
 
   ai-slop-check:
     name: AI-Slop Pattern Check (strict, PR diff)
-    # OMNI_RUNNER_SELECTOR_V1 - non-pull_request, non-merge_group events default to self-hosted omnibase-ci; pull_request and merge_group default to ubuntu-latest
-    runs-on: >-
-      ${{
-        github.event_name != 'pull_request'
-        && github.event_name != 'merge_group'
-        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
-        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
-      }}
+    # OMN-17427: this repository is public, so its CI runs on GitHub-hosted runners only
+    # (RULING 2026-10-16T07:07:09Z); check-public-runner-placement refuses any runs-on that is not a literal hosted label.
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:

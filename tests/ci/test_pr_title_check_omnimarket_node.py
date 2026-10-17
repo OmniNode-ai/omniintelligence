@@ -28,12 +28,7 @@ MANIFEST = ROOT / ".github/required-checks.yaml"
 CONTEXT = "pr-title / check-title"
 NODE_MODULE = "omnimarket.nodes.node_pr_title_check_compute"
 OMNIMARKET_VERSION = "0.4.310"
-RUNS_ON = """${{
-  (github.event_name == 'pull_request' &&
-   github.event.pull_request.head.repo.full_name != github.repository)
-  && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
-  || fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
-}}"""
+RUNS_ON = "ubuntu-latest"
 OLD_BASH = r"""
 if [[ -z "$PR_TITLE" ]]; then
   exit 1
