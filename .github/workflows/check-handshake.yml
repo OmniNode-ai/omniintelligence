@@ -30,8 +30,8 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: OmniNode-ai/omnibase_core
-                                        # Auto-bumped by omnibase_core publish-downstream-pin-bump.yml to 5ca8134e0f6a.
-          ref: 5ca8134e0f6a193f5d7b46fe960b0245db11b04a
+                                        # Auto-bumped by omnibase_core publish-downstream-pin-bump.yml to c880801d4dee.
+          ref: c880801d4deeaa1627535c8622ab6c4ab8cfbecd
           path: omnibase_core
 
       - name: Verify omnibase_core checkout
