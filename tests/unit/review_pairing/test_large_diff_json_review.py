@@ -13,8 +13,11 @@ from __future__ import annotations
 
 import asyncio
 import json
+import threading
+from collections.abc import Coroutine
 from pathlib import Path
 from types import SimpleNamespace
+from typing import TypeVar
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -24,6 +27,8 @@ from omniintelligence.nodes.node_review_receipt_substitute_compute.handlers.hand
     substitutable_failure,
 )
 from omniintelligence.review_pairing.adapters import adapter_ai_reviewer as adapter
+
+T = TypeVar("T")
 
 pytestmark = [pytest.mark.unit, pytest.mark.asyncio]
 PROSE = (
@@ -228,3 +233,223 @@ async def test_json_only_retry_disables_reasoning_and_keeps_supported_schema() -
     assert body["chat_template_kwargs"]["enable_thinking"] is False
     assert body["chat_template_kwargs"]["reasoning_effort"] == "low"
     assert body["response_format"] == adapter.FINDINGS_RESPONSE_FORMAT
+
+
+async def test_slow_successful_primary_leaves_time_for_overflow_on_every_chunk() -> (
+    None
+):
+    """A primary can answer each request yet starve the complete vote (OMN-19998)."""
+    from omnibase_infra.enums import EnumInfraTransportType
+    from omnibase_infra.errors import InfraTimeoutError, ModelTimeoutErrorContext
+
+    from omniintelligence.review_pairing.models_external_review import (
+        ModelEndpointConfig,
+    )
+
+    primary = "http://primary.example:8130"
+    overflow = "http://overflow.example:8000"
+    config = ModelEndpointConfig(
+        env_var="TEST_SECURITY_REVIEW_URL",
+        default_url=primary,
+        kind="code_review",
+        timeout_seconds=600.0,
+        max_retries=0,
+        api_model_id="test-reviewer",
+        enable_thinking=False,
+        overflow_urls=(overflow,),
+    )
+    clock = [0.0]
+    calls = []
+
+    class Handler:
+        def __init__(self, transport: object) -> None:
+            pass
+
+        async def handle(self, request: object) -> SimpleNamespace:
+            calls.append(request)
+            duration = 450.0 if request.base_url == primary else 20.0
+            clock[0] += min(duration, request.timeout_seconds)
+            if duration > request.timeout_seconds:
+                raise InfraTimeoutError(
+                    "endpoint exceeded its request timeout",
+                    context=ModelTimeoutErrorContext(
+                        transport_type=EnumInfraTransportType.HTTP,
+                        operation="llm_http_call",
+                        timeout_seconds=request.timeout_seconds,
+                    ),
+                )
+            return SimpleNamespace(generated_text="[]")
+
+    diffs = [file_diff(f"part_{i}.py", 260) for i in range(4)]
+    with (
+        patch.dict(adapter.MODEL_REGISTRY, {"security-test": config}),
+        patch.object(adapter, "time", SimpleNamespace(monotonic=lambda: clock[0])),
+        patch(
+            "omnibase_infra.nodes.node_llm_inference_effect.handlers.handler_llm_openai_compatible.HandlerLlmOpenaiCompatible",
+            Handler,
+        ),
+    ):
+        result = await adapter.async_parse_raw(
+            "".join(diffs), model="security-test", review_type="pr"
+        )
+
+    assert result.success, result.error
+    answered = [request for request in calls if request.base_url == overflow]
+    assert len(answered) == 4
+    for diff in diffs:
+        assert sum(diff in request.messages[0]["content"] for request in answered) == 1
+    assert clock[0] < 1200.0  # The original budget, not a larger timeout.
+    assert adapter.SERVED_BASE_URLS["security-test"] == overflow
+    adapter.SERVED_BASE_URLS.pop("security-test", None)
+
+
+async def test_silent_endpoints_remain_a_timeout_with_a_subsecond_chunk_budget() -> (
+    None
+):
+    """A small remaining share must time out, not fail request validation."""
+    from omniintelligence.review_pairing.models_external_review import (
+        ModelEndpointConfig,
+    )
+
+    config = ModelEndpointConfig(
+        env_var="TEST_SECURITY_REVIEW_URL",
+        default_url="http://primary.example:8130",
+        kind="code_review",
+        timeout_seconds=600.0,
+        max_retries=0,
+        api_model_id="test-reviewer",
+        overflow_urls=("http://overflow.example:8000",),
+    )
+    cancelled = []
+
+    class Handler:
+        def __init__(self, transport: object) -> None:
+            pass
+
+        async def handle(self, request: object) -> None:
+            try:
+                await asyncio.Future()
+            finally:
+                cancelled.append(request.base_url)
+
+    with (
+        patch.dict(adapter.MODEL_REGISTRY, {"security-silent-test": config}),
+        patch.object(
+            adapter,
+            "compute_sequential_worst_case",
+            return_value=[SimpleNamespace(worst_case_seconds=0.8)],
+        ),
+        patch(
+            "omnibase_infra.nodes.node_llm_inference_effect.handlers.handler_llm_openai_compatible.HandlerLlmOpenaiCompatible",
+            Handler,
+        ),
+    ):
+        result = await adapter.async_parse_raw(
+            "".join(file_diff(f"part_{i}.py", 260) for i in range(4)),
+            model="security-silent-test",
+            review_type="pr",
+        )
+
+    assert not result.success
+    assert substitutable_failure(result) == FAILURE_TIMED_OUT
+    assert cancelled == [config.default_url, *config.overflow_urls]
+
+
+async def test_chunk_overflow_through_the_production_http_handler(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Use real model discovery, signed HTTP requests and response parsing."""
+    from aiohttp import web
+    from omnibase_infra.adapters.llm.adapter_llm_provider_openai import (
+        TransportHolderLlmHttp,
+    )
+
+    from omniintelligence.review_pairing.models_external_review import (
+        ModelEndpointConfig,
+    )
+
+    monkeypatch.setenv("LOCAL_LLM_SHARED_SECRET", "synthetic-test-signing-key")
+    monkeypatch.setenv("LLM_ENDPOINT_CIDR_ALLOWLIST", "127.0.0.1/32")
+    monkeypatch.setattr(TransportHolderLlmHttp, "_LOCAL_LLM_CIDRS", None)
+    calls: list[tuple[str, dict]] = []
+    runners: list[web.AppRunner] = []
+    # The endpoints serve from their own loop, so a reviewer that blocks the
+    # test's loop fails within the bound below instead of deadlocking.
+    server_loop = asyncio.new_event_loop()
+    server_thread = threading.Thread(target=server_loop.run_forever, daemon=True)
+    server_thread.start()
+
+    def on_server_loop(coro: Coroutine[object, object, T]) -> asyncio.Future[T]:
+        return asyncio.wrap_future(asyncio.run_coroutine_threadsafe(coro, server_loop))
+
+    async def stop_endpoints() -> None:
+        await asyncio.gather(*(runner.cleanup() for runner in runners))
+
+    async def start_endpoint(name: str, delay: float) -> str:
+        async def models(request: web.Request) -> web.Response:
+            return web.json_response({"data": [{"id": "test-reviewer"}]})
+
+        async def review(request: web.Request) -> web.Response:
+            assert request.headers.get("x-omn-node-signature")
+            calls.append((name, await request.json()))
+            await asyncio.sleep(delay)
+            return web.json_response(
+                {"choices": [{"message": {"content": "[]"}, "finish_reason": "stop"}]}
+            )
+
+        app = web.Application()
+        app.router.add_get("/v1/models", models)
+        app.router.add_post("/v1/chat/completions", review)
+        runner = web.AppRunner(app)
+        runners.append(runner)
+        await runner.setup()
+        await web.TCPSite(runner, "127.0.0.1", 0).start()
+        return f"http://127.0.0.1:{runner.addresses[0][1]}"
+
+    try:
+        primary = await on_server_loop(start_endpoint("primary", 1.4))
+        overflow = await on_server_loop(start_endpoint("overflow", 0.01))
+        config = ModelEndpointConfig(
+            env_var="TEST_HTTP_REVIEW_URL",
+            default_url=primary,
+            kind="code_review",
+            timeout_seconds=2.0,
+            max_retries=0,
+            model_id_source="served",
+            enable_thinking=False,
+            overflow_urls=(overflow,),
+            temperature=0.7,
+            top_p=0.8,
+            review_focus="Give extra scrutiny to security and contracts.",
+        )
+        monkeypatch.setitem(adapter.MODEL_REGISTRY, "security-http-test", config)
+        diffs = [file_diff(f"part_{i}.py", 260) for i in range(4)]
+        result = await asyncio.wait_for(
+            adapter.async_parse_raw(
+                "".join(diffs),
+                model="security-http-test",
+                review_type="pr",
+                repository="example/review-target",
+            ),
+            timeout=6.0,
+        )
+        assert result.success, result.error
+        answered = [body for name, body in calls if name == "overflow"]
+        assert len(answered) == 4
+        for diff in diffs:
+            assert (
+                sum(diff in body["messages"][-1]["content"] for body in answered) == 1
+            )
+        for body in answered:
+            assert body["model"] == "test-reviewer"
+            assert body["temperature"] == 0.7
+            assert body["top_p"] == 0.8
+            assert body["metadata"]["repository"] == "example/review-target"
+            assert config.review_focus in body["messages"][0]["content"]
+        assert adapter.SERVED_BASE_URLS["security-http-test"] == overflow
+    finally:
+        adapter.SERVED_BASE_URLS.pop("security-http-test", None)
+        await on_server_loop(stop_endpoints())
+        server_loop.call_soon_threadsafe(server_loop.stop)
+        server_thread.join(timeout=5)
+        server_loop.close()
