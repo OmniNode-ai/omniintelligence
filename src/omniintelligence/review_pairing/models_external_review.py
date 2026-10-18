@@ -162,7 +162,9 @@ class ModelEndpointConfig(BaseModel, frozen=True, extra="forbid"):
         description=(
             "Per-attempt budget of every endpoint but the last when "
             "overflow_urls is set; None means timeout_seconds. Those attempts "
-            "are not retried: the next endpoint is the retry."
+            "are not retried: the next endpoint is the retry. A chunked "
+            "review can shorten each endpoint's attempt to reserve time "
+            "for overflow and the remaining chunks."
         ),
     )
     review_focus: str = Field(

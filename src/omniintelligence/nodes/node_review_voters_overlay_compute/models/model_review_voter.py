@@ -52,7 +52,9 @@ class ModelReviewVoter(BaseModel):
         description="How long the primary endpoint, and each overflow "
         "endpoint but the last, may take to reply before the next one is "
         "tried. Only with overflow_endpoint_urls. Absent: timeout_seconds. "
-        "The last endpoint always gets timeout_seconds and max_retries.",
+        "The last endpoint gets timeout_seconds and max_retries unless a "
+        "chunked review assigns a smaller share of the whole-vote budget; "
+        "then each endpoint gets one bounded attempt.",
     )
     model_id_source: Literal["served", "declared"] = Field(
         default="served",

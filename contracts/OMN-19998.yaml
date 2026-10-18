@@ -30,6 +30,13 @@ requirements:
           or when a dev tag for that sha already exists, pushes nothing in a dry run, and refuses a value
           that is not a full sha -- falsifier: uv run pytest tests/ci/test_dev_merge_tag_workflow_omn19998.py
           -q -n 0 fails at the merge base, where the workflow does not exist"
+  - id: "security-voter-chunk-overflow-budget"
+    statement: "A slow primary cannot consume the time reserved for overflow and remaining review chunks."
+    acceptance:
+      - id: "AC3"
+        statement: "A four-chunk review whose primary answers within each configured request timeout but
+          exceeds the whole-vote budget completes through its healthy configured overflow within the original
+          total budget; silent endpoints still fail as a timeout and no partial review becomes a vote."
 evidence_requirements:
   - kind: "tests"
     description: "The exhausted budget is a failed vote that the substitute-vote policy may replace."
@@ -68,3 +75,22 @@ dod_evidence:
           rev-parse HEAD)" --jq .content | base64 -d | awk '/branches: \[dev\]/{a=1} /git push origin
           "refs\/tags\//{b=1} END{exit !(a&&b)}'
         cwd: "."
+  - id: "security-voter-chunk-overflow-budget"
+    description: "The adapter reserves time for every endpoint and remaining chunk; the production HTTP
+      handler reviews every chunk through overflow, while silent endpoints remain a failed vote."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/review_pairing/test_large_diff_json_review.py -q -n 0"
+        cwd: "."
+    binds_ac: ["AC3"]
+  - id: "security-voter-overflow-http-probe"
+    description: "A hosted-runner probe exercises served-model discovery, signed requests, overflow and
+      response parsing through the production HTTP handler against two local endpoints."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: "uv run pytest tests/unit/review_pairing/test_large_diff_json_review.py -q -n 0 -k
+          chunk_overflow_through_the_production_http_handler"
+        cwd: "."
+    binds_ac: ["AC3"]
