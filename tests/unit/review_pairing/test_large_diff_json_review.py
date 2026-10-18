@@ -13,8 +13,11 @@ from __future__ import annotations
 
 import asyncio
 import json
+import threading
+from collections.abc import Coroutine
 from pathlib import Path
 from types import SimpleNamespace
+from typing import TypeVar
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -24,6 +27,8 @@ from omniintelligence.nodes.node_review_receipt_substitute_compute.handlers.hand
     substitutable_failure,
 )
 from omniintelligence.review_pairing.adapters import adapter_ai_reviewer as adapter
+
+T = TypeVar("T")
 
 pytestmark = [pytest.mark.unit, pytest.mark.asyncio]
 PROSE = (
@@ -368,6 +373,17 @@ async def test_chunk_overflow_through_the_production_http_handler(
     monkeypatch.setattr(TransportHolderLlmHttp, "_LOCAL_LLM_CIDRS", None)
     calls: list[tuple[str, dict]] = []
     runners: list[web.AppRunner] = []
+    # The endpoints serve from their own loop, so a reviewer that blocks the
+    # test's loop fails within the bound below instead of deadlocking.
+    server_loop = asyncio.new_event_loop()
+    server_thread = threading.Thread(target=server_loop.run_forever, daemon=True)
+    server_thread.start()
+
+    def on_server_loop(coro: Coroutine[object, object, T]) -> asyncio.Future[T]:
+        return asyncio.wrap_future(asyncio.run_coroutine_threadsafe(coro, server_loop))
+
+    async def stop_endpoints() -> None:
+        await asyncio.gather(*(runner.cleanup() for runner in runners))
 
     async def start_endpoint(name: str, delay: float) -> str:
         async def models(request: web.Request) -> web.Response:
@@ -391,8 +407,8 @@ async def test_chunk_overflow_through_the_production_http_handler(
         return f"http://127.0.0.1:{runner.addresses[0][1]}"
 
     try:
-        primary = await start_endpoint("primary", 1.4)
-        overflow = await start_endpoint("overflow", 0.01)
+        primary = await on_server_loop(start_endpoint("primary", 1.4))
+        overflow = await on_server_loop(start_endpoint("overflow", 0.01))
         config = ModelEndpointConfig(
             env_var="TEST_HTTP_REVIEW_URL",
             default_url=primary,
@@ -433,4 +449,7 @@ async def test_chunk_overflow_through_the_production_http_handler(
         assert adapter.SERVED_BASE_URLS["security-http-test"] == overflow
     finally:
         adapter.SERVED_BASE_URLS.pop("security-http-test", None)
-        await asyncio.gather(*(runner.cleanup() for runner in runners))
+        await on_server_loop(stop_endpoints())
+        server_loop.call_soon_threadsafe(server_loop.stop)
+        server_thread.join(timeout=5)
+        server_loop.close()
