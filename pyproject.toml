@@ -58,7 +58,6 @@ Homepage = "https://github.com/OmniNode-ai/omniintelligence"
 Repository = "https://github.com/OmniNode-ai/omniintelligence"
 Documentation = "https://github.com/OmniNode-ai/knowledge_base"
 Issues = "https://github.com/OmniNode-ai/omniintelligence/issues"
-Changelog = "https://github.com/OmniNode-ai/omniintelligence/blob/main/CHANGELOG.md"
 
 [project.entry-points."onex.domain_plugins"]
 intelligence = "omniintelligence.runtime.plugin:PluginIntelligence"

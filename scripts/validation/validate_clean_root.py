@@ -69,12 +69,6 @@ ALLOWED_ROOT_FILES: frozenset[str] = frozenset(
         "LICENSE",
         "LICENSE.md",
         "LICENSE.txt",
-        "CHANGELOG.md",
-        # SECURITY.md stays at the root only because GitHub reads it there.
-        # CONTRIBUTING.md and CODE_OF_CONDUCT.md were relocated to .github/ by
-        # OMN-16612 (GitHub reads them from there too) and AGENT.md was folded
-        # into CLAUDE.md, so none of the three is a legal root file any more.
-        "SECURITY.md",
         # ONEX-specific
         "CLAUDE.md",
         # Environment

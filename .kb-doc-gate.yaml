@@ -25,12 +25,8 @@ mode: strict
 # Markdown that remains here and is covered by the DEFAULT set, for the record:
 #   README.md                          -> `README.md`
 #   CLAUDE.md                          -> `CLAUDE.md`
-#   CHANGELOG.md                       -> `**/CHANGELOG*.md`
-#   SECURITY.md                        -> `SECURITY.md` (GitHub reads it at root)
 #   .claude/architecture-handshake.md  -> `**/.claude/**`
-#   .github/CONTRIBUTING.md            -> `**/.github/**` (relocated from the
-#   .github/CODE_OF_CONDUCT.md            root by OMN-16612; GitHub reads both
-#   .github/PULL_REQUEST_TEMPLATE.md      from .github/ as well)
+#   .github/PULL_REQUEST_TEMPLATE.md   -> `**/.github/**`
 #   .github/ISSUE_TEMPLATE/*.md
 #
 # The validator's DEFAULT_ALLOWED also blankets `**/tests/**/fixtures/**`, but the
