@@ -41,6 +41,18 @@ requirements:
           -m target is an importable omnibase_core module -- falsifier: uv run pytest tests/ci/test_public_runner_placement_omn17427.py::test_normalization_symmetry_hook_runs_an_importable_module
           -q -n 0 fails at the merge base, where the hook block sits inside the top-level exclude scalar
           and names omnibase_core.validators.normalization-symmetry'
+  - id: req-docs-centralization
+    statement: Standalone human documentation is removed from omniintelligence while machine-read inputs
+      and the public knowledge base pointer remain.
+    acceptance:
+      - id: AC101
+        statement: 'AC101: the tracked prose and text inventory contains only the root README pointer,
+          CLAUDE.md, CI architecture handshake, issue and PR templates, review persona, ratchet baselines
+          and test fixture data; README.md has 3-5 lines and links to the public knowledge_base; package
+          metadata no longer links to the removed changelog.'
+      - id: AC102
+        statement: 'AC102: existing persona and code-projection artifact tests continue reading their
+          retained markdown and text inputs.'
 evidence_requirements:
   - kind: tests
     description: Retry budget, unchanged first call, request wiring and the failed-vote path.
@@ -90,3 +102,41 @@ dod_evidence:
           -q -n 0
     binds_ac:
       - AC4
+  - id: dod-omn17427-docs-inventory
+    description: Enumerate tracked documentation and tool-input text, root README pointer, license and
+      packaging metadata.
+    source: manual
+    checks:
+      - check_type: command
+        check_value: >-
+          python3 -c 'import pathlib,subprocess,tomllib; expected=set([".claude/architecture-handshake.md",
+          ".github/ISSUE_TEMPLATE/bug_report.md", ".github/ISSUE_TEMPLATE/feature_request.md", ".github/PULL_REQUEST_TEMPLATE.md",
+          ".onex_ratchets/canonical_file_shape_baseline.txt", "CLAUDE.md", "README.md", "scripts/validation/topic_naming_baseline.txt",
+          "src/omniintelligence/review_pairing/personas/analytical-strict.md", "tests/fixtures/code_projection/v2/sanitized/greeter-class-v2.txt",
+          "tests/fixtures/code_projection/v2/sanitized/greeter-class.txt", "tests/fixtures/code_projection/v2/sanitized/widget-interface.txt",
+          "tests/unit/review_pairing/fixtures/large_free_text_reply.txt"]); actual={p for p in subprocess.check_output(["git","ls-files"],text=True).splitlines()
+          if p.endswith((".md",".mdx",".rst",".adoc",".txt"))}; assert actual==expected,(actual-expected,expected-actual);
+          r=pathlib.Path("README.md").read_text(); assert 3<=len(r.splitlines())<=5; assert "https://github.com/OmniNode-ai/knowledge_base"
+          in r; metadata=tomllib.loads(pathlib.Path("pyproject.toml").read_text()); assert metadata["project"]["readme"]=="README.md";
+          assert "Changelog" not in metadata["project"]["urls"]; assert pathlib.Path("LICENSE").is_file();
+          print("PASS: 13 approved prose/tool-input files, README pointer, license, package metadata")'
+    binds_ac:
+      - AC101
+  - id: dod-omn17427-docs-readers
+    description: After standalone prose is removed, existing tests exercise retained persona and sanitized
+      artifact fixtures. The removal assertion fails at the merge base before the reader tests run.
+    source: manual
+    checks:
+      - check_type: command
+        check_value: >-
+          python3 -c 'from pathlib import Path; removed=("CHANGELOG.md", "SECURITY.md", ".github/CONTRIBUTING.md",
+          ".github/CODE_OF_CONDUCT.md"); remaining=[p for p in removed if Path(p).exists()]; assert not
+          remaining, f"Standalone prose remains: {remaining}"; print("PASS: standalone prose removed before
+          retained reader checks")'
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/review_pairing/test_personas.py tests/unit/code_projection/test_artifacts.py
+          -q -n 0
+      - check_type: command
+        check_value: bash tests/test_precommit_additional_dependencies_omn19666.sh
+    binds_ac:
+      - AC102
