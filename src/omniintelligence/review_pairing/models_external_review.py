@@ -60,7 +60,7 @@ class ModelEndpointConfig(BaseModel, frozen=True, extra="forbid"):
     """
 
     env_var: str = Field(description="Environment variable name for the endpoint URL.")
-    provider: Literal["openai", "anthropic"] = "openai"
+    provider: Literal["openai", "anthropic", "claude_code"] = "openai"
     api_key_env: str | None = Field(default=None, pattern=r"^[A-Za-z_][A-Za-z0-9_]*$")
     excluded_repositories: tuple[str, ...] = ()
     default_url: str = Field(description="Fallback URL when env var is not set.")
@@ -191,6 +191,25 @@ class ModelEndpointConfig(BaseModel, frozen=True, extra="forbid"):
         than defaulted, because silently treating a typo as ``declared`` would
         send an empty model id.
         """
+        if self.provider == "claude_code":
+            if (
+                self.model_id_source != "declared"
+                or not self.api_model_id.startswith("claude-")
+                or self.api_key_env is not None
+                or self.env_var
+                or self.default_url
+                or self.overflow_urls
+                or self.overflow_after_seconds is not None
+                or self.temperature is not None
+                or self.top_p is not None
+                or self.reasoning_effort is not None
+                or self.constrain_findings_schema
+                or self.max_retries not in (None, 0)
+            ):
+                raise ValueError(
+                    "provider claude_code requires a declared Claude model and host pool auth without API/endpoint/sampling/retry overrides"
+                )
+            return self
         if (
             self.api_key_env is not None or self.excluded_repositories
         ) and self.provider != "anthropic":

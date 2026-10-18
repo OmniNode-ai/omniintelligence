@@ -44,6 +44,7 @@ EXPECTED_NODE_DIRS = [
     "node_ci_error_classifier_compute",
     "node_ci_failure_tracker_effect",
     "node_ci_fingerprint_compute",
+    "node_claude_code_review_effect",
     "node_claude_hook_event_effect",
     "node_code_crawler_effect",
     "node_code_entity_bridge_compute",

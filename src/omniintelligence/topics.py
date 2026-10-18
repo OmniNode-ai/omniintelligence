@@ -38,6 +38,11 @@ class IntentTopic(UtilStrValueHelper, str, Enum):
     (producer: ``omniintelligence``, kind: ``evt``).
     """
 
+    CLAUDE_CODE_REVIEW_COMPLETED = (
+        "onex.evt.omniintelligence.claude-code-review-completed.v1"
+    )
+    """Claude Code review result, including named pool failures (OMN-20910)."""
+
     INTENT_DRIFT_DETECTED = "onex.evt.omniintelligence.intent-drift-detected.v1"
     """Execution diverged from declared intent."""
 
@@ -127,6 +132,9 @@ class IntelligenceCommandTopic(UtilStrValueHelper, str, Enum):
     All topics use ``onex.cmd.omniintelligence.*`` or ``onex.cmd.*`` as the
     consumer namespace (kind: ``cmd``).
     """
+
+    CLAUDE_CODE_REVIEW = "onex.cmd.omniintelligence.claude-code-review.v1"
+    """Host account-pool Claude Code review command (OMN-20910)."""
 
     CLAUDE_HOOK_EVENT = "onex.cmd.omniintelligence.claude-hook-event.v1"
     """Claude Code hook event command."""

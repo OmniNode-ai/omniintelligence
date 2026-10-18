@@ -161,15 +161,16 @@ class TestPatternStoredTriggersProjection:
         )
 
         # Engine should have projection handler + 3 extra routes.
-        # Baseline without projection: 30 handlers, 37 routes
+        # Baseline without projection: 31 handlers, 38 routes
         # (OMN-9536 removed the legacy routing.feedback drain handler + route;
-        # OMN-13802 added the cursor-hook handler + route → +1 handler, +1 route).
+        # OMN-13802 added the cursor-hook handler + route → +1 handler, +1 route;
+        # OMN-20910 added the claude-code-review handler + route → +1, +1).
         # With projection: +1 handler, +3 routes.
-        assert engine.dispatcher_count == 31, (
-            f"Expected 31 handlers (30 baseline + 1 projection), got {engine.dispatcher_count}"
+        assert engine.dispatcher_count == 32, (
+            f"Expected 32 handlers (31 baseline + 1 projection), got {engine.dispatcher_count}"
         )
-        assert engine.route_count == 40, (
-            f"Expected 40 routes (37 baseline + 3 projection), got {engine.route_count}"
+        assert engine.route_count == 41, (
+            f"Expected 41 routes (38 baseline + 3 projection), got {engine.route_count}"
         )
 
     def test_engine_without_query_store_lacks_projection_routes(
@@ -186,8 +187,8 @@ class TestPatternStoredTriggersProjection:
             pattern_query_store=None,
         )
 
-        assert engine.dispatcher_count == 30
-        assert engine.route_count == 37
+        assert engine.dispatcher_count == 31
+        assert engine.route_count == 38
 
     @pytest.mark.asyncio
     async def test_dispatch_pattern_stored_invokes_projection_handler(

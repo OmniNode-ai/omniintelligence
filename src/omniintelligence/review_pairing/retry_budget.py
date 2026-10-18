@@ -171,6 +171,9 @@ def compute_sequential_worst_case(
             if config.max_retries is not None
             else fallback_max_retries
         )
+        if config.provider == "claude_code":
+            # Account rotation shares one deadline, rather than restarting it.
+            resolved_max_retries = 0
         total_attempts, worst_case = _simulate_worst_case_seconds(
             config.timeout_seconds, resolved_max_retries
         )

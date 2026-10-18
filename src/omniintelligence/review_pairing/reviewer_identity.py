@@ -83,7 +83,8 @@ def reviewer_identity(
     """
     if config is None:
         return f"key:{model_key}"
-    if config.provider == "anthropic" or config.kind == "api_fallback":
+    if config.provider in {"anthropic", "claude_code"} or config.kind == "api_fallback":
+        # OAuth/API routes and account aliases of the same weights are one voter.
         return f"anthropic#id={config.api_model_id}"
     url = served_base_url or resolve_endpoint_url(model_key, config, environ)
     if not url.strip():

@@ -686,7 +686,7 @@ def _select_overlay_voters(
     """
     reachability = probe_local_reachability(roster.voter_ids)
     for resolved_voter in roster.voters:
-        if resolved_voter.voter.provider == "anthropic":
+        if resolved_voter.voter.provider in {"anthropic", "claude_code"}:
             # Missing credentials are a named failed vote from the adapter,
             # never an unreachable lab endpoint eligible for substitution.
             reachability[resolved_voter.voter_id] = True
@@ -718,7 +718,7 @@ def _select_overlay_voters(
         voter = roster.get(voter_id)
         if (
             voter is None
-            or voter.voter.provider == "anthropic"
+            or voter.voter.provider in {"anthropic", "claude_code"}
             or voter.voter.model_id_source != "served"
         ):
             continue

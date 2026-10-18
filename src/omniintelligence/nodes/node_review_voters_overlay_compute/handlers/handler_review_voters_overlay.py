@@ -169,6 +169,15 @@ def _resolve(
 
     resolved: list[ModelResolvedReviewVoter] = []
     for voter in overlay.voters:
+        if voter.provider == "claude_code":
+            resolved.append(
+                ModelResolvedReviewVoter(
+                    voter=voter,
+                    base_url="",
+                    source="host Claude account pool",
+                )
+            )
+            continue
         if voter.provider == "anthropic":
             endpoint = overlay.provider_endpoints.get(voter.provider)
             if not endpoint:
@@ -292,6 +301,8 @@ def probe_target_lines(roster: ModelReviewVoterRoster) -> list[str]:
     """``TARGET|voter|host|port|url`` per voter, for the workflows' TCP preflight."""
     lines: list[str] = []
     for voter in roster.voters:
+        if voter.voter.provider == "claude_code":
+            continue  # No HTTP endpoint: the host's Claude Code does the call.
         host, port = voter.host_port
         lines.append(f"TARGET|{voter.voter_id}|{host}|{port}|{voter.base_url}")
         # An overflow endpoint is a call target like any other: the workflows

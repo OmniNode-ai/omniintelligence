@@ -101,6 +101,10 @@ DISPATCH_ALIAS_CLAUDE_HOOK = canonical_topic_to_dispatch_alias(
     IntelligenceCommandTopic.CLAUDE_HOOK_EVENT
 )
 """Dispatch-compatible alias for claude-hook-event canonical topic."""
+DISPATCH_ALIAS_CLAUDE_CODE_REVIEW = canonical_topic_to_dispatch_alias(
+    IntelligenceCommandTopic.CLAUDE_CODE_REVIEW
+)
+"""Dispatch-compatible alias for claude-code-review canonical topic (OMN-20910)."""
 DISPATCH_ALIAS_CURSOR_HOOK = canonical_topic_to_dispatch_alias(
     IntelligenceCommandTopic.CURSOR_HOOK_EVENT
 )
@@ -3949,6 +3953,58 @@ def create_intelligence_dispatch_engine(
         )
     )
 
+    # OMN-20910: the bus and CLI adapter invoke the same effect handler.
+    async def _claude_code_review_handler(
+        envelope: ModelEventEnvelope[object],
+        context: ProtocolHandlerContext,
+    ) -> str:
+        from omniintelligence.handlers.handler_claude_code_review_host import (
+            handle,
+        )
+        from omniintelligence.nodes.node_claude_code_review_effect.models.model_claude_code_review import (
+            ModelClaudeCodeReviewRequest,
+        )
+
+        if not isinstance(envelope.payload, dict):
+            raise PermanentDispatchFailureError("Claude Code review requires an object")
+        payload = dict(envelope.payload)
+        payload["correlation_id"] = envelope.correlation_id or context.correlation_id
+        try:
+            request = ModelClaudeCodeReviewRequest.model_validate(payload)
+        except ValidationError:
+            # Pydantic's raw error can include the private input prompts.
+            raise PermanentDispatchFailureError(
+                "Invalid Claude Code review request"
+            ) from None
+        result = await handle(request)
+        if kafka_producer is not None:
+            await kafka_producer.publish(
+                topic=topics.get(
+                    "claude_code_review", IntentTopic.CLAUDE_CODE_REVIEW_COMPLETED.value
+                ),
+                key=str(result.correlation_id),
+                value=result.model_dump(mode="json"),
+            )
+        return result.model_dump_json()
+
+    _register_dispatcher_adapted(
+        engine,
+        dispatcher_id="intelligence-claude-code-review-handler",
+        dispatcher=_claude_code_review_handler,
+        category=EnumMessageCategory.COMMAND,
+        node_kind=EnumNodeKind.EFFECT,
+        message_types=None,
+    )
+    engine.register_route(
+        ModelDispatchRoute(
+            route_id="intelligence-claude-code-review-route",
+            topic_pattern=DISPATCH_ALIAS_CLAUDE_CODE_REVIEW,
+            message_category=EnumMessageCategory.COMMAND,
+            handler_id="intelligence-claude-code-review-handler",
+            description="Review through Claude Code with the host account pool.",
+        )
+    )
+
     engine.freeze()
 
     if llm_client is None:
@@ -4286,6 +4342,7 @@ __all__ = [
     "DISPATCH_ALIAS_CI_FAILURE_TRACKER",
     "DISPATCH_ALIAS_CI_FINGERPRINT",
     "DISPATCH_ALIAS_CI_RECOVERY",
+    "DISPATCH_ALIAS_CLAUDE_CODE_REVIEW",
     "DISPATCH_ALIAS_CLAUDE_HOOK",
     "DISPATCH_ALIAS_COMPLIANCE_EVALUATE",
     "DISPATCH_ALIAS_CURSOR_HOOK",

@@ -803,6 +803,14 @@ repos:
         files: ^(src/omniintelligence/(review_pairing|nodes/node_review_voters_overlay_compute)/.*|tests/unit/review_pairing/test_review_voters_overlay_omn20910\.py|\.pre-commit-config\.yaml)$
         stages: [pre-commit]
 
+      - id: claude-code-pool-voter
+        name: Claude Code account-pool voter contract (OMN-20910)
+        entry: uv run pytest tests/unit/review_pairing/test_claude_code_pool_voter.py -q -n 0
+        language: system
+        pass_filenames: false
+        files: ^(src/omniintelligence/((review_pairing|nodes/node_claude_code_review_effect|nodes/node_review_voters_overlay_compute|runtime)/.*|handlers/handler_claude_code_review_host\.py|topics\.py)|tests/unit/review_pairing/test_claude_code_pool_voter\.py|\.pre-commit-config\.yaml|\.github/workflows/ci\.yml)$
+        stages: [pre-commit]
+
       - id: imperative-contract-guard-caller
         name: Imperative guard caller and shrink-only allowlist (OMN-21005)
         entry: uv run pytest tests/ci/test_imperative_contract_guard_caller_omn21005.py -q -n 0
