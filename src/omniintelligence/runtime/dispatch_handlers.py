@@ -101,6 +101,10 @@ DISPATCH_ALIAS_CLAUDE_HOOK = canonical_topic_to_dispatch_alias(
     IntelligenceCommandTopic.CLAUDE_HOOK_EVENT
 )
 """Dispatch-compatible alias for claude-hook-event canonical topic."""
+DISPATCH_ALIAS_CLAUDE_CODE_REVIEW = canonical_topic_to_dispatch_alias(
+    IntelligenceCommandTopic.CLAUDE_CODE_REVIEW
+)
+"""Dispatch-compatible alias for claude-code-review canonical topic (OMN-20910)."""
 DISPATCH_ALIAS_CURSOR_HOOK = canonical_topic_to_dispatch_alias(
     IntelligenceCommandTopic.CURSOR_HOOK_EVENT
 )
@@ -3994,9 +3998,7 @@ def create_intelligence_dispatch_engine(
     engine.register_route(
         ModelDispatchRoute(
             route_id="intelligence-claude-code-review-route",
-            topic_pattern=canonical_topic_to_dispatch_alias(
-                IntelligenceCommandTopic.CLAUDE_CODE_REVIEW
-            ),
+            topic_pattern=DISPATCH_ALIAS_CLAUDE_CODE_REVIEW,
             message_category=EnumMessageCategory.COMMAND,
             handler_id="intelligence-claude-code-review-handler",
             description="Review through Claude Code with the host account pool.",
@@ -4340,6 +4342,7 @@ __all__ = [
     "DISPATCH_ALIAS_CI_FAILURE_TRACKER",
     "DISPATCH_ALIAS_CI_FINGERPRINT",
     "DISPATCH_ALIAS_CI_RECOVERY",
+    "DISPATCH_ALIAS_CLAUDE_CODE_REVIEW",
     "DISPATCH_ALIAS_CLAUDE_HOOK",
     "DISPATCH_ALIAS_COMPLIANCE_EVALUATE",
     "DISPATCH_ALIAS_CURSOR_HOOK",

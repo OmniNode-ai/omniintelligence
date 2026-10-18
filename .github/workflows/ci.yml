@@ -624,11 +624,6 @@ jobs:
         if: matrix.split == 1
         run: uv run pytest tests/unit/review_pairing/test_review_voters_overlay_omn20910.py -q -n 0
 
-      # OMN-20910: host OAuth pool rotation, closed failure and log secrecy.
-      - name: Claude Code account-pool voter contract
-        if: matrix.split == 1
-        run: uv run pytest tests/unit/review_pairing/test_claude_code_pool_voter.py -q -n 0
-
       - name: Run unit tests (smart selection)
         if: vars.ENABLE_SMART_TESTS == 'true' && needs.detect-changes.outputs.is_full_suite == 'false'
         run: |
