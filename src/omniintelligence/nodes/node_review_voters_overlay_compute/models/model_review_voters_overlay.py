@@ -29,6 +29,10 @@ class ModelReviewVotersOverlay(BaseModel):
         description="File name, in the same directory, of the "
         "bifrost_lane_overlay.v3 file backend_id values resolve against.",
     )
+    provider_endpoints: dict[str, str] = Field(
+        default_factory=dict,
+        description="Cloud provider base URLs supplied by the deployment overlay, keyed by provider.",
+    )
     voters: tuple[ModelReviewVoter, ...] = Field(min_length=1)
     substitute_votes: ModelSubstituteVotePolicy | None = Field(
         default=None,

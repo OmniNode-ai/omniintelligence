@@ -15,9 +15,9 @@ endpoint, or ``served`` for a single-model endpoint whose id is resolved at
 call time (OMN-18623), where the endpoint alone names the model. Two keys with
 one identity count once, for the quorum and for agreement.
 
-The two aliases are deleted from the registry, and so is ``glm-review`` with
-the authenticated cloud path it used: private diffs go only to lab models
-(operator, 2026-09-25).
+The two aliases and ``glm-review`` remain deleted. Authenticated cloud
+reviews now require an explicit Anthropic provider (OMN-20910); credentials
+on an OpenAI-compatible lab entry are still refused.
 
 Every zero here has a positive control beside it.
 """
@@ -51,6 +51,7 @@ from omniintelligence.review_pairing.reviewer_identity import reviewer_identity
 pytestmark = pytest.mark.unit
 
 _POLICY = ModelReviewQuorumPolicy()
+_REVIEW_ENV_NAME = "REVIEW_ANTHROPIC_API_KEY"
 _QWEN = "http://192.0.2.10:8000"
 _PLANNER = "http://192.0.2.11:8130"
 _QWEN_ID = f"{_QWEN}#served"
@@ -255,11 +256,11 @@ class TestRegistryHasNoAliases:
             assert reviewer_identity(key, config, {}) == f"key:{key}"
 
 
-class TestNoCloudReviewerCanBeRegistered:
-    """The authenticated cloud path is deleted with glm-review.
+class TestCloudCredentialsRequireProvider:
+    """An OpenAI-compatible lab entry cannot silently gain cloud credentials.
 
-    A registry entry that asks for a Bearer key (``api_key_env``) is refused
-    at load, rather than silently ignored and sent to the cloud unkeyed.
+    An entry that names ``api_key_env`` without the Anthropic provider is
+    refused at load, rather than silently ignoring the credential field.
     """
 
     def test_an_entry_with_a_key_env_is_refused(self) -> None:
@@ -280,6 +281,18 @@ class TestNoCloudReviewerCanBeRegistered:
     def test_a_lab_entry_is_accepted(self) -> None:
         """Positive control: the same helper builds a valid entry."""
         assert _config(_QWEN).default_url == _QWEN
+
+    def test_explicit_anthropic_provider_accepts_a_named_key(self) -> None:
+        config = _config(
+            "https://api.anthropic.com",
+            provider="anthropic",
+            model_id_source="declared",
+            api_model_id="claude-sonnet-5-5",
+            api_key_env=_REVIEW_ENV_NAME,
+        )
+        assert (
+            reviewer_identity("sonnet", config, {}) == "anthropic#id=claude-sonnet-5-5"
+        )
 
 
 class TestCliStampsIdentity:

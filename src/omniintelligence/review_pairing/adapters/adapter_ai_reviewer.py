@@ -28,6 +28,7 @@ import sys
 import time
 import urllib.parse
 from collections.abc import Mapping
+from contextvars import ContextVar
 from typing import Any, TypedDict, Unpack
 from uuid import uuid4
 
@@ -64,13 +65,19 @@ from omniintelligence.review_pairing.prompts.adversarial_reviewer import (
 from omniintelligence.review_pairing.prompts.adversarial_reviewer import (
     JSON_ONLY_RETRY as _JSON_ONLY_RETRY,
 )
-from omniintelligence.review_pairing.retry_budget import compute_sequential_worst_case
+from omniintelligence.review_pairing.retry_budget import (
+    compute_sequential_worst_case,
+    resolve_live_max_retries_default,
+)
 from omniintelligence.review_pairing.served_model_resolver import (
     ServedModelResolutionError,
     resolve_served_model_id,
 )
 
 logger = logging.getLogger(__name__)
+_ANTHROPIC_USAGE: ContextVar[list[int] | None] = ContextVar(
+    "anthropic_review_usage", default=None
+)
 
 # ---------------------------------------------------------------------------
 # Severity mapping
@@ -231,9 +238,9 @@ def select_models_with_fallback(
 def register_review_voters(configs: Mapping[str, ModelEndpointConfig]) -> None:
     """Add overlay voters (OMN-20910) to the registry this adapter calls through.
 
-    Every voter is a local endpoint, so it is also probed for reachability like
-    the registry's local keys. A voter id that names an existing registry key is
-    refused: an overlay voter must never silently replace a registry entry, or
+    Local voters are probed for reachability like the registry's local keys.
+    Anthropic voters go directly to the Messages API. A voter id that names an
+    existing registry key is refused: an overlay voter must never silently replace a registry entry, or
     the same name would mean two different reviewers depending on the caller.
 
     Raises:
@@ -249,7 +256,9 @@ def register_review_voters(configs: Mapping[str, ModelEndpointConfig]) -> None:
                 "key; give the overlay voter a name of its own"
             )
     MODEL_REGISTRY.update(configs)
-    _LOCAL_MODEL_KEYS = _LOCAL_MODEL_KEYS | frozenset(configs)
+    _LOCAL_MODEL_KEYS = _LOCAL_MODEL_KEYS | frozenset(
+        key for key, config in configs.items() if config.provider != "anthropic"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -373,47 +382,90 @@ async def _call_claude_api(
     config: ModelEndpointConfig,
     max_tokens: int = _DEFAULT_MAX_TOKENS,
 ) -> str:
-    """Call the Anthropic Claude API for api_fallback models.
+    """Messages API for overlay voters and registry fallbacks, with bounded retries.
 
-    Per OMN-7835, ANTHROPIC_API_KEY is optional — Claude Code uses OAuth.
-    If no key is available, this fallback is skipped (returns empty string).
+    Only the named environment variable is read. Errors contain status/type,
+    never headers, provider response bodies, request text or credentials.
     """
-    import urllib.request as _urlreq
+    import httpx
+    from omnibase_infra.handlers.models.model_retry_state import ModelRetryState
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    key_env = config.api_key_env or "ANTHROPIC_API_KEY"
+    api_key = os.environ.get(key_env, "").strip()
     if not api_key:
-        logger.warning(
-            "claude-api fallback skipped: ANTHROPIC_API_KEY not set "
-            "(OAuth/SSO is the primary auth path per OMN-7835)"
+        raise RuntimeError(f"Claude API key environment variable {key_env} is not set")
+    if not config.api_model_id:
+        raise ValueError("Claude API voter requires a declared model")
+    if not config.default_url:
+        raise ValueError(
+            "Claude API voter requires a provider endpoint from its overlay"
         )
-        return ""
-    payload = json.dumps(
-        {
-            "model": config.api_model_id or "claude-sonnet-4-6",
-            "max_tokens": max_tokens,
-            "system": system_prompt,
-            "messages": [{"role": "user", "content": user_prompt}],
-        }
-    ).encode()
-    req = _urlreq.Request(  # noqa: S310
-        "https://api.anthropic.com/v1/messages",
-        data=payload,
+    payload: dict[str, Any] = {
+        "model": config.api_model_id,
+        "max_tokens": max_tokens,
+        "system": system_prompt,
+        "messages": [{"role": "user", "content": user_prompt}],
+    }
+    if config.temperature is not None:
+        payload["temperature"] = config.temperature
+    if config.top_p is not None:
+        payload["top_p"] = config.top_p
+    retries = config.max_retries
+    if retries is None:
+        retries = resolve_live_max_retries_default()
+    state = ModelRetryState(max_attempts=1 + retries)
+    async with httpx.AsyncClient(
         headers={
-            "Content-Type": "application/json",
             "x-api-key": api_key,
             "anthropic-version": "2023-06-01",
         },
-        method="POST",
-    )
+        timeout=config.timeout_seconds,
+        follow_redirects=False,
+    ) as client:
+        while True:
+            try:
+                # wait_for bounds the whole attempt, including streamed reads;
+                # httpx's socket timeouts alone would reset on each read.
+                response = await asyncio.wait_for(
+                    client.post(
+                        f"{config.default_url.rstrip('/')}/v1/messages", json=payload
+                    ),
+                    timeout=config.timeout_seconds,
+                )
+            except (httpx.TransportError, TimeoutError) as exc:
+                detail = f"Claude API transport failed ({type(exc).__name__})"
+            else:
+                if response.status_code == 200:
+                    break
+                detail = f"Claude API call failed (HTTP {response.status_code})"
+                if (
+                    response.status_code not in {408, 409, 429}
+                    and response.status_code < 500
+                ):
+                    raise RuntimeError(detail)
+            state = state.next_attempt()
+            if not state.is_retriable():
+                raise RuntimeError(detail)
+            await asyncio.sleep(state.delay_seconds)
     try:
-        with _urlreq.urlopen(req, timeout=config.timeout_seconds) as resp:  # noqa: S310
-            data = json.loads(resp.read())
-    except Exception as exc:
-        raise RuntimeError(f"Claude API call failed: {exc}") from exc
-    try:
-        return str(data["content"][0]["text"])
-    except (KeyError, IndexError, TypeError) as exc:
-        raise RuntimeError(f"Unexpected Claude API response shape: {data!r}") from exc
+        data = response.json()
+        usage = data["usage"]
+        input_tokens = usage["input_tokens"]
+        output_tokens = usage["output_tokens"]
+        if any(type(n) is not int or n < 0 for n in (input_tokens, output_tokens)):
+            raise ValueError("invalid usage")
+        totals = _ANTHROPIC_USAGE.get()
+        if totals is not None:
+            totals[0] += input_tokens
+            totals[1] += output_tokens
+        if data.get("stop_reason") not in {"end_turn", "stop_sequence"}:
+            raise ValueError("incomplete response")
+        blocks = data["content"]
+        if not isinstance(blocks, list):
+            raise ValueError("invalid content")
+        return "".join(block["text"] for block in blocks if block["type"] == "text")
+    except (KeyError, IndexError, TypeError, ValueError):
+        raise RuntimeError("Unexpected or incomplete Claude API response") from None
 
 
 def _build_extra_body(
@@ -502,7 +554,17 @@ async def call_model(
         valid = ", ".join(sorted(MODEL_REGISTRY.keys()))
         raise ValueError(f"Unknown model '{model_key}'. Valid: {valid}")
 
-    if config.kind == "api_fallback":
+    if config.provider == "anthropic" or config.kind == "api_fallback":
+        repo = (repository or "").strip().rstrip("/").removesuffix(".git").casefold()
+        if any(
+            excluded.casefold() in {repo, repo.rsplit("/", 1)[-1]}
+            for excluded in config.excluded_repositories
+        ):
+            raise ValueError("Cloud review is forbidden for this repository")
+        if config.review_focus:
+            system_prompt = (
+                f"{system_prompt}\n\n## Reviewer Focus\n\n{config.review_focus}"
+            )
         return await _call_claude_api(system_prompt, user_prompt, config, max_tokens)
     if config.kind == "cli_fallback":
         raise ValueError(
@@ -1219,6 +1281,10 @@ async def async_parse_raw(
     Returns:
         ModelExternalReviewResult with review findings or error.
     """
+    usage_totals = [0, 0]
+    # Each review owns its accumulator. Child wait_for tasks inherit its
+    # reference, so parse retries and chunks report into the same receipt.
+    usage_scope = _ANTHROPIC_USAGE.set(usage_totals)
     try:
         _validate_model_key(model)
         config = MODEL_REGISTRY[model]
@@ -1343,7 +1409,12 @@ async def async_parse_raw(
                                 "error": f"chunk {index}/{len(chunks)}: {failure.error}"
                             }
                         )
-                    return failure
+                    return failure.model_copy(
+                        update={
+                            "input_tokens": usage_totals[0],
+                            "output_tokens": usage_totals[1],
+                        }
+                    )
             for finding in parsed:
                 key = json.dumps(finding, sort_keys=True)
                 if key not in seen:
@@ -1364,6 +1435,8 @@ async def async_parse_raw(
             model=model,
             prompt_version=PROMPT_VERSION,
             success=True,
+            input_tokens=usage_totals[0],
+            output_tokens=usage_totals[1],
             findings=findings,
             result_count=len(findings),
             dropped_findings=dropped,
@@ -1384,8 +1457,12 @@ async def async_parse_raw(
             model=model,
             prompt_version=PROMPT_VERSION,
             success=False,
+            input_tokens=usage_totals[0],
+            output_tokens=usage_totals[1],
             error=detail,
         )
+    finally:
+        _ANTHROPIC_USAGE.reset(usage_scope)
 
 
 def get_confidence_tier() -> str:

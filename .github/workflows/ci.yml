@@ -619,6 +619,11 @@ jobs:
       - name: Install dependencies
         run: uv sync --group dev --group core
 
+      # OMN-20910: same overlay/API contract as the pre-commit gate, once per run.
+      - name: Review voter overlay and Anthropic receipt contract
+        if: matrix.split == 1
+        run: uv run pytest tests/unit/review_pairing/test_review_voters_overlay_omn20910.py -q -n 0
+
       - name: Run unit tests (smart selection)
         if: vars.ENABLE_SMART_TESTS == 'true' && needs.detect-changes.outputs.is_full_suite == 'false'
         run: |
