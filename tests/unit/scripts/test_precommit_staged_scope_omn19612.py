@@ -18,6 +18,11 @@ CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 REQUIRED_CHECKS = REPO_ROOT / ".github" / "required-checks.yaml"
 ADJACENCY_PATH = REPO_ROOT / "scripts" / "ci" / "test_selection_adjacency.yaml"
 PIN_TEST_PATH = "tests/unit/scripts/test_precommit_staged_scope_omn19612.py"
+OVERLAY_CONTRACT_STEP = "Review voter overlay and Anthropic receipt contract"
+OVERLAY_CONTRACT_COMMAND = (
+    "uv run pytest tests/unit/review_pairing/test_review_voters_overlay_omn20910.py"
+    " -q -n 0"
+)
 
 JOB_ID = "pre-commit"
 JOB_NAME = "Pre-commit Hooks"
@@ -233,11 +238,20 @@ def test_unit_test_job_cannot_skip_the_pin_test() -> None:
     assert _needs(test_unit) == ["detect-changes"]
     assert "if" not in detect_changes
 
-    pytest_steps = [
+    all_pytest_steps = [
         step
         for step in test_unit["steps"]
         if "uv run pytest" in str(step.get("run", ""))
     ]
+    # OMN-20910 adds one focused, split-1 overlay contract step beside the two
+    # suite steps; it runs a single file, so it is not a way to skip the pin test.
+    overlay_steps = [
+        step for step in all_pytest_steps if step["name"] == OVERLAY_CONTRACT_STEP
+    ]
+    assert len(overlay_steps) == 1
+    assert overlay_steps[0]["if"] == "matrix.split == 1"
+    assert overlay_steps[0]["run"].split() == OVERLAY_CONTRACT_COMMAND.split()
+    pytest_steps = [step for step in all_pytest_steps if step not in overlay_steps]
     assert len(pytest_steps) == 2
     for step in pytest_steps:
         assert not any(
