@@ -123,9 +123,16 @@ dod_evidence:
     binds_ac:
       - AC101
   - id: dod-omn17427-docs-readers
-    description: Existing tests exercise retained persona and sanitized artifact fixtures.
+    description: After standalone prose is removed, existing tests exercise retained persona and sanitized
+      artifact fixtures. The removal assertion fails at the merge base before the reader tests run.
     source: manual
     checks:
+      - check_type: command
+        check_value: >-
+          python3 -c 'from pathlib import Path; removed=("CHANGELOG.md", "SECURITY.md", ".github/CONTRIBUTING.md",
+          ".github/CODE_OF_CONDUCT.md"); remaining=[p for p in removed if Path(p).exists()]; assert not
+          remaining, f"Standalone prose remains: {remaining}"; print("PASS: standalone prose removed before
+          retained reader checks")'
       - check_type: test_passes
         check_value: uv run pytest tests/unit/review_pairing/test_personas.py tests/unit/code_projection/test_artifacts.py
           -q -n 0
