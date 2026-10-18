@@ -24,7 +24,7 @@ class ModelReviewVoter(BaseModel):
             "no rename."
         ),
     )
-    provider: Literal["openai", "anthropic"] = "openai"
+    provider: Literal["openai", "anthropic", "claude_code"] = "openai"
     model: str | None = Field(default=None, min_length=1)
     api_key_env: str | None = Field(
         default=None,
@@ -90,6 +90,36 @@ class ModelReviewVoter(BaseModel):
 
     @model_validator(mode="after")
     def _validate_shape(self) -> Self:
+        if self.provider == "claude_code":
+            if not self.model or not self.model.strip():
+                raise ValueError(
+                    f"voter {self.voter_id!r} provider claude_code requires model"
+                )
+            if (
+                not self.model.startswith("claude-")
+                or self.api_key_env is not None
+                or self.backend_id is not None
+                or self.endpoint_url is not None
+                or self.overflow_endpoint_urls
+                or self.overflow_after_seconds is not None
+                or self.api_model_id
+                or (
+                    "model_id_source" in self.model_fields_set
+                    and self.model_id_source != "declared"
+                )
+                or self.temperature is not None
+                or self.top_p is not None
+                or self.enable_thinking
+                or self.reasoning_effort is not None
+                or self.constrain_findings_schema
+                or self.max_retries not in (None, 0)
+                or any(not repo.strip() for repo in self.excluded_repositories)
+            ):
+                raise ValueError(
+                    f"voter {self.voter_id!r} provider claude_code requires a Claude model "
+                    "and host pool auth, without endpoint, API key, sampling or retry overrides"
+                )
+            return self
         if self.provider == "anthropic":
             if any(not repo.strip() for repo in self.excluded_repositories):
                 raise ValueError(

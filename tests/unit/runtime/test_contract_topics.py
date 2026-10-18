@@ -124,6 +124,7 @@ EXPECTED_DISPATCH_OUTCOME_EVALUATED = ".".join(
 )
 
 EXPECTED_TOPICS = {
+    "onex.cmd.omniintelligence.claude-code-review.v1",  # OMN-20910
     EXPECTED_CLAUDE_HOOK,
     EXPECTED_CURSOR_HOOK,
     EXPECTED_TOOL_CONTENT,

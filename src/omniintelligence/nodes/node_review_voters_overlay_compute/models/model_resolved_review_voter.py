@@ -33,7 +33,9 @@ class ModelResolvedReviewVoter(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
 
     voter: ModelReviewVoter
-    base_url: str = Field(description="scheme://host[:port][/prefix], no API path.")
+    base_url: str = Field(
+        description="scheme://host[:port][/prefix], no API path; empty for host Claude Code."
+    )
     source: str = Field(description="'backend <id> in <file>' or 'endpoint_url'.")
     overflow_base_urls: tuple[str, ...] = Field(
         default=(),
@@ -80,10 +82,10 @@ class ModelResolvedReviewVoter(BaseModel):
             kind="code_review",
             timeout_seconds=voter.timeout_seconds,
             api_model_id=(voter.model or "")
-            if voter.provider == "anthropic"
+            if voter.provider in {"anthropic", "claude_code"}
             else voter.api_model_id,
             model_id_source="declared"
-            if voter.provider == "anthropic"
+            if voter.provider in {"anthropic", "claude_code"}
             else voter.model_id_source,
             enable_thinking=voter.enable_thinking,
             max_retries=voter.max_retries,
@@ -97,8 +99,8 @@ class ModelResolvedReviewVoter(BaseModel):
 
     def describe(self) -> str:
         voter = self.voter
-        if voter.provider == "anthropic":
-            model = f"provider anthropic model {voter.model} (declared)"
+        if voter.provider in {"anthropic", "claude_code"}:
+            model = f"provider {voter.provider} model {voter.model} (declared)"
         elif voter.model_id_source == "declared":
             model = f"model {voter.api_model_id} (declared)"
         elif self.backend_served_model_id:

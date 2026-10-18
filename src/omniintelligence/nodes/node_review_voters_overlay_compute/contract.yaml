@@ -26,12 +26,13 @@ description: >
   Validates a review_voters_overlay.v1 document and resolves each Hostile Reviewer voter's endpoint, either
   from a backend of the lab delegation overlay (bifrost_lane_overlay.v3) or from the voter's own endpoint_url,
   or resolves provider anthropic through the overlay's provider_endpoints map to the Messages API with
-  a declared model and api_key_env variable name. Carries model selection, sampling, focus prompt, timeout,
-  required flag and cloud repository exclusions, and the overlay's optional substitute_votes policy (OMN-20947:
-  which off-CI reviewers' signed receipts may stand in for a voter that timed out or was unavailable,
-  how many per vote, how long a receipt is valid, and the signing-key variable name; absent means no receipt
-  is accepted). Pure computation over the two documents' text; a refusal is returned as data naming the
-  voter.
+  a declared model and api_key_env variable name, or resolves provider claude_code to the host Claude
+  Code account pool with a declared model and no API key, HTTP endpoint or lab fallback. Carries model
+  selection, sampling where supported, focus prompt, timeout, required flag and cloud repository exclusions,
+  and the overlay's optional substitute_votes policy (OMN-20947: which off-CI reviewers' signed receipts
+  may stand in for a voter that timed out or was unavailable, how many per vote, how long a receipt is
+  valid, and the signing-key variable name; absent means no receipt is accepted). Pure computation over
+  the two documents' text; a refusal is returned as data naming the voter.
 input_model:
   name: "ModelReviewVotersOverlayRequest"
   module: "omniintelligence.nodes.node_review_voters_overlay_compute.models.model_review_voters_overlay_request"

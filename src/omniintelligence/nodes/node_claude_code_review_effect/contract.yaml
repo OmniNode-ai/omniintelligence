@@ -1,0 +1,34 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+name: node_claude_code_review_effect
+version: "1.0.0"
+contract_version: {major: 1, minor: 0, patch: 0}
+node_version: {major: 1, minor: 0, patch: 0}
+node_type: EFFECT_GENERIC
+runtime_profiles: [effects]
+description: >-
+  OMN-20910: reviews through Claude Code using the host account-token pool. Credentials are resolved only
+  through node_claude_token_pool_effect at call time; usage-limited accounts are marked there before the
+  next account is tried.
+input_model:
+  name: ModelClaudeCodeReviewRequest
+  module: omniintelligence.nodes.node_claude_code_review_effect.models.model_claude_code_review
+output_model:
+  name: ModelClaudeCodeReviewResult
+  module: omniintelligence.nodes.node_claude_code_review_effect.models.model_claude_code_review
+handler_routing:
+  routing_strategy: operation_match
+  handlers:
+    - operation: review
+      handler:
+        function: handle
+        module: omniintelligence.handlers.handler_claude_code_review_host
+        type: async
+event_bus:
+  event_bus_enabled: true
+  version: {major: 1, minor: 0, patch: 0}
+  subscribe_topics:
+    - onex.cmd.omniintelligence.claude-code-review.v1
+  publish_topics:
+    - onex.evt.omniintelligence.claude-code-review-completed.v1

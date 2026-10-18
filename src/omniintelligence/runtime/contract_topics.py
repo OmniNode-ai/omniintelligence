@@ -177,6 +177,7 @@ def collect_publish_topics_for_dispatch(
         Empty dict if no publish topics are declared.
     """
     _DISPATCH_KEY_TO_PACKAGE: dict[str, str] = {
+        "claude_code_review": "omniintelligence.nodes.node_claude_code_review_effect",
         "claude_hook": "omniintelligence.nodes.node_claude_hook_event_effect",
         "cursor_hook": "omniintelligence.nodes.node_cursor_hook_event_effect",
         "code_entities_extracted": "omniintelligence.nodes.node_ast_extraction_compute",

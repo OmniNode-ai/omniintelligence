@@ -69,8 +69,8 @@ class TestRegistrationCount:
         assert frozen_registry.entry_count == EXPECTED_MESSAGE_TYPE_COUNT
 
     def test_expected_count_constant_matches(self) -> None:
-        """EXPECTED_MESSAGE_TYPE_COUNT constant is 11."""
-        assert EXPECTED_MESSAGE_TYPE_COUNT == 11
+        """Includes the Claude Code review request and result (OMN-20910)."""
+        assert EXPECTED_MESSAGE_TYPE_COUNT == 13
 
 
 # =============================================================================
@@ -96,6 +96,8 @@ class TestHasMessageType:
         "ModelPayloadUpdatePatternStatus",
         # External Input
         "ClaudeSessionOutcome",
+        "ModelClaudeCodeReviewRequest",
+        "ModelClaudeCodeReviewResult",
     ]
 
     @pytest.mark.parametrize("message_type", ALL_MESSAGE_TYPES)
@@ -308,6 +310,7 @@ class TestStartupValidation:
     ) -> None:
         """validate_startup with all handler IDs available returns no errors."""
         all_handler_ids = {
+            "node_claude_code_review_effect",
             "node_claude_hook_event_effect",
             "node_cursor_hook_event_effect",
             "node_pattern_storage_effect",
@@ -345,9 +348,8 @@ class TestRegistryProperties:
 
     def test_handler_count(self, frozen_registry: RegistryMessageType) -> None:
         """Registry tracks the correct number of unique handlers."""
-        # 6 unique handler IDs (adds node_cursor_hook_event_effect alongside
-        # node_claude_hook_event_effect and the 4 pattern-pipeline handlers).
-        assert frozen_registry.handler_count == 6
+        # Claude Code reviews, the two hook handlers and four pattern handlers.
+        assert frozen_registry.handler_count == 7
 
     def test_domain_count(self, frozen_registry: RegistryMessageType) -> None:
         """Registry tracks exactly 1 domain (intelligence)."""

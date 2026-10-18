@@ -257,7 +257,7 @@ def register_review_voters(configs: Mapping[str, ModelEndpointConfig]) -> None:
             )
     MODEL_REGISTRY.update(configs)
     _LOCAL_MODEL_KEYS = _LOCAL_MODEL_KEYS | frozenset(
-        key for key, config in configs.items() if config.provider != "anthropic"
+        key for key, config in configs.items() if config.provider == "openai"
     )
 
 
@@ -554,7 +554,7 @@ async def call_model(
         valid = ", ".join(sorted(MODEL_REGISTRY.keys()))
         raise ValueError(f"Unknown model '{model_key}'. Valid: {valid}")
 
-    if config.provider == "anthropic" or config.kind == "api_fallback":
+    if config.provider in {"anthropic", "claude_code"} or config.kind == "api_fallback":
         repo = (repository or "").strip().rstrip("/").removesuffix(".git").casefold()
         if any(
             excluded.casefold() in {repo, repo.rsplit("/", 1)[-1]}
@@ -565,6 +565,32 @@ async def call_model(
             system_prompt = (
                 f"{system_prompt}\n\n## Reviewer Focus\n\n{config.review_focus}"
             )
+        if config.provider == "claude_code":
+            from omniintelligence.handlers.handler_claude_code_review_host import (
+                handle,
+            )
+            from omniintelligence.nodes.node_claude_code_review_effect.models.model_claude_code_review import (
+                ModelClaudeCodeReviewRequest,
+            )
+
+            result = await handle(
+                ModelClaudeCodeReviewRequest(
+                    model=config.api_model_id,
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    timeout_seconds=min(config.timeout_seconds, budget_seconds)
+                    if budget_seconds is not None
+                    else config.timeout_seconds,
+                    max_output_tokens=max_tokens,
+                )
+            )
+            if not result.success:
+                raise RuntimeError(f"Claude Code voter {model_key}: {result.error}")
+            usage = _ANTHROPIC_USAGE.get()
+            if usage is not None:
+                usage[0] += result.input_tokens
+                usage[1] += result.output_tokens
+            return result.response
         return await _call_claude_api(system_prompt, user_prompt, config, max_tokens)
     if config.kind == "cli_fallback":
         raise ValueError(
@@ -1307,7 +1333,9 @@ async def async_parse_raw(
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 raise _budget_exhausted(model, deadline_seconds)
-            if config.overflow_urls and len(chunks) > 1:
+            if config.provider == "claude_code" or (
+                config.overflow_urls and len(chunks) > 1
+            ):
                 # All chunks must finish for a vote. A parse retry shares the
                 # same remaining budget and must also leave time for them.
                 kwargs["budget_seconds"] = remaining / chunks_left
