@@ -103,3 +103,15 @@ dod_evidence:
           -k changing_the_backend_changes_the_model"
         cwd: "${OMNI_HOME}/omniintelligence"
     binds_ac: ["AC2"]
+  - id: "dod-omn20910-chunk-scaled-review-deadline"
+    description: "A voter's overlay review_deadline_seconds lets a chunked review take timeout_seconds
+      per chunk, at least one call's worst case and at most that ceiling; the CI retry-budget check counts
+      the ceiling, and a review past it is still a substitutable timeout. Without the field the deadline
+      is unchanged."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/review_pairing/test_review_chunk_deadline_omn20910.py -q
+          -n 0"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC1"]

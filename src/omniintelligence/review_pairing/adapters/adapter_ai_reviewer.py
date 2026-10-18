@@ -1314,14 +1314,6 @@ async def async_parse_raw(
     try:
         _validate_model_key(model)
         config = MODEL_REGISTRY[model]
-        # Batching must not multiply the sequential budget the CI preflight
-        # reserves for this voter. All calls and parse retries share it; an
-        # incomplete review expires as a failed vote before the job is killed.
-        budgets = compute_sequential_worst_case([model], configs={model: config})
-        deadline_seconds = (
-            budgets[0].worst_case_seconds if budgets else config.timeout_seconds
-        )
-        deadline = time.monotonic() + deadline_seconds
 
         async def call_before_deadline(
             system: str,
@@ -1372,6 +1364,24 @@ async def async_parse_raw(
             plan_content,
             config.context_window_tokens - reserved_output - overhead - _CONTEXT_MARGIN,
         )
+        # The deadline never exceeds the budget the CI preflight reserves for
+        # this voter. All calls and parse retries share it; an incomplete
+        # review expires as a failed vote before the job is killed. With a
+        # declared ceiling it scales with the chunk count (OMN-20910).
+        budgets = compute_sequential_worst_case(
+            [model], configs={model: config}, chunk_count=len(chunks)
+        )
+        deadline_seconds = (
+            budgets[0].worst_case_seconds if budgets else config.timeout_seconds
+        )
+        deadline = time.monotonic() + deadline_seconds
+        if len(chunks) > 1:
+            print(
+                f"Model '{model}' reviewing {len(chunks)} chunks within a "
+                f"{deadline_seconds:g}s review deadline.",
+                file=sys.stderr,
+                flush=True,
+            )
         all_parsed: list[dict[str, Any]] = []
         seen: set[str] = set()
         for index, chunk in enumerate(chunks, 1):

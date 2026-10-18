@@ -159,6 +159,19 @@ class ModelEndpointConfig(BaseModel, frozen=True, extra="forbid"):
             "model, so every existing entry is unaffected."
         ),
     )
+    review_deadline_seconds: float | None = Field(
+        default=None,
+        gt=0.0,
+        le=7200.0,
+        description=(
+            "Hard ceiling on one whole review, every chunk and parse retry "
+            "included (OMN-20910). Set: a review in N chunks gets "
+            "N x timeout_seconds, never less than one call's worst case and "
+            "never more than this; the CI retry-budget check counts this "
+            "ceiling. None (default): every review, however many chunks, "
+            "shares one call's worst case."
+        ),
+    )
     overflow_after_seconds: float | None = Field(
         default=None,
         gt=0.0,
