@@ -355,15 +355,23 @@ async def test_silent_endpoints_remain_a_timeout_with_a_subsecond_chunk_budget()
     assert cancelled == [config.default_url, *config.overflow_urls]
 
 
+@pytest.mark.parametrize("discovery_delay", [0.0, 0.75])
 async def test_chunk_overflow_through_the_production_http_handler(
     monkeypatch: pytest.MonkeyPatch,
+    discovery_delay: float,
 ) -> None:
-    """Use real model discovery, signed HTTP requests and response parsing."""
+    """Use real HTTP overflow without racing transport setup against a tiny budget.
+
+    The controlled-clock and silent-endpoint tests above cover deadline
+    allocation. This test covers discovery, signing and response parsing;
+    a retryable primary response makes failover independent of runner speed.
+    """
     from aiohttp import web
     from omnibase_infra.adapters.llm.adapter_llm_provider_openai import (
         TransportHolderLlmHttp,
     )
 
+    from omniintelligence.review_pairing import served_model_resolver
     from omniintelligence.review_pairing.models_external_review import (
         ModelEndpointConfig,
     )
@@ -371,7 +379,9 @@ async def test_chunk_overflow_through_the_production_http_handler(
     monkeypatch.setenv("LOCAL_LLM_SHARED_SECRET", "synthetic-test-signing-key")
     monkeypatch.setenv("LLM_ENDPOINT_CIDR_ALLOWLIST", "127.0.0.1/32")
     monkeypatch.setattr(TransportHolderLlmHttp, "_LOCAL_LLM_CIDRS", None)
+    monkeypatch.setattr(served_model_resolver, "_CACHE", {})
     calls: list[tuple[str, dict]] = []
+    discoveries: list[str] = []
     runners: list[web.AppRunner] = []
     # The endpoints serve from their own loop, so a reviewer that blocks the
     # test's loop fails within the bound below instead of deadlocking.
@@ -385,14 +395,17 @@ async def test_chunk_overflow_through_the_production_http_handler(
     async def stop_endpoints() -> None:
         await asyncio.gather(*(runner.cleanup() for runner in runners))
 
-    async def start_endpoint(name: str, delay: float) -> str:
+    async def start_endpoint(name: str) -> str:
         async def models(request: web.Request) -> web.Response:
+            discoveries.append(name)
+            await asyncio.sleep(discovery_delay)
             return web.json_response({"data": [{"id": "test-reviewer"}]})
 
         async def review(request: web.Request) -> web.Response:
             assert request.headers.get("x-omn-node-signature")
             calls.append((name, await request.json()))
-            await asyncio.sleep(delay)
+            if name == "primary":
+                return web.json_response({"error": "busy"}, status=503)
             return web.json_response(
                 {"choices": [{"message": {"content": "[]"}, "finish_reason": "stop"}]}
             )
@@ -407,13 +420,13 @@ async def test_chunk_overflow_through_the_production_http_handler(
         return f"http://127.0.0.1:{runner.addresses[0][1]}"
 
     try:
-        primary = await on_server_loop(start_endpoint("primary", 1.4))
-        overflow = await on_server_loop(start_endpoint("overflow", 0.01))
+        primary = await on_server_loop(start_endpoint("primary"))
+        overflow = await on_server_loop(start_endpoint("overflow"))
         config = ModelEndpointConfig(
             env_var="TEST_HTTP_REVIEW_URL",
             default_url=primary,
             kind="code_review",
-            timeout_seconds=2.0,
+            timeout_seconds=30.0,
             max_retries=0,
             model_id_source="served",
             enable_thinking=False,
@@ -431,9 +444,11 @@ async def test_chunk_overflow_through_the_production_http_handler(
                 review_type="pr",
                 repository="example/review-target",
             ),
-            timeout=6.0,
+            timeout=60.0,
         )
         assert result.success, result.error
+        assert discoveries == ["primary", "overflow"]
+        assert [name for name, _ in calls] == ["primary", "overflow"] * 4
         answered = [body for name, body in calls if name == "overflow"]
         assert len(answered) == 4
         for diff in diffs:
