@@ -36,6 +36,19 @@ emergency_bypass:
   justification: ""
   follow_up_ticket_id: ""
 dod_evidence:
+  - id: "dod-omn20910-contract-host-handler"
+    description: "The contract-bound typed host handler injects the pool interpreter and permitted host
+      environment into the review effect. The new node package and its handlers are covered by package
+      import checks."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/review_pairing/test_claude_code_pool_voter.py -q -k contract_bound_handler"
+        cwd: "${OMNI_HOME}/omniintelligence"
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/test_package_installability.py -q"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC1"]
   - id: "dod-omn20910-claude-code-pool"
     description: "Claude Code voters use the host account pool, mark and rotate a usage-limited account,
       fail closed with a named reason when all accounts are limited, and emit no token values. The overlay

@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import asyncio
+import importlib
 import json
 import os
 import sys
@@ -36,6 +37,39 @@ from omniintelligence.review_pairing.cli_review import (
 from omniintelligence.review_pairing.model_registry_loader import load_review_voters
 from omniintelligence.review_pairing.retry_budget import compute_sequential_worst_case
 from omniintelligence.review_pairing.reviewer_identity import reviewer_identity
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_contract_bound_handler_injects_host_configuration(
+    monkeypatch: pytest.MonkeyPatch,
+    request_model: ModelClaudeCodeReviewRequest,
+) -> None:
+    contract_path = (
+        Path(handler.__file__).parents[1]
+        / "nodes/node_claude_code_review_effect/contract.yaml"
+    )
+    contract = yaml.safe_load(contract_path.read_text())
+    binding = contract["handler_routing"]["handlers"][0]["handler"]
+    bound_handler = getattr(
+        importlib.import_module(binding["module"]), binding["class"]
+    )
+    monkeypatch.setenv("ONEX_CLAUDE_POOL_PY", "/fake/contract-pool-python")
+    monkeypatch.setenv("PATH", "/fake/claude-bin")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "ambient-key-must-not-reach-effect")
+    response = ModelClaudeCodeReviewResult(
+        correlation_id=request_model.correlation_id, success=True, response="[]"
+    )
+    invoke = AsyncMock(return_value=response)
+    monkeypatch.setattr(handler, "handle_review", invoke)
+
+    assert await bound_handler().handle(request_model) is response
+    invoke.assert_awaited_once()
+    assert invoke.await_args.args == (request_model,)
+    assert invoke.await_args.kwargs["pool_python"] == "/fake/contract-pool-python"
+    environment = invoke.await_args.kwargs["environment"]
+    assert environment["PATH"] == "/fake/claude-bin"
+    assert "ANTHROPIC_API_KEY" not in environment
 
 
 class FakeProcess:
