@@ -60,6 +60,9 @@ class ModelEndpointConfig(BaseModel, frozen=True, extra="forbid"):
     """
 
     env_var: str = Field(description="Environment variable name for the endpoint URL.")
+    provider: Literal["openai", "anthropic"] = "openai"
+    api_key_env: str | None = Field(default=None, pattern=r"^[A-Za-z_][A-Za-z0-9_]*$")
+    excluded_repositories: tuple[str, ...] = ()
     default_url: str = Field(description="Fallback URL when env var is not set.")
     kind: str = Field(
         description="Model capability category (reasoning, long_context, fast_review)."
@@ -186,6 +189,22 @@ class ModelEndpointConfig(BaseModel, frozen=True, extra="forbid"):
         than defaulted, because silently treating a typo as ``declared`` would
         send an empty model id.
         """
+        if (
+            self.api_key_env is not None or self.excluded_repositories
+        ) and self.provider != "anthropic":
+            raise ValueError(
+                "api_key_env and excluded_repositories require provider anthropic"
+            )
+        if self.provider == "anthropic" and (
+            self.model_id_source != "declared"
+            or not self.api_model_id.strip()
+            or not self.api_key_env
+            or self.overflow_urls
+            or self.overflow_after_seconds is not None
+        ):
+            raise ValueError(
+                "provider anthropic requires a declared model and api_key_env, without overflow"
+            )
         allowed = {"declared", "served"}
         if self.model_id_source not in allowed:
             raise ValueError(
@@ -427,6 +446,16 @@ class ModelExternalReviewResult(BaseModel, frozen=True):
     model: str = Field(description="Model key used for this review.")
     prompt_version: str = Field(description="Adversarial prompt version.")
     success: bool = Field(description="True if model returned usable output.")
+    input_tokens: int = Field(
+        default=0,
+        ge=0,
+        description="Provider-reported input tokens across this review's calls.",
+    )
+    output_tokens: int = Field(
+        default=0,
+        ge=0,
+        description="Provider-reported output tokens across this review's calls.",
+    )
     error: str | None = Field(
         default=None, description="Failure reason if success is False."
     )

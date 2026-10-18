@@ -169,6 +169,41 @@ def _resolve(
 
     resolved: list[ModelResolvedReviewVoter] = []
     for voter in overlay.voters:
+        if voter.provider == "anthropic":
+            endpoint = overlay.provider_endpoints.get(voter.provider)
+            if not endpoint:
+                raise _RefusalError(
+                    "provider anthropic has no provider_endpoints entry in the overlay",
+                    voter.voter_id,
+                )
+            try:
+                parsed = urllib.parse.urlsplit(endpoint)
+            except ValueError as exc:
+                raise _RefusalError(
+                    "provider anthropic has an invalid provider_endpoints URL",
+                    voter.voter_id,
+                ) from exc
+            if (
+                parsed.scheme != "https"
+                or parsed.username is not None
+                or parsed.password is not None
+                or parsed.query
+                or parsed.fragment
+            ):
+                raise _RefusalError(
+                    "provider anthropic requires an HTTPS base URL without credentials, query or fragment",
+                    voter.voter_id,
+                )
+            resolved.append(
+                ModelResolvedReviewVoter(
+                    voter=voter,
+                    base_url=_base_url(
+                        endpoint, voter.voter_id, "provider_endpoints entry"
+                    ),
+                    source="provider anthropic in overlay",
+                )
+            )
+            continue
         overflow_base_urls = tuple(
             _base_url(url, voter.voter_id, "overflow_endpoint_urls entry")
             for url in voter.overflow_endpoint_urls

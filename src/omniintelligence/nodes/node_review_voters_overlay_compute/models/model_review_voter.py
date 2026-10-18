@@ -24,6 +24,17 @@ class ModelReviewVoter(BaseModel):
             "no rename."
         ),
     )
+    provider: Literal["openai", "anthropic"] = "openai"
+    model: str | None = Field(default=None, min_length=1)
+    api_key_env: str | None = Field(
+        default=None,
+        pattern=r"^[A-Za-z_][A-Za-z0-9_]*$",
+        description="Environment variable NAME holding the API key; never its value.",
+    )
+    excluded_repositories: tuple[str, ...] = Field(
+        default=(),
+        description="Repository slugs or owner/repository names this cloud voter must never review.",
+    )
     backend_id: str | None = Field(
         default=None,
         min_length=1,
@@ -77,6 +88,50 @@ class ModelReviewVoter(BaseModel):
 
     @model_validator(mode="after")
     def _validate_shape(self) -> Self:
+        if self.provider == "anthropic":
+            if any(not repo.strip() for repo in self.excluded_repositories):
+                raise ValueError(
+                    f"voter {self.voter_id!r} has a blank excluded repository"
+                )
+            if not self.model or not self.model.strip() or not self.api_key_env:
+                raise ValueError(
+                    f"voter {self.voter_id!r} provider anthropic requires model and api_key_env"
+                )
+            if (
+                self.backend_id is not None
+                or self.endpoint_url is not None
+                or self.overflow_endpoint_urls
+                or self.overflow_after_seconds is not None
+                or self.api_model_id
+                or (
+                    "model_id_source" in self.model_fields_set
+                    and self.model_id_source != "declared"
+                )
+                or self.enable_thinking
+                or self.reasoning_effort is not None
+                or self.constrain_findings_schema
+            ):
+                raise ValueError(
+                    f"voter {self.voter_id!r} provider anthropic cannot use endpoint, "
+                    "backend, overflow, served model or OpenAI-only options"
+                )
+            if self.temperature is not None and self.temperature > 1:
+                raise ValueError(
+                    f"voter {self.voter_id!r} anthropic temperature exceeds 1"
+                )
+            if self.temperature is not None and self.top_p is not None:
+                raise ValueError(
+                    f"voter {self.voter_id!r} anthropic accepts temperature or top_p, not both"
+                )
+            return self
+        if (
+            self.model is not None
+            or self.api_key_env is not None
+            or self.excluded_repositories
+        ):
+            raise ValueError(
+                f"voter {self.voter_id!r} model, api_key_env and excluded_repositories require provider anthropic"
+            )
         if (self.backend_id is None) == (self.endpoint_url is None):
             raise ValueError(
                 f"voter {self.voter_id!r} must name exactly one of backend_id "

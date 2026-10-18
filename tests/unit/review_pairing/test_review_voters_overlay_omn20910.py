@@ -18,12 +18,15 @@ hold the three properties that ruling needs:
 
 from __future__ import annotations
 
+import asyncio
+import json
 import re
 import textwrap
 from collections.abc import Iterator
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
+import httpx
 import pytest
 
 from omniintelligence.nodes.node_review_voters_overlay_compute.handlers.handler_review_voters_overlay import (
@@ -37,14 +40,16 @@ from omniintelligence.nodes.node_review_voters_overlay_compute.models.model_revi
     ModelReviewVotersOverlayRequest,
 )
 from omniintelligence.review_pairing.adapters import adapter_ai_reviewer
-from omniintelligence.review_pairing.cli_review import main
+from omniintelligence.review_pairing.cli_review import main, run_review
 from omniintelligence.review_pairing.model_registry_loader import load_review_voters
 from omniintelligence.review_pairing.models_external_review import (
     ModelExternalReviewResult,
+    ModelReviewQuorumPolicy,
 )
 from omniintelligence.review_pairing.prompts.adversarial_reviewer import (
     PROMPT_VERSION,
 )
+from omniintelligence.review_pairing.quorum import evaluate_quorum
 from omniintelligence.review_pairing.retry_budget import (
     main as retry_budget_main,
 )
@@ -66,6 +71,8 @@ _BIFROST = textwrap.dedent(
         endpoint_url: null
     """
 )
+
+_REVIEW_ENV_NAME = "REVIEW_ANTHROPIC_API_KEY"
 
 _VOTERS = textwrap.dedent(
     """\
@@ -103,6 +110,11 @@ def _with_second(tmp_path: Path, **fields: object) -> Path:
     lines = [
         'schema_version: "review_voters_overlay.v1"',
         "backend_overlay: bifrost.yaml",
+        *(
+            ["provider_endpoints:", '  anthropic: "https://api.anthropic.com"']
+            if fields.get("provider") == "anthropic"
+            else []
+        ),
         "voters:",
         "  - voter_id: first",
         "    backend_id: lab-a",
@@ -155,6 +167,41 @@ def _restore_adapter_registry() -> Iterator[None]:
 
 @pytest.mark.unit
 class TestLoading:
+    def test_anthropic_voter_without_endpoint(self, tmp_path: Path) -> None:
+        roster = load_review_voters(
+            _with_second(
+                tmp_path,
+                provider="anthropic",
+                model="claude-sonnet-5-5",
+                api_key_env=_REVIEW_ENV_NAME,
+                required="true",
+                timeout_seconds=60,
+                max_retries=1,
+            )
+        )
+        assert roster.ok, roster.error_message
+        config = roster.endpoint_configs()["second"]
+        assert config.provider == "anthropic"
+        assert config.api_model_id == "claude-sonnet-5-5"
+        assert config.api_key_env == _REVIEW_ENV_NAME
+        assert config.model_id_source == "declared"
+        assert config.timeout_seconds == 60
+        assert config.max_retries == 1
+
+    def test_changing_anthropic_model_is_an_overlay_only_swap(
+        self, tmp_path: Path
+    ) -> None:
+        before = load_review_voters(_anthropic_overlay(tmp_path)).endpoint_configs()[
+            "second"
+        ]
+        after = load_review_voters(
+            _anthropic_overlay(tmp_path, model="another-sonnet")
+        ).endpoint_configs()["second"]
+        assert before.default_url == after.default_url
+        assert before.api_model_id == "claude-sonnet-5-5"
+        assert after.api_model_id == "another-sonnet"
+        assert before.model_copy(update={"api_model_id": after.api_model_id}) == after
+
     def test_backend_voters_resolve_through_the_delegation_overlay(
         self, tmp_path: Path
     ) -> None:
@@ -645,3 +692,418 @@ class TestRetryBudgetOverlay:
         )
         assert code == 1
         assert "review voter 'second'" in capsys.readouterr().err
+
+
+def _anthropic_overlay(tmp_path: Path, **overrides: object) -> Path:
+    fields: dict[str, object] = {
+        "provider": "anthropic",
+        "model": "claude-sonnet-5-5",
+        "api_key_env": _REVIEW_ENV_NAME,
+        "excluded_repositories": '["private-docs"]',
+        "required": "true",
+        "timeout_seconds": 30,
+        "max_retries": 0,
+        "temperature": 0.4,
+        "review_focus": '"Inspect contracts; keep reviewing the whole change."',
+    }
+    fields.update(overrides)
+    return _with_second(tmp_path, **fields)
+
+
+def _message(
+    text: str = "[]", *, input_tokens: int = 100, output_tokens: int = 5
+) -> dict[str, object]:
+    return {
+        "content": [{"type": "text", "text": text}],
+        "usage": {"input_tokens": input_tokens, "output_tokens": output_tokens},
+        "stop_reason": "end_turn",
+    }
+
+
+@pytest.mark.unit
+class TestAnthropicVoter:
+    @pytest.fixture
+    def api(self, monkeypatch: pytest.MonkeyPatch):
+        """Intercept the real adapter's HTTP boundary, never a live provider."""
+        original = httpx.AsyncClient
+        monkeypatch.setenv(_REVIEW_ENV_NAME, "synthetic-test-credential")
+
+        def install(handler):
+            monkeypatch.setattr(
+                httpx,
+                "AsyncClient",
+                lambda **kwargs: original(
+                    transport=httpx.MockTransport(handler), **kwargs
+                ),
+            )
+
+        return install
+
+    def _register(self, tmp_path: Path, **overrides: object):
+        roster = load_review_voters(_anthropic_overlay(tmp_path, **overrides))
+        assert roster.ok, roster.error_message
+        adapter_ai_reviewer.register_review_voters(roster.endpoint_configs())
+        return roster
+
+    def test_messages_api_receipt_and_focus(self, tmp_path: Path, api) -> None:
+        self._register(tmp_path)
+        requests: list[httpx.Request] = []
+
+        def reply(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            return httpx.Response(200, json=_message())
+
+        api(reply)
+        result = asyncio.run(run_review("diff", ["second"], review_type="pr"))
+        receipt = result.results[0]
+        assert receipt.success, receipt.error
+        assert receipt.input_tokens == 100
+        assert receipt.output_tokens == 5
+        assert receipt.reviewer_identity == "anthropic#id=claude-sonnet-5-5"
+        assert len(requests) == 1
+        request = requests[0]
+        assert str(request.url) == "https://api.anthropic.com/v1/messages"
+        assert request.headers["x-api-key"] == "synthetic-test-credential"
+        assert request.headers["anthropic-version"] == "2023-06-01"
+        payload = json.loads(request.content)
+        assert payload["model"] == "claude-sonnet-5-5"
+        assert payload["temperature"] == 0.4
+        assert "Inspect contracts" in payload["system"]
+        assert payload["messages"][0]["role"] == "user"
+        assert "diff" in payload["messages"][0]["content"]
+        assert "synthetic-test-credential" not in result.model_dump_json()
+
+    def test_provider_route_is_resolved_and_called_from_overlay(
+        self, tmp_path: Path, api
+    ) -> None:
+        path = _anthropic_overlay(tmp_path)
+        path.write_text(
+            path.read_text().replace(
+                "https://api.anthropic.com", "https://review-api.example"
+            )
+        )
+        roster = load_review_voters(path)
+        assert roster.ok, roster.error_message
+        adapter_ai_reviewer.register_review_voters(roster.endpoint_configs())
+        requests: list[httpx.Request] = []
+
+        def reply(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            return httpx.Response(200, json=_message())
+
+        api(reply)
+        result = asyncio.run(
+            adapter_ai_reviewer.async_parse_raw("diff", model="second")
+        )
+        assert result.success, result.error
+        assert str(requests[0].url) == "https://review-api.example/v1/messages"
+        assert (
+            probe_target_lines(roster)[1]
+            == "TARGET|second|review-api.example|443|https://review-api.example"
+        )
+
+    def test_missing_provider_route_fails_closed_naming_voter(
+        self, tmp_path: Path
+    ) -> None:
+        path = _anthropic_overlay(tmp_path)
+        path.write_text(
+            path.read_text().replace(
+                'provider_endpoints:\n  anthropic: "https://api.anthropic.com"\n', ""
+            )
+        )
+        roster = _refused(path)
+        assert roster.error_voter_id == "second"
+        assert "provider_endpoints" in roster.error_message
+
+    def test_cloud_route_requires_https(self, tmp_path: Path) -> None:
+        path = _anthropic_overlay(tmp_path)
+        path.write_text(
+            path.read_text().replace(
+                "https://api.anthropic.com", "http://review-api.example"
+            )
+        )
+        roster = _refused(path)
+        assert roster.error_voter_id == "second"
+        assert "requires an HTTPS base URL" in roster.error_message
+
+    def test_cli_calls_cloud_voter_without_lab_probes(
+        self, tmp_path: Path, api, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        overlay = _anthropic_overlay(tmp_path)
+        plan = tmp_path / "plan.md"
+        plan.write_text("# change", encoding="utf-8")
+        api(lambda _request: httpx.Response(200, json=_message()))
+        real_parse = adapter_ai_reviewer.async_parse_raw
+
+        async def review(content: str, *, model: str, **kwargs: object):
+            if model == "first":
+                return _success(model)
+            return await real_parse(content, model=model, **kwargs)
+
+        with (
+            patch(f"{_CLI}.probe_local_reachability", return_value={"first": True}),
+            patch(f"{_CLI}.resolve_served_model_id", return_value="Model-A") as served,
+            patch(f"{_CLI}.llm_async_parse_raw", side_effect=review),
+        ):
+            assert main(["--file", str(plan), "--voters-overlay", str(overlay)]) == 0
+        assert served.call_count == 1
+        assert served.call_args.args == ("http://voter-a.example:8000",)
+        receipt = json.loads(capsys.readouterr().out)
+        assert receipt["results"][1]["input_tokens"] == 100
+        assert receipt["quorum"]["quorum_met"] is True
+
+    def test_missing_key_fails_closed_with_voter_name(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        overlay = _anthropic_overlay(tmp_path)
+        monkeypatch.delenv(_REVIEW_ENV_NAME, raising=False)
+        # A different credential must never be silently substituted.
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "wrong-credential")
+        plan = tmp_path / "plan.md"
+        plan.write_text("# change", encoding="utf-8")
+        real_parse = adapter_ai_reviewer.async_parse_raw
+
+        async def review(content: str, *, model: str, **kwargs: object):
+            return (
+                _success(model)
+                if model == "first"
+                else await real_parse(content, model=model, **kwargs)
+            )
+
+        with (
+            patch(f"{_CLI}.probe_local_reachability", return_value={"first": True}),
+            patch(f"{_CLI}.resolve_served_model_id", return_value="Model-A"),
+            patch(f"{_CLI}.llm_async_parse_raw", side_effect=review),
+            patch("httpx.AsyncClient") as http,
+        ):
+            assert main(["--file", str(plan), "--voters-overlay", str(overlay)]) == 2
+        http.assert_not_called()
+        captured = capsys.readouterr()
+        assert "required review voter 'second' did not vote" in captured.err
+        assert _REVIEW_ENV_NAME in captured.err
+        assert "wrong-credential" not in captured.out + captured.err
+
+    @pytest.mark.parametrize("status", [429, 503])
+    def test_transient_failure_retries_with_configured_budget(
+        self, tmp_path: Path, api, status: int
+    ) -> None:
+        self._register(tmp_path, max_retries=1)
+        requests: list[httpx.Request] = []
+
+        def reply(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            return (
+                httpx.Response(status, text="private error")
+                if len(requests) == 1
+                else httpx.Response(200, json=_message())
+            )
+
+        api(reply)
+        with patch.object(
+            adapter_ai_reviewer.asyncio, "sleep", new_callable=AsyncMock
+        ) as sleep:
+            result = asyncio.run(
+                adapter_ai_reviewer.async_parse_raw("diff", model="second")
+            )
+        assert result.success, result.error
+        assert len(requests) == 2
+        sleep.assert_awaited_once_with(2.0)
+        assert result.input_tokens == 100
+
+    def test_timeout_exhausts_retries_without_exposing_credentials(
+        self, tmp_path: Path, api
+    ) -> None:
+        self._register(tmp_path, max_retries=1)
+        attempts = 0
+
+        def reply(request: httpx.Request) -> httpx.Response:
+            nonlocal attempts
+            attempts += 1
+            assert request.extensions["timeout"]["read"] == 30
+            raise httpx.ReadTimeout("synthetic-test-credential", request=request)
+
+        api(reply)
+        with patch.object(adapter_ai_reviewer.asyncio, "sleep", new_callable=AsyncMock):
+            result = asyncio.run(
+                adapter_ai_reviewer.async_parse_raw("diff", model="second")
+            )
+        assert not result.success
+        assert attempts == 2
+        assert "ReadTimeout" in (result.error or "")
+        assert "synthetic-test-credential" not in result.model_dump_json()
+
+    def test_per_attempt_deadline_cancels_a_silent_response(
+        self, tmp_path: Path, api
+    ) -> None:
+        self._register(tmp_path, timeout_seconds=0.01)
+
+        async def reply(_request: httpx.Request) -> httpx.Response:
+            await asyncio.sleep(10)
+            return httpx.Response(200, json=_message())
+
+        api(reply)
+        with pytest.raises(
+            RuntimeError, match=r"Claude API transport failed \(TimeoutError\)"
+        ):
+            asyncio.run(
+                adapter_ai_reviewer.call_model("system", "diff", model_key="second")
+            )
+
+    def test_authentication_failure_is_not_retried_or_logged(
+        self, tmp_path: Path, api
+    ) -> None:
+        self._register(tmp_path, max_retries=2)
+        attempts = 0
+
+        def reply(request: httpx.Request) -> httpx.Response:
+            nonlocal attempts
+            attempts += 1
+            return httpx.Response(401, text="synthetic-test-credential")
+
+        api(reply)
+        result = asyncio.run(
+            adapter_ai_reviewer.async_parse_raw("diff", model="second")
+        )
+        assert not result.success
+        assert attempts == 1
+        assert result.error == "Claude API call failed (HTTP 401)"
+
+    def test_parse_retry_accumulates_tokens_and_separate_reviews_reset(
+        self, tmp_path: Path, api
+    ) -> None:
+        self._register(tmp_path)
+        replies = iter([_message("not JSON"), _message(), _message()])
+        api(lambda _request: httpx.Response(200, json=next(replies)))
+        result = asyncio.run(
+            adapter_ai_reviewer.async_parse_raw("diff", model="second")
+        )
+        assert result.success
+        assert (result.input_tokens, result.output_tokens) == (200, 10)
+        result = asyncio.run(
+            adapter_ai_reviewer.async_parse_raw("diff", model="second")
+        )
+        assert result.success
+        assert (result.input_tokens, result.output_tokens) == (100, 5)
+
+    def test_concurrent_reviews_keep_separate_usage(self, tmp_path: Path, api) -> None:
+        self._register(tmp_path)
+
+        async def reply(request: httpx.Request) -> httpx.Response:
+            payload = json.loads(request.content)
+            count = 100 if "alpha" in payload["messages"][0]["content"] else 200
+            await asyncio.sleep(0)
+            return httpx.Response(200, json=_message(input_tokens=count))
+
+        async def reviews():
+            return await asyncio.gather(
+                adapter_ai_reviewer.async_parse_raw("alpha", model="second"),
+                adapter_ai_reviewer.async_parse_raw("beta", model="second"),
+            )
+
+        api(reply)
+        first, second = asyncio.run(reviews())
+        assert first.success and second.success
+        assert (first.input_tokens, second.input_tokens) == (100, 200)
+
+    def test_chunk_usage_accumulates_in_one_receipt(self, tmp_path: Path, api) -> None:
+        self._register(tmp_path)
+        api(lambda _request: httpx.Response(200, json=_message()))
+        with patch.object(
+            adapter_ai_reviewer, "_review_chunks", return_value=["first", "second"]
+        ):
+            result = asyncio.run(
+                adapter_ai_reviewer.async_parse_raw("diff", model="second")
+            )
+        assert result.success
+        assert (result.input_tokens, result.output_tokens) == (200, 10)
+
+    @pytest.mark.parametrize(
+        "body", [_message("not JSON"), {**_message(), "stop_reason": "max_tokens"}]
+    )
+    def test_failed_review_keeps_usage(
+        self, tmp_path: Path, api, body: dict[str, object]
+    ) -> None:
+        self._register(tmp_path)
+        api(lambda _request: httpx.Response(200, json=body))
+        result = asyncio.run(
+            adapter_ai_reviewer.async_parse_raw("diff", model="second")
+        )
+        assert not result.success
+        assert result.input_tokens >= 100
+        assert result.output_tokens >= 5
+
+    def test_cloud_refuses_overlay_excluded_repository_before_http(
+        self, tmp_path: Path, api
+    ) -> None:
+        self._register(tmp_path)
+        with patch("httpx.AsyncClient") as http:
+            result = asyncio.run(
+                adapter_ai_reviewer.async_parse_raw(
+                    "private diff",
+                    model="second",
+                    repository="acme/private-docs",
+                )
+            )
+        assert not result.success
+        http.assert_not_called()
+
+    def test_cloud_voter_has_a_workflow_target_but_is_not_a_local_model(
+        self, tmp_path: Path
+    ) -> None:
+        roster = self._register(tmp_path)
+        assert "second" not in adapter_ai_reviewer._LOCAL_MODEL_KEYS
+        assert probe_target_lines(roster) == [
+            "TARGET|first|voter-a.example|8000|http://voter-a.example:8000",
+            "TARGET|second|api.anthropic.com|443|https://api.anthropic.com",
+        ]
+
+    def test_aliases_and_different_keys_do_not_supply_distinct_votes(
+        self, tmp_path: Path
+    ) -> None:
+        roster = self._register(tmp_path)
+        config = roster.endpoint_configs()["second"]
+        other_key = config.model_copy(update={"api_key_env": "ANOTHER_REVIEW_KEY"})
+        identity = reviewer_identity("second", config, {})
+        assert identity == reviewer_identity("alias", other_key, {})
+        result = asyncio.run(run_review("diff", []))
+        result = result.model_copy(
+            update={
+                "results": [
+                    _success("second").model_copy(
+                        update={"reviewer_identity": identity}
+                    ),
+                    _success("alias").model_copy(
+                        update={"reviewer_identity": identity}
+                    ),
+                ]
+            }
+        )
+        assert not evaluate_quorum(result, ModelReviewQuorumPolicy()).quorum_met
+        another_model = config.model_copy(update={"api_model_id": "another-sonnet"})
+        assert identity != reviewer_identity("second", another_model, {})
+
+    @pytest.mark.parametrize(
+        "overrides",
+        [
+            {"model": '""'},
+            {"api_key_env": '""'},
+            {"api_key_env": '"not-an-env-name"'},
+            {"endpoint_url": '"https://elsewhere.example"'},
+            {"backend_id": "lab-b"},
+            {"model_id_source": "served"},
+            {"api_model_id": "other-model"},
+            {"enable_thinking": "true"},
+            {"reasoning_effort": "high"},
+            {"constrain_findings_schema": "true"},
+            {"temperature": 1.5},
+            {"top_p": 0.8},
+        ],
+    )
+    def test_invalid_anthropic_shape_names_voter(
+        self, tmp_path: Path, overrides: dict[str, object]
+    ) -> None:
+        refused = _refused(_anthropic_overlay(tmp_path, **overrides))
+        assert refused.error_voter_id == "second"

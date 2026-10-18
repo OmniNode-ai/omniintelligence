@@ -685,6 +685,11 @@ def _select_overlay_voters(
     printed, so the job log names the model every vote came from.
     """
     reachability = probe_local_reachability(roster.voter_ids)
+    for resolved_voter in roster.voters:
+        if resolved_voter.voter.provider == "anthropic":
+            # Missing credentials are a named failed vote from the adapter,
+            # never an unreachable lab endpoint eligible for substitution.
+            reachability[resolved_voter.voter_id] = True
     skipped = [vid for vid in roster.voter_ids if not reachability.get(vid, False)]
     for voter_id in skipped:
         level = "ERROR" if voter_id in roster.required_ids else "WARNING"
@@ -711,7 +716,11 @@ def _select_overlay_voters(
     selected = [vid for vid in roster.voter_ids if vid not in skipped]
     for voter_id in selected:
         voter = roster.get(voter_id)
-        if voter is None or voter.voter.model_id_source != "served":
+        if (
+            voter is None
+            or voter.voter.provider == "anthropic"
+            or voter.voter.model_id_source != "served"
+        ):
             continue
         try:
             served = resolve_served_model_id(

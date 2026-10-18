@@ -70,14 +70,21 @@ class ModelResolvedReviewVoter(BaseModel):
 
         voter = self.voter
         return ModelEndpointConfig(
+            provider=voter.provider,
+            api_key_env=voter.api_key_env,
+            excluded_repositories=voter.excluded_repositories,
             env_var="",
             default_url=self.base_url,
             overflow_urls=self.overflow_base_urls,
             overflow_after_seconds=voter.overflow_after_seconds,
             kind="code_review",
             timeout_seconds=voter.timeout_seconds,
-            api_model_id=voter.api_model_id,
-            model_id_source=voter.model_id_source,
+            api_model_id=(voter.model or "")
+            if voter.provider == "anthropic"
+            else voter.api_model_id,
+            model_id_source="declared"
+            if voter.provider == "anthropic"
+            else voter.model_id_source,
             enable_thinking=voter.enable_thinking,
             max_retries=voter.max_retries,
             constrain_findings_schema=voter.constrain_findings_schema,
@@ -90,7 +97,9 @@ class ModelResolvedReviewVoter(BaseModel):
 
     def describe(self) -> str:
         voter = self.voter
-        if voter.model_id_source == "declared":
+        if voter.provider == "anthropic":
+            model = f"provider anthropic model {voter.model} (declared)"
+        elif voter.model_id_source == "declared":
             model = f"model {voter.api_model_id} (declared)"
         elif self.backend_served_model_id:
             model = (
