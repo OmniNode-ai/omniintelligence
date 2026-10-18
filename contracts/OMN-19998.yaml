@@ -57,7 +57,7 @@ dod_evidence:
         check_value: "uv run pytest tests/ci/test_dev_merge_tag_workflow_omn19998.py -q -n 0"
         cwd: "${OMNI_HOME}/omniintelligence"
     binds_ac: ["AC2"]
-  - id: "dod-omn19998-omniintelligence-dev-merge-tag-deploy-probe"
+  - id: "dod-omn19998-omniintelligence-dev-tag-probe"
     description: "Hosted-runner probe reads the dev merge tag workflow at this commit and requires its
       push-to-dev trigger and its tag push; the base has no such file and the probe fails."
     source: "manual"
