@@ -330,6 +330,7 @@ class _OptionalRequestKwargs(TypedDict, total=False):
 class _OutputBudgetKwargs(TypedDict, total=False):
     max_tokens: int
     json_only: bool
+    budget_seconds: float
 
 
 def _resolve_api_model_id(
@@ -474,6 +475,7 @@ async def call_model(
     repository: str | None = None,
     max_tokens: int = _DEFAULT_MAX_TOKENS,
     json_only: bool = False,
+    budget_seconds: float | None = None,
 ) -> str:
     """Invoke LLM via HandlerLlmOpenaiCompatible, or Claude API for api_fallback models.
 
@@ -485,6 +487,8 @@ async def call_model(
             metadata.repository so a cloud voter can refuse a repository whose
             code never goes to a cloud model (OMN-20106). None sends no metadata.
         max_tokens: Most tokens the reply may hold.
+        budget_seconds: This chunk's share of the whole-vote budget. When set,
+            reserve time for every endpoint, with one attempt per endpoint.
 
     Returns:
         Raw text response from the model.
@@ -537,8 +541,12 @@ async def call_model(
     # 503, a refused connection or a silent endpoint costs one attempt and the
     # next endpoint is the retry. The last endpoint keeps the model's own
     # timeout and ``max_retries``, and a model with no overflow has exactly one
-    # endpoint, which is that last one: its behaviour is unchanged.
+    # endpoint, which is that last one: its behaviour is unchanged. A chunk's
+    # explicit budget below can shorten these attempts to reserve later work.
     endpoints = (base_url, *config.overflow_urls)
+    call_deadline = (
+        time.monotonic() + budget_seconds if budget_seconds is not None else None
+    )
     giveup_seconds = min(
         config.timeout_seconds, config.overflow_after_seconds or config.timeout_seconds
     )
@@ -577,7 +585,9 @@ async def call_model(
             base_url=endpoint_base,
             endpoint_url=endpoint_url,
             operation_type=EnumLlmOperationType.CHAT_COMPLETION,
-            model=_resolve_api_model_id(model_key, config, endpoint_base),
+            model=await asyncio.to_thread(
+                _resolve_api_model_id, model_key, config, endpoint_base
+            ),
             messages=({"role": "user", "content": user_prompt},),
             system_prompt=system_prompt,
             max_tokens=max_tokens,
@@ -641,11 +651,30 @@ async def call_model(
     for index, endpoint_base in enumerate(endpoints):
         is_last = index == len(endpoints) - 1
         try:
-            text = await _attempt(
-                endpoint_base,
-                config.timeout_seconds if is_last else giveup_seconds,
-                config.max_retries if is_last else 0,
-            )
+            timeout = config.timeout_seconds if is_last else giveup_seconds
+            if call_deadline is None:
+                text = await _attempt(
+                    endpoint_base, timeout, config.max_retries if is_last else 0
+                )
+            else:
+                # A primary that answers just inside its request timeout can
+                # still consume several chunks' budgets. Give every endpoint
+                # a share of this chunk's remaining time, rather than waiting
+                # until the whole vote expires before trying overflow.
+                remaining = call_deadline - time.monotonic()
+                if remaining <= 0:
+                    raise _budget_exhausted(model_key, budget_seconds or 0.0)
+                endpoint_seconds = min(timeout, remaining / (len(endpoints) - index))
+                try:
+                    text = await asyncio.wait_for(
+                        # The request schema's minimum is one second. The
+                        # enclosing wall-clock timeout still enforces smaller
+                        # shares when a review is almost out of time.
+                        _attempt(endpoint_base, max(1.0, endpoint_seconds), 0),
+                        timeout=endpoint_seconds,
+                    )
+                except TimeoutError as exc:
+                    raise _budget_exhausted(model_key, endpoint_seconds) from exc
         except failover_errors as exc:
             if is_last:
                 raise
@@ -1203,11 +1232,19 @@ async def async_parse_raw(
         deadline = time.monotonic() + deadline_seconds
 
         async def call_before_deadline(
-            system: str, user: str, **kwargs: Unpack[_OutputBudgetKwargs]
+            system: str,
+            user: str,
+            *,
+            chunks_left: int,
+            **kwargs: Unpack[_OutputBudgetKwargs],
         ) -> str:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 raise _budget_exhausted(model, deadline_seconds)
+            if config.overflow_urls and len(chunks) > 1:
+                # All chunks must finish for a vote. A parse retry shares the
+                # same remaining budget and must also leave time for them.
+                kwargs["budget_seconds"] = remaining / chunks_left
             try:
                 return await asyncio.wait_for(
                     call_model(
@@ -1272,6 +1309,7 @@ async def async_parse_raw(
             raw_text = await call_before_deadline(
                 chunk_system,
                 user_prompt,
+                chunks_left=len(chunks) - index + 1,
                 **budget_kwargs,
             )
             parsed = _try_parse_complete_review(raw_text)
@@ -1290,6 +1328,7 @@ async def async_parse_raw(
                 raw_text = await call_before_deadline(
                     chunk_system + _JSON_ONLY_RETRY,
                     user_prompt,
+                    chunks_left=len(chunks) - index + 1,
                     max_tokens=retry_tokens,
                     json_only=True,
                 )
