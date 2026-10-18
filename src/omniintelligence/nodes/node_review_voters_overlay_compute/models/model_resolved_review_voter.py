@@ -81,6 +81,7 @@ class ModelResolvedReviewVoter(BaseModel):
             overflow_after_seconds=voter.overflow_after_seconds,
             kind="code_review",
             timeout_seconds=voter.timeout_seconds,
+            review_deadline_seconds=voter.review_deadline_seconds,
             api_model_id=(voter.model or "")
             if voter.provider in {"anthropic", "claude_code"}
             else voter.api_model_id,
@@ -126,6 +127,11 @@ class ModelResolvedReviewVoter(BaseModel):
             f"{overflow}; "
             f"{model}; temperature={temperature} top_p={top_p}; {focus}; "
             f"timeout={voter.timeout_seconds:g}s"
+            + (
+                f" review_deadline={voter.review_deadline_seconds:g}s"
+                if voter.review_deadline_seconds is not None
+                else ""
+            )
         )
 
 

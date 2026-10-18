@@ -79,6 +79,16 @@ class ModelReviewVoter(BaseModel):
         "fail, naming it. No default: every voter states it."
     )
     timeout_seconds: float = Field(gt=0.0, le=1800.0)
+    review_deadline_seconds: float | None = Field(
+        default=None,
+        gt=0.0,
+        le=7200.0,
+        description="Hard ceiling on one whole review of this voter, every "
+        "chunk included (OMN-20910). A review in N chunks gets N x "
+        "timeout_seconds, at least one call's worst case, at most this. "
+        "Absent: every review shares one call's worst case. At least "
+        "timeout_seconds.",
+    )
     max_retries: int | None = Field(default=None, ge=0, le=5)
     temperature: float | None = Field(default=None, ge=0.0, le=2.0)
     top_p: float | None = Field(default=None, gt=0.0, le=1.0)
@@ -90,6 +100,15 @@ class ModelReviewVoter(BaseModel):
 
     @model_validator(mode="after")
     def _validate_shape(self) -> Self:
+        if (
+            self.review_deadline_seconds is not None
+            and self.review_deadline_seconds < self.timeout_seconds
+        ):
+            raise ValueError(
+                f"voter {self.voter_id!r} review_deadline_seconds "
+                f"({self.review_deadline_seconds:g}) is below its timeout_seconds "
+                f"({self.timeout_seconds:g}); a review needs at least one call"
+            )
         if self.provider == "claude_code":
             if not self.model or not self.model.strip():
                 raise ValueError(

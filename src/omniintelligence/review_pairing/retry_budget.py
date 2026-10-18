@@ -59,6 +59,9 @@ class ModelRetryBudgetResult:
         overflow_seconds: Time spent giving up on every endpoint but the last
             (one un-retried attempt each) before the last endpoint's own
             attempts begin; 0 for a model with no overflow endpoints.
+        review_deadline_seconds: The model's ceiling on one whole chunked
+            review (OMN-20910), when it declares one; ``worst_case_seconds``
+            is then the deadline of the review, not of one call.
     """
 
     model_key: str
@@ -67,6 +70,7 @@ class ModelRetryBudgetResult:
     backoff_seconds: float
     worst_case_seconds: float
     overflow_seconds: float = 0.0
+    review_deadline_seconds: float | None = None
 
 
 def resolve_live_max_retries_default() -> int:
@@ -123,11 +127,31 @@ def _simulate_worst_case_seconds(
     return total_attempts, elapsed
 
 
+def _review_deadline_seconds(
+    config: ModelEndpointConfig, one_call_seconds: float, chunk_count: int | None
+) -> float:
+    """The wall clock one whole review of this model may take (OMN-20910).
+
+    Without a declared ceiling every review, however many chunks it has,
+    shares one call's worst case. With one, a review in N chunks gets
+    ``timeout_seconds`` per chunk, at least one call's worst case and at most
+    the ceiling. An unknown chunk count (the CI budget check) is the worst
+    case over every count: the ceiling.
+    """
+    ceiling = config.review_deadline_seconds
+    if ceiling is None:
+        return one_call_seconds
+    if chunk_count is None:
+        return ceiling
+    return min(ceiling, max(one_call_seconds, chunk_count * config.timeout_seconds))
+
+
 def compute_sequential_worst_case(
     model_keys: list[str],
     *,
     max_retries: int | None = None,
     configs: Mapping[str, ModelEndpointConfig] | None = None,
+    chunk_count: int | None = None,
 ) -> list[ModelRetryBudgetResult]:
     """Compute the worst-case retry budget for each model key, in the exact
     order ``cli_review.run_review`` calls them (sequential -- see module
@@ -147,6 +171,9 @@ def compute_sequential_worst_case(
         configs: The endpoint configs to read instead of the registry's --
             the voters of a review voters overlay (OMN-20910), so the budget
             is computed from the same timeouts the gate will call with.
+        chunk_count: The number of chunks the review was split into
+            (OMN-20910): the adapter's deadline for that review. None, the
+            CI budget check, takes the worst case over every chunk count.
 
     Returns:
         One ``ModelRetryBudgetResult`` per model key that resolves to a
@@ -182,7 +209,9 @@ def compute_sequential_worst_case(
             config.timeout_seconds,
             config.overflow_after_seconds or config.timeout_seconds,
         )
-        worst_case += overflow_seconds
+        worst_case = _review_deadline_seconds(
+            config, worst_case + overflow_seconds, chunk_count
+        )
         results.append(
             ModelRetryBudgetResult(
                 model_key=model_key,
@@ -191,6 +220,7 @@ def compute_sequential_worst_case(
                 backoff_seconds=backoff_seconds,
                 worst_case_seconds=worst_case,
                 overflow_seconds=overflow_seconds,
+                review_deadline_seconds=config.review_deadline_seconds,
             )
         )
     return results
@@ -203,6 +233,11 @@ def format_budget_breakdown(results: list[ModelRetryBudgetResult]) -> str:
         f"  {r.model_key}: {r.total_attempts} attempts x "
         f"{r.per_attempt_timeout_seconds:g}s + {r.backoff_seconds:g}s backoff"
         + (f" + {r.overflow_seconds:g}s overflow" if r.overflow_seconds else "")
+        + (
+            f"; chunked review capped at {r.review_deadline_seconds:g}s"
+            if r.review_deadline_seconds is not None
+            else ""
+        )
         + f" = {r.worst_case_seconds:g}s"
         for r in results
     ]
