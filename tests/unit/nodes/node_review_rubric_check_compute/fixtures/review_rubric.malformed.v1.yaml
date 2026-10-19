@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+schema_version: review_rubric.v1
+version: 1
+content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+created_from:
+  - label-event-0001
+rules:
+  - category: null-handling
+    support:
+      truth:
+        real: 1
+        false_finding: 0
+        contested: 0
+        unlabelable: 0
+      actionability:
+        acted_on: 1
+        not_acted_on: 0
+        unknown: 0
+    repositories:
+      - omniintelligence

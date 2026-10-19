@@ -95,6 +95,7 @@ EXPECTED_NODE_DIRS = [
     "node_protocol_handler_effect",
     "node_quality_scoring_compute",
     "node_review_receipt_substitute_compute",
+    "node_review_rubric_check_compute",
     "node_review_voters_overlay_compute",
     "node_routing_feedback_effect",
     "node_scoring_reducer_compute",

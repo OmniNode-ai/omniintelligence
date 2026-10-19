@@ -1,0 +1,100 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# ONEX Node Contract
+# Node: NodeReviewRubricCheckCompute
+#
+# Reads a review_rubric.v1 file under a token budget and reports a pass or a
+# named refusal. Item 14 of the review-learning plan; the rubric distiller and
+# the orchestrated review workflow build on its loader.
+#
+# Reference: OMN-21186
+
+name: "node_review_rubric_check_compute"
+version: "1.0.0"
+contract_version: {major: 1, minor: 0, patch: 0}
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+node_type: "COMPUTE_GENERIC"
+
+status: "active"
+
+description: >
+  Validates a review_rubric.v1 document (schema_version, version, parent_version, content_hash, created_from,
+  rules with category, instruction, truth and actionability support counts and repositories, and hints),
+  verifies its content_hash against its content, and counts the tokens the rubric would add to a reviewer
+  prompt (rule categories, instructions and hints) against the caller's token budget. A refusal is returned
+  as data and is named: not_yaml, not_a_mapping, unsupported_schema_version, malformed (with the field
+  path), content_hash_mismatch or over_token_budget. Pure computation over the document's text; the caller
+  reads the file. #magic___^_^___line
+input_model:
+  name: "ModelReviewRubricCheckRequest"
+  module: "omniintelligence.nodes.node_review_rubric_check_compute.models.model_review_rubric_check_request"
+  description: "The rubric file's text, its source, and the token budget."
+
+output_model:
+  name: "ModelReviewRubricCheckResult"
+  module: "omniintelligence.nodes.node_review_rubric_check_compute.models.model_review_rubric_check_result"
+  description: "A pass with the rubric's version, hash, rule count and token count, or the named refusal."
+
+operations:
+  - name: "check_review_rubric"
+    description: "Load a review rubric file under a token budget and report a pass or a named refusal"
+    input_fields:
+      - rubric_yaml
+      - rubric_source
+      - token_budget
+      - correlation_id
+    output_fields:
+      - rubric_source
+      - outcome
+      - refusal
+      - version
+      - content_hash
+      - rule_count
+      - token_count
+      - token_budget
+      - correlation_id
+
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    - operation: "check_review_rubric"
+      handler:
+        class: "HandlerReviewRubricCheck"
+        function: "handle"
+        module: "omniintelligence.nodes.node_review_rubric_check_compute.handlers.handler_review_rubric_check"
+        type: "sync"
+      description: "Check one review rubric file"
+
+dependencies: []
+
+error_handling:
+  error_types:
+    - name: "ReviewRubricRefused"
+      error_code: "RRC_001"
+      description: "The rubric file is malformed, stale or over the token budget; returned as result data"
+      recoverable: false
+      retry_strategy: "none"
+
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-10-19"
+  updated: "2026-10-19"
+  tags:
+    - compute
+    - review
+    - rubric
+  references:
+    - ticket: "OMN-21186"
+      url: "https://linear.app/omninode/issue/OMN-21186"
+      description: "Review learning: rubric file format, loader with token budget and check node"
