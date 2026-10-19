@@ -1,0 +1,56 @@
+---
+schema_version: 1.0.0
+ticket_id: OMN-20981
+title: cli_review writes a typed review record per voter, and the off-CI receipt reviewer records its
+  full findings
+summary: 'Task T3 of the review-learning plan. cli_review --record-out writes one ModelReviewRecorded
+  per voter and per substitute vote through the new node_review_record_compute; node_review_receipt_issue_compute
+  signs the unchanged receipt and returns the record holding exactly the findings the receipt counts.
+  The record type is a minimal local shape behind a seam: the plan''s ticket 2 owns the final record,
+  the finding envelope and the review-recorded topic.'
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: req-review-record
+    statement: cli_review keeps the voters' findings as typed records, and the receipt reviewer records
+      the findings its receipt counts.
+    acceptance:
+      - id: AC1
+        statement: 'AC1: a cli_review run with two voters and one substitute vote writes three records
+          with the voters'' findings -- falsifier: uv run pytest with a stub transport and a substitute
+          receipt fixture'
+      - id: AC2
+        statement: 'AC2: the receipt reviewer''s record holds exactly as many findings as the receipt
+          counts -- falsifier: uv run pytest asserting len(findings) equals findings_count over clean
+          and findings fixtures'
+evidence_requirements:
+  - kind: tests
+    description: cli_review --record-out over a stub transport and a signed substitute receipt fixture,
+      and the receipt issuing node over clean and findings fixtures.
+    command: uv run pytest tests/unit/review_pairing/test_review_record_omn20981.py -q -n 0 --no-cov
+emergency_bypass:
+  enabled: false
+  justification: ''
+  follow_up_ticket_id: ''
+dod_evidence:
+  - id: dod-omn20981-ac1-records
+    description: A cli_review run with two voters (one answering with two findings, one timing out) and
+      one substitute vote writes three JSON-line records, the first holding the voter's two findings.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/review_pairing/test_review_record_omn20981.py -q -n 0 --no-cov
+          -k "TestCliRecordOut"
+    binds_ac:
+      - AC1
+  - id: dod-omn20981-ac2-receipt-record
+    description: For zero, one and three findings the record's findings equal the receipt's findings_count,
+      and a record with another count is refused.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/review_pairing/test_review_record_omn20981.py -q -n 0 --no-cov
+          -k "TestReceiptReviewerRecord"
+    binds_ac:
+      - AC2
