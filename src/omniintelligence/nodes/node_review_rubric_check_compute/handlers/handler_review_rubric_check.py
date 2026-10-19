@@ -18,29 +18,39 @@ from omniintelligence.nodes.node_review_rubric_check_compute.models.model_review
 )
 
 
+class HandlerReviewRubricCheck:
+    """Validate a rubric through the runtime's typed handler interface."""
+
+    def handle(
+        self, request: ModelReviewRubricCheckRequest
+    ) -> ModelReviewRubricCheckResult:
+        """Load the rubric under the request's budget and report what happened."""
+        loaded = load_review_rubric(
+            request.rubric_yaml,
+            token_budget=request.token_budget,
+            source=request.rubric_source,
+        )
+        rubric = loaded.rubric
+        return ModelReviewRubricCheckResult(
+            rubric_source=request.rubric_source,
+            outcome=(
+                EnumReviewRubricCheckOutcome.ACCEPTED
+                if rubric is not None
+                else EnumReviewRubricCheckOutcome.REFUSED
+            ),
+            refusal=loaded.refusal,
+            version=rubric.version if rubric is not None else None,
+            content_hash=rubric.content_hash if rubric is not None else "",
+            rule_count=len(rubric.rules) if rubric is not None else 0,
+            token_count=loaded.token_count,
+            token_budget=request.token_budget,
+            correlation_id=request.correlation_id,
+        )
+
+
 def handle(request: ModelReviewRubricCheckRequest) -> ModelReviewRubricCheckResult:
-    """Load the rubric under the request's budget and report what happened."""
-    loaded = load_review_rubric(
-        request.rubric_yaml,
-        token_budget=request.token_budget,
-        source=request.rubric_source,
-    )
-    rubric = loaded.rubric
-    return ModelReviewRubricCheckResult(
-        rubric_source=request.rubric_source,
-        outcome=(
-            EnumReviewRubricCheckOutcome.ACCEPTED
-            if rubric is not None
-            else EnumReviewRubricCheckOutcome.REFUSED
-        ),
-        refusal=loaded.refusal,
-        version=rubric.version if rubric is not None else None,
-        content_hash=rubric.content_hash if rubric is not None else "",
-        rule_count=len(rubric.rules) if rubric is not None else 0,
-        token_count=loaded.token_count,
-        token_budget=request.token_budget,
-        correlation_id=request.correlation_id,
-    )
+    """The contract's routed entry point for checking a review rubric."""
+    return HandlerReviewRubricCheck().handle(request)
 
 
-__all__ = ["handle"]
+__all__ = ["HandlerReviewRubricCheck", "handle"]

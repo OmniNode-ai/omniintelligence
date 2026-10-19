@@ -64,6 +64,7 @@ handler_routing:
   handlers:
     - operation: "check_review_rubric"
       handler:
+        class: "HandlerReviewRubricCheck"
         function: "handle"
         module: "omniintelligence.nodes.node_review_rubric_check_compute.handlers.handler_review_rubric_check"
         type: "sync"
