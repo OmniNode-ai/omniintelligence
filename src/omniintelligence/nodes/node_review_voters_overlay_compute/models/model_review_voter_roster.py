@@ -66,6 +66,21 @@ class ModelReviewVoterRoster(BaseModel):
                 return voter
         return None
 
+    def identities(self) -> dict[str, str]:
+        """Each voter's distinct-reviewer identity as the quorum counts it.
+
+        Two voters with one identity (two gateway hosts serving one Claude
+        model) are one reviewer.
+        """
+        from omniintelligence.review_pairing.reviewer_identity import (
+            reviewer_identity,
+        )
+
+        return {
+            voter_id: reviewer_identity(voter_id, config, {})
+            for voter_id, config in self.endpoint_configs().items()
+        }
+
     def endpoint_configs(self) -> dict[str, ModelEndpointConfig]:
         return {v.voter_id: v.endpoint_config() for v in self.voters}
 

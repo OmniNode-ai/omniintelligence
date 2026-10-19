@@ -77,12 +77,29 @@ def reviewer_identity(
             counted against the host that cast it.
 
     Returns:
+        ``anthropic#id=<model>`` for a Claude gateway voter (overlay v2) served
+        by any of its gateway hosts; otherwise
         ``<normalised endpoint>#<model>`` where ``<model>`` is
         ``id=<declared api_model_id>`` or ``served``; ``key:<model_key>`` when
         the key has no entry or no URL.
     """
     if config is None:
         return f"key:{model_key}"
+    if config.identity_family == "anthropic":
+        # Every gateway host serving one Claude model is one reviewer. A vote
+        # an overflow endpoint outside the gateway hosts answered carries that
+        # endpoint's own identity, so it can never double an identity already
+        # counted from there.
+        gateway_hosts = {
+            _normalise_endpoint(url)
+            for url in (config.default_url, *config.gateway_urls)
+        }
+        if (
+            served_base_url is None
+            or _normalise_endpoint(served_base_url) in gateway_hosts
+        ):
+            return f"anthropic#id={config.api_model_id}"
+        return f"{_normalise_endpoint(served_base_url)}#served"
     if config.provider in {"anthropic", "claude_code"} or config.kind == "api_fallback":
         # OAuth/API routes and account aliases of the same weights are one voter.
         return f"anthropic#id={config.api_model_id}"

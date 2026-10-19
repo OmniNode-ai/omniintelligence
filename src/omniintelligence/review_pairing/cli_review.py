@@ -226,7 +226,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         metavar="FILE",
         help=(
-            "Review voters overlay (review_voters_overlay.v1, OMN-20910). The "
+            "Review voters overlay (review_voters_overlay.v1 or .v2, OMN-20910). The "
             "overlay IS the roster: each voter's endpoint, model, sampling, "
             "focus, timeout and required flag come from it. Excludes --model. "
             "No API fallback is substituted for a voter, and a required voter "

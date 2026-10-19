@@ -132,18 +132,26 @@ def _review_deadline_seconds(
 ) -> float:
     """The wall clock one whole review of this model may take (OMN-20910).
 
-    Without a declared ceiling every review, however many chunks it has,
-    shares one call's worst case. With one, a review in N chunks gets
-    ``timeout_seconds`` per chunk, at least one call's worst case and at most
-    the ceiling. An unknown chunk count (the CI budget check) is the worst
-    case over every count: the ceiling.
+    A review makes ``chunk_count x inline_persona_count x
+    review_attempts_per_call`` calls (review_voters_overlay.v2: one pass per
+    inline persona over every chunk, and the JSON-ONLY retry of an unparseable
+    reply); a voter without personas, under v1, makes ``chunk_count``. Advisory
+    personas run after the gate and are not counted.
+
+    Without a declared ceiling every review, however many chunks, shares one
+    call's worst case per persona pass and attempt. With one, the review gets
+    ``timeout_seconds`` per call, at least that floor and at most the ceiling.
+    An unknown chunk count (the CI budget check) is the worst case over every
+    count: the ceiling.
     """
+    passes = config.inline_persona_count * config.review_attempts_per_call
+    floor = one_call_seconds * passes
     ceiling = config.review_deadline_seconds
     if ceiling is None:
-        return one_call_seconds
+        return floor
     if chunk_count is None:
         return ceiling
-    return min(ceiling, max(one_call_seconds, chunk_count * config.timeout_seconds))
+    return min(ceiling, max(floor, chunk_count * passes * config.timeout_seconds))
 
 
 def compute_sequential_worst_case(

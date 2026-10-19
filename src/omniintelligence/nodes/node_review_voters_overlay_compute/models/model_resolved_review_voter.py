@@ -12,6 +12,9 @@ from pydantic import BaseModel, ConfigDict, Field
 from omniintelligence.nodes.node_review_voters_overlay_compute.models.model_review_voter import (
     ModelReviewVoter,
 )
+from omniintelligence.nodes.node_review_voters_overlay_compute.models.model_review_voters_overlay import (
+    REVIEW_VOTERS_OVERLAY_SCHEMA_VERSION_V2,
+)
 
 if TYPE_CHECKING:
     from omniintelligence.review_pairing.models_external_review import (
@@ -42,6 +45,15 @@ class ModelResolvedReviewVoter(BaseModel):
         description="The voter's overflow endpoints, resolved like base_url, in "
         "the order they are tried after it.",
     )
+    gateway_base_urls: tuple[str, ...] = Field(
+        default=(),
+        description="The overflow endpoints that are further Claude gateway "
+        "hosts of this voter (claude_gateway), resolved like base_url.",
+    )
+    schema_version: str = Field(
+        default="review_voters_overlay.v1",
+        description="The overlay version this voter was declared under.",
+    )
     backend_served_model_id: str | None = Field(
         default=None,
         description="The served model the delegation overlay records for the "
@@ -55,6 +67,13 @@ class ModelResolvedReviewVoter(BaseModel):
     @property
     def host_port(self) -> tuple[str, int]:
         return _host_port(self.base_url)
+
+    @property
+    def review_attempts_per_call(self) -> int:
+        """Calls one persona pass may make: v2 counts the JSON-ONLY retry."""
+        return (
+            2 if self.schema_version == REVIEW_VOTERS_OVERLAY_SCHEMA_VERSION_V2 else 1
+        )
 
     @property
     def overflow_host_ports(self) -> tuple[tuple[str, int], ...]:
@@ -96,6 +115,10 @@ class ModelResolvedReviewVoter(BaseModel):
             top_p=voter.top_p,
             review_focus=voter.review_focus,
             reasoning_effort=voter.reasoning_effort,
+            identity_family="anthropic" if voter.claude_gateway else "",
+            gateway_urls=self.gateway_base_urls,
+            inline_persona_count=voter.inline_persona_count,
+            review_attempts_per_call=self.review_attempts_per_call,
         )
 
     def describe(self) -> str:
@@ -116,6 +139,8 @@ class ModelResolvedReviewVoter(BaseModel):
         )
         top_p = "default" if voter.top_p is None else f"{voter.top_p:g}"
         focus = "focus=yes" if voter.review_focus else "focus=none"
+        if voter.personas:
+            focus += f"; personas={len(voter.personas)}"
         role = "required" if voter.required else "optional"
         overflow = (
             f"; overflow -> {', '.join(self.overflow_base_urls)}"
