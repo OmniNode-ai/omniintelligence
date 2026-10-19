@@ -30,35 +30,43 @@ from omniintelligence.nodes.node_review_record_compute.models import (
 )
 
 
+class HandlerReviewReceiptIssue:
+    """Issue a signed receipt alongside the record of its findings."""
+
+    def handle(self, request: ModelIssueReceiptRequest) -> ModelIssuedReceipt:
+        """Sign a receipt counting the findings, and record those findings."""
+        receipt = sign_receipt(
+            repo=request.repo,
+            pr=request.pr,
+            head_sha=request.head_sha,
+            reviewer_id=request.reviewer_id,
+            findings_count=len(request.findings),
+            issued_at=request.issued_at,
+            key=request.key,
+        )
+        record = ModelReviewRecorded(
+            review_id=review_id_for(
+                request.invocation_id, "receipt_reviewer", request.reviewer_id
+            ),
+            invocation_id=request.invocation_id,
+            arm=request.reviewer_id,
+            arm_kind="receipt_reviewer",
+            reviewer_identity="receipt:" + request.reviewer_id,
+            review_type="pr",
+            repo=request.repo,
+            pr=request.pr,
+            head_sha=request.head_sha,
+            execution_status="completed",
+            verdict=receipt.verdict,
+            findings=request.findings,
+            recorded_at=request.issued_at,
+        )
+        return ModelIssuedReceipt(receipt=receipt, record=record)
+
+
 def handle(request: ModelIssueReceiptRequest) -> ModelIssuedReceipt:
-    """Sign a receipt counting the findings, and record those findings."""
-    receipt = sign_receipt(
-        repo=request.repo,
-        pr=request.pr,
-        head_sha=request.head_sha,
-        reviewer_id=request.reviewer_id,
-        findings_count=len(request.findings),
-        issued_at=request.issued_at,
-        key=request.key,
-    )
-    record = ModelReviewRecorded(
-        review_id=review_id_for(
-            request.invocation_id, "receipt_reviewer", request.reviewer_id
-        ),
-        invocation_id=request.invocation_id,
-        arm=request.reviewer_id,
-        arm_kind="receipt_reviewer",
-        reviewer_identity="receipt:" + request.reviewer_id,
-        review_type="pr",
-        repo=request.repo,
-        pr=request.pr,
-        head_sha=request.head_sha,
-        execution_status="completed",
-        verdict=receipt.verdict,
-        findings=request.findings,
-        recorded_at=request.issued_at,
-    )
-    return ModelIssuedReceipt(receipt=receipt, record=record)
+    """The contract's routed entry point; see ``HandlerReviewReceiptIssue``."""
+    return HandlerReviewReceiptIssue().handle(request)
 
 
-__all__ = ["handle"]
+__all__ = ["HandlerReviewReceiptIssue", "handle"]

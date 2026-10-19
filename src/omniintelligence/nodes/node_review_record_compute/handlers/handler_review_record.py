@@ -85,14 +85,22 @@ def _substitute_record(
     )
 
 
-def handle(request: ModelReviewRecordRequest) -> ModelReviewRecordBatch:
-    """Record each voter's review and each substitute vote of one run."""
-    return ModelReviewRecordBatch(
-        records=(
-            *(_voter_record(request, r) for r in request.results),
-            *(_substitute_record(request, v) for v in request.substitute_votes),
+class HandlerReviewRecord:
+    """Build typed records for each voter and substitute vote."""
+
+    def handle(self, request: ModelReviewRecordRequest) -> ModelReviewRecordBatch:
+        """Record each voter's review and each substitute vote of one run."""
+        return ModelReviewRecordBatch(
+            records=(
+                *(_voter_record(request, r) for r in request.results),
+                *(_substitute_record(request, v) for v in request.substitute_votes),
+            )
         )
-    )
 
 
-__all__ = ["handle", "review_id_for"]
+def handle(request: ModelReviewRecordRequest) -> ModelReviewRecordBatch:
+    """The contract's routed entry point; see ``HandlerReviewRecord``."""
+    return HandlerReviewRecord().handle(request)
+
+
+__all__ = ["HandlerReviewRecord", "handle", "review_id_for"]
