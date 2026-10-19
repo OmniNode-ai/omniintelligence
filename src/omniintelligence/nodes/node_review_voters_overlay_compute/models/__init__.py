@@ -9,6 +9,9 @@ from omniintelligence.nodes.node_review_voters_overlay_compute.models.model_bifr
 from omniintelligence.nodes.node_review_voters_overlay_compute.models.model_resolved_review_voter import (
     ModelResolvedReviewVoter,
 )
+from omniintelligence.nodes.node_review_voters_overlay_compute.models.model_review_persona import (
+    ModelReviewPersona,
+)
 from omniintelligence.nodes.node_review_voters_overlay_compute.models.model_review_voter import (
     ModelReviewVoter,
 )
@@ -17,6 +20,7 @@ from omniintelligence.nodes.node_review_voters_overlay_compute.models.model_revi
 )
 from omniintelligence.nodes.node_review_voters_overlay_compute.models.model_review_voters_overlay import (
     REVIEW_VOTERS_OVERLAY_SCHEMA_VERSION,
+    REVIEW_VOTERS_OVERLAY_SCHEMA_VERSION_V2,
     ModelReviewVotersOverlay,
 )
 from omniintelligence.nodes.node_review_voters_overlay_compute.models.model_review_voters_overlay_request import (
@@ -29,9 +33,11 @@ from omniintelligence.nodes.node_review_voters_overlay_compute.models.model_subs
 
 __all__ = [
     "REVIEW_VOTERS_OVERLAY_SCHEMA_VERSION",
+    "REVIEW_VOTERS_OVERLAY_SCHEMA_VERSION_V2",
     "ModelBifrostBackendView",
     "ModelBifrostOverlayView",
     "ModelResolvedReviewVoter",
+    "ModelReviewPersona",
     "ModelReviewVoter",
     "ModelReviewVoterRoster",
     "ModelReviewVotersOverlay",

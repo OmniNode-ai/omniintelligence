@@ -23,16 +23,21 @@ node_type: "COMPUTE_GENERIC"
 status: "active"
 
 description: >
-  Validates a review_voters_overlay.v1 document and resolves each Hostile Reviewer voter's endpoint, either
-  from a backend of the lab delegation overlay (bifrost_lane_overlay.v3) or from the voter's own endpoint_url,
-  or resolves provider anthropic through the overlay's provider_endpoints map to the Messages API with
-  a declared model and api_key_env variable name, or resolves provider claude_code to the host Claude
-  Code account pool with a declared model and no API key, HTTP endpoint or lab fallback. Carries model
-  selection, sampling where supported, focus prompt, timeout, required flag and cloud repository exclusions,
-  and the overlay's optional substitute_votes policy (OMN-20947: which off-CI reviewers' signed receipts
-  may stand in for a voter that timed out or was unavailable, how many per vote, how long a receipt is
-  valid, and the signing-key variable name; absent means no receipt is accepted). Pure computation over
-  the two documents' text; a refusal is returned as data naming the voter.
+  Validates a review_voters_overlay.v1 or review_voters_overlay.v2 document and resolves each Hostile
+  Reviewer voter's endpoint, either from a backend of the lab delegation overlay (bifrost_lane_overlay.v3)
+  or from the voter's own endpoint_url, or resolves provider anthropic through the overlay's provider_endpoints
+  map to the Messages API with a declared model and api_key_env variable name, or resolves provider claude_code
+  to the host Claude Code account pool with a declared model and no API key, HTTP endpoint or lab fallback.
+  Carries model selection, sampling where supported, focus prompt, timeout, required flag and cloud repository
+  exclusions, and the overlay's optional substitute_votes policy (OMN-20947: which off-CI reviewers' signed
+  receipts may stand in for a voter that timed out or was unavailable, how many per vote, how long a receipt
+  is valid, and the signing-key variable name; absent means no receipt is accepted). Pure computation
+  over the two documents' text; a refusal is returned as data naming the voter. Version v2 adds per voter
+  up to three personas (persona_id, focus, tier required|budgeted, mode inline|advisory; personas of one
+  model are one reviewer identity), claude_gateway (every Claude gateway host serving one model has the
+  identity anthropic#id=<model>), a refusal of an overflow endpoint that is another voter's own endpoint,
+  and deadline accounting across inline personas, chunks and attempts (retry_budget). v1 stays accepted
+  and resolves as before; v2-only fields under v1 are refused.
 input_model:
   name: "ModelReviewVotersOverlayRequest"
   module: "omniintelligence.nodes.node_review_voters_overlay_compute.models.model_review_voters_overlay_request"
@@ -87,7 +92,7 @@ metadata:
   author: "OmniNode Team"
   license: "MIT"
   created: "2026-10-10"
-  updated: "2026-10-11"
+  updated: "2026-10-19"
   tags:
     - compute
     - review

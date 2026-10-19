@@ -42,10 +42,15 @@ from omniintelligence.nodes.node_review_voters_overlay_compute.models.model_bifr
 from omniintelligence.nodes.node_review_voters_overlay_compute.models.model_resolved_review_voter import (
     ModelResolvedReviewVoter,
 )
+from omniintelligence.nodes.node_review_voters_overlay_compute.models.model_review_voter import (
+    ModelReviewVoter,
+)
 from omniintelligence.nodes.node_review_voters_overlay_compute.models.model_review_voter_roster import (
     ModelReviewVoterRoster,
 )
 from omniintelligence.nodes.node_review_voters_overlay_compute.models.model_review_voters_overlay import (
+    REVIEW_VOTERS_OVERLAY_SCHEMA_VERSION,
+    REVIEW_VOTERS_OVERLAY_SCHEMA_VERSION_V2,
     ModelReviewVotersOverlay,
 )
 from omniintelligence.nodes.node_review_voters_overlay_compute.models.model_review_voters_overlay_request import (
@@ -54,6 +59,11 @@ from omniintelligence.nodes.node_review_voters_overlay_compute.models.model_revi
 
 _API_PATH_SUFFIXES: tuple[str, ...] = ("/v1/chat/completions", "/chat/completions")
 _SCHEMES: frozenset[str] = frozenset({"http", "https"})
+_V2_VOTER_KEYS: tuple[str, ...] = (
+    "personas",
+    "claude_gateway",
+    "claude_gateway_endpoint_urls",
+)
 
 
 class _RefusalError(Exception):
@@ -89,7 +99,26 @@ def _voter_id_at(loc: tuple[int | str, ...], raw: dict[str, Any]) -> str:
     return f"#{index}"
 
 
+def _refuse_v2_fields_under_v1(raw: dict[str, Any]) -> None:
+    """A v1 overlay carrying a v2 voter field is refused, naming the voter."""
+    if raw.get("schema_version") != REVIEW_VOTERS_OVERLAY_SCHEMA_VERSION:
+        return
+    voters = raw.get("voters")
+    if not isinstance(voters, list):
+        return
+    for index, entry in enumerate(voters):
+        if isinstance(entry, dict) and any(key in entry for key in _V2_VOTER_KEYS):
+            voter_id = entry.get("voter_id")
+            raise _RefusalError(
+                f"voter fields {list(_V2_VOTER_KEYS)} need schema_version "
+                f"{REVIEW_VOTERS_OVERLAY_SCHEMA_VERSION_V2!r}, the overlay declares "
+                f"{REVIEW_VOTERS_OVERLAY_SCHEMA_VERSION!r}",
+                voter_id if isinstance(voter_id, str) else f"#{index}",
+            )
+
+
 def _validate(raw: dict[str, Any], source: str) -> ModelReviewVotersOverlay:
+    _refuse_v2_fields_under_v1(raw)
     try:
         return ModelReviewVotersOverlay.model_validate(raw)
     except ValidationError as exc:
@@ -156,6 +185,60 @@ def _refuse_overflow_equal_to_primary(
         )
 
 
+def _gateway_base_urls(
+    voter: ModelReviewVoter, overflow_base_urls: tuple[str, ...]
+) -> tuple[str, ...]:
+    gateway = tuple(
+        _base_url(url, voter.voter_id, "claude_gateway_endpoint_urls entry")
+        for url in voter.claude_gateway_endpoint_urls
+    )
+    stray = [url for url in gateway if url not in overflow_base_urls]
+    if stray:
+        raise _RefusalError(
+            f"claude_gateway_endpoint_urls {stray} are not among the voter's "
+            "overflow endpoints",
+            voter.voter_id,
+        )
+    return gateway
+
+
+def _same_endpoint_key(base_url: str) -> str:
+    """An endpoint as the quorum's identity compares it: a trailing /v1 is no difference."""
+    return base_url.removesuffix("/v1")
+
+
+def _refuse_overflow_onto_another_voter(
+    resolved: tuple[ModelResolvedReviewVoter, ...],
+) -> None:
+    """An overflow onto another voter's own endpoint is a second vote for its identity.
+
+    The vote an overflow endpoint casts carries that endpoint's identity, so a
+    voter overflowing onto another voter's endpoint (or Claude gateway host)
+    would spend a vote on an identity the quorum already counts. v2 only: a v1
+    overlay resolves as it always did.
+    """
+    for voter in resolved:
+        for other in resolved:
+            if other.voter_id == voter.voter_id or not other.base_url:
+                continue
+            own = {
+                _same_endpoint_key(url)
+                for url in (other.base_url, *other.gateway_base_urls)
+            }
+            clash = sorted(
+                url
+                for url in voter.overflow_base_urls
+                if _same_endpoint_key(url) in own
+            )
+            if clash:
+                raise _RefusalError(
+                    f"overflow endpoint {clash[0]!r} is voter {other.voter_id!r}'s own "
+                    "endpoint; the overflowed vote would carry that voter's identity "
+                    "and never be a second vote",
+                    voter.voter_id,
+                )
+
+
 def _resolve(
     request: ModelReviewVotersOverlayRequest,
 ) -> tuple[tuple[ModelResolvedReviewVoter, ...], ModelReviewVotersOverlay]:
@@ -175,6 +258,7 @@ def _resolve(
                     voter=voter,
                     base_url="",
                     source="host Claude account pool",
+                    schema_version=overlay.schema_version,
                 )
             )
             continue
@@ -210,6 +294,7 @@ def _resolve(
                         endpoint, voter.voter_id, "provider_endpoints entry"
                     ),
                     source="provider anthropic in overlay",
+                    schema_version=overlay.schema_version,
                 )
             )
             continue
@@ -245,6 +330,8 @@ def _resolve(
                     base_url=base_url,
                     source=f"backend {voter.backend_id} in {backend_name}",
                     overflow_base_urls=overflow_base_urls,
+                    gateway_base_urls=_gateway_base_urls(voter, overflow_base_urls),
+                    schema_version=overlay.schema_version,
                     backend_served_model_id=backend.served_model_id,
                 )
             )
@@ -261,8 +348,12 @@ def _resolve(
                     base_url=base_url,
                     source="endpoint_url",
                     overflow_base_urls=overflow_base_urls,
+                    gateway_base_urls=_gateway_base_urls(voter, overflow_base_urls),
+                    schema_version=overlay.schema_version,
                 )
             )
+    if overlay.schema_version == REVIEW_VOTERS_OVERLAY_SCHEMA_VERSION_V2:
+        _refuse_overflow_onto_another_voter(tuple(resolved))
     return tuple(resolved), overlay
 
 

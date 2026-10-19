@@ -16,6 +16,11 @@ from omniintelligence.nodes.node_review_voters_overlay_compute.models.model_subs
 )
 
 REVIEW_VOTERS_OVERLAY_SCHEMA_VERSION = "review_voters_overlay.v1"
+REVIEW_VOTERS_OVERLAY_SCHEMA_VERSION_V2 = "review_voters_overlay.v2"
+SUPPORTED_SCHEMA_VERSIONS: tuple[str, ...] = (
+    REVIEW_VOTERS_OVERLAY_SCHEMA_VERSION,
+    REVIEW_VOTERS_OVERLAY_SCHEMA_VERSION_V2,
+)
 
 
 class ModelReviewVotersOverlay(BaseModel):
@@ -42,15 +47,30 @@ class ModelReviewVotersOverlay(BaseModel):
 
     @model_validator(mode="after")
     def _validate_overlay(self) -> Self:
-        if self.schema_version != REVIEW_VOTERS_OVERLAY_SCHEMA_VERSION:
+        if self.schema_version not in SUPPORTED_SCHEMA_VERSIONS:
             raise ValueError(
-                f"schema_version must be {REVIEW_VOTERS_OVERLAY_SCHEMA_VERSION!r}, "
+                f"schema_version must be one of {list(SUPPORTED_SCHEMA_VERSIONS)}, "
                 f"got {self.schema_version!r}"
             )
+        if self.schema_version == REVIEW_VOTERS_OVERLAY_SCHEMA_VERSION:
+            v2_only = [v.voter_id for v in self.voters if v.uses_v2_fields]
+            if v2_only:
+                raise ValueError(
+                    f"voters {v2_only} use personas or claude_gateway, which need "
+                    f"schema_version {REVIEW_VOTERS_OVERLAY_SCHEMA_VERSION_V2!r}"
+                )
         ids = [voter.voter_id for voter in self.voters]
         duplicates = sorted({vid for vid in ids if ids.count(vid) > 1})
         if duplicates:
             raise ValueError(f"voter ids must be unique, repeated: {duplicates}")
+        persona_ids = [p.persona_id for v in self.voters for p in v.personas]
+        repeated_personas = sorted(
+            {pid for pid in persona_ids if persona_ids.count(pid) > 1}
+        )
+        if repeated_personas:
+            raise ValueError(
+                f"persona ids must be unique across voters, repeated: {repeated_personas}"
+            )
         if not any(voter.required for voter in self.voters):
             raise ValueError("at least one voter must be required")
         if self.backend_overlay is not None and (
@@ -78,4 +98,9 @@ class ModelReviewVotersOverlay(BaseModel):
         return self
 
 
-__all__ = ["REVIEW_VOTERS_OVERLAY_SCHEMA_VERSION", "ModelReviewVotersOverlay"]
+__all__ = [
+    "REVIEW_VOTERS_OVERLAY_SCHEMA_VERSION",
+    "REVIEW_VOTERS_OVERLAY_SCHEMA_VERSION_V2",
+    "SUPPORTED_SCHEMA_VERSIONS",
+    "ModelReviewVotersOverlay",
+]

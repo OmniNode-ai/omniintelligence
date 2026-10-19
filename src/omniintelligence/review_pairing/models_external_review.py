@@ -183,6 +183,42 @@ class ModelEndpointConfig(BaseModel, frozen=True, extra="forbid"):
             "for overflow and the remaining chunks."
         ),
     )
+    identity_family: Literal["", "anthropic"] = Field(
+        default="",
+        description=(
+            "anthropic: a Claude gateway voter (review_voters_overlay.v2). Its "
+            "reviewer identity is anthropic#id=<api_model_id> whichever of "
+            "default_url and gateway_urls answered. Empty (default): the "
+            "identity is the answering endpoint plus its model."
+        ),
+    )
+    gateway_urls: tuple[str, ...] = Field(
+        default=(),
+        description=(
+            "The overflow_urls that are further Claude gateway hosts of an "
+            "identity_family anthropic voter."
+        ),
+    )
+    inline_persona_count: int = Field(
+        default=1,
+        ge=1,
+        le=3,
+        description=(
+            "Persona passes run inside the gate for one review (review_voters_"
+            "overlay.v2); each is a full set of calls over every chunk. 1 "
+            "(default) is the voter without personas."
+        ),
+    )
+    review_attempts_per_call: int = Field(
+        default=1,
+        ge=1,
+        le=3,
+        description=(
+            "Calls one persona pass may make over a chunk: 2 counts the "
+            "JSON-ONLY retry of an unparseable reply. 1 (default) is the "
+            "pre-v2 accounting."
+        ),
+    )
     review_focus: str = Field(
         default="",
         description=(
