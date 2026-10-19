@@ -24,6 +24,16 @@ requirements:
         statement: "AC2: swapping a voter's model is an overlay-only diff that changes the resolved call
           target -- falsifier: uv run pytest tests/unit/review_pairing/test_review_voters_overlay_omn20910.py
           -q -k changing_the_backend_changes_the_model"
+  - id: "req-compact-verdict-prompt-v2"
+    statement: "Review prompt 2.0.0 asks for a compact verdict that ModelReviewVerdictCompact validates,
+      a typed ModelReviewCallResponse carries the provider's stop reason from the Claude API and OpenAI-compatible
+      transports, and prompt 1.5.0 stays selectable and byte for byte."
+    acceptance:
+      - id: "AC10"
+        statement: "AC10: the compact models refuse done absent, X or R: without a family and a catalog
+          code with a family, a max_tokens stop reason is not a normal end, and the default prompt is
+          the frozen v1 text -- falsifier: uv run pytest tests/unit/review_pairing/test_compact_verdict_omn20910.py
+          -q -n 0 fails at the merge base"
 evidence_requirements:
   - kind: "tests"
     description: "A voter removed from the overlay is not called."
@@ -131,3 +141,12 @@ dod_evidence:
           -n 0"
         cwd: "${OMNI_HOME}/omniintelligence"
     binds_ac: ["AC1", "AC2"]
+  - id: "dod-omn20910-ac10-compact-verdict-prompt-v2"
+    description: "Compact verdict models, the typed call response with its stop reason, and prompt 2.0.0
+      with v1 selectable."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/review_pairing/test_compact_verdict_omn20910.py -q -n 0"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC10"]

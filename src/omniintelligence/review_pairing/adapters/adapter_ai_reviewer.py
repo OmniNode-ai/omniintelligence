@@ -32,6 +32,9 @@ from contextvars import ContextVar
 from typing import Any, TypedDict, Unpack
 from uuid import uuid4
 
+from omniintelligence.models.review.model_review_call_response import (
+    ModelReviewCallResponse,
+)
 from omniintelligence.models.review.model_review_standing_rules import (
     ModelReviewStandingRules,
 )
@@ -61,6 +64,8 @@ from omniintelligence.review_pairing.prompts.adversarial_reviewer import (
     USER_PROMPT_TEMPLATE,
     USER_PROMPT_TEMPLATE_PR,
     render_standing_rules_section,
+    render_standing_rules_section_v2,
+    select_prompt,
 )
 from omniintelligence.review_pairing.prompts.adversarial_reviewer import (
     JSON_ONLY_RETRY as _JSON_ONLY_RETRY,
@@ -272,6 +277,8 @@ def build_review_prompt(
     review_type: str = "plan",
     system_prompt_prefix: str | None = None,
     standing_rules: ModelReviewStandingRules | None = None,
+    prompt_version: str = PROMPT_VERSION,
+    catalog_section: str | None = None,
 ) -> tuple[str, str]:
     """Construct system and user prompts for adversarial review.
 
@@ -282,20 +289,42 @@ def build_review_prompt(
             When provided (e.g., a persona), it is prepended with a separator.
         standing_rules: The reviewed repository's standing rules (OMN-20784).
             When provided, every rule is rendered into the system prompt by id.
+        prompt_version: The reviewer prompt version. The default is the v1
+            prompt; ``2.0.0`` selects the compact verdict prompt (OMN-20910).
+        catalog_section: The rendered defect-catalog section, placed after the
+            instructions. Used by the compact prompt only.
 
     Returns:
         Tuple of (system_prompt, user_prompt).
     """
-    template = USER_PROMPT_TEMPLATE_PR if review_type == "pr" else USER_PROMPT_TEMPLATE
+    if prompt_version != PROMPT_VERSION:
+        selected = select_prompt(prompt_version)
+        template = (
+            selected.user_template_pr
+            if review_type == "pr"
+            else selected.user_template_plan
+        )
+        base_prompt = selected.system_prompt
+        if catalog_section:
+            base_prompt = f"{base_prompt}\n\n{catalog_section}"
+        render_rules = (
+            render_standing_rules_section_v2
+            if selected.compact_output
+            else render_standing_rules_section
+        )
+    else:
+        template = (
+            USER_PROMPT_TEMPLATE_PR if review_type == "pr" else USER_PROMPT_TEMPLATE
+        )
+        base_prompt = SYSTEM_PROMPT
+        render_rules = render_standing_rules_section
     user_prompt = template.format(plan_content=plan_content)
     if system_prompt_prefix:
-        system_prompt = f"{system_prompt_prefix}\n\n---\n\n{SYSTEM_PROMPT}"
+        system_prompt = f"{system_prompt_prefix}\n\n---\n\n{base_prompt}"
     else:
-        system_prompt = SYSTEM_PROMPT
+        system_prompt = base_prompt
     if standing_rules is not None:
-        system_prompt = (
-            f"{system_prompt}\n\n{render_standing_rules_section(standing_rules)}"
-        )
+        system_prompt = f"{system_prompt}\n\n{render_rules(standing_rules)}"
     return system_prompt, user_prompt
 
 
@@ -378,16 +407,19 @@ def _validate_model_key(model_key: str) -> None:
         raise ValueError(f"Unknown model '{model_key}'. Valid: {valid}")
 
 
-async def _call_claude_api(
+async def _call_claude_api_response(
     system_prompt: str,
     user_prompt: str,
     config: ModelEndpointConfig,
     max_tokens: int = _DEFAULT_MAX_TOKENS,
-) -> str:
-    """Messages API for overlay voters and registry fallbacks, with bounded retries.
+) -> ModelReviewCallResponse:
+    """Messages API call returning the typed response, stop reason included.
 
-    Only the named environment variable is read. Errors contain status/type,
-    never headers, provider response bodies, request text or credentials.
+    A reply that stopped at ``max_tokens`` is returned as such, never raised or
+    shortened: the strict parser decides that it is not a complete review
+    (OMN-20910). Bounded retries. Only the named
+    environment variable is read. Errors contain status/type, never headers,
+    provider response bodies, request text or credentials.
     """
     import httpx
     from omnibase_infra.handlers.models.model_retry_state import ModelRetryState
@@ -460,12 +492,22 @@ async def _call_claude_api(
         if totals is not None:
             totals[0] += input_tokens
             totals[1] += output_tokens
-        if data.get("stop_reason") not in {"end_turn", "stop_sequence"}:
-            raise ValueError("incomplete response")
+        stop_reason = data.get("stop_reason")
+        if not isinstance(stop_reason, str):
+            raise ValueError("missing stop reason")
         blocks = data["content"]
         if not isinstance(blocks, list):
             raise ValueError("invalid content")
-        return "".join(block["text"] for block in blocks if block["type"] == "text")
+        served_model = data.get("model")
+        return ModelReviewCallResponse(
+            content="".join(
+                block["text"] for block in blocks if block["type"] == "text"
+            ),
+            stop_reason=stop_reason,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            served_model=served_model if isinstance(served_model, str) else None,
+        )
     except (KeyError, IndexError, TypeError, ValueError):
         raise RuntimeError("Unexpected or incomplete Claude API response") from None
 
@@ -521,6 +563,29 @@ def _failover_errors() -> tuple[type[BaseException], ...]:
     )
 
 
+def _openai_call_response(text: str, response: Any) -> ModelReviewCallResponse:
+    """Wrap an OpenAI-compatible reply with its finish reason, usage and model.
+
+    The finish reason is the canonical enum's value (``stop``, ``length``, ...);
+    a field the response does not carry stays unreported, never defaulted to a
+    normal end.
+    """
+    finish = getattr(response, "finish_reason", None)
+    usage = getattr(response, "usage", None)
+    tokens_in = getattr(usage, "tokens_input", 0)
+    tokens_out = getattr(usage, "tokens_output", 0)
+    served = getattr(response, "model_used", None)
+    return ModelReviewCallResponse(
+        content=text,
+        stop_reason=str(getattr(finish, "value", finish))
+        if finish is not None
+        else None,
+        input_tokens=tokens_in if type(tokens_in) is int and tokens_in >= 0 else 0,
+        output_tokens=tokens_out if type(tokens_out) is int and tokens_out >= 0 else 0,
+        served_model=served if isinstance(served, str) and served else None,
+    )
+
+
 async def call_model(
     system_prompt: str,
     user_prompt: str,
@@ -533,6 +598,33 @@ async def call_model(
     # OMN-17427: callers can retain failover state for one vote.
     failed_endpoints: set[str] | None = None,
 ) -> str:
+    """The reply text of ``call_model_response`` (the v1 format's caller)."""
+    response = await call_model_response(
+        system_prompt,
+        user_prompt,
+        model_key,
+        repository=repository,
+        max_tokens=max_tokens,
+        json_only=json_only,
+        budget_seconds=budget_seconds,
+        failed_endpoints=failed_endpoints,
+        require_complete_reply=True,
+    )
+    return response.content
+
+
+async def call_model_response(
+    system_prompt: str,
+    user_prompt: str,
+    model_key: str = _DEFAULT_MODEL_KEY,
+    *,
+    repository: str | None = None,
+    max_tokens: int = _DEFAULT_MAX_TOKENS,
+    json_only: bool = False,
+    budget_seconds: float | None = None,
+    failed_endpoints: set[str] | None = None,
+    require_complete_reply: bool = False,
+) -> ModelReviewCallResponse:
     """Invoke LLM via HandlerLlmOpenaiCompatible, or Claude API for api_fallback models.
 
     Args:
@@ -547,9 +639,14 @@ async def call_model(
             reserve time for every endpoint, with one attempt per endpoint.
         failed_endpoints: Endpoints of this vote that already failed over;
             skipped by later chunks. None keeps every endpoint.
+        require_complete_reply: The v1 text contract: a Claude API reply that
+            did not stop normally raises instead of being returned. The compact
+            format leaves this False and reads the stop reason itself.
 
     Returns:
-        Raw text response from the model.
+        The typed response: reply text, the provider's stop or finish reason,
+        usage and the served model (OMN-20910). A reply cut at ``max_tokens``
+        is returned with its stop reason, never shortened.
 
     Raises:
         ValueError: If model_key is not in the registry.
@@ -596,8 +693,20 @@ async def call_model(
             if usage is not None:
                 usage[0] += result.input_tokens
                 usage[1] += result.output_tokens
-            return result.response
-        return await _call_claude_api(system_prompt, user_prompt, config, max_tokens)
+            return ModelReviewCallResponse(
+                content=result.response,
+                input_tokens=result.input_tokens,
+                output_tokens=result.output_tokens,
+            )
+        claude_response = await _call_claude_api_response(
+            system_prompt, user_prompt, config, max_tokens
+        )
+        if require_complete_reply and claude_response.stop_reason not in {
+            "end_turn",
+            "stop_sequence",
+        }:
+            raise RuntimeError("Unexpected or incomplete Claude API response")
+        return claude_response
     if config.kind == "cli_fallback":
         raise ValueError(
             f"Model '{model_key}' is handled by its CLI adapter, not the LLM adapter."
@@ -652,7 +761,7 @@ async def call_model(
 
     async def _attempt(
         endpoint_base: str, timeout_seconds: float, max_retries: int | None
-    ) -> str:
+    ) -> ModelReviewCallResponse:
         # OMN-14176 / OMN-12815: the OpenAI-compatible effect posts ``endpoint_url``
         # VERBATIM and performs no base_url + path construction. Registry URLs are
         # host:port only, so resolve the COMPLETE chat-completion URL here or the
@@ -744,7 +853,7 @@ async def call_model(
         # post-hoc stripping.
         if "</think>" in text:
             text = text.rsplit("</think>", 1)[1].strip()
-        return text
+        return _openai_call_response(text, response)
 
     failover_errors = _failover_errors()
     for index, endpoint_base in enumerate(endpoints):
@@ -752,7 +861,7 @@ async def call_model(
         try:
             timeout = config.timeout_seconds if is_last else giveup_seconds
             if call_deadline is None:
-                text = await _attempt(
+                reply = await _attempt(
                     endpoint_base, timeout, config.max_retries if is_last else 0
                 )
             else:
@@ -766,13 +875,13 @@ async def call_model(
                 # OMN-17427: the last endpoint has nowhere to fall to; only the
                 # vote's deadline bounds it beyond the model's own timeout.
                 if is_last:
-                    text = await _attempt(endpoint_base, timeout, 0)
+                    reply = await _attempt(endpoint_base, timeout, 0)
                 else:
                     endpoint_seconds = min(
                         timeout, remaining / (len(endpoints) - index)
                     )
                     try:
-                        text = await asyncio.wait_for(
+                        reply = await asyncio.wait_for(
                             # The request schema's minimum is one second. The
                             # enclosing wall-clock timeout still enforces smaller
                             # shares when a review is almost out of time.
@@ -807,7 +916,7 @@ async def call_model(
                 file=sys.stderr,
                 flush=True,
             )
-        return text
+        return reply
     raise AssertionError("unreachable: the last endpoint returns or raises")
 
 
