@@ -11,7 +11,10 @@ consistently produces sharper adversarial reviews than generic prompts.
 
 Bump PROMPT_VERSION when modifying prompt content.
 
-Reference: OMN-5789, OMN-5819, OMN-19395, OMN-20784
+Prompt 2.0.0 (OMN-20910) is the compact, agent-oriented verdict; ``select_prompt``
+returns either version and 1.5.0 stays selectable byte for byte.
+
+Reference: OMN-5789, OMN-5819, OMN-19395, OMN-20784, OMN-20910
 """
 
 from __future__ import annotations
@@ -19,6 +22,12 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from omniintelligence.models.review.model_review_finding_compact import (
+    NOTE_MAX_LENGTH,
+    RULE_PREFIX,
+    UNCODED,
+)
+from omniintelligence.models.review.model_review_prompt import ModelReviewPrompt
 from omniintelligence.models.review.model_review_standing_rules import (
     ModelReviewStandingRules,
 )
@@ -253,6 +262,200 @@ def render_standing_rules_section(rules: ModelReviewStandingRules) -> str:
         body = rule.text.strip().replace("\n", "\n    ")
         lines.append(f"- [{rule.id}] ({kind}) {body}")
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Prompt 2.0.0: the compact verdict (OMN-20910)
+# ---------------------------------------------------------------------------
+
+PROMPT_VERSION_V2: str = "2.0.0"
+"""Semantic version of the compact adversarial review prompt.
+
+Changelog:
+    2.0.0 -- Compact verdict ({"v","f","more","done"}); findings cite a defect
+             code; no prose persona or style rules; standing-rule ids are
+             ``R:`` codes. OMN-20910.
+"""
+
+DEFAULT_MAX_FINDINGS: int = 25
+FAMILIES: tuple[str, ...] = _FINDING_CATEGORIES
+SEVERITY_LETTERS: tuple[str, ...] = ("C", "M", "m", "n")
+
+SYSTEM_PROMPT_V2: str = (
+    "You are an adversarial code reviewer. Find defects the change introduces. "
+    "Do not praise and do not explain at length.\n"
+    "\n"
+    "## Output Format\n"
+    "\n"
+    "Reply with exactly one JSON object and nothing else: no markdown fences, "
+    "no text before or after it.\n"
+    "\n"
+    '- "v": string, the defect catalog version you were given\n'
+    '- "f": array of findings, most severe first\n'
+    '- "more": boolean, true only when you found more defects than you could list\n'
+    '- "done": true, always the last field\n'
+    "\n"
+    "Each finding is an object with these fields:\n"
+    "\n"
+    '- "c": string, a defect code from the catalog, "R:<id>" for a standing rule '
+    'listed below, or "X" when no code fits\n'
+    '- "p": string, repository-relative path\n'
+    '- "l": integer, line number in the new file, 0 for a file-level finding\n'
+    '- "s": string, severity: "C" critical, "M" major, "m" minor, "n" nit\n'
+    '- "y": string, the family, one of '
+    + ", ".join(f'"{family}"' for family in FAMILIES)
+    + '; set it only when "c" is "X" or an "R:" code, otherwise omit it\n'
+    f'- "n": string of at most {NOTE_MAX_LENGTH} characters; required when "c" is '
+    '"X", otherwise omit it. Never restate the catalog title.\n'
+    "\n"
+    "Every finding states a defect the change introduces. If on inspection a "
+    "concern is not a defect, leave it out: never emit a finding that retracts "
+    'itself or proposes no change. When the change has no defect, reply with "f" '
+    'empty, "more" false and "done" true.\n'
+    "\n"
+    "## Severity Definitions\n"
+    "\n"
+    "- C critical: Security vulnerability, data loss risk, architectural flaw "
+    "that would require redesign, or internally inconsistent contract that "
+    "breaks substitutability.\n"
+    "- M major: Performance issue, missing error handling, incomplete test "
+    "coverage for critical paths, or API design that will cause integration "
+    "pain.\n"
+    "- m minor: Code quality concern, documentation gap, edge case not "
+    "addressed, or suboptimal but functional design choice.\n"
+    "- n nit: Formatting, naming convention, minor refactoring suggestion, "
+    "or stylistic preference with no functional impact.\n"
+    "\n"
+    "## Dependency Pinning\n"
+    "\n"
+    "- A GitHub Actions `uses:` reference (action or reusable workflow) "
+    "pinned to a full 40-character commit SHA is the required secure form. "
+    "It is compliant; do not report it.\n"
+    "- The pinning defect is a `uses:` reference to a tag, a branch, or an "
+    "abbreviated SHA, because those refs can move or collide.\n"
+    "- Changing one full commit SHA to another full commit SHA is a pin "
+    "bump. Do not report it as unpinned or as a supply-chain risk; review "
+    "the change the new commit brings only if the diff shows it.\n"
+    "- The same rule holds for a git dependency pinned by commit: `rev = "
+    '"<sha>"` under `[tool.uv.sources]`, `git+https://...@<sha>` in a '
+    "requirement or override, or `?rev=<sha>` and `#<sha>` in a lock file. A "
+    "full 40-character SHA is compliant, and moving it to another full SHA "
+    "is a pin bump. The defect is a git dependency on a branch, a tag, or an "
+    "abbreviated SHA."
+)
+
+USER_PROMPT_TEMPLATE_V2: str = (
+    "Review the following technical plan. Report every defect as a compact "
+    "verdict.\n"
+    "\n"
+    "---\n"
+    "\n"
+    "{plan_content}"
+)
+
+USER_PROMPT_TEMPLATE_PR_V2: str = (
+    "Review the following pull request diff. Focus on what the diff changes. "
+    "Do not flag pre-existing issues in unchanged code. Every finding must "
+    "reference a change in the diff. Report every defect as a compact verdict.\n"
+    "\n"
+    "---\n"
+    "\n"
+    "{plan_content}"
+)
+
+_V1_PROMPT = ModelReviewPrompt(
+    version=PROMPT_VERSION,
+    system_prompt=SYSTEM_PROMPT,
+    user_template_plan=USER_PROMPT_TEMPLATE,
+    user_template_pr=USER_PROMPT_TEMPLATE_PR,
+    compact_output=False,
+)
+_V2_PROMPT = ModelReviewPrompt(
+    version=PROMPT_VERSION_V2,
+    system_prompt=SYSTEM_PROMPT_V2,
+    user_template_plan=USER_PROMPT_TEMPLATE_V2,
+    user_template_pr=USER_PROMPT_TEMPLATE_PR_V2,
+    compact_output=True,
+)
+PROMPTS: dict[str, ModelReviewPrompt] = {
+    _V1_PROMPT.version: _V1_PROMPT,
+    _V2_PROMPT.version: _V2_PROMPT,
+}
+
+
+def select_prompt(version: str) -> ModelReviewPrompt:
+    """Return the reviewer prompt of one version; an unknown version is refused."""
+    prompt = PROMPTS.get(version)
+    if prompt is None:
+        raise ValueError(
+            f"Unknown review prompt version {version!r}. Valid: {', '.join(PROMPTS)}"
+        )
+    return prompt
+
+
+def render_standing_rules_section_v2(rules: ModelReviewStandingRules) -> str:
+    """Render the standing rules for prompt 2.0.0; each id is an ``R:`` code."""
+    lines = [
+        f"## Standing Rules of the Reviewed Repository "
+        f"(version {rules.version}, digest {rules.digest})",
+        "",
+        "These rules belong to the repository under review. Test every change "
+        'against each one. A change that violates a rule is a finding: set "c" '
+        f'to "{RULE_PREFIX}<id>" and "y" to its family. A violated mandatory '
+        'rule is severity "C". Cite only ids listed here.',
+        "",
+    ]
+    for rule in rules.rules:
+        kind = "mandatory" if rule.mandatory else "standing"
+        body = rule.text.strip().replace("\n", "\n    ")
+        lines.append(f"- [{RULE_PREFIX}{rule.id}] ({kind}) {body}")
+    return "\n".join(lines)
+
+
+def build_verdict_schema(
+    *,
+    codes: list[str],
+    rule_ids: list[str],
+    max_findings: int = DEFAULT_MAX_FINDINGS,
+) -> dict[str, Any]:
+    """The verdict's JSON schema: a code outside it cannot be emitted.
+
+    ``codes`` are the catalog's active codes for the repository, ``rule_ids``
+    the standing rule ids supplied to the review (without the ``R:`` prefix).
+    """
+    code_enum = [*codes, *(f"{RULE_PREFIX}{rule_id}" for rule_id in rule_ids), UNCODED]
+    return {
+        "type": "object",
+        "properties": {
+            "v": {"type": "string", "minLength": 1},
+            "f": {
+                "type": "array",
+                "maxItems": max_findings,
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "c": {"type": "string", "enum": code_enum},
+                        "p": {"type": "string", "minLength": 1},
+                        "l": {"type": "integer", "minimum": 0},
+                        "s": {"type": "string", "enum": list(SEVERITY_LETTERS)},
+                        "y": {"type": "string", "enum": list(FAMILIES)},
+                        "n": {"type": "string", "maxLength": NOTE_MAX_LENGTH},
+                    },
+                    "required": ["c", "p", "l", "s"],
+                    "additionalProperties": False,
+                },
+            },
+            "more": {"type": "boolean"},
+            "done": {"const": True},
+        },
+        "required": ["v", "f", "more", "done"],
+        "additionalProperties": False,
+    }
+
+
+def max_tokens_for(max_findings: int) -> int:
+    """Output budget with headroom: 256 plus 48 per listed finding."""
+    return 256 + 48 * max_findings
 
 
 JSON_ONLY_RETRY: str = (
