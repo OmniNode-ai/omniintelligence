@@ -53,6 +53,21 @@ requirements:
       - id: AC102
         statement: 'AC102: existing persona and code-projection artifact tests continue reading their
           retained markdown and text inputs.'
+  - id: req-overflow-vote-deadline
+    statement: A review voter with an overflow endpoint keeps its whole-vote deadline. The last endpoint
+      of a chunk is bounded by the vote's remaining time rather than by half of that chunk's even share,
+      and an endpoint that failed over during one vote is not retried by the later chunks of that vote.
+      The quorum, the required voters and the vote deadline are unchanged.
+    acceptance:
+      - id: AC5
+        statement: 'AC5: with a primary that never answers and an overflow that answers in 60s, a 2-chunk
+          review under a 200s vote deadline succeeds through the overflow -- falsifier: tests/unit/review_pairing/test_large_diff_json_review.py::test_the_last_endpoint_is_bounded_by_the_vote_not_its_chunk_share
+          fails at the merge base with endpoint exceeded its request timeout'
+      - id: AC6
+        statement: 'AC6: with 16 chunks, a 1200s vote deadline, a silent primary and a 40s overflow, the
+          primary is called once and the overflow 16 times, and the vote ends inside its deadline -- falsifier:
+          tests/unit/review_pairing/test_large_diff_json_review.py::test_a_primary_that_failed_a_chunk_is_not_retried_in_the_same_vote
+          fails at the merge base'
 evidence_requirements:
   - kind: tests
     description: Retry budget, unchanged first call, request wiring and the failed-vote path.
@@ -62,6 +77,11 @@ evidence_requirements:
     description: The placement tests read every workflow file for the fleet fallback and a computed runs-on,
       the ci.yml job, .pre-commit-config.yaml and the CI Summary wiring.
     command: uv run pytest tests/ci/test_public_runner_placement_omn17427.py -q -n 0
+  - kind: tests
+    description: Overflow voter keeps its vote deadline and skips an endpoint that failed over in the
+      same vote.
+    command: uv run pytest tests/unit/review_pairing/test_large_diff_json_review.py tests/unit/review_pairing/test_review_voter_overflow.py
+      -q -n 0
 emergency_bypass:
   enabled: false
   justification: ''
@@ -140,3 +160,21 @@ dod_evidence:
         check_value: bash tests/test_precommit_additional_dependencies_omn19666.sh
     binds_ac:
       - AC102
+  - id: dod-omn17427-ac5-last-endpoint-vote-deadline
+    description: The last endpoint of a chunk is bounded by the vote, not by its chunk share.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/review_pairing/test_large_diff_json_review.py::test_the_last_endpoint_is_bounded_by_the_vote_not_its_chunk_share
+          -q -n 0
+    binds_ac:
+      - AC5
+  - id: dod-omn17427-ac6-sticky-failover
+    description: An endpoint that failed over is skipped by the rest of the vote.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/review_pairing/test_large_diff_json_review.py::test_a_primary_that_failed_a_chunk_is_not_retried_in_the_same_vote
+          tests/unit/review_pairing/test_review_voter_overflow.py -q -n 0
+    binds_ac:
+      - AC6
