@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+schema_version: review_rubric.v1
+version: 2
+parent_version: 1
+content_hash: sha256:82b3e023ba29965429d72363358366f91a386c53954874bb58bfda71aae76c83
+created_from:
+  - label-event-0001
+  - label-event-0002
+rules:
+  - category: null-handling
+    instruction: Flag a dereference of a value that the same function checked for None two lines earlier.
+    support:
+      truth:
+        real: 7
+        false_finding: 1
+        contested: 0
+        unlabelable: 2
+      actionability:
+        acted_on: 6
+        not_acted_on: 2
+        unknown: 2
+    repositories:
+      - omniintelligence
+      - omnimarket
+  - category: dead-code
+    instruction: Flag a function with no caller in the repository only when a test also does not reach
+      it.
+    support:
+      truth:
+        real: 3
+        false_finding: 4
+        contested: 1
+        unlabelable: 0
+      actionability:
+        acted_on: 2
+        not_acted_on: 5
+        unknown: 1
+    repositories:
+      - omniintelligence
+hints:
+  - Findings about naming style were dismissed with a stated reason in most threads.

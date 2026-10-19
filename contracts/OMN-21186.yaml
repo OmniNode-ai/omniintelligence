@@ -1,0 +1,69 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+schema_version: "1.0.0"
+ticket_id: OMN-21186
+title: "Review learning: rubric file format, loader with token budget and check node"
+summary: "A new COMPUTE node, node_review_rubric_check_compute, defines the review_rubric.v1 file format,
+  loads a rubric under a token budget, and reports a pass or a named refusal. Pure compute with no topics:
+  the rubric distiller and the orchestrated review workflow call its loader."
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: req-review-rubric-check
+    statement: "A review rubric file has a defined format, a loader that refuses a malformed or over-budget
+      file by name, and a check node that reports the outcome."
+    acceptance:
+      - id: AC1
+        statement: "AC1: The loader reads a rubric file in the defined format and refuses a malformed
+          one by name -- falsifier: uv run pytest tests/unit/nodes/node_review_rubric_check_compute -q
+          -n 0 --no-cov -k 'TestLoaderFormat or TestContentHash' fails when the module is absent"
+      - id: AC2
+        statement: "AC2: A rubric over the token budget is refused -- falsifier: uv run pytest tests/unit/nodes/node_review_rubric_check_compute
+          -q -n 0 --no-cov -k TestTokenBudget fails when the module is absent"
+      - id: AC3
+        statement: "AC3: The check node reports a pass or a named refusal for a rubric file -- falsifier:
+          uv run pytest tests/unit/nodes/node_review_rubric_check_compute -q -n 0 --no-cov -k TestCheckNode
+          fails when the module is absent"
+evidence_requirements:
+  - kind: tests
+    description: "Loader, token budget and check node over a valid fixture, a malformed fixture and over-budget
+      input."
+    command: "uv run pytest tests/unit/nodes/node_review_rubric_check_compute -q -n 0 --no-cov"
+emergency_bypass:
+  enabled: false
+  justification: ""
+  follow_up_ticket_id: ""
+dod_evidence:
+  - id: dod-omn21186-ac1-loader
+    description: "The valid fixture loads; the malformed fixture, non-yaml text, non-mapping yaml, an
+      unknown schema version, an unknown key, a stale content hash and out-of-range counts are each refused
+      with a named code and field."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/nodes/node_review_rubric_check_compute -q -n 0 --no-cov
+          -k 'TestLoaderFormat or TestContentHash'"
+    binds_ac:
+      - AC1
+  - id: dod-omn21186-ac2-budget
+    description: "A rubric one token over the budget is refused with over_token_budget naming the count
+      and the budget; one exactly at the budget loads; support metadata does not count."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/nodes/node_review_rubric_check_compute -q -n 0 --no-cov
+          -k TestTokenBudget"
+    binds_ac:
+      - AC2
+  - id: dod-omn21186-ac3-check-node
+    description: "The check node's handle returns pass for the valid fixture and a named refusal for the
+      malformed fixture and for an over-budget request, and never raises."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/nodes/node_review_rubric_check_compute -q -n 0 --no-cov
+          -k TestCheckNode"
+    binds_ac:
+      - AC3
