@@ -1,0 +1,90 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# ONEX Node Contract
+# Node: NodeReviewReceiptIssueCompute
+#
+# An off-CI reviewer's signed receipt (OMN-20947, unchanged) plus the record of
+# the findings the receipt counts.
+# Plan: review learning from events (2026-10-18), section 3.3, task T3.
+#
+# Reference: OMN-20981
+
+name: "node_review_receipt_issue_compute"
+version: "1.0.0"
+contract_version: {major: 1, minor: 0, patch: 0}
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+node_type: "COMPUTE_GENERIC"
+
+status: "active"
+
+description: >
+  Signs a hostile_review_receipt.v1 receipt for an off-CI reviewer's findings on one head commit and returns,
+  beside it, a ModelReviewRecorded holding those findings. The receipt is unchanged (a verdict and a findings
+  count); the record holds exactly as many findings as the receipt counts, and the output model refuses
+  any other pairing. Pure computation: the findings, the key and the clock are inputs.
+input_model:
+  name: "ModelIssueReceiptRequest"
+  module: "omniintelligence.nodes.node_review_receipt_issue_compute.models.model_issue_receipt_request"
+  description: "The reviewer, the head commit, the findings, the clock and the signing key."
+
+output_model:
+  name: "ModelIssuedReceipt"
+  module: "omniintelligence.nodes.node_review_receipt_issue_compute.models.model_issued_receipt"
+  description: "The signed receipt and the record of its findings."
+
+operations:
+  - name: "issue_receipt"
+    description: "Sign a receipt counting the findings and record those findings beside it"
+    input_fields:
+      - invocation_id
+      - repo
+      - pr
+      - head_sha
+      - reviewer_id
+      - findings
+      - issued_at
+      - key
+    output_fields:
+      - receipt
+      - record
+
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    - operation: "issue_receipt"
+      handler:
+        function: "handle"
+        module: "omniintelligence.nodes.node_review_receipt_issue_compute.handlers.handler_issue_receipt"
+        type: "sync"
+      description: "Issue a signed receipt and the record of the findings it counts"
+
+dependencies: []
+
+error_handling:
+  error_types: []
+
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-10-19"
+  updated: "2026-10-19"
+  tags:
+    - compute
+    - review
+    - hostile-reviewer
+    - receipt
+    - record
+  references:
+    - ticket: "OMN-20981"
+      url: "https://linear.app/omninode/issue/OMN-20981"
+      description: "The receipt reviewer records its full findings beside the unchanged receipt"

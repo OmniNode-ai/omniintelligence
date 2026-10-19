@@ -81,7 +81,11 @@ Exit Codes:
        ``substitute_votes`` and the pull request carries enough valid, clean,
        signed review receipts for ``--head-sha`` (OMN-20947).
 
-Reference: OMN-5793, OMN-5819, OMN-6228, OMN-18479, OMN-20910, OMN-20947
+Review records (OMN-20981):
+    ``--record-out FILE`` writes one ``ModelReviewRecorded`` per voter and per
+    substitute vote, as JSON lines, findings included.
+
+Reference: OMN-5793, OMN-5819, OMN-6228, OMN-18479, OMN-20910, OMN-20947, OMN-20981
 """
 
 from __future__ import annotations
@@ -96,7 +100,8 @@ import time
 import urllib.parse
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import NamedTuple
+from typing import Literal, NamedTuple
+from uuid import uuid4
 
 from omniintelligence.handlers.handler_review_standing_rules import (
     handle as handle_standing_rules,
@@ -123,6 +128,12 @@ from omniintelligence.nodes.node_review_receipt_substitute_compute.handlers.hand
 from omniintelligence.nodes.node_review_receipt_substitute_compute.models import (
     ModelPullRequestReviewView,
     ModelSubstituteVoteRequest,
+)
+from omniintelligence.nodes.node_review_record_compute.handlers.handler_review_record import (
+    handle as record_handle,
+)
+from omniintelligence.nodes.node_review_record_compute.models import (
+    ModelReviewRecordRequest,
 )
 from omniintelligence.nodes.node_review_voters_overlay_compute.models.model_review_voter_roster import (
     ModelReviewVoterRoster,
@@ -250,6 +261,18 @@ def build_parser() -> argparse.ArgumentParser:
         type=str,
         default=None,
         help="Output file path for JSON results (default: stdout).",
+    )
+    parser.add_argument(
+        "--record-out",
+        type=str,
+        default=None,
+        metavar="FILE",
+        help=(
+            "Write one typed review record (ModelReviewRecorded, one JSON "
+            "object per line) per voter and per substitute vote, findings "
+            "included (OMN-20981). A run that reviews nothing writes an empty "
+            "file."
+        ),
     )
     parser.add_argument(
         "--persona",
@@ -865,6 +888,41 @@ def _substitute_lost_voters(
     return apply_substitutes(result, decision)
 
 
+def _write_records(
+    path: str | None,
+    *,
+    voted: ModelMultiReviewResult,
+    final: ModelMultiReviewResult,
+    review_type: Literal["pr", "plan"],
+    repo: str | None,
+    pr: int | None,
+    head_sha: str | None,
+) -> None:
+    """Write the run's review records to ``path`` as JSON lines (OMN-20981).
+
+    ``voted`` is the run before any substitute replaced a lost voter, so a lost
+    voter is recorded as the failed run it was; ``final`` supplies the
+    substitute votes that stood in for it.
+    """
+    if path is None:
+        return
+    batch = record_handle(
+        ModelReviewRecordRequest(
+            invocation_id=uuid4(),
+            recorded_at=datetime.now(tz=UTC),
+            review_type=review_type,
+            repo=repo,
+            pr=pr,
+            head_sha=head_sha,
+            results=tuple(voted.results),
+            substitute_votes=tuple(final.substitute_votes),
+        )
+    )
+    lines = "".join(r.model_dump_json() + "\n" for r in batch.records)
+    Path(path).write_text(lines, encoding="utf-8")
+    print(f"{len(batch.records)} review record(s) written to {path}", file=sys.stderr)
+
+
 def _endpoint_label(model_key: str) -> str:
     """host:port of a registry key's resolved endpoint, for messages only."""
     config = MODEL_REGISTRY.get(model_key)
@@ -1108,6 +1166,15 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"Results written to {args.output}", file=sys.stderr)
             else:
                 print(json_output)
+            _write_records(
+                args.record_out,
+                voted=blocked,
+                final=blocked,
+                review_type="pr" if args.pr is not None else "plan",
+                repo=args.repo,
+                pr=args.pr,
+                head_sha=args.head_sha,
+            )
             if blocked.quorum is not None:
                 for line in format_quorum_summary(blocked.quorum):
                     print(line, file=sys.stderr)
@@ -1255,6 +1322,15 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"Results written to {args.output}", file=sys.stderr)
             else:
                 print(json_output)
+            _write_records(
+                args.record_out,
+                voted=result,
+                final=result,
+                review_type="pr",
+                repo=args.repo,
+                pr=args.pr,
+                head_sha=args.head_sha,
+            )
             return 0
         print(f"Reviewing PR #{args.pr} in {args.repo}", file=sys.stderr)
     else:
@@ -1289,7 +1365,7 @@ def main(argv: list[str] | None = None) -> int:
                 )
 
     # Determine review type.
-    review_type = "pr" if args.pr is not None else "plan"
+    review_type: Literal["pr", "plan"] = "pr" if args.pr is not None else "plan"
 
     # Load persona if specified (--persona takes precedence over --system-prompt).
     persona: ModelPersonaConfig | None = None
@@ -1325,6 +1401,7 @@ def main(argv: list[str] | None = None) -> int:
         )
     )
     result = _record_unreachable(result, skipped)
+    voted = result
     if roster is not None:
         result = _substitute_lost_voters(
             result, roster, repo=args.repo, pr=args.pr, head_sha=args.head_sha
@@ -1347,6 +1424,15 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Results written to {args.output}", file=sys.stderr)
     else:
         print(json_output)
+    _write_records(
+        args.record_out,
+        voted=voted,
+        final=result,
+        review_type=review_type,
+        repo=args.repo,
+        pr=args.pr,
+        head_sha=args.head_sha,
+    )
 
     # Human-readable summary to stderr.
     print(

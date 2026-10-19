@@ -1,0 +1,90 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# ONEX Node Contract
+# Node: NodeReviewRecordCompute
+#
+# Turns a Hostile Reviewer run into one typed review record per voter and one
+# per substitute vote, so finding content survives the run.
+# Plan: review learning from events (2026-10-18), section 3.3, task T3. The final record type and the review-recorded topic
+# are owned by the plan's ticket 2; this node carries the minimal local shape.
+#
+# Reference: OMN-20981
+
+name: "node_review_record_compute"
+version: "1.0.0"
+contract_version: {major: 1, minor: 0, patch: 0}
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+node_type: "COMPUTE_GENERIC"
+
+status: "active"
+
+description: >
+  Builds ModelReviewRecorded records from a review run: one per voter result, in result order (a voter
+  lost to the lab is recorded as a failed run), then one per substitute vote naming the voter it replaced
+  and the approved reviewers whose clean receipts stood in. Each record holds its arm's findings. Pure
+  computation: the voters' results, the substitute votes, the clock and the invocation id are inputs;
+  the handler does no I/O.
+input_model:
+  name: "ModelReviewRecordRequest"
+  module: "omniintelligence.nodes.node_review_record_compute.models.model_review_record_request"
+  description: "The voters' own results, the substitute votes, the target, the clock."
+
+output_model:
+  name: "ModelReviewRecordBatch"
+  module: "omniintelligence.nodes.node_review_record_compute.models.model_review_record_batch"
+  description: "One ModelReviewRecorded per voter and per substitute vote."
+
+operations:
+  - name: "record_review_run"
+    description: "Record each voter's review and each substitute vote of one run"
+    input_fields:
+      - invocation_id
+      - recorded_at
+      - review_type
+      - repo
+      - pr
+      - head_sha
+      - results
+      - substitute_votes
+    output_fields:
+      - records
+
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    - operation: "record_review_run"
+      handler:
+        function: "handle"
+        module: "omniintelligence.nodes.node_review_record_compute.handlers.handler_review_record"
+        type: "sync"
+      description: "Build the run's review records"
+
+dependencies: []
+
+error_handling:
+  error_types: []
+
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-10-19"
+  updated: "2026-10-19"
+  tags:
+    - compute
+    - review
+    - hostile-reviewer
+    - record
+  references:
+    - ticket: "OMN-20981"
+      url: "https://linear.app/omninode/issue/OMN-20981"
+      description: "cli_review writes a typed review record per voter"
