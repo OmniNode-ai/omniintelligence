@@ -8,6 +8,11 @@ from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from omniintelligence.nodes.node_review_voters_overlay_compute.models.model_review_persona import (
+    MAX_PERSONAS_PER_VOTER,
+    ModelReviewPersona,
+)
+
 VOTER_ID_PATTERN = r"^[a-z][a-z0-9-]{0,62}$"
 
 
@@ -97,9 +102,89 @@ class ModelReviewVoter(BaseModel):
     reasoning_effort: Literal["low", "medium", "high"] | None = Field(default=None)
     constrain_findings_schema: bool = Field(default=False)
     context_window_tokens: int = Field(default=32768, ge=8192)
+    personas: tuple[ModelReviewPersona, ...] = Field(
+        default=(),
+        max_length=MAX_PERSONAS_PER_VOTER,
+        description="review_voters_overlay.v2 only: focused passes of this one "
+        "model. They widen the voter's coverage and never add a vote.",
+    )
+    claude_gateway: bool = Field(
+        default=False,
+        description="review_voters_overlay.v2 only: the endpoint is a Claude "
+        "gateway host, so the voter's identity is anthropic#id=<model> "
+        "whichever gateway host answers. Needs model_id_source declared.",
+    )
+    claude_gateway_endpoint_urls: tuple[str, ...] = Field(
+        default=(),
+        description="review_voters_overlay.v2 only: the entries of "
+        "overflow_endpoint_urls that are further Claude gateway hosts (the "
+        "same model, so the same identity). Every other overflow endpoint "
+        "answers with its own identity.",
+    )
+
+    @property
+    def uses_v2_fields(self) -> bool:
+        return bool(
+            self.personas or self.claude_gateway or self.claude_gateway_endpoint_urls
+        )
+
+    @property
+    def inline_persona_count(self) -> int:
+        """Persona passes run inside the gate; a voter without personas runs one."""
+        inline = sum(1 for persona in self.personas if persona.mode == "inline")
+        return max(1, inline)
+
+    def _validate_personas(self) -> None:
+        ids = [persona.persona_id for persona in self.personas]
+        if len(set(ids)) != len(ids):
+            raise ValueError(f"voter {self.voter_id!r} repeats a persona id: {ids}")
+        if self.required and self.personas:
+            first = self.personas[0]
+            if first.tier != "required" or first.mode != "inline":
+                raise ValueError(
+                    f"voter {self.voter_id!r} is required, so its first persona "
+                    f"{first.persona_id!r} must be tier required and mode inline "
+                    "(the vote itself); got "
+                    f"tier {first.tier} and mode {first.mode}"
+                )
+
+    def _validate_claude_gateway(self) -> None:
+        if not self.claude_gateway:
+            if self.claude_gateway_endpoint_urls:
+                raise ValueError(
+                    f"voter {self.voter_id!r} sets claude_gateway_endpoint_urls "
+                    "without claude_gateway"
+                )
+            return
+        if self.model_id_source != "declared" or not self.api_model_id.startswith(
+            "claude-"
+        ):
+            raise ValueError(
+                f"voter {self.voter_id!r} claude_gateway needs model_id_source "
+                "'declared' and a Claude api_model_id: the identity is "
+                "anthropic#id=<model>"
+            )
+        stray = [
+            url
+            for url in self.claude_gateway_endpoint_urls
+            if url not in self.overflow_endpoint_urls
+        ]
+        if stray:
+            raise ValueError(
+                f"voter {self.voter_id!r} claude_gateway_endpoint_urls {stray} "
+                "are not in its overflow_endpoint_urls"
+            )
 
     @model_validator(mode="after")
     def _validate_shape(self) -> Self:
+        self._validate_personas()
+        if self.provider != "openai" and (
+            self.claude_gateway or self.claude_gateway_endpoint_urls
+        ):
+            raise ValueError(
+                f"voter {self.voter_id!r} claude_gateway needs an OpenAI-compatible "
+                "gateway endpoint, not provider anthropic or claude_code"
+            )
         if (
             self.review_deadline_seconds is not None
             and self.review_deadline_seconds < self.timeout_seconds
@@ -212,6 +297,7 @@ class ModelReviewVoter(BaseModel):
                 f"voter {self.voter_id!r} repeats an overflow endpoint: "
                 f"{list(self.overflow_endpoint_urls)}"
             )
+        self._validate_claude_gateway()
         if self.model_id_source == "declared" and not self.api_model_id:
             raise ValueError(
                 f"voter {self.voter_id!r} declares model_id_source 'declared' "
