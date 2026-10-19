@@ -53,6 +53,7 @@ Reference: OMN-18479.
 
 from __future__ import annotations
 
+import hashlib
 import re
 from collections.abc import Sequence
 
@@ -140,6 +141,20 @@ class _Cluster:
         if identity not in self.identities:
             self.identities.append(identity)
         self.finding_ids.append(str(finding.finding_id))
+
+
+def quorum_finding_key(
+    path: str, rule: str, severity: EnumFindingSeverity, line: int
+) -> str:
+    """Stable key of a quorum cluster, named by a recorded dismissal (OMN-20910).
+
+    Built from the normalised fields the cluster agreed on, never from model
+    prose, so two runs over one head give one key for one finding.
+    """
+    digest = hashlib.sha256(
+        f"{path}|{rule}|{severity.value}|{line}".encode()
+    ).hexdigest()
+    return f"hr-{digest[:12]}"
 
 
 def _identity(model_result: ModelExternalReviewResult) -> str:
@@ -234,6 +249,9 @@ def evaluate_quorum(
             blocking=is_blocking,
             finding_ids=tuple(cluster.finding_ids),
             standing_rule_id=cluster.standing_rule_id,
+            finding_key=quorum_finding_key(
+                cluster.path, cluster.rule, cluster.severity, cluster.line
+            ),
         )
         if is_blocking:
             blocking.append(entry)
@@ -275,13 +293,18 @@ def format_quorum_summary(summary: ModelReviewQuorumSummary) -> Sequence[str]:
     ]
     for entry in summary.blocking_findings:
         lines.append(
-            f"  [BLOCKING] {entry.file_path}:{entry.line_start} "
+            f"  [BLOCKING] {entry.finding_key} {entry.file_path}:{entry.line_start} "
             f"{entry.severity.value} {entry.rule} "
             f"({', '.join(entry.agreeing_models)}): {entry.message[:160]}"
         )
+    for entry in summary.dismissed_findings:
+        lines.append(
+            f"  [dismissed] {entry.finding_key} {entry.file_path}:{entry.line_start} "
+            f"{entry.severity.value} {entry.rule}: {entry.message[:160]}"
+        )
     for entry in summary.warning_findings:
         lines.append(
-            f"  [warning] {entry.file_path}:{entry.line_start} "
+            f"  [warning] {entry.finding_key} {entry.file_path}:{entry.line_start} "
             f"{entry.severity.value} {entry.rule} "
             f"({', '.join(entry.agreeing_models)}): {entry.message[:160]}"
         )
@@ -291,4 +314,5 @@ def format_quorum_summary(summary: ModelReviewQuorumSummary) -> Sequence[str]:
 __all__ = [
     "evaluate_quorum",
     "format_quorum_summary",
+    "quorum_finding_key",
 ]

@@ -17,6 +17,9 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
+from omniintelligence.models.review.model_review_finding_dismissal_record import (
+    ModelReviewFindingDismissalRecord,
+)
 from omniintelligence.models.review.model_standing_rules_record import (
     ModelStandingRulesRecord,
 )
@@ -418,6 +421,13 @@ class ModelQuorumFinding(BaseModel, frozen=True):
         default=None,
         description="Standing rule the cluster is bound to (OMN-20784).",
     )
+    finding_key: str = Field(
+        default="",
+        description=(
+            "Stable key of the cluster (path, rule, severity, line), which a "
+            "pull request author names to record a dismissal of it (OMN-20910)."
+        ),
+    )
 
 
 class ModelReviewQuorumSummary(BaseModel, frozen=True):
@@ -464,6 +474,13 @@ class ModelReviewQuorumSummary(BaseModel, frozen=True):
     )
     warning_findings: tuple[ModelQuorumFinding, ...] = Field(
         default=(), description="Clusters reported without blocking."
+    )
+    dismissed_findings: tuple[ModelQuorumFinding, ...] = Field(
+        default=(),
+        description=(
+            "Clusters that would block but whose recorded dismissal a second "
+            "voter confirmed for this head (OMN-20910). They no longer block."
+        ),
     )
 
 
@@ -654,6 +671,13 @@ class ModelMultiReviewResult(BaseModel, frozen=True):
         description=(
             "The standing rules this verdict was reached under, with their "
             "digest (OMN-20784). None when the review ran without rules."
+        ),
+    )
+    dismissals: list[ModelReviewFindingDismissalRecord] = Field(
+        default_factory=list,
+        description=(
+            "Every recorded dismissal of a blocking finding the gate read for "
+            "this head, with its outcome (OMN-20910)."
         ),
     )
     substitute_votes: list[ModelSubstituteVoteRecord] = Field(

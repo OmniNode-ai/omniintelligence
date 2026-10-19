@@ -106,6 +106,9 @@ from uuid import uuid4
 from omniintelligence.handlers.handler_review_standing_rules import (
     handle as handle_standing_rules,
 )
+from omniintelligence.models.review.model_review_finding_dismissal_record import (
+    ModelReviewFindingDismissalRecord,
+)
 from omniintelligence.models.review.model_review_standing_rules import (
     ModelReviewStandingRules,
 )
@@ -117,6 +120,23 @@ from omniintelligence.models.review.model_standing_rules_request import (
 )
 from omniintelligence.models.review.model_standing_rules_result import (
     ModelStandingRulesResult,
+)
+from omniintelligence.nodes.node_review_finding_dismissal_compute.handlers.handler_review_finding_dismissal import (
+    apply_dismissals,
+    build_judge_prompt,
+    diff_excerpt,
+    parse_dismissal_comments,
+    parse_judge_reply,
+    plan_dismissals,
+)
+from omniintelligence.nodes.node_review_finding_dismissal_compute.handlers.handler_review_finding_dismissal import (
+    handle as resolve_dismissals,
+)
+from omniintelligence.nodes.node_review_finding_dismissal_compute.models import (
+    ModelDismissalComment,
+    ModelDismissalJudgement,
+    ModelDismissalVoter,
+    ModelReviewDismissalRequest,
 )
 from omniintelligence.nodes.node_review_receipt_substitute_compute.handlers.handler_review_receipt_substitute import (
     apply_substitutes,
@@ -144,6 +164,7 @@ from omniintelligence.review_pairing.adapters.adapter_ai_reviewer import (
 from omniintelligence.review_pairing.adapters.adapter_ai_reviewer import (
     MODEL_REGISTRY,
     SERVED_BASE_URLS,
+    call_model,
     probe_local_reachability,
     register_review_voters,
     select_models_with_fallback,
@@ -190,6 +211,9 @@ _LARGE_PR_DIFF_MARKERS: tuple[str, ...] = (
 _MAX_FALLBACK_REVIEW_CHARS = 120_000
 _MAX_FALLBACK_PATCH_CHARS = 6_000
 _VOTER_MODEL_PROBE_TIMEOUT_SECONDS = 15.0
+_DISMISSAL_DIFF_EXCERPT_CHARS = 12_000
+_DISMISSAL_JUDGE_MAX_TOKENS = 400
+_DISMISSAL_COMMENT_MARKER = "<!-- hostile-review-dismissals -->"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -314,6 +338,42 @@ def build_parser() -> argparse.ArgumentParser:
             "Disable automatic API fallback when local models are unreachable. "
             "Unreachable local models will cause the run to exit 1."
         ),
+    )
+    parser.add_argument(
+        "--no-dismissals",
+        action="store_true",
+        default=False,
+        help=(
+            "Do not read recorded dismissals of blocking findings (OMN-20910). "
+            "By default, with --pr and --head-sha, a blocked verdict reads the "
+            "pull request's dismissal comments and asks a second voter to judge each."
+        ),
+    )
+    parser.add_argument(
+        "--dismissal-comments-file",
+        default=None,
+        metavar="PATH",
+        help=(
+            "Read the pull request's comments from this JSON file (the shape of "
+            "GitHub's issue comments list) instead of from GitHub; for replays."
+        ),
+    )
+    parser.add_argument(
+        "--pr-author",
+        default=None,
+        help="The pull request author's login, with --dismissal-comments-file.",
+    )
+    parser.add_argument(
+        "--dismissal-record-out",
+        default=None,
+        metavar="PATH",
+        help="Write each dismissal record (the event payload) to PATH as JSON lines.",
+    )
+    parser.add_argument(
+        "--no-dismissal-comment",
+        action="store_true",
+        default=False,
+        help="Do not post the dismissal records to the pull request.",
     )
     _add_rules_arguments(parser)
     parser.add_argument(
@@ -888,6 +948,209 @@ def _substitute_lost_voters(
     return apply_substitutes(result, decision)
 
 
+def _comments_from_json(items: list[object]) -> list[ModelDismissalComment]:
+    comments: list[ModelDismissalComment] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        user = item.get("user")
+        login = user.get("login") if isinstance(user, dict) else None
+        comments.append(
+            ModelDismissalComment(
+                comment_id=str(item.get("id") or ""),
+                author=str(login or ""),
+                author_association=str(item.get("author_association") or "NONE"),
+                body=str(item.get("body") or ""),
+            )
+        )
+    return comments
+
+
+def _read_dismissal_comments(
+    args: argparse.Namespace,
+) -> tuple[list[ModelDismissalComment], str | None]:
+    """The pull request's comments and its author, from a file or from GitHub."""
+    if args.dismissal_comments_file:
+        raw = json.loads(Path(args.dismissal_comments_file).read_text(encoding="utf-8"))
+        items = raw if isinstance(raw, list) else []
+        return _comments_from_json(items), args.pr_author
+    completed = subprocess.run(
+        [
+            "gh",
+            "api",
+            "--paginate",
+            f"repos/{args.repo}/issues/{args.pr}/comments?per_page=100",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=60,
+    )
+    author = args.pr_author
+    if author is None:
+        pr_view = subprocess.run(
+            ["gh", "api", f"repos/{args.repo}/pulls/{args.pr}", "--jq", ".user.login"],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=60,
+        )
+        author = pr_view.stdout.strip() or None
+    return _comments_from_json(_parse_paginated_gh_json(completed.stdout)), author
+
+
+async def _judge_dismissals(
+    request: ModelReviewDismissalRequest, review_content: str, repo: str | None
+) -> tuple[ModelDismissalJudgement, ...]:
+    """Ask each assigned second voter; a failed or unreadable call rejects."""
+    assignments, _ = plan_dismissals(request)
+    judgements: list[ModelDismissalJudgement] = []
+    for assignment in assignments:
+        key = assignment.finding.finding_key
+        excerpt = diff_excerpt(
+            review_content,
+            assignment.finding.file_path,
+            max_chars=_DISMISSAL_DIFF_EXCERPT_CHARS,
+        )
+        system_prompt, user_prompt = build_judge_prompt(assignment, excerpt)
+        print(
+            f"Dismissal of {key} by {assignment.dismissal.author}: asking "
+            f"voter '{assignment.judge_voter}' to judge it...",
+            file=sys.stderr,
+            flush=True,
+        )
+        try:
+            reply = await call_model(
+                system_prompt,
+                user_prompt,
+                assignment.judge_voter,
+                repository=repo,
+                max_tokens=_DISMISSAL_JUDGE_MAX_TOKENS,
+            )
+            confirmed, reason = parse_judge_reply(reply)
+        except Exception as exc:
+            # A judge that fails for any reason confirms nothing (OMN-20910).
+            confirmed, reason = False, f"judge call failed: {type(exc).__name__}: {exc}"
+        judgements.append(
+            ModelDismissalJudgement(
+                finding_key=key,
+                judge_voter=assignment.judge_voter,
+                confirmed=confirmed,
+                reason=reason[:500],
+            )
+        )
+    return tuple(judgements)
+
+
+def _escape_cell(text: object) -> str:
+    """Model and author text in a table cell: no pipe, mention or line break survives."""
+    return str(text).replace("|", "\\|").replace("@", "@\u200b").replace("\n", " ")
+
+
+def _dismissal_comment_body(
+    records: list[ModelReviewFindingDismissalRecord],
+    summary: ModelReviewQuorumSummary,
+    head_sha: str,
+) -> str:
+    """The pull request comment that records every dismissal and its outcome."""
+    lines = [
+        _DISMISSAL_COMMENT_MARKER,
+        f"### Hostile Reviewer: recorded dismissals at `{head_sha[:12]}`",
+        "",
+        "| finding | author | outcome | judged by | reason |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    for r in records:
+        outcome = r.outcome.value + (f" ({r.refusal.value})" if r.refusal else "")
+        judge = r.judge_voter or "-"
+        if r.judge_raised_finding:
+            judge += " (also raised it)"
+        lines.append(
+            f"| `{r.finding_key}` {_escape_cell(r.file_path)}:{r.line_start} | {_escape_cell(r.author)} "
+            f"| {outcome} | {_escape_cell(judge)} | {_escape_cell(r.judge_reason)[:300]} |"
+        )
+    lines.append("")
+    if summary.blocking_findings:
+        keys = ", ".join(f"`{f.finding_key}`" for f in summary.blocking_findings)
+        lines.append(f"Still blocking: {keys}.")
+    else:
+        lines.append("No finding blocks at this head.")
+    lines.append(
+        "A dismissal is a comment with the line `/hostile-review dismiss <key>`, "
+        "then `head: <sha>` and `evidence: <text>`; it holds for that head only "
+        "and stops blocking only when a second voter confirms it."
+    )
+    return "\n".join(lines) + "\n"
+
+
+def _post_dismissal_comment(repo: str, pr: int, body: str) -> None:
+    try:
+        subprocess.run(
+            ["gh", "pr", "comment", str(pr), "--repo", repo, "--body-file", "-"],
+            input=body,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=60,
+        )
+        print("Dismissal records posted to the pull request.", file=sys.stderr)
+    except (OSError, subprocess.SubprocessError) as exc:
+        print(
+            f"WARNING: could not post the dismissal records to the pull request: {exc}",
+            file=sys.stderr,
+        )
+
+
+async def _resolve_dismissals(
+    args: argparse.Namespace,
+    result: ModelMultiReviewResult,
+    summary: ModelReviewQuorumSummary,
+    review_content: str,
+) -> tuple[ModelReviewQuorumSummary, list[ModelReviewFindingDismissalRecord]]:
+    """Clear the blocking findings whose recorded dismissal a second voter confirms."""
+    try:
+        comments, pr_author = _read_dismissal_comments(args)
+    except (OSError, ValueError, subprocess.SubprocessError) as exc:
+        print(
+            f"WARNING: dismissals not read ({exc}); every blocking finding stands.",
+            file=sys.stderr,
+        )
+        return summary, []
+    dismissals = parse_dismissal_comments(comments, pr_author=pr_author)
+    if not dismissals:
+        return summary, []
+    request = ModelReviewDismissalRequest(
+        head_sha=args.head_sha,
+        blocking_findings=summary.blocking_findings,
+        dismissals=dismissals,
+        voters=tuple(
+            ModelDismissalVoter(
+                voter_id=r.model, identity=r.reviewer_identity or f"key:{r.model}"
+            )
+            for r in result.results
+            if r.success
+        ),
+        repo=args.repo,
+        pr=args.pr,
+        correlation_id=uuid4(),
+    )
+    judgements = await _judge_dismissals(request, review_content, args.repo)
+    resolved = resolve_dismissals(request.model_copy(update={"judgements": judgements}))
+    for record in resolved.records:
+        print(
+            f"Dismissal {record.finding_key} by {record.author} ({record.source}): "
+            f"{record.outcome.value}"
+            + (f" ({record.refusal.value})" if record.refusal else "")
+            + (
+                f" by {record.judge_voter}: {record.judge_reason}"
+                if record.judge_voter
+                else ""
+            ),
+            file=sys.stderr,
+        )
+    return apply_dismissals(summary, resolved.cleared_keys), list(resolved.records)
+
+
 def _write_records(
     path: str | None,
     *,
@@ -1412,9 +1675,45 @@ def main(argv: list[str] | None = None) -> int:
     # severities across models -- the rule that let a single model's
     # rotating hallucination block a merge.
     quorum_summary = evaluate_quorum(result, policy)
+    # OMN-20910: a blocking finding the author refuted with evidence is cleared
+    # only by a recorded dismissal for this head that a second voter confirms.
+    dismissal_records: list[ModelReviewFindingDismissalRecord] = []
+    if (
+        quorum_summary.verdict is EnumQuorumVerdict.BLOCKED
+        and args.pr is not None
+        and args.repo
+        and args.head_sha
+        and not args.no_dismissals
+    ):
+        quorum_summary, dismissal_records = asyncio.run(
+            _resolve_dismissals(args, result, quorum_summary, review_content)
+        )
     result = result.model_copy(
-        update={"quorum": quorum_summary, "standing_rules": rules_record}
+        update={
+            "quorum": quorum_summary,
+            "standing_rules": rules_record,
+            "dismissals": dismissal_records,
+        }
     )
+    if dismissal_records:
+        if args.dismissal_record_out:
+            Path(args.dismissal_record_out).write_text(
+                "".join(r.model_dump_json() + "\n" for r in dismissal_records),
+                encoding="utf-8",
+            )
+            print(
+                f"{len(dismissal_records)} dismissal record(s) written to "
+                f"{args.dismissal_record_out}",
+                file=sys.stderr,
+            )
+        if not args.no_dismissal_comment:
+            _post_dismissal_comment(
+                args.repo,
+                args.pr,
+                _dismissal_comment_body(
+                    dismissal_records, quorum_summary, args.head_sha
+                ),
+            )
 
     # Output JSON to stdout (or file).
     json_output = result.model_dump_json(indent=2)

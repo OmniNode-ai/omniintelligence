@@ -1,0 +1,100 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# ONEX Node Contract
+# Node: NodeReviewFindingDismissalCompute
+#
+# A blocking Hostile Reviewer finding the pull request author refuted with
+# evidence is cleared only by a recorded dismissal, for the head under review,
+# that a second voter confirms. Never by hand acceptance of a blocked verdict.
+#
+# Reference: OMN-20910
+
+name: "node_review_finding_dismissal_compute"
+version: "1.0.0"
+contract_version: {major: 1, minor: 0, patch: 0}
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+node_type: "COMPUTE_GENERIC"
+
+status: "active"
+
+description: >
+  Resolves recorded dismissals of blocking review findings. A dismissal names a finding key, the head
+  it holds for and the author's evidence. It is refused (keeps blocking) when it names no blocking finding
+  of this head, when its author is neither the pull request author nor a repository writer, when it names
+  another head, when its evidence is empty or too short, or when no second voter succeeded. Otherwise
+  it is put to a second voter (one that did not raise the finding when there is one, else not the voter
+  whose message the finding carries); only a JSON confirm verdict clears it, and any other reply or a
+  failed call keeps it blocking. One record per dismissal, which the caller posts to the pull request
+  and emits. Pure; the caller makes the voter calls.
+input_model:
+  name: "ModelReviewDismissalRequest"
+  module: "omniintelligence.nodes.node_review_finding_dismissal_compute.models.model_review_dismissal_request"
+  description: "The head, its blocking findings, the dismissals read, the succeeded voters and their judgements."
+
+output_model:
+  name: "ModelReviewDismissalResult"
+  module: "omniintelligence.nodes.node_review_finding_dismissal_compute.models.model_review_dismissal_result"
+  description: "One record per dismissal, the finding keys cleared, and the judge assignments."
+
+operations:
+  - name: "resolve_finding_dismissals"
+    description: "Resolve recorded dismissals of blocking findings against the second voters' judgements"
+    input_fields:
+      - head_sha
+      - blocking_findings
+      - dismissals
+      - voters
+      - judgements
+      - repo
+      - pr
+      - correlation_id
+    output_fields:
+      - records
+      - cleared_keys
+      - assignments
+
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    - operation: "resolve_finding_dismissals"
+      handler:
+        class: "HandlerReviewFindingDismissal"
+        function: "handle"
+        module: "omniintelligence.nodes.node_review_finding_dismissal_compute.handlers.handler_review_finding_dismissal"
+        type: "sync"
+      description: "Resolve the dismissals of one head"
+
+dependencies: []
+
+error_handling:
+  error_types:
+    - name: "ReviewDismissalRefused"
+      error_code: "RFD_001"
+      description: "A dismissal was refused or not confirmed; returned as record data and the finding
+        keeps blocking"
+      recoverable: false
+      retry_strategy: "none"
+
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-10-19"
+  updated: "2026-10-19"
+  tags:
+    - compute
+    - review
+    - dismissal
+  references:
+    - ticket: "OMN-20910"
+      url: "https://linear.app/omninode/issue/OMN-20910"
+      description: "Hostile Reviewer voters and verdicts; refuted findings cleared by a confirmed dismissal"
