@@ -303,6 +303,112 @@ async def test_slow_successful_primary_leaves_time_for_overflow_on_every_chunk()
     adapter.SERVED_BASE_URLS.pop("security-test", None)
 
 
+async def _review_through_a_silent_primary(
+    *, chunks: int, deadline: float, overflow_seconds: float
+) -> tuple[object, list[str], float]:
+    """Review ``chunks`` files with a primary that never answers in time.
+
+    The overflow answers every request in ``overflow_seconds`` of a fake clock;
+    the primary answers in none. Returns the result, the endpoint of each
+    request in order, and the clock when the vote ended.
+    """
+    from omnibase_infra.enums import EnumInfraTransportType
+    from omnibase_infra.errors import InfraTimeoutError, ModelTimeoutErrorContext
+
+    from omniintelligence.review_pairing.models_external_review import (
+        ModelEndpointConfig,
+    )
+
+    primary = "http://primary.example:8130"
+    overflow = "http://overflow.example:8000"
+    config = ModelEndpointConfig(
+        env_var="TEST_SECURITY_REVIEW_URL",
+        default_url=primary,
+        kind="code_review",
+        timeout_seconds=600.0,
+        max_retries=0,
+        api_model_id="test-reviewer",
+        enable_thinking=False,
+        overflow_urls=(overflow,),
+    )
+    clock = [0.0]
+    endpoints: list[str] = []
+
+    class Handler:
+        def __init__(self, transport: object) -> None:
+            pass
+
+        async def handle(self, request: object) -> SimpleNamespace:
+            endpoints.append(request.base_url)
+            duration = 10_000.0 if request.base_url == primary else overflow_seconds
+            clock[0] += min(duration, request.timeout_seconds)
+            if duration > request.timeout_seconds:
+                raise InfraTimeoutError(
+                    "endpoint exceeded its request timeout",
+                    context=ModelTimeoutErrorContext(
+                        transport_type=EnumInfraTransportType.HTTP,
+                        operation="llm_http_call",
+                        timeout_seconds=request.timeout_seconds,
+                    ),
+                )
+            return SimpleNamespace(generated_text="[]")
+
+    with (
+        patch.dict(adapter.MODEL_REGISTRY, {"security-slow-overflow": config}),
+        patch.object(adapter, "time", SimpleNamespace(monotonic=lambda: clock[0])),
+        patch.object(
+            adapter,
+            "compute_sequential_worst_case",
+            return_value=[SimpleNamespace(worst_case_seconds=deadline)],
+        ),
+        patch(
+            "omnibase_infra.nodes.node_llm_inference_effect.handlers.handler_llm_openai_compatible.HandlerLlmOpenaiCompatible",
+            Handler,
+        ),
+    ):
+        result = await adapter.async_parse_raw(
+            "".join(file_diff(f"part_{i}.py", 260) for i in range(chunks)),
+            model="security-slow-overflow",
+            review_type="pr",
+        )
+    adapter.SERVED_BASE_URLS.pop("security-slow-overflow", None)
+    return result, endpoints, clock[0]
+
+
+async def test_the_last_endpoint_is_bounded_by_the_vote_not_its_chunk_share() -> None:
+    """An overflow slower than half a chunk's share still votes (OMN-17427).
+
+    Observed on omnimarket#4099: the primary used half of chunk 2's 75s share,
+    the overflow was cut at the other half, and the vote failed as budget
+    exhausted after 146.6s of a 1200s deadline. The overflow is the last
+    endpoint, so cutting it short only ends the vote early.
+    """
+    result, endpoints, ended = await _review_through_a_silent_primary(
+        chunks=2, deadline=200.0, overflow_seconds=60.0
+    )
+
+    assert result.success, result.error
+    assert endpoints.count("http://overflow.example:8000") == 2
+    assert ended <= 200.0
+
+
+async def test_a_primary_that_failed_a_chunk_is_not_retried_in_the_same_vote() -> None:
+    """A silent primary costs one chunk, not half of every chunk (OMN-17427).
+
+    The production profile: 16 chunks, a 1200s deadline, a primary that never
+    answers and an overflow that takes 40s. Retrying the primary on every chunk
+    spends 16 half-shares on it and the vote overruns its deadline.
+    """
+    result, endpoints, ended = await _review_through_a_silent_primary(
+        chunks=16, deadline=1200.0, overflow_seconds=40.0
+    )
+
+    assert result.success, result.error
+    assert endpoints.count("http://primary.example:8130") == 1
+    assert endpoints.count("http://overflow.example:8000") == 16
+    assert ended < 1200.0
+
+
 async def test_silent_endpoints_remain_a_timeout_with_a_subsecond_chunk_budget() -> (
     None
 ):
@@ -448,7 +554,9 @@ async def test_chunk_overflow_through_the_production_http_handler(
         )
         assert result.success, result.error
         assert discoveries == ["primary", "overflow"]
-        assert [name for name, _ in calls] == ["primary", "overflow"] * 4
+        # OMN-17427: the busy primary fails over once; the rest of the vote
+        # goes straight to the overflow.
+        assert [name for name, _ in calls] == ["primary"] + ["overflow"] * 4
         answered = [body for name, body in calls if name == "overflow"]
         assert len(answered) == 4
         for diff in diffs:

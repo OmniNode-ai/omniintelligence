@@ -340,6 +340,8 @@ class _OutputBudgetKwargs(TypedDict, total=False):
     max_tokens: int
     json_only: bool
     budget_seconds: float
+    # OMN-17427: share failed endpoints across chunks of one vote.
+    failed_endpoints: set[str]
 
 
 def _resolve_api_model_id(
@@ -528,6 +530,8 @@ async def call_model(
     max_tokens: int = _DEFAULT_MAX_TOKENS,
     json_only: bool = False,
     budget_seconds: float | None = None,
+    # OMN-17427: callers can retain failover state for one vote.
+    failed_endpoints: set[str] | None = None,
 ) -> str:
     """Invoke LLM via HandlerLlmOpenaiCompatible, or Claude API for api_fallback models.
 
@@ -541,6 +545,8 @@ async def call_model(
         max_tokens: Most tokens the reply may hold.
         budget_seconds: This chunk's share of the whole-vote budget. When set,
             reserve time for every endpoint, with one attempt per endpoint.
+        failed_endpoints: Endpoints of this vote that already failed over;
+            skipped by later chunks. None keeps every endpoint.
 
     Returns:
         Raw text response from the model.
@@ -632,6 +638,11 @@ async def call_model(
     # endpoint, which is that last one: its behaviour is unchanged. A chunk's
     # explicit budget below can shorten these attempts to reserve later work.
     endpoints = (base_url, *config.overflow_urls)
+    # OMN-17427: skip endpoints that already failed over during this vote.
+    if failed_endpoints is not None:
+        endpoints = (
+            tuple(e for e in endpoints if e not in failed_endpoints) or endpoints[-1:]
+        )
     call_deadline = (
         time.monotonic() + budget_seconds if budget_seconds is not None else None
     )
@@ -752,17 +763,24 @@ async def call_model(
                 remaining = call_deadline - time.monotonic()
                 if remaining <= 0:
                     raise _budget_exhausted(model_key, budget_seconds or 0.0)
-                endpoint_seconds = min(timeout, remaining / (len(endpoints) - index))
-                try:
-                    text = await asyncio.wait_for(
-                        # The request schema's minimum is one second. The
-                        # enclosing wall-clock timeout still enforces smaller
-                        # shares when a review is almost out of time.
-                        _attempt(endpoint_base, max(1.0, endpoint_seconds), 0),
-                        timeout=endpoint_seconds,
+                # OMN-17427: the last endpoint has nowhere to fall to; only the
+                # vote's deadline bounds it beyond the model's own timeout.
+                if is_last:
+                    text = await _attempt(endpoint_base, timeout, 0)
+                else:
+                    endpoint_seconds = min(
+                        timeout, remaining / (len(endpoints) - index)
                     )
-                except TimeoutError as exc:
-                    raise _budget_exhausted(model_key, endpoint_seconds) from exc
+                    try:
+                        text = await asyncio.wait_for(
+                            # The request schema's minimum is one second. The
+                            # enclosing wall-clock timeout still enforces smaller
+                            # shares when a review is almost out of time.
+                            _attempt(endpoint_base, max(1.0, endpoint_seconds), 0),
+                            timeout=endpoint_seconds,
+                        )
+                    except TimeoutError as exc:
+                        raise _budget_exhausted(model_key, endpoint_seconds) from exc
         except failover_errors as exc:
             if is_last:
                 raise
@@ -774,11 +792,17 @@ async def call_model(
                 file=sys.stderr,
                 flush=True,
             )
+            # OMN-17427: a dead endpoint costs one chunk's share, not a share
+            # of every later chunk in this vote.
+            if failed_endpoints is not None:
+                failed_endpoints.add(endpoint_base)
             continue
         SERVED_BASE_URLS[model_key] = endpoint_base
-        if index:
+        # OMN-17427: filtering can place an overflow endpoint at index zero.
+        if endpoint_base != base_url:
             print(
-                f"Model '{model_key}' served by overflow endpoint {index} "
+                f"Model '{model_key}' served by overflow endpoint "
+                f"{index + 1} of {len(endpoints)} "
                 f"({endpoint_base}).",
                 file=sys.stderr,
                 flush=True,
@@ -1331,6 +1355,10 @@ async def async_parse_raw(
                 # All chunks must finish for a vote. A parse retry shares the
                 # same remaining budget and must also leave time for them.
                 kwargs["budget_seconds"] = remaining / chunks_left
+                # OMN-17427: carry failover state across chunks, except through
+                # the Claude Code call path, which only needs its time budget.
+                if config.provider != "claude_code":
+                    kwargs["failed_endpoints"] = failed_endpoints
             try:
                 return await asyncio.wait_for(
                     call_model(
@@ -1375,6 +1403,8 @@ async def async_parse_raw(
             budgets[0].worst_case_seconds if budgets else config.timeout_seconds
         )
         deadline = time.monotonic() + deadline_seconds
+        # OMN-17427: failover state belongs to this review, including retries.
+        failed_endpoints: set[str] = set()
         if len(chunks) > 1:
             print(
                 f"Model '{model}' reviewing {len(chunks)} chunks within a "
