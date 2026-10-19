@@ -40,6 +40,8 @@ class EnumReviewDismissalRefusal(str, Enum):
     UNKNOWN_FINDING = "unknown_finding"
     NOT_AUTHORIZED = "not_authorized"
     NO_SECOND_VOTER = "no_second_voter"
+    SUPERSEDED = "superseded"
+    """A later dismissal of the same finding for this head replaced it."""
 
 
 class ModelReviewFindingDismissalRecord(BaseModel):

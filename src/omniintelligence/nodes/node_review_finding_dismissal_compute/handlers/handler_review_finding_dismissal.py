@@ -17,7 +17,8 @@ Each dismissal is then, in order:
   when its author is neither the pull request author nor a repository writer,
   when it names another head (a finding raised again on a new head needs a new
   dismissal), when its evidence is empty or under ``MIN_EVIDENCE_CHARS``, or
-  when no second voter succeeded in this review;
+  when no second voter succeeded in this review, or when a later dismissal
+  of the same finding for this head replaced it;
 * otherwise put to a second voter: a succeeded voter that did not raise the
   finding when there is one, else any succeeded voter other than the one whose
   message the finding carries. The judge's reply must be a JSON verdict
@@ -200,24 +201,17 @@ def _choose_judge(
 
 def _latest_per_key(
     dismissals: Sequence[ModelFindingDismissal], head_sha: str
-) -> list[ModelFindingDismissal]:
-    """Keep, per finding key, the latest authorized dismissal for this head.
+) -> dict[str, int]:
+    """Per finding key, the index of the latest authorized dismissal for this head.
 
-    Dismissals for other heads, unauthorized ones and superseded ones are kept
-    as they are so each still gets a record; only an authorized dismissal for
-    this head supersedes an earlier one of the same key.
+    Only an authorized dismissal for this head supersedes an earlier one of the
+    same key; every superseded one is still recorded, never dropped.
     """
     latest: dict[str, int] = {}
     for index, dismissal in enumerate(dismissals):
         if dismissal.authorized and _head_matches(dismissal.head_sha, head_sha):
             latest[dismissal.finding_key] = index
-    kept: list[ModelFindingDismissal] = []
-    for index, dismissal in enumerate(dismissals):
-        current = dismissal.authorized and _head_matches(dismissal.head_sha, head_sha)
-        if current and latest[dismissal.finding_key] != index:
-            continue
-        kept.append(dismissal)
-    return kept
+    return latest
 
 
 def plan_dismissals(
@@ -229,7 +223,8 @@ def plan_dismissals(
     findings = {f.finding_key: f for f in request.blocking_findings if f.finding_key}
     assignments: list[ModelDismissalAssignment] = []
     refused: list[ModelReviewFindingDismissalRecord] = []
-    for dismissal in _latest_per_key(request.dismissals, request.head_sha):
+    latest = _latest_per_key(request.dismissals, request.head_sha)
+    for index, dismissal in enumerate(request.dismissals):
         finding = findings.get(dismissal.finding_key)
         refusal: EnumReviewDismissalRefusal | None = None
         judge: tuple[str, bool] | None = None
@@ -241,6 +236,8 @@ def plan_dismissals(
             refusal = EnumReviewDismissalRefusal.STALE_HEAD
         elif len(dismissal.evidence.strip()) < MIN_EVIDENCE_CHARS:
             refusal = EnumReviewDismissalRefusal.NO_EVIDENCE
+        elif latest.get(dismissal.finding_key) != index:
+            refusal = EnumReviewDismissalRefusal.SUPERSEDED
         else:
             judge = _choose_judge(finding, request)
             if judge is None:

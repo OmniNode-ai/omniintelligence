@@ -350,3 +350,16 @@ def test_judge_prompt_carries_finding_evidence_and_diff() -> None:
     system, user = build_judge_prompt(assignment, excerpt)
     assert "confirm" in system and "reject" in system
     assert finding.message in user and EVIDENCE in user and "return error" in user
+
+
+@pytest.mark.unit
+def test_a_superseded_dismissal_is_still_recorded() -> None:
+    """Every dismissal yields a record; only the latest one per key is judged."""
+    finding = _finding()
+    first = _dismissal(finding.finding_key, evidence="")
+    latest = _dismissal(finding.finding_key)
+    assignments, refused = plan_dismissals(_request((finding,), (first, latest)))
+    assert [a.dismissal for a in assignments] == [latest]
+    assert [r.refusal for r in refused] == [EnumReviewDismissalRefusal.NO_EVIDENCE]
+    _, refused = plan_dismissals(_request((finding,), (latest, latest)))
+    assert [r.refusal for r in refused] == [EnumReviewDismissalRefusal.SUPERSEDED]
