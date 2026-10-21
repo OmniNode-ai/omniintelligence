@@ -99,6 +99,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import logging
 import os
 import secrets
 import subprocess
@@ -1222,6 +1223,12 @@ async def judge_rejections(
                     )
                 )
         except Exception as exc:
+            # Boundary: call_model raises transport, configuration and provider
+            # errors of many types. Degrade to a named note for this rejection
+            # (the gate keeps the finding blocked) and keep judging the rest.
+            logging.getLogger(__name__).exception(
+                "rejection judge %s failed on rejection %s", plan.judge_id, item.key
+            )
             first = (str(exc).splitlines() or [type(exc).__name__])[0][:300]
             notes[item.key] = (
                 f"the judge {plan.judge_id} ({plan.identity}) did not answer: {first}"
