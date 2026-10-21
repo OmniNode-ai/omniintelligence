@@ -46,6 +46,12 @@ Usage:
     uv run python -m omniintelligence.review_pairing.cli_review \\
         validate-rules --rules-file .review/standing-rules.yaml
 
+    # The review bot judges rejected findings (OMN-17427): a judge from the CI
+    # overlay that is none of the voters accepts or refuses each rejection
+    uv run python -m omniintelligence.review_pairing.cli_review \\
+        judge-rejections --pending pending.json --output judgements.json \\
+        --voters-overlay overlay.yaml --judge-overlay rejection_judge.yaml
+
 CLI Stream Policy:
     stdout: canonical ModelMultiReviewResult JSON, including the quorum
         verdict a caller reads instead of summing severities itself
@@ -93,11 +99,14 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import logging
 import os
+import secrets
 import subprocess
 import sys
 import time
 import urllib.parse
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal, NamedTuple
@@ -135,6 +144,19 @@ from omniintelligence.nodes.node_review_record_compute.handlers.handler_review_r
 from omniintelligence.nodes.node_review_record_compute.models import (
     ModelReviewRecordRequest,
 )
+from omniintelligence.nodes.node_review_rejection_judge_compute.handlers.handler_review_rejection_judge import (
+    JSON_ONLY_RETRY as _JUDGE_JSON_ONLY_RETRY,
+)
+from omniintelligence.nodes.node_review_rejection_judge_compute.handlers.handler_review_rejection_judge import (
+    HandlerReviewRejectionJudge,
+    read_judgement,
+)
+from omniintelligence.nodes.node_review_rejection_judge_compute.models import (
+    ModelRejectionJudgeBatch,
+    ModelRejectionJudgeBatchResult,
+    ModelRejectionJudgementRecord,
+    ModelRejectionJudgeRequest,
+)
 from omniintelligence.nodes.node_review_voters_overlay_compute.models.model_review_voter_roster import (
     ModelReviewVoterRoster,
 )
@@ -144,6 +166,7 @@ from omniintelligence.review_pairing.adapters.adapter_ai_reviewer import (
 from omniintelligence.review_pairing.adapters.adapter_ai_reviewer import (
     MODEL_REGISTRY,
     SERVED_BASE_URLS,
+    call_model,
     probe_local_reachability,
     register_review_voters,
     select_models_with_fallback,
@@ -1092,6 +1115,183 @@ def _fetch_pr_files_fallback(pr_number: int, repo: str, reason: str) -> str:
     return "\n".join(chunks)
 
 
+# OMN-17427: the review bot's judgement of rejected findings.
+_MAX_JUDGEMENTS_PER_RUN = 10
+_JUDGE_ANSWER_TOKENS = 400
+
+
+async def judge_rejections(
+    batch: ModelRejectionJudgeBatch,
+    voters_overlay: Path,
+    judge_overlay: Path,
+    *,
+    ask: Callable[[str, str, str, str], Awaitable[str]] | None = None,
+) -> ModelRejectionJudgeBatchResult:
+    """Judge every pending rejection with an independent judge (OMN-17427).
+
+    The judges come from ``judge_overlay``, a review_voters_overlay document
+    loaded, validated and registered exactly as the voters are, and every call
+    goes through the reviewer's own ``call_model``. A judge is never a voter of
+    ``voters_overlay`` (``node_review_rejection_judge_compute``). Anything that
+    stops a judgement is returned as data, never raised: ``unavailable`` for
+    the whole batch, ``notes`` per rejection, so the caller fails closed.
+
+    ``ask(system_prompt, user_prompt, judge_id, repo)`` replaces the model call
+    in tests.
+    """
+    if not batch.items:
+        return ModelRejectionJudgeBatchResult()
+    voters = load_review_voters(voters_overlay)
+    if not voters.ok:
+        return ModelRejectionJudgeBatchResult(
+            unavailable=(
+                f"the review voters overlay is refused ({voters.error_message}), so "
+                "no judge can be shown to differ from the voters"
+            )
+        )
+    judges = load_review_voters(judge_overlay)
+    if not judges.ok:
+        return ModelRejectionJudgeBatchResult(
+            unavailable=(
+                f"no rejection judge is configured ({judges.error_message}); declare "
+                f"one in the CI overlay as {judge_overlay.name} beside the voters "
+                "overlay, a review_voters_overlay document"
+            )
+        )
+    try:
+        register_review_voters(judges.endpoint_configs())
+    except ValueError as exc:
+        return ModelRejectionJudgeBatchResult(
+            unavailable=f"the rejection judge cannot be registered: {exc}"
+        )
+
+    async def _call_model(system: str, user: str, judge_id: str, repo: str) -> str:
+        return await call_model(
+            system, user, judge_id, repository=repo, max_tokens=_JUDGE_ANSWER_TOKENS
+        )
+
+    call = ask or _call_model
+    judge_identities = judges.identities()
+    voter_identities = tuple(sorted(set(voters.identities().values())))
+    print(
+        "rejection judges: "
+        + ", ".join(f"{j} ({judge_identities.get(j)})" for j in judges.voter_ids)
+        + "; review voters: "
+        + ", ".join(voter_identities),
+        file=sys.stderr,
+    )
+    records: list[ModelRejectionJudgementRecord] = []
+    notes: dict[str, str] = {}
+    for index, item in enumerate(batch.items):
+        if index >= _MAX_JUDGEMENTS_PER_RUN:
+            notes[item.key] = (
+                f"more than {_MAX_JUDGEMENTS_PER_RUN} rejections await the review "
+                "bot in one run; the rest are judged on the next reply"
+            )
+            continue
+        plan = HandlerReviewRejectionJudge().handle(
+            ModelRejectionJudgeRequest(
+                repo=batch.repo,
+                pr=batch.pr,
+                head_sha=batch.head_sha,
+                rejection=item,
+                judge_ids=tuple(judges.voter_ids),
+                judge_identities=judge_identities,
+                voter_ids=tuple(voters.voter_ids),
+                voter_identities=voter_identities,
+                nonce=secrets.token_hex(8),
+            )
+        )
+        if plan.refusal:
+            notes[item.key] = plan.refusal
+            continue
+        try:
+            judgement = read_judgement(
+                await call(
+                    plan.system_prompt, plan.user_prompt, plan.judge_id, batch.repo
+                )
+            )
+            if judgement is None:
+                judgement = read_judgement(
+                    await call(
+                        plan.system_prompt,
+                        plan.user_prompt + _JUDGE_JSON_ONLY_RETRY,
+                        plan.judge_id,
+                        batch.repo,
+                    )
+                )
+        except Exception as exc:
+            # Boundary: call_model raises transport, configuration and provider
+            # errors of many types. Degrade to a named note for this rejection
+            # (the gate keeps the finding blocked) and keep judging the rest.
+            logging.getLogger(__name__).exception(
+                "rejection judge %s failed on rejection %s", plan.judge_id, item.key
+            )
+            first = (str(exc).splitlines() or [type(exc).__name__])[0][:300]
+            notes[item.key] = (
+                f"the judge {plan.judge_id} ({plan.identity}) did not answer: {first}"
+            )
+            continue
+        if judgement is None:
+            notes[item.key] = (
+                f"the judge {plan.judge_id} ({plan.identity}) answered twice without "
+                "a verdict"
+            )
+            continue
+        records.append(
+            ModelRejectionJudgementRecord(
+                key=item.key,
+                verdict=judgement.verdict,
+                sentence=judgement.sentence,
+                judge_id=plan.judge_id,
+                identity=plan.identity,
+            )
+        )
+        print(
+            f"rejection {item.key} ({item.raised_by}): {judgement.verdict} by "
+            f"{plan.judge_id} ({plan.identity}): {judgement.sentence}",
+            file=sys.stderr,
+        )
+    return ModelRejectionJudgeBatchResult(judgements=tuple(records), notes=notes)
+
+
+def _judge_rejections_main(argv: list[str]) -> int:
+    """``judge-rejections``: the review bot's verdicts on rejected findings (OMN-17427)."""
+    parser = argparse.ArgumentParser(
+        prog="cli_review judge-rejections",
+        description=(
+            "Judge rejected Hostile Reviewer findings with a model that is none of "
+            "the voters; write the verdicts as JSON. Exit 1 when any rejection "
+            "could not be judged (fail closed)."
+        ),
+    )
+    parser.add_argument("--pending", type=Path, required=True)
+    parser.add_argument("--voters-overlay", type=Path, required=True)
+    parser.add_argument("--judge-overlay", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    args = parser.parse_args(argv)
+    try:
+        batch = ModelRejectionJudgeBatch.model_validate_json(
+            args.pending.read_text(encoding="utf-8")
+        )
+    except (OSError, ValueError) as exc:
+        result = ModelRejectionJudgeBatchResult(
+            unavailable=f"the pending rejections file is unreadable: {exc}"
+        )
+    else:
+        result = asyncio.run(
+            judge_rejections(batch, args.voters_overlay, args.judge_overlay)
+        )
+    args.output.write_text(result.model_dump_json(indent=2) + "\n", encoding="utf-8")
+    if result.unavailable:
+        print(
+            f"ERROR: the review bot cannot judge: {result.unavailable}", file=sys.stderr
+        )
+    for key, why in result.notes.items():
+        print(f"ERROR: rejection {key} is not judged: {why}", file=sys.stderr)
+    return 1 if result.unavailable or result.notes else 0
+
+
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point.
 
@@ -1104,6 +1304,8 @@ def main(argv: list[str] | None = None) -> int:
     raw_argv = sys.argv[1:] if argv is None else argv
     if raw_argv and raw_argv[0] == "validate-rules":
         return _validate_rules_main(raw_argv[1:])
+    if raw_argv and raw_argv[0] == "judge-rejections":
+        return _judge_rejections_main(raw_argv[1:])
 
     parser = build_parser()
     args = parser.parse_args(raw_argv)
