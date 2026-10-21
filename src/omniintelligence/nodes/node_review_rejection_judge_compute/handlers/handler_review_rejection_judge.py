@@ -95,47 +95,50 @@ def _bounded(text: str) -> str:
     return text[:MAX_PROMPT_FIELD_CHARS] + "\n…[truncated]"
 
 
-def handle(request: ModelRejectionJudgeRequest) -> ModelRejectionJudgePlan:
-    """The first configured judge that is none of the voters, and its prompt.
+class HandlerReviewRejectionJudge:
+    """Pure typed-payload handler for planning a rejection judgement."""
 
-    A refusal (no independent judge) is returned as data, never raised.
-    """
-    raiser_ids = {*request.voter_ids, request.rejection.raised_by}
-    raiser_identities = set(request.voter_identities)
-    chosen = ""
-    for judge_id in request.judge_ids:
-        identity = request.judge_identities.get(judge_id, f"key:{judge_id}")
-        if judge_id in raiser_ids or identity in raiser_identities:
-            continue
-        chosen = judge_id
-        break
-    if not chosen:
-        return ModelRejectionJudgePlan(
-            refusal=(
-                f"every configured judge ({', '.join(request.judge_ids) or 'none'}) "
-                "shares a voter id or reviewer identity with the voters that "
-                f"raised the finding ({', '.join(sorted(raiser_ids))}: "
-                f"{', '.join(sorted(raiser_identities))}), so no model independent "
-                "of them can judge it; declare a judge on another model in the CI "
-                f"overlay's {JUDGE_OVERLAY_NAME}"
+    def handle(self, request: ModelRejectionJudgeRequest) -> ModelRejectionJudgePlan:
+        """The first configured judge that is none of the voters, and its prompt.
+
+        A refusal (no independent judge) is returned as data, never raised.
+        """
+        raiser_ids = {*request.voter_ids, request.rejection.raised_by}
+        raiser_identities = set(request.voter_identities)
+        chosen = ""
+        for judge_id in request.judge_ids:
+            identity = request.judge_identities.get(judge_id, f"key:{judge_id}")
+            if judge_id in raiser_ids or identity in raiser_identities:
+                continue
+            chosen = judge_id
+            break
+        if not chosen:
+            return ModelRejectionJudgePlan(
+                refusal=(
+                    f"every configured judge ({', '.join(request.judge_ids) or 'none'}) "
+                    "shares a voter id or reviewer identity with the voters that "
+                    f"raised the finding ({', '.join(sorted(raiser_ids))}: "
+                    f"{', '.join(sorted(raiser_identities))}), so no model independent "
+                    "of them can judge it; declare a judge on another model in the CI "
+                    f"overlay's {JUDGE_OVERLAY_NAME}"
+                )
             )
+        item = request.rejection
+        return ModelRejectionJudgePlan(
+            judge_id=chosen,
+            identity=request.judge_identities.get(chosen, f"key:{chosen}"),
+            system_prompt=SYSTEM_PROMPT,
+            user_prompt=USER_PROMPT_TEMPLATE.format(
+                repo=request.repo,
+                pr=request.pr,
+                head=request.head_sha,
+                nonce=request.nonce,
+                finding=_bounded(item.finding),
+                lines_label=item.lines_label,
+                excerpt=_bounded(item.excerpt),
+                rejection=_bounded(item.rejection),
+            ),
         )
-    item = request.rejection
-    return ModelRejectionJudgePlan(
-        judge_id=chosen,
-        identity=request.judge_identities.get(chosen, f"key:{chosen}"),
-        system_prompt=SYSTEM_PROMPT,
-        user_prompt=USER_PROMPT_TEMPLATE.format(
-            repo=request.repo,
-            pr=request.pr,
-            head=request.head_sha,
-            nonce=request.nonce,
-            finding=_bounded(item.finding),
-            lines_label=item.lines_label,
-            excerpt=_bounded(item.excerpt),
-            rejection=_bounded(item.rejection),
-        ),
-    )
 
 
 def one_sentence(text: str) -> str:
@@ -173,7 +176,7 @@ __all__ = [
     "JUDGE_OVERLAY_NAME",
     "MAX_SENTENCE_CHARS",
     "SYSTEM_PROMPT",
-    "handle",
+    "HandlerReviewRejectionJudge",
     "one_sentence",
     "read_judgement",
 ]

@@ -68,7 +68,7 @@ handler_routing:
   handlers:
     - operation: "plan_rejection_judgement"
       handler:
-        function: "handle"
+        class: "HandlerReviewRejectionJudge"
         module: "omniintelligence.nodes.node_review_rejection_judge_compute.handlers.handler_review_rejection_judge"
         type: "sync"
       description: "Choose an independent judge and write its prompt"

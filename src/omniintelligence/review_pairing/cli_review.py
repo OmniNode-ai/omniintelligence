@@ -148,9 +148,7 @@ from omniintelligence.nodes.node_review_rejection_judge_compute.handlers.handler
     JSON_ONLY_RETRY as _JUDGE_JSON_ONLY_RETRY,
 )
 from omniintelligence.nodes.node_review_rejection_judge_compute.handlers.handler_review_rejection_judge import (
-    handle as plan_rejection_judgement,
-)
-from omniintelligence.nodes.node_review_rejection_judge_compute.handlers.handler_review_rejection_judge import (
+    HandlerReviewRejectionJudge,
     read_judgement,
 )
 from omniintelligence.nodes.node_review_rejection_judge_compute.models import (
@@ -1191,7 +1189,7 @@ async def judge_rejections(
                 "bot in one run; the rest are judged on the next reply"
             )
             continue
-        plan = plan_rejection_judgement(
+        plan = HandlerReviewRejectionJudge().handle(
             ModelRejectionJudgeRequest(
                 repo=batch.repo,
                 pr=batch.pr,
