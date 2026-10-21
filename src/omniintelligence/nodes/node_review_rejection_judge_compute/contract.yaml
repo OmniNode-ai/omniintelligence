@@ -1,0 +1,105 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# ONEX Node Contract
+# Node: NodeReviewRejectionJudgeCompute
+#
+# The review bot's judgement of a rejected Hostile Reviewer finding. A
+# `rejected: <reason>` reply clears nothing by itself, because every agent
+# replies through the operator's own account; a model that is none of the
+# voters accepts or refuses it with one sentence (operator, 2026-10-21: "A bot
+# to create the review"). No human override and no new credential.
+#
+# Reference: OMN-17427
+
+name: "node_review_rejection_judge_compute"
+version: "1.0.0"
+contract_version: {major: 1, minor: 0, patch: 0}
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+node_type: "COMPUTE_GENERIC"
+
+status: "active"
+
+description: >
+  Chooses the judge of a rejected Hostile Reviewer finding from the judges the CI overlay declares, never
+  a voter of the review roster by voter id or by reviewer identity (endpoint plus model, the identity
+  cross-model agreement counts), and writes its prompt: the finding, the cited lines at the pull request
+  head and the rejection, fenced as data. Reads the judge's answer as an accepted or refused verdict with
+  one sentence, and anything else as no verdict. Pure computation: the model call, the overlays and GitHub
+  belong to the caller, cli_review judge-rejections; with no independent judge the plan is a refusal and
+  the caller fails closed.
+input_model:
+  name: "ModelRejectionJudgeRequest"
+  module: "omniintelligence.nodes.node_review_rejection_judge_compute.models.model_rejection_judge_request"
+  description: "One pending rejection, the configured judges and the review roster's voters with their
+    identities, and a nonce for the prompt's fences."
+
+output_model:
+  name: "ModelRejectionJudgePlan"
+  module: "omniintelligence.nodes.node_review_rejection_judge_compute.models.model_rejection_judge_plan"
+  description: "The chosen judge, its identity and its prompt, or the refusal."
+
+operations:
+  - name: "plan_rejection_judgement"
+    description: "Choose an independent judge for one rejection and write its prompt"
+    input_fields:
+      - repo
+      - pr
+      - head_sha
+      - rejection
+      - judge_ids
+      - judge_identities
+      - voter_ids
+      - voter_identities
+      - nonce
+    output_fields:
+      - judge_id
+      - identity
+      - system_prompt
+      - user_prompt
+      - refusal
+
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    - operation: "plan_rejection_judgement"
+      handler:
+        function: "handle"
+        module: "omniintelligence.nodes.node_review_rejection_judge_compute.handlers.handler_review_rejection_judge"
+        type: "sync"
+      description: "Choose an independent judge and write its prompt"
+
+dependencies: []
+
+error_handling:
+  error_types:
+    - name: "RejectionJudgeRefused"
+      error_code: "RRJ_001"
+      description: "Every configured judge shares a voter id or reviewer identity with the voters; returned
+        as plan data"
+      recoverable: false
+      retry_strategy: "none"
+
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-10-21"
+  updated: "2026-10-21"
+  tags:
+    - compute
+    - review
+    - hostile-reviewer
+    - rejection-judge
+  references:
+    - ticket: "OMN-17427"
+      url: "https://linear.app/omninode/issue/OMN-17427"
+      description: "The review bot judges each rejected Hostile Reviewer finding"

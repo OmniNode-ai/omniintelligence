@@ -68,6 +68,20 @@ requirements:
           primary is called once and the overflow 16 times, and the vote ends inside its deadline -- falsifier:
           tests/unit/review_pairing/test_large_diff_json_review.py::test_a_primary_that_failed_a_chunk_is_not_retried_in_the_same_vote
           fails at the merge base'
+  - id: req-review-bot-judges-rejections
+    statement: The review bot judges a rejected Hostile Reviewer finding. A judge the CI overlay declares
+      in rejection_judge.yaml, never a voter of the review roster by voter id or reviewer identity, reads
+      the finding, the cited lines at the head and the rejection through the reviewer's own call_model,
+      and answers accepted or refused with one sentence; anything that stops a judgement is returned as
+      data so the caller fails closed, and with nothing to judge no overlay is read.
+    acceptance:
+      - id: AC103
+        statement: 'AC103: a judge sharing a voter id or reviewer identity is never chosen, the prompt
+          fences the pull request text as data, accepted and refused verdicts are recorded per rejection,
+          an answer that is no verdict is retried once then noted, an unconfigured judge, a refused voters
+          overlay or a failed call is returned as data with exit 1, and an empty batch reads no overlay
+          -- falsifier: uv run pytest tests/unit/review_pairing/test_review_rejection_judge_omn17427.py
+          -q -n 0'
 evidence_requirements:
   - kind: tests
     description: Retry budget, unchanged first call, request wiring and the failed-vote path.
@@ -82,6 +96,10 @@ evidence_requirements:
       same vote.
     command: uv run pytest tests/unit/review_pairing/test_large_diff_json_review.py tests/unit/review_pairing/test_review_voter_overflow.py
       -q -n 0
+  - kind: tests
+    description: The rejection judge node and cli_review judge-rejections with real overlay files and
+      the model call replaced; one case runs the real call_model with the judge's key unset.
+    command: uv run pytest tests/unit/review_pairing/test_review_rejection_judge_omn17427.py -q -n 0
 emergency_bypass:
   enabled: false
   justification: ''
@@ -178,3 +196,12 @@ dod_evidence:
           tests/unit/review_pairing/test_review_voter_overflow.py -q -n 0
     binds_ac:
       - AC6
+  - id: dod-omn17427-ac103-review-bot-judge
+    description: The judge node and judge-rejections command fail on the merge base, which has neither.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/review_pairing/test_review_rejection_judge_omn17427.py -q
+          -n 0
+    binds_ac:
+      - AC103
