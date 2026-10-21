@@ -87,6 +87,15 @@ requirements:
           handle(request) method selects the independent judge and returns its plan -- falsifier: uv run
           pytest tests/unit/review_pairing/test_review_rejection_judge_omn17427.py::TestPlan::test_contract_dispatches_to_the_typed_handler
           -q fails without the class binding'
+  - id: req-repository-contract-migration
+    statement: The closer can read the three migrated ticket contracts from this repository without losing
+      their source evidence.
+    acceptance:
+      - id: AC105
+        statement: 'AC105: contracts/OMN-16764.yaml, contracts/OMN-17492.yaml and contracts/OMN-21047.yaml
+          parse as their own ticket contracts and retain the exact source blob bytes copied from OCC commit
+          49cfc14c21a2c50f9964c1aeed4b66001ce279a3 -- falsifier: uv run pytest tests/unit/test_migrated_ticket_contracts_omn17427.py
+          -q fails at the merge base where the three repository-local contracts are absent.'
 evidence_requirements:
   - kind: tests
     description: Retry budget, unchanged first call, request wiring and the failed-vote path.
@@ -219,3 +228,12 @@ dod_evidence:
           -q
     binds_ac:
       - AC104
+  - id: dod-omn17427-ac105-repository-contract-migration
+    description: Read all three migrated contracts at the resolver path, validate their ticket models
+      and compare their Git blob identities with the source contracts.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/test_migrated_ticket_contracts_omn17427.py -q
+    binds_ac:
+      - AC105
