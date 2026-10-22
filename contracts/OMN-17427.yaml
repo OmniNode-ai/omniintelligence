@@ -96,6 +96,15 @@ requirements:
           parse as their own ticket contracts and retain the exact source blob bytes copied from OCC commit
           49cfc14c21a2c50f9964c1aeed4b66001ce279a3 -- falsifier: uv run pytest tests/unit/test_migrated_ticket_contracts_omn17427.py
           -q fails at the merge base where the three repository-local contracts are absent.'
+  - id: req-mypy-hook-serial
+    statement: The mypy-type-check pre-push hook runs one mypy process, so concurrent mypy 2.3.0 processes
+      no longer race on the shared incremental SQLite cache and refuse a push with INTERNAL ERROR (database
+      is locked).
+    acceptance:
+      - id: AC106
+        statement: 'AC106: the mypy-type-check hook sets require_serial true and keeps --incremental and
+          pass_filenames -- falsifier: uv run pytest tests/ci/test_mypy_hook_serial_omn17427.py -q -n
+          0 fails at the merge base, where the hook has no require_serial'
 evidence_requirements:
   - kind: tests
     description: Retry budget, unchanged first call, request wiring and the failed-vote path.
@@ -114,6 +123,9 @@ evidence_requirements:
     description: The rejection judge node and cli_review judge-rejections with real overlay files and
       the model call replaced; one case runs the real call_model with the judge's key unset.
     command: uv run pytest tests/unit/review_pairing/test_review_rejection_judge_omn17427.py -q -n 0
+  - kind: tests
+    description: The hook test reads .pre-commit-config.yaml for the mypy-type-check hook.
+    command: uv run pytest tests/ci/test_mypy_hook_serial_omn17427.py -q -n 0
 emergency_bypass:
   enabled: false
   justification: ''
@@ -237,3 +249,11 @@ dod_evidence:
         check_value: uv run pytest tests/unit/test_migrated_ticket_contracts_omn17427.py -q
     binds_ac:
       - AC105
+  - id: dod-omn17427-ac106-mypy-hook-serial
+    description: The mypy pre-push hook runs serially and keeps its incremental cache and file list.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_mypy_hook_serial_omn17427.py -q -n 0
+    binds_ac:
+      - AC106

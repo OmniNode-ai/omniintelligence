@@ -239,7 +239,7 @@
 #
 # 7. Parallel execution
 #    - require_serial: false (default) allows hooks to run in parallel
-#    - Note: Some hooks set require_serial: true when order matters
+#    - Note: Some hooks set require_serial: true when order matters or they share a cache (mypy)
 
 # Stop on first failure to avoid wasted hook runs during development
 fail_fast: true
@@ -493,6 +493,7 @@ repos:
       # Scope: All production source code in src/omniintelligence/
       # Stage: pre-push (moved from pre-commit for faster commit cycles)
       # --incremental uses mypy cache for faster subsequent runs
+      # require_serial: one mypy process; concurrent runs race on the sqlite cache (INTERNAL ERROR, OMN-17427)
       # --------------------------------------------------------------------------
       - id: mypy-type-check
         name: mypy (type checking)
@@ -502,6 +503,7 @@ repos:
         files: ^src/omniintelligence/.*\.py$
         exclude: ^tests/.*\.py$
         pass_filenames: true
+        require_serial: true
         stages: [pre-push]
 
   # ============================================================================
