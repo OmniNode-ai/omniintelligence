@@ -486,4 +486,16 @@ override-dependencies = [
     # and surfaced ~110 new PLR0917-class lint findings in pre-existing test code
     # that are out of scope for this dependency-pin fix.
     "ruff==0.15.8",
+    # OMN-20910: the Dependabot security update for opentelemetry-api (advisory
+    # affects <= 1.45.0) fails as dependency_file_not_resolvable. omnibase-infra
+    # (through 0.38.76) caps the contrib instrumentation family at <0.66, and every
+    # 0.65b0-or-older contrib release pins opentelemetry-semantic-conventions, which
+    # pins opentelemetry-api <= 1.44.0. Lift the cap to the 0.66 line so the lock
+    # resolves opentelemetry-api 1.45.1. Remove these once omnibase-infra declares <0.67.
+    "opentelemetry-instrumentation>=0.48b0,<0.67",
+    "opentelemetry-instrumentation-aiohttp-client>=0.48b0,<0.67",
+    "opentelemetry-instrumentation-asyncpg>=0.48b0,<0.67",
+    "opentelemetry-instrumentation-fastapi>=0.48b0,<0.67",
+    "opentelemetry-instrumentation-kafka-python>=0.48b0,<0.67",
+    "opentelemetry-instrumentation-redis>=0.48b0,<0.67",
 ]
