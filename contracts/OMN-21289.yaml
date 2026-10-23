@@ -31,8 +31,8 @@ requirements:
           0 --no-cov -k test_chunks_keep_each_file_block_whole fails when the pattern is reverted"
       - id: AC3
         statement: "AC3: a unified diff is chunked exactly as before -- falsifier: uv run pytest tests/unit/review_pairing/test_review_chunk_fallback_target_omn21289.py
-          -q -n 0 --no-cov -k test_a_unified_diff_is_chunked_as_before fails when the chunks differ from
-          the per-file split"
+          -q -n 0 --no-cov fails when unified-diff chunks differ from the per-file split or files-API
+          fallback chunking is reverted; both input formats must pass together"
 evidence_requirements:
   - kind: tests
     description: "The fallback target built by cli_review for 275 removed files, chunked at the 32768-token
@@ -63,11 +63,12 @@ dod_evidence:
     binds_ac:
       - AC2
   - id: dod-omn21289-ac3-unified-diff
-    description: "A two-file unified diff over the budget is split at its diff --git lines as before."
+    description: "A two-file unified diff over the budget is split at its diff --git lines as before,
+      while the files-API fallback target also chunks within budget with whole file blocks."
     source: "manual"
     checks:
       - check_type: "test_passes"
         check_value: "uv run pytest tests/unit/review_pairing/test_review_chunk_fallback_target_omn21289.py
-          -q -n 0 --no-cov -k test_a_unified_diff_is_chunked_as_before"
+          -q -n 0 --no-cov"
     binds_ac:
       - AC3
