@@ -1,0 +1,74 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+schema_version: "1.0.0"
+ticket_id: OMN-21289
+title: "Hostile Reviewer: the files-API review target is chunked per file block"
+summary: "Cause fix for the Hostile Review Gate red on a pull request too large for the unified diff endpoint.
+  The reviewer then reviews a bounded files-API target that carries no diff --git lines; _review_chunks
+  took everything before its first hunk, the preamble and the whole changed-files list, as one file header
+  and repeated it in every chunk, so a voter with a small context window raised review context cannot
+  fit a diff line and header at once and the verdict degraded with no finding. The chunker now splits
+  that target at its per-file blocks. The acceptance criteria below are this change's own; the delegation-adapter
+  criteria listed on the ticket are not touched by this change."
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: req-fallback-target-chunking
+    statement: "The files-API fallback target of a large pull request is split into chunks that fit a
+      small voter context window, with every file block kept whole."
+    acceptance:
+      - id: AC1
+        statement: "AC1: the fallback target of a 275-file pull request is chunked for a 9078-byte chunk
+          budget without raising, every chunk within budget and every file block in exactly one chunk
+          -- falsifier: uv run pytest tests/unit/review_pairing/test_review_chunk_fallback_target_omn21289.py
+          -q -n 0 --no-cov -k test_a_275_file fails with ValueError review context cannot fit a diff line
+          and header when the boundary pattern is the diff --git pattern only"
+      - id: AC2
+        statement: "AC2: a file block that fits a chunk is never split across two chunks -- falsifier:
+          uv run pytest tests/unit/review_pairing/test_review_chunk_fallback_target_omn21289.py -q -n
+          0 --no-cov -k test_chunks_keep_each_file_block_whole fails when the pattern is reverted"
+      - id: AC3
+        statement: "AC3: a unified diff is chunked exactly as before -- falsifier: uv run pytest tests/unit/review_pairing/test_review_chunk_fallback_target_omn21289.py
+          -q -n 0 --no-cov fails when unified-diff chunks differ from the per-file split or files-API
+          fallback chunking is reverted; both input formats must pass together"
+evidence_requirements:
+  - kind: tests
+    description: "The fallback target built by cli_review for 275 removed files, chunked at the 32768-token
+      voter's budget, plus the existing chunk-deadline and cli_review suites."
+    command: "uv run pytest tests/unit/review_pairing/test_review_chunk_fallback_target_omn21289.py tests/unit/review_pairing/test_review_chunk_deadline_omn20910.py
+      tests/unit/review_pairing/test_cli_review.py -q -n 0 --no-cov"
+emergency_bypass:
+  enabled: false
+  justification: ""
+  follow_up_ticket_id: ""
+dod_evidence:
+  - id: dod-omn21289-ac1-chunks
+    description: "The 275-file fallback target chunks within budget with each file block in one chunk."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/review_pairing/test_review_chunk_fallback_target_omn21289.py
+          -q -n 0 --no-cov -k test_a_275_file"
+    binds_ac:
+      - AC1
+  - id: dod-omn21289-ac2-blocks-whole
+    description: "Each file block, header line and patch, lies in a single chunk."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/review_pairing/test_review_chunk_fallback_target_omn21289.py
+          -q -n 0 --no-cov -k test_chunks_keep_each_file_block_whole"
+    binds_ac:
+      - AC2
+  - id: dod-omn21289-ac3-unified-diff
+    description: "A two-file unified diff over the budget is split at its diff --git lines as before,
+      while the files-API fallback target also chunks within budget with whole file blocks."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/review_pairing/test_review_chunk_fallback_target_omn21289.py
+          -q -n 0 --no-cov"
+    binds_ac:
+      - AC3
