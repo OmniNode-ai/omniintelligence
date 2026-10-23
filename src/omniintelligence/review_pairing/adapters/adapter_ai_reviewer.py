@@ -123,6 +123,12 @@ _RETRY_MAX_TOKENS: int = 2 * _DEFAULT_MAX_TOKENS
 _MAX_REVIEW_TOKENS: int = 8192
 _CONTEXT_MARGIN: int = 1024
 
+# OMN-21289: a file starts at a unified-diff header or at a block of the
+# files-API fallback target that cli_review builds for an oversized pull request.
+_REVIEW_FILE_BOUNDARY = re.compile(
+    r"(?=^diff --git |^--- \S.* \([a-z_]+, \+\d+/-\d+\) ---$)", re.MULTILINE
+)
+
 # Default temperature for consistent review output.
 _DEFAULT_TEMPERATURE: float = 0.3
 
@@ -1326,6 +1332,10 @@ def _try_parse_complete_review(raw_text: str) -> list[dict[str, Any]] | None:
 def _review_chunks(content: str, max_bytes: int) -> list[str]:
     """Pack whole files, splitting oversized files at hunk/line boundaries.
 
+    The files-API fallback target (cli_review) carries no ``diff --git`` lines;
+    it is split at its per-file ``--- name (status, +a/-d) ---`` blocks, so its
+    preamble is not repeated as a header in every chunk (OMN-21289).
+
     UTF-8 bytes conservatively bound byte-tokenizer input without assuming an
     English characters-per-token ratio for code or non-ASCII text. No evidence
     is truncated. An indivisible line/header that cannot fit fails the vote.
@@ -1334,7 +1344,7 @@ def _review_chunks(content: str, max_bytes: int) -> list[str]:
         raise ValueError("review context cannot fit prompts and reserved output")
     if len(content.encode()) <= max_bytes:
         return [content]
-    files = re.split(r"(?=^diff --git )", content, flags=re.MULTILINE)
+    files = _REVIEW_FILE_BOUNDARY.split(content)
     parts: list[str] = []
     for file in files:
         if not file:
