@@ -22,7 +22,7 @@ import asyncio
 import json
 import re
 import textwrap
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -970,6 +970,66 @@ class TestAnthropicVoter:
         assert not result.success
         assert attempts == 1
         assert result.error == "Claude API call failed (HTTP 401)"
+
+    @pytest.mark.parametrize(
+        ("message", "extra"),
+        [
+            ("`temperature` is deprecated for this model", ""),
+            ("long message " * 100, ""),
+            ("bad\n  request\tvalue", "synthetic-test-credential"),
+        ],
+    )
+    def test_provider_error_summary(
+        self,
+        tmp_path: Path,
+        api: Callable[[Callable[[httpx.Request], httpx.Response]], None],
+        message: str,
+        extra: str,
+    ) -> None:
+        self._register(tmp_path, max_retries=2)
+        attempts = 0
+
+        def reply(_request: httpx.Request) -> httpx.Response:
+            nonlocal attempts
+            attempts += 1
+            return httpx.Response(
+                400,
+                json={
+                    "type": "error",
+                    "extra": extra,
+                    "error": {"type": "invalid_request_error", "message": message},
+                },
+            )
+
+        api(reply)
+        result = asyncio.run(
+            adapter_ai_reviewer.async_parse_raw("diff", model="second")
+        )
+        suffix = " ".join(f"invalid_request_error: {message}".split())[:200]
+        assert result.error == f"Claude API call failed (HTTP 400): {suffix}"
+        assert len(suffix) <= 200
+        assert attempts == 1
+        assert "synthetic-test-credential" not in (result.error or "")
+
+    @pytest.mark.parametrize(
+        "body",
+        [
+            None,
+            [],
+            {},
+            {"error": []},
+            {"error": {}},
+            {"error": {"type": "invalid_request_error"}},
+            {"error": {"message": "bad request"}},
+            {"error": {"type": 1, "message": "bad request"}},
+            {"error": {"type": "invalid_request_error", "message": None}},
+        ],
+    )
+    def test_malformed_provider_error_keeps_status_only(self, body: object) -> None:
+        response = httpx.Response(400, content=json.dumps(body))
+        assert adapter_ai_reviewer._claude_error_summary(response) == (
+            "Claude API call failed (HTTP 400)"
+        )
 
     def test_parse_retry_accumulates_tokens_and_separate_reviews_reset(
         self, tmp_path: Path, api
