@@ -34,6 +34,15 @@ requirements:
           code with a family, a max_tokens stop reason is not a normal end, and the default prompt is
           the frozen v1 text -- falsifier: uv run pytest tests/unit/review_pairing/test_compact_verdict_omn20910.py
           -q -n 0 fails at the merge base"
+  - id: "req-claude-api-error-detail"
+    statement: "Claude API failures expose the provider's error type and message when both are strings,
+      without including unrelated response fields."
+    acceptance:
+      - id: "AC11"
+        statement: "AC11: a non-200 Claude API response includes valid error.type and error.message in
+          a single-line suffix of at most 200 characters, excludes unrelated response fields, and keeps
+          status-only errors for malformed bodies -- falsifier: uv run pytest tests/unit/review_pairing/test_review_voters_overlay_omn20910.py
+          -q -k 'provider_error_summary or malformed_provider_error_keeps_status_only'"
 evidence_requirements:
   - kind: "tests"
     description: "A voter removed from the overlay is not called."
@@ -46,6 +55,17 @@ emergency_bypass:
   justification: ""
   follow_up_ticket_id: ""
 dod_evidence:
+  - id: "dod-omn20910-claude-api-error-detail"
+    description: "Claude API HTTP 400 errors include the provider's type and message, collapse whitespace,
+      truncate the suffix to 200 characters, exclude an unrelated synthetic credential field, and retain
+      status-only errors for malformed bodies."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/review_pairing/test_review_voters_overlay_omn20910.py -q
+          -k 'provider_error_summary or malformed_provider_error_keeps_status_only'"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC11"]
   - id: "dod-omn20910-contract-host-handler"
     description: "The contract-bound typed host handler injects the pool interpreter and permitted host
       environment into the review effect. The new node package and its handlers are covered by package

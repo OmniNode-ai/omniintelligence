@@ -29,7 +29,7 @@ import time
 import urllib.parse
 from collections.abc import Mapping
 from contextvars import ContextVar
-from typing import Any, TypedDict, Unpack
+from typing import TYPE_CHECKING, Any, TypedDict, Unpack
 from uuid import uuid4
 
 from omniintelligence.models.review.model_review_call_response import (
@@ -78,6 +78,9 @@ from omniintelligence.review_pairing.served_model_resolver import (
     ServedModelResolutionError,
     resolve_served_model_id,
 )
+
+if TYPE_CHECKING:
+    import httpx
 
 logger = logging.getLogger(__name__)
 _ANTHROPIC_USAGE: ContextVar[list[int] | None] = ContextVar(
@@ -413,6 +416,26 @@ def _validate_model_key(model_key: str) -> None:
         raise ValueError(f"Unknown model '{model_key}'. Valid: {valid}")
 
 
+def _claude_error_summary(response: httpx.Response) -> str:
+    """Include only valid provider error fields, bounded to one line."""
+    detail = f"Claude API call failed (HTTP {response.status_code})"
+    try:
+        data = response.json()
+    except ValueError:
+        return detail
+    if not isinstance(data, dict):
+        return detail
+    error = data.get("error")
+    if not isinstance(error, dict):
+        return detail
+    error_type = error.get("type")
+    message = error.get("message")
+    if not isinstance(error_type, str) or not isinstance(message, str):
+        return detail
+    suffix = " ".join(f"{error_type}: {message}".split())[:200]
+    return f"{detail}: {suffix}"
+
+
 async def _call_claude_api_response(
     system_prompt: str,
     user_prompt: str,
@@ -424,8 +447,8 @@ async def _call_claude_api_response(
     A reply that stopped at ``max_tokens`` is returned as such, never raised or
     shortened: the strict parser decides that it is not a complete review
     (OMN-20910). Bounded retries. Only the named
-    environment variable is read. Errors contain status/type, never headers,
-    provider response bodies, request text or credentials.
+    environment variable is read. Errors contain status and bounded provider
+    error type/message fields, never headers or request text.
     """
     import httpx
     from omnibase_infra.handlers.models.model_retry_state import ModelRetryState
@@ -477,7 +500,7 @@ async def _call_claude_api_response(
             else:
                 if response.status_code == 200:
                     break
-                detail = f"Claude API call failed (HTTP {response.status_code})"
+                detail = _claude_error_summary(response)
                 if (
                     response.status_code not in {408, 409, 429}
                     and response.status_code < 500
