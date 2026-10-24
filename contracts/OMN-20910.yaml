@@ -53,6 +53,16 @@ requirements:
       - id: "AC13"
         statement: "AC13: all six infra instrumentation overrides admit contrib 0.66b1 and their locked
           versions are at least 0.66b1 and satisfy the declared overrides."
+  - id: "req-claude-voter-max-tokens-retry"
+    statement: "A Claude API voter whose review reply stops at max_tokens takes the JSON-only retry with
+      twice the output budget, and any other incomplete stop fails the vote naming its stop reason."
+    acceptance:
+      - id: "AC14"
+        statement: "AC14: a review chunk whose Claude reply stops at max_tokens is retried once with JSON
+          only and doubled max_tokens; a retry also cut fails as an unparseable reply keeping usage; a
+          refusal fails without retry naming stop_reason=refusal; call_model still raises on max_tokens
+          -- falsifier: uv run pytest tests/unit/review_pairing/test_claude_voter_max_tokens_retry_omn20910.py
+          -q"
 evidence_requirements:
   - kind: "tests"
     description: "A voter removed from the overlay is not called."
@@ -199,3 +209,14 @@ dod_evidence:
           -n 0"
         cwd: "${OMNI_HOME}/omniintelligence"
     binds_ac: ["AC1", "AC2"]
+  - id: "dod-omn20910-claude-voter-max-tokens-retry"
+    description: "A Claude API review reply cut at max_tokens reaches the JSON-only retry with doubled
+      max_tokens instead of failing the vote; a second cut fails as unparseable with usage kept; a refusal
+      names its stop reason; the v1 text call still raises."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/review_pairing/test_claude_voter_max_tokens_retry_omn20910.py
+          -q -n 0"
+        cwd: "${OMNI_HOME}/omniintelligence"
+    binds_ac: ["AC14"]
