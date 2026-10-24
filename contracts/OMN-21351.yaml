@@ -18,7 +18,7 @@ requirements:
           the file having declared only version-update schedules; the registry ratchet is uv run pytest
           tests/ci -k no_dependabot_version_updates in omnibase_infra'
 evidence_requirements:
-  - kind: command
+  - kind: manual
     description: .github/dependabot.yml is absent from the repository.
     command: test ! -e .github/dependabot.yml
 emergency_bypass:
@@ -33,6 +33,6 @@ dod_evidence:
     checks:
       - check_type: command
         check_value: test ! -e .github/dependabot.yml
-        cwd: ${OMNI_HOME}/omniintelligence
+        cwd: "."
     binds_ac:
       - AC1
