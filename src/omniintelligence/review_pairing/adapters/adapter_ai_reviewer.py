@@ -87,6 +87,21 @@ _ANTHROPIC_USAGE: ContextVar[list[int] | None] = ContextVar(
     "anthropic_review_usage", default=None
 )
 
+
+class ClaudeReplyIncompleteError(RuntimeError):
+    """A Claude reply stopped before completion (OMN-20910)."""
+
+    stop_reason: str
+    reply_length: int
+
+    def __init__(self, *, stop_reason: str, reply_length: int) -> None:
+        self.stop_reason = stop_reason
+        self.reply_length = reply_length
+        super().__init__(
+            f"Unexpected or incomplete Claude API response (stop_reason={stop_reason})"
+        )
+
+
 # ---------------------------------------------------------------------------
 # Severity mapping
 # ---------------------------------------------------------------------------
@@ -734,7 +749,10 @@ async def call_model_response(
             "end_turn",
             "stop_sequence",
         }:
-            raise RuntimeError("Unexpected or incomplete Claude API response")
+            raise ClaudeReplyIncompleteError(
+                stop_reason=str(claude_response.stop_reason),
+                reply_length=len(claude_response.content),
+            )
         return claude_response
     if config.kind == "cli_fallback":
         raise ValueError(
@@ -1511,6 +1529,23 @@ async def async_parse_raw(
             except TimeoutError as exc:
                 raise _budget_exhausted(model, deadline_seconds) from exc
 
+        async def call_and_parse_chunk(
+            system: str,
+            user: str,
+            *,
+            chunks_left: int,
+            **kwargs: Unpack[_OutputBudgetKwargs],
+        ) -> tuple[list[dict[str, Any]] | None, int]:
+            try:
+                raw_text = await call_before_deadline(
+                    system, user, chunks_left=chunks_left, **kwargs
+                )
+            except ClaudeReplyIncompleteError as exc:
+                if exc.stop_reason != "max_tokens":
+                    raise
+                return None, exc.reply_length
+            return _try_parse_complete_review(raw_text), len(raw_text)
+
         system_prompt, empty_user_prompt = build_review_prompt(
             "",
             review_type=review_type,
@@ -1582,15 +1617,13 @@ async def async_parse_raw(
                 if output_tokens != _DEFAULT_MAX_TOKENS
                 else {}
             )
-            raw_text = await call_before_deadline(
+            parsed, first_length = await call_and_parse_chunk(
                 chunk_system,
                 user_prompt,
                 chunks_left=len(chunks) - index + 1,
                 **budget_kwargs,
             )
-            parsed = _try_parse_complete_review(raw_text)
             if parsed is None:
-                first_length = len(raw_text)
                 retry_tokens = 2 * output_tokens
                 logger.warning(
                     "Model '%s' chunk %d/%d reply did not parse (%d chars); "
@@ -1601,17 +1634,16 @@ async def async_parse_raw(
                     first_length,
                     retry_tokens,
                 )
-                raw_text = await call_before_deadline(
+                parsed, retry_length = await call_and_parse_chunk(
                     chunk_system + _JSON_ONLY_RETRY,
                     user_prompt,
                     chunks_left=len(chunks) - index + 1,
                     max_tokens=retry_tokens,
                     json_only=True,
                 )
-                parsed = _try_parse_complete_review(raw_text)
                 if parsed is None:
                     failure = unparseable_reply_result(
-                        model, len(raw_text), earlier_lengths=(first_length,)
+                        model, retry_length, earlier_lengths=(first_length,)
                     )
                     if len(chunks) > 1:
                         failure = failure.model_copy(
