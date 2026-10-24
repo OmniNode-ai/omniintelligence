@@ -31,6 +31,9 @@ dod_evidence:
       the repository.
     source: manual
     checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/test_no_dependabot_version_updates_omn21351.py -q -n 0
+        cwd: "."
       - check_type: command
         check_value: test ! -e .github/dependabot.yml
         cwd: "."
