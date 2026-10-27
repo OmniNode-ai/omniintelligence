@@ -1,0 +1,46 @@
+---
+schema_version: "1.0.0"
+ticket_id: OMN-21164
+title: omniintelligence declares 0.25.0 on dev with a changelog covering the window since v0.24.0
+summary: >-
+  The deliberate minor release the train's policy note asks for before omniintelligence can be cut automatically.
+  pyproject.toml and the editable package entry in uv.lock declare 0.25.0, and a new CHANGELOG.md records
+  the 112 commits to src and pyproject.toml since v0.24.0. The merged PR's chore(release) title fires
+  auto-tag-on-merge.yml, so the tag push starts release.yml on a push event. This contract binds AC1.
+  AC2 (the policy row) is an omnibase_infra change, and AC3 and AC4 (tag, PyPI, push-event run) can only
+  be read after this PR merges, so they are bound in that later PR.
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: req-omn21164-version
+    statement: dev declares 0.25.0 and the changelog covers the window since v0.24.0.
+    acceptance:
+      - id: AC1
+        statement: "AC1: dev declares 0.25.0 and the changelog covers the window since v0.24.0 -- falsifier:
+          `gh api repos/OmniNode-ai/omniintelligence/contents/pyproject.toml?ref=dev` still reads version
+          0.24.0, or CHANGELOG.md on dev has no entry above 0.24.0."
+evidence_requirements:
+  - kind: manual
+    description: pyproject.toml declares 0.25.0 and CHANGELOG.md carries a 0.25.0 entry.
+    command: grep -q '^version = "0.25.0"$' pyproject.toml && grep -q '^## \[0.25.0\]' CHANGELOG.md
+emergency_bypass:
+  enabled: false
+  justification: ''
+  follow_up_ticket_id: ''
+dod_evidence:
+  - id: dod-omn21164-ac1-version-and-changelog
+    description: >-
+      pyproject.toml's [project] version and the editable omninode-intelligence entry in uv.lock read
+      0.25.0, and CHANGELOG.md has a 0.25.0 entry that names the v0.24.0 window. At the merge base pyproject.toml
+      reads 0.24.0 and there is no CHANGELOG.md.
+    source: manual
+    checks:
+      - check_type: command
+        check_value: >-
+          grep -q '^version = "0.25.0"$' pyproject.toml && grep -A1 '^name = "omninode-intelligence"$'
+          uv.lock | grep -q '^version = "0.25.0"$' && grep -q '^## \[0.25.0\]' CHANGELOG.md && grep -q
+          'v0.24.0' CHANGELOG.md
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC1

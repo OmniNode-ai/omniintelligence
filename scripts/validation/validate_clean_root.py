@@ -69,6 +69,7 @@ ALLOWED_ROOT_FILES: frozenset[str] = frozenset(
         "LICENSE",
         "LICENSE.md",
         "LICENSE.txt",
+        "CHANGELOG.md",
         # ONEX-specific
         "CLAUDE.md",
         # Environment
