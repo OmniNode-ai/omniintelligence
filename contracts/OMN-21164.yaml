@@ -8,7 +8,8 @@ summary: >-
   the 112 commits to src and pyproject.toml since v0.24.0. The merged PR's chore(release) title fires
   auto-tag-on-merge.yml, so the tag push starts release.yml on a push event. This contract binds AC1.
   AC2 (the policy row) is an omnibase_infra change, and AC3 and AC4 (tag, PyPI, push-event run) can only
-  be read after this PR merges, so they are bound in that later PR.
+  be read after this PR merges, so they are bound in that later PR. AC5 covers the follow-up canonical-file-shape
+  ratchet fix for the release push to main.
 is_seam_ticket: false
 interface_change: false
 interfaces_touched: []
@@ -20,6 +21,16 @@ requirements:
         statement: "AC1: dev declares 0.25.0 and the changelog covers the window since v0.24.0 -- falsifier:
           `gh api repos/OmniNode-ai/omniintelligence/contents/pyproject.toml?ref=dev` still reads version
           0.24.0, or CHANGELOG.md on dev has no entry above 0.24.0."
+  - id: req-omn21164-release-push-ratchet
+    statement: The canonical-file-shape ratchet accepts a release fast-forward to main without treating
+      exception files already landed on dev as new.
+    acceptance:
+      - id: AC5
+        statement: >-
+          A push to main of a commit already on dev passes the baseline check for existing exception files.
+          The same range pushed to dev remains diffed, and newly added exception files remain refused
+          on pull requests, merge groups, and pushes to main of commits not on dev. Falsifier: tests/ci/test_canonical_file_shape_release_push_omn21164.py
+          fails any of these five cases.
 evidence_requirements:
   - kind: manual
     description: pyproject.toml declares 0.25.0 and CHANGELOG.md carries a 0.25.0 entry.
@@ -53,9 +64,11 @@ dod_evidence:
       not against the previous release, so the 0.25.0 release commit stops reading existing exception
       files as new. A newly added exception file is still refused on a pull request, a merge group, and
       a push to main of a commit not on dev, and the same range pushed to dev is still diffed. This follows
-      the release PR (the release commit went red after merge); it binds none of AC1 to AC4.
+      the release PR (the release commit went red after merge) and binds AC5.
     source: manual
     checks:
       - check_type: test_passes
         check_value: uv run pytest tests/ci/test_canonical_file_shape_release_push_omn21164.py -q -n 0
         cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC5
