@@ -1349,9 +1349,24 @@ jobs:
           PR_BASE: ${{ github.event.pull_request.base.sha }}
           MQ_BASE: ${{ github.event.merge_group.base_sha }}
           PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_REF: ${{ github.ref }}
         run: |
           set -u
           base="${PR_BASE:-${MQ_BASE:-${PUSH_BEFORE:-}}}"
+          # OMN-21164: release.yml fast-forwards main to a dev sha, so a push to
+          # main takes the previous release as `before` and the range spans every
+          # dev PR since then. Each was checked on its own dev PR, and the exception
+          # files they added read as new against that old base (the 0.25.0 release
+          # commit went red on files from #917 and #953). A push to main of a commit
+          # already on dev is checked against the baseline; a push of any other
+          # commit, and every push to dev, still diffs its own range.
+          if [ -z "${PR_BASE:-}${MQ_BASE:-}" ] && [ "${PUSH_REF:-}" = "refs/heads/main" ]; then
+            git fetch -q --no-tags origin +refs/heads/dev:refs/remotes/origin/dev
+            if git merge-base --is-ancestor HEAD refs/remotes/origin/dev; then
+              echo "push to main of a commit already on dev (fast-forward of ${PUSH_BEFORE:-}..HEAD); each commit was checked on its dev PR"
+              base=""
+            fi
+          fi
           if [ -n "$base" ] && git cat-file -e "${base}^{commit}" 2>/dev/null; then
             base="$(git merge-base "$base" HEAD)"
             uv run --no-project --with "$CANONICAL_FILE_SHAPE_CORE" \
