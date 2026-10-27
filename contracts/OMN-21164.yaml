@@ -47,3 +47,15 @@ dod_evidence:
         cwd: ${OMNI_HOME}/omniintelligence
     binds_ac:
       - AC1
+  - id: dod-omn21164-release-push-ratchet
+    description: >-
+      The Canonical File Shape step checks a push to main of a commit already on dev against the baseline,
+      not against the previous release, so the 0.25.0 release commit stops reading existing exception
+      files as new. A newly added exception file is still refused on a pull request, a merge group, and
+      a push to main of a commit not on dev, and the same range pushed to dev is still diffed. This follows
+      the release PR (the release commit went red after merge); it binds none of AC1 to AC4.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_canonical_file_shape_release_push_omn21164.py -q -n 0
+        cwd: ${OMNI_HOME}/omniintelligence
