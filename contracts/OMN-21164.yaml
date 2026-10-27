@@ -23,7 +23,7 @@ requirements:
 evidence_requirements:
   - kind: manual
     description: pyproject.toml declares 0.25.0 and CHANGELOG.md carries a 0.25.0 entry.
-    command: grep -q '^version = "0.25.0"$' pyproject.toml && grep -q '^## \[0.25.0\]' CHANGELOG.md
+    command: grep -q '^version = "0.25.0"$' pyproject.toml && grep -q '^## v0.25.0 ' CHANGELOG.md
 emergency_bypass:
   enabled: false
   justification: ''
@@ -39,8 +39,8 @@ dod_evidence:
       - check_type: command
         check_value: >-
           grep -q '^version = "0.25.0"$' pyproject.toml && grep -A1 '^name = "omninode-intelligence"$'
-          uv.lock | grep -q '^version = "0.25.0"$' && grep -q '^## \[0.25.0\]' CHANGELOG.md && grep -q
-          'v0.24.0' CHANGELOG.md
+          uv.lock | grep -q '^version = "0.25.0"$' && grep -q '^## v0.25.0 ' CHANGELOG.md && grep -q 'v0.24.0'
+          CHANGELOG.md
         cwd: ${OMNI_HOME}/omniintelligence
     binds_ac:
       - AC1

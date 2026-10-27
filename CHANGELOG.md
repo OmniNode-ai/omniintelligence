@@ -1,9 +1,4 @@
-# Changelog
-
-All notable changes to `omninode-intelligence` are recorded here. Versions follow
-[Semantic Versioning](https://semver.org/).
-
-## [0.25.0] - 2026-10-27
+## v0.25.0 (2026-10-27)
 
 A minor release that catches up the changes made since 0.24.0, cut deliberately as a minor
 rather than a patch because of how much accumulated. It covers 112 commits to `src` and
