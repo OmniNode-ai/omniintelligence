@@ -36,6 +36,9 @@ dod_evidence:
       reads 0.24.0 and there is no CHANGELOG.md.
     source: manual
     checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/test_release_0_25_0_omn21164.py -q -n 0
+        cwd: ${OMNI_HOME}/omniintelligence
       - check_type: command
         check_value: >-
           grep -q '^version = "0.25.0"$' pyproject.toml && grep -A1 '^name = "omninode-intelligence"$'
