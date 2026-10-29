@@ -45,12 +45,21 @@ emergency_bypass:
   follow_up_ticket_id: ''
 dod_evidence:
   - id: dod-omn21527-ac1-hook-wired-and-green
-    description: The hook passes on the whole tree at the pinned tag, the existing baseline still lists
-      274 entries, and the burn-down file names this ticket in its first comment line and lists 79 paths.
+    description: The hook and CI use the same tag and file-shape arguments. The hook's pinned node entry
+      passes on the whole tree without initializing unrelated pre-commit environments inside the verifier's
+      per-check budget. The existing baseline still lists 274 entries, and the burn-down file names this
+      ticket in its first comment line and lists 79 paths.
     source: manual
     checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_imperative_contract_guard_caller_omn21005.py::test_canonical_shape_hook_and_ci_use_the_same_dev_merge_tag
+          -q -n 0
+        cwd: ${OMNI_HOME}/omniintelligence
       - check_type: command
-        check_value: uv run pre-commit run canonical-file-shape --all-files
+        check_value: >-
+          uv run --no-project --with 'omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core@dev-20261029151319-6e0a5eee541a'
+          python -m omnibase_core.nodes.node_canonical_file_shape_check_compute.runtime_canonical_file_shape_check
+          --rules file-shape --head HEAD
         cwd: ${OMNI_HOME}/omniintelligence
       - check_type: command
         check_value: >-
