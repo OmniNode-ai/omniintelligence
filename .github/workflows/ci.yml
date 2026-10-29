@@ -1307,7 +1307,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      CANONICAL_FILE_SHAPE_CORE: "omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core@031148215620031436cba30619bbae67c0bb38ad"
+      CANONICAL_FILE_SHAPE_CORE: "omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core@dev-20261029151319-6e0a5eee541a"
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -1326,7 +1326,7 @@ jobs:
           set -u
           ratchet() {
             uv run --no-project --with "$CANONICAL_FILE_SHAPE_CORE" \
-              python -m omnibase_core.validators.canonical_file_shape "$@"
+              python -m omnibase_core.nodes.node_canonical_file_shape_check_compute.runtime_canonical_file_shape_check --rules file-shape "$@"
           }
           mkdir -p bin tests
           printf '#!/bin/sh\necho planted\n' > bin/zz_canary_planted
@@ -1370,11 +1370,11 @@ jobs:
           if [ -n "$base" ] && git cat-file -e "${base}^{commit}" 2>/dev/null; then
             base="$(git merge-base "$base" HEAD)"
             uv run --no-project --with "$CANONICAL_FILE_SHAPE_CORE" \
-              python -m omnibase_core.validators.canonical_file_shape --base "$base" --head HEAD
+              python -m omnibase_core.nodes.node_canonical_file_shape_check_compute.runtime_canonical_file_shape_check --rules file-shape --base "$base" --head HEAD
           else
             echo "no base revision on this event; checking the tree against the baseline only"
             uv run --no-project --with "$CANONICAL_FILE_SHAPE_CORE" \
-              python -m omnibase_core.validators.canonical_file_shape --head HEAD
+              python -m omnibase_core.nodes.node_canonical_file_shape_check_compute.runtime_canonical_file_shape_check --rules file-shape --head HEAD
           fi
 
   # Public-repository runner placement (OMN-17427). RULING 2026-10-16T07:07:09Z:

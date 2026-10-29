@@ -252,7 +252,8 @@ def test_caller_uses_core_and_keeps_the_job_and_context() -> None:
             ), path
 
 
-def test_canonical_shape_hook_and_ci_use_the_exemption_commit() -> None:
+def test_canonical_shape_hook_and_ci_use_the_same_dev_merge_tag() -> None:
+    """OMN-21527: the hook and the CI job run the node entry at one dev-merge tag."""
     repos = _mapping(ROOT / ".pre-commit-config.yaml")["repos"]
     assert isinstance(repos, list)
     (hook_repo,) = [
@@ -261,11 +262,14 @@ def test_canonical_shape_hook_and_ci_use_the_exemption_commit() -> None:
         if any(hook["id"] == "canonical-file-shape" for hook in repo["hooks"])
     ]
     assert hook_repo["repo"] == "https://github.com/OmniNode-ai/omnibase_core"
-    assert hook_repo["rev"] == _caller_sha()
+    tag = hook_repo["rev"]
+    assert re.fullmatch(r"dev-\d{14}-[0-9a-f]{12}", tag)
+    (hook,) = hook_repo["hooks"]
+    assert hook["args"] == ["--rules", "file-shape"]
     jobs = _mapping(WORKFLOWS / "ci.yml")["jobs"]
     assert isinstance(jobs, dict)
     assert jobs["canonical-file-shape"]["env"]["CANONICAL_FILE_SHAPE_CORE"].endswith(
-        f"@{_caller_sha()}"
+        f"@{tag}"
     )
 
 
