@@ -1,0 +1,72 @@
+---
+schema_version: 1.0.0
+ticket_id: OMN-21527
+title: omniintelligence switches to the canonical-file-shape node entry with a ticketed first-install
+  burn-down baseline
+summary: >-
+  The canonical-file-shape pre-commit hook and the CI job "Canonical File Shape (OMN-20304)" run the node_canonical_file_shape_check_compute
+  entry (rule group file-shape) from omnibase_core at the dev-merge tag dev-20261029151319-6e0a5eee541a,
+  which carries omnibase_core#2124, #2136, #2137 and #2139. The whole-tree rules refuse 79 paths (handler_outside_node
+  77, cli_entry_outside_node 1, noncanonical-file 1) that the existing shrink-only baseline .onex_ratchets/canonical_file_shape_baseline.txt
+  (274 entries, unchanged) does not list. They are installed once, as exactly those 79 paths, in .onex_ratchets/canonical_file_shape_burndown_baseline.txt
+  whose first comment line names this ticket. AC3 (zero entries on 2026-12-03) can only be read on that
+  date and is bound in the PR that empties the file.
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: req-omn21527-switch
+    statement: The hook is wired at the omnibase_core dev-merge tag and passes on the whole tree with
+      the existing baseline plus a ticketed burn-down file holding exactly the findings measured at the
+      switch commit.
+    acceptance:
+      - id: AC1
+        statement: 'AC1: the hook is wired at the omnibase_core tag and passes on the whole tree with
+          a baseline of exactly the measured findings, this ticket named in its header -- falsifier: `uv
+          run pre-commit run canonical-file-shape --all-files` exits 0 and `grep -c -v ''^#'' .onex_ratchets/canonical_file_shape_baseline.txt`
+          prints the count measured at the switch commit'
+  - id: req-omn21527-ratchet-holds
+    statement: A new unbound handler and a burn-down line added for an existing refused file are both
+      refused.
+    acceptance:
+      - id: AC2
+        statement: 'AC2: a canary commit adding one new unbound handler is refused with handler_outside_node
+          and a canary adding one baseline line for an existing refused file is refused with baseline-growth
+          -- falsifier: `uv run pytest` of the repository''s canary test passes on both cases'
+evidence_requirements:
+  - kind: tests
+    description: Canary for the new-handler and burn-down-growth refusals, and the release-push step through
+      the pinned entry.
+    command: uv run pytest tests/ci/test_canonical_file_shape_canary_omn21527.py tests/ci/test_canonical_file_shape_release_push_omn21164.py
+      -q -n 0
+emergency_bypass:
+  enabled: false
+  justification: ''
+  follow_up_ticket_id: ''
+dod_evidence:
+  - id: dod-omn21527-ac1-hook-wired-and-green
+    description: The hook passes on the whole tree at the pinned tag, the existing baseline still lists
+      274 entries, and the burn-down file names this ticket in its first comment line and lists 79 paths.
+    source: manual
+    checks:
+      - check_type: command
+        check_value: uv run pre-commit run canonical-file-shape --all-files
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: command
+        check_value: >-
+          test "$(grep -c -v '^#' .onex_ratchets/canonical_file_shape_baseline.txt)" = 274 && test "$(grep
+          -c -v '^#' .onex_ratchets/canonical_file_shape_burndown_baseline.txt)" = 79 && head -n 1 .onex_ratchets/canonical_file_shape_burndown_baseline.txt
+          | grep -q '^# Burn-down ticket: OMN-21527'
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC1
+  - id: dod-omn21527-ac2-canary
+    description: The canary test refuses a new unbound handler as handler_outside_node and a burn-down
+      line added for an existing refused file as baseline-growth, and accepts the clean base.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_canonical_file_shape_canary_omn21527.py -q -n 0
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC2

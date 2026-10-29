@@ -11,15 +11,17 @@ already on dev against the baseline only; a genuinely new exception file is
 still refused.
 
 The tests run the workflow step's own shell against throwaway git repositories,
-with the pinned validator module standing in behind a ``uv`` shim.
+with the job's own ``CANONICAL_FILE_SHAPE_CORE`` pin resolved by the real ``uv``:
+the pin is an omnibase_core dev-merge tag (OMN-21527) that the locked
+omnibase-core release does not carry.
 """
 
 from __future__ import annotations
 
 import os
 import subprocess
-import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
@@ -33,18 +35,19 @@ STEP_NAME = "Refuse new non-canonical files and new exceptions"
 LANDED_EXCEPTION_FILE = ".github/workflows/secrets-baseline-wiring.yml"
 NEW_EXCEPTION_FILE = "config/new_allowlist.yaml"
 
-# Stands in for `uv run --no-project --with <core> python -m <module> ...`: runs the
-# module with the interpreter that runs this test.
-UV_SHIM = f"""#!/bin/sh
-while [ "$1" != "-m" ]; do shift; done
-shift
-exec {sys.executable} -m "$@"
-"""
+
+def _workflow_job() -> dict[str, Any]:
+    workflow = yaml.safe_load(CI_WORKFLOW.read_text(encoding="utf-8"))
+    job: dict[str, Any] = workflow["jobs"][JOB_ID]
+    return job
+
+
+def _core_pin() -> str:
+    return str(_workflow_job()["env"]["CANONICAL_FILE_SHAPE_CORE"])
 
 
 def _step_script() -> str:
-    workflow = yaml.safe_load(CI_WORKFLOW.read_text(encoding="utf-8"))
-    steps = workflow["jobs"][JOB_ID]["steps"]
+    steps = _workflow_job()["steps"]
     matching = [step for step in steps if step.get("name") == STEP_NAME]
     assert len(matching) == 1, f"expected one {STEP_NAME!r} step"
     return str(matching[0]["run"])
@@ -92,17 +95,11 @@ class _Repo:
         # The release commit; main is fast-forwarded to it.
         self.release = _commit(self.work, "release", {"CHANGELOG.md": "v0.25.0\n"})
         _git(self.work, "push", "-q", "origin", "dev")
-        shim = root / "bin" / "uv"
-        shim.parent.mkdir()
-        shim.write_text(UV_SHIM, encoding="utf-8")
-        shim.chmod(0o755)
-        self.shim_dir = shim.parent
 
     def run_step(self, **event: str) -> subprocess.CompletedProcess[str]:
         env = {
             **os.environ,
-            "PATH": f"{self.shim_dir}{os.pathsep}{os.environ['PATH']}",
-            "CANONICAL_FILE_SHAPE_CORE": "unused-by-the-uv-shim",
+            "CANONICAL_FILE_SHAPE_CORE": _core_pin(),
             "PR_BASE": "",
             "MQ_BASE": "",
             "PUSH_BEFORE": "",
