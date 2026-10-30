@@ -6,8 +6,8 @@ A workflow here that reads another OmniNode-ai repo at a moving ref (`@main`,
 `@dev`, no `ref:`, `ref: dev`, a bare `git clone`) turns a merge in that sibling
 into a red check on this repo. The rule: each repo checks only itself; a
 comparison against a sibling uses the version this repo has pinned (a 40-hex
-commit sha or a release tag), and a new sibling version is integration-tested
-by this repo before it moves its pin.
+commit sha, a release tag or a dev-merge tag), and a new sibling version is
+integration-tested by this repo before it moves its pin.
 
 Asserted statically over every `.github/workflows/*.yml`:
 
@@ -37,7 +37,7 @@ pytestmark = pytest.mark.unit
 WORKFLOWS = Path(__file__).resolve().parents[2] / ".github" / "workflows"
 SELF_REPO = "omniintelligence"
 _SIBLING_USES = re.compile(r"^OmniNode-ai/(?P<repo>[\w.-]+)/[^@\s]+@(?P<ref>\S+)$")
-_PINNED = re.compile(r"^(?:[0-9a-f]{40}|v\d+\.\d+\.\d+)$")
+_PINNED = re.compile(r"^(?:[0-9a-f]{40}|v\d+\.\d+\.\d+|dev-\d{14}-[0-9a-f]{12})$")
 _CLONE = re.compile(r"git\s+clone\b[^\n]*github\.com/OmniNode-ai/(?P<repo>[\w-]+)")
 
 
@@ -96,6 +96,8 @@ jobs:
     uses: OmniNode-ai/omniclaude/.github/workflows/x.yml@dev
   reusable_pinned:
     uses: OmniNode-ai/omniclaude/.github/workflows/x.yml@{sha}
+  reusable_dev_merge_tag:
+    uses: OmniNode-ai/omnibase_core/.github/workflows/x.yml@dev-20261030152335-66d35d2283c3
   steps:
     runs-on: ubuntu-latest
     steps:
