@@ -1,0 +1,24 @@
+{
+  "branch_coverage_pct": 77.46,
+  "candidate_count": 5,
+  "coverage_target": 80.0,
+  "handler_module": "omniintelligence.nodes.node_code_entity_bridge_compute.handlers.handler_bridge",
+  "handler_module_sha256": "sha256:599ceaf76fa2831f8d196f738ec0cf519473b15f17feed529f688ba48260bcbb",
+  "meets_target": false,
+  "node_id": "omniintelligence.nodes.node_code_entity_bridge_compute",
+  "receipt_schema": "adequacy_receipt.v1",
+  "recorded_at": "2026-10-31T08:02:42.352036+00:00",
+  "recorder_schema": "adequacy_receipt.v1",
+  "selected_count": 4,
+  "selected_input_hashes": [
+    "sha256:ee49b3f23c5cab2b2167879a4e03902ec0795d9105174c338b41151bd75794a6",
+    "sha256:aec69540e1763700855f72ec302e9c0d88f3a9aca1a7dcecf6a013d38182c244",
+    "sha256:fa833a622196e3bf784a8b69bf089a6de6af5741d2b9aad8994725ac00ee2772",
+    "sha256:8977d89a4ba0410d8e0416f436bdfafd3287b66e77959e89af5c35e36271e979"
+  ],
+  "uncovered_waiver": {
+    "reason": "The parity corpus covers empty input, class and function derivation, metadata propagation, unsupported entity types, confidence filtering including the threshold boundary, and a real derivation validation error. Coverage begins after module import, excluding imports and definitions. Alternate snippet shapes and defensive metadata branches are not exhaustive.",
+    "uncovered_branch_count": 0
+  },
+  "volatile_mask": []
+}

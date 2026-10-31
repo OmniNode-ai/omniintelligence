@@ -1,0 +1,25 @@
+{
+  "base_ref": "30cfb4452",
+  "canonical_handler_module": "omniintelligence.nodes.node_semantic_analysis_compute.handlers.handler_compute_semantic_analysis",
+  "legacy_handler_module": "omniintelligence.nodes.node_semantic_analysis_compute.handlers.handler_compute_semantic_analysis",
+  "node_id": "omniintelligence.nodes.node_semantic_analysis_compute",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:2cf705da286567fec5d44dabeef5a2d9c065b7c00a1ecf2a7af5eaa86b021016",
+      "sha256:fd830a19d5e7e2f55418a9387450ed52d5e8d71ae391e788b38681c85da30f53"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_semantic_analysis_compute/test_handler_semantic_analysis.py::test_canonical_dispatch_matches_preserved_core[no_entities]",
+      "tests/unit/nodes/node_semantic_analysis_compute/test_handler_semantic_analysis.py::test_canonical_dispatch_matches_preserved_core[function]",
+      "tests/unit/nodes/node_semantic_analysis_compute/test_handler_semantic_analysis.py::test_canonical_dispatch_matches_preserved_core[relations]",
+      "tests/unit/nodes/node_semantic_analysis_compute/test_handler_semantic_analysis.py::test_canonical_dispatch_matches_preserved_core[syntax_error]",
+      "tests/unit/nodes/node_semantic_analysis_compute/test_handler_semantic_analysis.py::test_canonical_dispatch_matches_preserved_core[unsupported_language]"
+    ]
+  },
+  "preserved_symbols": [
+    "_convert_entity_dict_to_model",
+    "_convert_relation_dict_to_model"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

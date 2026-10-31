@@ -15,12 +15,15 @@ from __future__ import annotations
 
 import pytest
 
+from omniintelligence.nodes.node_success_criteria_matcher_compute.handlers import (
+    handler_compute as canonical_handler,
+)
+
 # Module-level marker: all tests in this file are unit tests
 pytestmark = pytest.mark.unit
 
 from omniintelligence.nodes.node_success_criteria_matcher_compute.handlers import (
     CriteriaMatchingValidationError,
-    HandlerSuccessCriteriaCompute,
     match_criteria,
 )
 from omniintelligence.nodes.node_success_criteria_matcher_compute.models import (
@@ -611,7 +614,7 @@ class TestHandleSuccessCriteriaComputeSuccess:
             ],
         )
 
-        output = HandlerSuccessCriteriaCompute().handle(input_data)
+        output = canonical_handler.HandlerSuccessCriteriaCompute().handle(input_data)
 
         assert output.success is True
         assert "c1" in output.matched_criteria
@@ -633,7 +636,7 @@ class TestHandleSuccessCriteriaComputeSuccess:
             ],
         )
 
-        output = HandlerSuccessCriteriaCompute().handle(input_data)
+        output = canonical_handler.HandlerSuccessCriteriaCompute().handle(input_data)
 
         assert output.metadata is not None
         assert "processing_time_ms" in output.metadata
@@ -663,7 +666,7 @@ class TestHandleSuccessCriteriaComputeSuccess:
             ],
         )
 
-        output = HandlerSuccessCriteriaCompute().handle(input_data)
+        output = canonical_handler.HandlerSuccessCriteriaCompute().handle(input_data)
 
         assert output.metadata is not None
         assert output.metadata["total_criteria"] == 2
@@ -691,7 +694,7 @@ class TestHandleSuccessCriteriaComputeErrors:
         )
 
         # Should not raise - returns structured error
-        output = HandlerSuccessCriteriaCompute().handle(input_data)
+        output = canonical_handler.HandlerSuccessCriteriaCompute().handle(input_data)
 
         assert output.success is False
         assert output.match_score == 0.0
@@ -716,7 +719,7 @@ class TestHandleSuccessCriteriaComputeErrors:
             ],
         )
 
-        output = HandlerSuccessCriteriaCompute().handle(input_data)
+        output = canonical_handler.HandlerSuccessCriteriaCompute().handle(input_data)
 
         assert output.success is False
         assert output.metadata is not None
@@ -735,7 +738,7 @@ class TestHandleSuccessCriteriaComputeEdgeCases:
             criteria_set=[],
         )
 
-        output = HandlerSuccessCriteriaCompute().handle(input_data)
+        output = canonical_handler.HandlerSuccessCriteriaCompute().handle(input_data)
 
         assert output.success is True
         assert output.match_score == 1.0
@@ -759,7 +762,7 @@ class TestHandleSuccessCriteriaComputeEdgeCases:
             ],
         )
 
-        output = HandlerSuccessCriteriaCompute().handle(input_data)
+        output = canonical_handler.HandlerSuccessCriteriaCompute().handle(input_data)
 
         assert output.success is True
 
@@ -799,10 +802,109 @@ class TestHandleSuccessCriteriaComputeEdgeCases:
             ],
         )
 
-        output = HandlerSuccessCriteriaCompute().handle(input_data)
+        output = canonical_handler.HandlerSuccessCriteriaCompute().handle(input_data)
 
         assert output.success is True  # All required passed
         assert set(output.matched_criteria) == {"status_ok", "exit_ok"}
         assert output.unmatched_criteria == ["low_retries"]
         # Score = (2 + 2) / (2 + 2 + 1) = 4/5 = 0.8
         assert output.match_score == 0.8
+
+
+# Shared with the coverage receipt recorder; no random input defaults.
+CANONICAL_PARITY_CASES = [
+    {"case": "empty", "input": {"execution_outcome": {}, "criteria_set": []}},
+    {
+        "case": "matched",
+        "input": {
+            "execution_outcome": {"status": "success", "exit_code": 0},
+            "criteria_set": [
+                {
+                    "criterion_id": "exit_ok",
+                    "field": "exit_code",
+                    "operator": "equals",
+                    "expected_value": 0,
+                    "required": True,
+                    "weight": 2.0,
+                }
+            ],
+            "correlation_id": "11111111-1111-1111-1111-111111111111",
+        },
+    },
+    {
+        "case": "required_failure",
+        "input": {
+            "execution_outcome": {"exit_code": 1},
+            "criteria_set": [
+                {
+                    "criterion_id": "exit_ok",
+                    "field": "exit_code",
+                    "operator": "equals",
+                    "expected_value": 0,
+                    "required": True,
+                    "weight": 2.0,
+                }
+            ],
+        },
+    },
+    {
+        "case": "missing_optional",
+        "input": {
+            "execution_outcome": {"exit_code": 0},
+            "criteria_set": [
+                {
+                    "criterion_id": "exit_ok",
+                    "field": "exit_code",
+                    "operator": "equals",
+                    "expected_value": 0,
+                    "required": True,
+                    "weight": 2.0,
+                },
+                {
+                    "criterion_id": "artifact",
+                    "field": "output_value",
+                    "operator": "contains",
+                    "expected_value": "ready",
+                    "required": False,
+                    "weight": 1.0,
+                },
+            ],
+        },
+    },
+]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("payload", CANONICAL_PARITY_CASES, ids=lambda p: p["case"])
+def test_canonical_dispatch_matches_preserved_core(payload, monkeypatch):
+    """Compare canonical dispatch with the git-preserved core on branch cases.
+
+    Resolve the class inside the test so the legacy tree collects successfully
+    and fails this assertion, rather than failing import/collection.
+    """
+    handler_class = getattr(canonical_handler, "HandlerSuccessCriteriaCompute", None)
+    assert handler_class is not None, "canonical handle(request) class is required"
+    from omniintelligence.nodes.node_success_criteria_matcher_compute.models import (
+        ModelSuccessCriteriaInput,
+    )
+
+    request = ModelSuccessCriteriaInput.model_validate(payload["input"])
+    # Only nondeterministic clocks/IDs are controlled; the algorithm runs normally.
+    from uuid import UUID
+
+    monkeypatch.setattr("time.perf_counter", lambda: 100.0)
+    monkeypatch.setattr(
+        "uuid.uuid4", lambda: UUID("22222222-2222-2222-2222-222222222222")
+    )
+    from datetime import UTC, datetime
+
+    class FixedDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 1, 1, tzinfo=UTC).astimezone(tz)
+
+    monkeypatch.setattr(canonical_handler, "datetime", FixedDatetime)
+    expected = canonical_handler._execute_matching(
+        request, 100.0, request.correlation_id
+    )
+    assert handler_class().handle(request) == expected

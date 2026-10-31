@@ -10,8 +10,10 @@ import json
 
 import pytest
 
+from omniintelligence.nodes.node_ci_error_classifier_compute.handlers import (
+    handler_classifier as canonical_handler,
+)
 from omniintelligence.nodes.node_ci_error_classifier_compute.handlers.handler_classifier import (
-    HandlerCiErrorClassifier,
     _parse_failure_output,
     _parse_llm_response,
 )
@@ -150,7 +152,7 @@ def test_handler_ci_error_classifier_json_input() -> None:
         error_fingerprint="abc" * 10 + "ab",  # 32 hex chars
         failure_output=payload,
     )
-    out = HandlerCiErrorClassifier().handle(inp)
+    out = canonical_handler.HandlerCiErrorClassifier().handle(inp)
     assert isinstance(out, ModelCiErrorClassifierOutput)
     assert out.classification == "type_error"
     assert out.confidence == 0.92
@@ -165,7 +167,7 @@ def test_handler_ci_error_classifier_plain_text_falls_back_to_unknown() -> None:
         error_fingerprint="deadbeef" * 8,
         failure_output="Something went very wrong during the build",
     )
-    out = HandlerCiErrorClassifier().handle(inp)
+    out = canonical_handler.HandlerCiErrorClassifier().handle(inp)
     assert out.classification == "unknown"
     assert out.confidence == 0.0
 
@@ -177,7 +179,7 @@ def test_handler_ci_error_classifier_plain_text_known_taxonomy() -> None:
         error_fingerprint="cafebabe" * 8,
         failure_output="linting_failure",
     )
-    out = HandlerCiErrorClassifier().handle(inp)
+    out = canonical_handler.HandlerCiErrorClassifier().handle(inp)
     assert out.classification == "linting_failure"
 
 
@@ -189,5 +191,75 @@ def test_handler_ci_error_classifier_confidence_clamped() -> None:
         error_fingerprint="feedface" * 8,
         failure_output=payload,
     )
-    out = HandlerCiErrorClassifier().handle(inp)
+    out = canonical_handler.HandlerCiErrorClassifier().handle(inp)
     assert out.confidence == 1.0
+
+
+# Shared with the coverage receipt recorder; no random input defaults.
+CANONICAL_PARITY_CASES = [
+    {
+        "case": "normalized",
+        "input": {
+            "error_fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "failure_output": '{"classification": " FLAKY_TEST ", "confidence": 1.5, "evidence": "retry passes", "unknowns": null}',
+        },
+    },
+    {
+        "case": "plain_unknown",
+        "input": {
+            "error_fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "failure_output": "not a known taxonomy",
+        },
+    },
+    {
+        "case": "json_array",
+        "input": {
+            "error_fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "failure_output": '["unknown"]',
+        },
+    },
+    {
+        "case": "invalid_confidence",
+        "input": {
+            "error_fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "failure_output": '{"classification": "unknown", "confidence": "bad", "evidence": [1, "trace"], "unknowns": "cause"}',
+        },
+    },
+    {
+        "case": "negative_confidence",
+        "input": {
+            "error_fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "failure_output": '{"confidence": -1, "evidence": null, "unknowns": []}',
+        },
+    },
+    {
+        "case": "empty_object",
+        "input": {
+            "error_fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "failure_output": "{}",
+        },
+    },
+]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("payload", CANONICAL_PARITY_CASES, ids=lambda p: p["case"])
+def test_canonical_dispatch_matches_preserved_core(payload, monkeypatch):
+    """Compare canonical dispatch with the git-preserved core on branch cases.
+
+    Resolve the class inside the test so the legacy tree collects successfully
+    and fails this assertion, rather than failing import/collection.
+    """
+    handler_class = getattr(canonical_handler, "HandlerCiErrorClassifier", None)
+    assert handler_class is not None, "canonical handle(request) class is required"
+    from omniintelligence.nodes.node_ci_error_classifier_compute.models.model_input import (
+        ModelCiErrorClassifierInput,
+    )
+
+    request = ModelCiErrorClassifierInput.model_validate(payload["input"])
+    expected = ModelCiErrorClassifierOutput(
+        **canonical_handler._parse_llm_response(
+            canonical_handler._parse_failure_output(request.failure_output)
+        )
+    )
+    assert handler_class().handle(request) == expected

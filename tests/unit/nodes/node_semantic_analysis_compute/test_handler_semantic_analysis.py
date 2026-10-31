@@ -15,6 +15,10 @@ from __future__ import annotations
 
 import pytest
 
+from omniintelligence.nodes.node_semantic_analysis_compute.handlers import (
+    handler_compute_semantic_analysis as canonical_handler,
+)
+
 # Module-level marker: all tests in this file are unit tests
 pytestmark = pytest.mark.unit
 
@@ -958,3 +962,90 @@ class NoDocs:
 
         # Should have low documentation ratio
         assert result["semantic_features"]["documentation_ratio"] < 0.5
+
+
+# Shared with the coverage receipt recorder; no random input defaults.
+CANONICAL_PARITY_CASES = [
+    {"case": "no_entities", "input": {"code_snippet": "# just a comment"}},
+    {
+        "case": "function",
+        "input": {
+            "code_snippet": "def greet(name):\n    return str(name)\n",
+            "context": {"correlation_id": "11111111-1111-1111-1111-111111111111"},
+        },
+    },
+    {
+        "case": "relations",
+        "input": {
+            "code_snippet": "import os\nclass Base: pass\nclass Worker(Base):\n    def run(self):\n        return os.getcwd()\n"
+        },
+    },
+    {"case": "syntax_error", "input": {"code_snippet": "def broken(:"}},
+    {
+        "case": "unsupported_language",
+        "input": {
+            "code_snippet": "const x = 1;",
+            "context": {"source_language": "unsupported"},
+        },
+    },
+]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("payload", CANONICAL_PARITY_CASES, ids=lambda p: p["case"])
+def test_canonical_dispatch_matches_preserved_core(payload, monkeypatch):
+    """Compare canonical dispatch with the git-preserved core on branch cases.
+
+    Resolve the class inside the test so the legacy tree collects successfully
+    and fails this assertion, rather than failing import/collection.
+    """
+    handler_class = getattr(canonical_handler, "HandlerSemanticAnalysisCompute", None)
+    assert handler_class is not None, "canonical handle(request) class is required"
+    from omniintelligence.nodes.node_semantic_analysis_compute.models import (
+        ModelSemanticAnalysisInput,
+    )
+
+    request = ModelSemanticAnalysisInput.model_validate(payload["input"])
+    # Only nondeterministic clocks/IDs are controlled; the algorithm runs normally.
+    from uuid import UUID
+
+    monkeypatch.setattr("time.perf_counter", lambda: 100.0)
+    monkeypatch.setattr(
+        "uuid.uuid4", lambda: UUID("22222222-2222-2222-2222-222222222222")
+    )
+    from omniintelligence.nodes.node_semantic_analysis_compute.models import (
+        ModelSemanticAnalysisOutput,
+    )
+
+    core = canonical_handler.analyze_semantics(
+        content=request.code_snippet,
+        language=request.context.get("source_language", "python"),
+        include_call_graph=True,
+        include_import_graph=True,
+    )
+    metadata = {
+        "status": "completed",
+        "algorithm_version": canonical_handler.ANALYSIS_VERSION_STR,
+        "processing_time_ms": core["metadata"].get("processing_time_ms", 0.0),
+        "input_length": core["metadata"].get("input_length", len(request.code_snippet)),
+        "input_line_count": core["metadata"].get("input_line_count", 0),
+    }
+    if request.context.get("correlation_id"):
+        metadata["correlation_id"] = request.context["correlation_id"]
+    expected = ModelSemanticAnalysisOutput(
+        success=core["success"],
+        parse_ok=core["parse_ok"],
+        entities=[
+            canonical_handler._convert_entity_dict_to_model(e) for e in core["entities"]
+        ],
+        relations=[
+            canonical_handler._convert_relation_dict_to_model(r)
+            for r in core["relations"]
+        ],
+        warnings=core["warnings"],
+        semantic_features=core["semantic_features"],
+        embeddings=[],
+        similarity_scores={},
+        metadata=metadata,
+    )
+    assert handler_class().handle(request) == expected

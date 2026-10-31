@@ -1,0 +1,26 @@
+{
+  "base_ref": "30cfb4452",
+  "canonical_handler_module": "omniintelligence.nodes.node_success_criteria_matcher_compute.handlers.handler_compute",
+  "legacy_handler_module": "omniintelligence.nodes.node_success_criteria_matcher_compute.handlers.handler_compute",
+  "node_id": "omniintelligence.nodes.node_success_criteria_matcher_compute",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:2ffa82813ee651051c2dc3e3641cd519cef9be26834678251b63204c2bcbfcc0"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_success_criteria_matcher_compute/test_matching.py::test_canonical_dispatch_matches_preserved_core[empty]",
+      "tests/unit/nodes/node_success_criteria_matcher_compute/test_matching.py::test_canonical_dispatch_matches_preserved_core[matched]",
+      "tests/unit/nodes/node_success_criteria_matcher_compute/test_matching.py::test_canonical_dispatch_matches_preserved_core[required_failure]",
+      "tests/unit/nodes/node_success_criteria_matcher_compute/test_matching.py::test_canonical_dispatch_matches_preserved_core[missing_optional]"
+    ]
+  },
+  "preserved_symbols": [
+    "_execute_matching",
+    "_create_validation_error_output",
+    "_create_compute_error_output",
+    "_safe_elapsed_time_ms",
+    "_create_safe_error_output"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

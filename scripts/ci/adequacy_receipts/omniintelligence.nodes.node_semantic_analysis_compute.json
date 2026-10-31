@@ -1,0 +1,22 @@
+{
+  "branch_coverage_pct": 51.28,
+  "candidate_count": 5,
+  "coverage_target": 80.0,
+  "handler_module": "omniintelligence.nodes.node_semantic_analysis_compute.handlers.handler_compute_semantic_analysis",
+  "handler_module_sha256": "sha256:c83f790a494e81e286b4d7fb89e79a63d7c3cb5f006acd851e5c02e28165809a",
+  "meets_target": false,
+  "node_id": "omniintelligence.nodes.node_semantic_analysis_compute",
+  "receipt_schema": "adequacy_receipt.v1",
+  "recorded_at": "2026-10-31T08:02:42.851416+00:00",
+  "recorder_schema": "adequacy_receipt.v1",
+  "selected_count": 2,
+  "selected_input_hashes": [
+    "sha256:2cf705da286567fec5d44dabeef5a2d9c065b7c00a1ecf2a7af5eaa86b021016",
+    "sha256:fd830a19d5e7e2f55418a9387450ed52d5e8d71ae391e788b38681c85da30f53"
+  ],
+  "uncovered_waiver": {
+    "reason": "The parity corpus covers no entities, function extraction, imports/inheritance/call relations, syntax failure, unsupported language and correlation metadata. Coverage begins after module import, excluding imports and definitions. Unknown entity/relation enum fallback branches cannot be reached through the current pure analyzer outputs and are not synthesized here.",
+    "uncovered_branch_count": 0
+  },
+  "volatile_mask": []
+}

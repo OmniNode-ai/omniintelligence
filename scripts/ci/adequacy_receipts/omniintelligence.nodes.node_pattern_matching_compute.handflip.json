@@ -1,0 +1,30 @@
+{
+  "base_ref": "30cfb4452",
+  "canonical_handler_module": "omniintelligence.nodes.node_pattern_matching_compute.handlers.handler_compute",
+  "legacy_handler_module": "omniintelligence.nodes.node_pattern_matching_compute.handlers.handler_compute",
+  "node_id": "omniintelligence.nodes.node_pattern_matching_compute",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:26ec576cb7098de04408d33f431b807639089ff624a9d8983012b6aa292faba8",
+      "sha256:be644ac637e4a960c542b52b4ec10edad1e6b9e2bfa2c8901977ba37d79d348b",
+      "sha256:21a8338e7d438900e76ef6d77937989dd85ff41cc788048deb67adf7d6fdf480"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_pattern_matching_compute/test_handler_compute.py::test_canonical_dispatch_matches_preserved_core[empty_library]",
+      "tests/unit/nodes/node_pattern_matching_compute/test_handler_compute.py::test_canonical_dispatch_matches_preserved_core[matched]",
+      "tests/unit/nodes/node_pattern_matching_compute/test_handler_compute.py::test_canonical_dispatch_matches_preserved_core[filtered]",
+      "tests/unit/nodes/node_pattern_matching_compute/test_handler_compute.py::test_canonical_dispatch_matches_preserved_core[no_match]",
+      "tests/unit/nodes/node_pattern_matching_compute/test_handler_compute.py::test_canonical_dispatch_matches_preserved_core[validation_error]"
+    ]
+  },
+  "preserved_symbols": [
+    "_execute_matching",
+    "_convert_patterns_to_records",
+    "_create_validation_error_output",
+    "_create_compute_error_output",
+    "_safe_elapsed_time_ms",
+    "_create_safe_error_output"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

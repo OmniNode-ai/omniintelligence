@@ -1,0 +1,21 @@
+{
+  "branch_coverage_pct": 20.31,
+  "candidate_count": 4,
+  "coverage_target": 80.0,
+  "handler_module": "omniintelligence.nodes.node_success_criteria_matcher_compute.handlers.handler_compute",
+  "handler_module_sha256": "sha256:dacfab50163ca2df8fd503f00038059661a16e537c48d95e1ae5c04f9fd55ddb",
+  "meets_target": false,
+  "node_id": "omniintelligence.nodes.node_success_criteria_matcher_compute",
+  "receipt_schema": "adequacy_receipt.v1",
+  "recorded_at": "2026-10-31T08:02:42.921540+00:00",
+  "recorder_schema": "adequacy_receipt.v1",
+  "selected_count": 1,
+  "selected_input_hashes": [
+    "sha256:2ffa82813ee651051c2dc3e3641cd519cef9be26834678251b63204c2bcbfcc0"
+  ],
+  "uncovered_waiver": {
+    "reason": "The parity corpus covers empty criteria, a successful required criterion, required-criterion failure, missing optional fields and weighted partial scoring. Coverage begins after module import, excluding imports and definitions. Compute/validation exceptions, logging/timing failures and nested fallback output construction are not exercised by this typed input corpus.",
+    "uncovered_branch_count": 0
+  },
+  "volatile_mask": []
+}
