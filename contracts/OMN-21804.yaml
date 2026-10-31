@@ -37,7 +37,7 @@ evidence_requirements:
   - kind: tests
     description: Topic enum, contract topic and dispatch parity tests plus the six touched node test modules.
     command: uv run pytest tests/unit/review_pairing/test_topics.py tests/unit/review_pairing/test_calibration_topics.py
-      tests/unit/runtime/test_contract_topics.py tests/unit/test_dispatch_parity.py -q -n 0
+      tests/unit/runtime/test_contract_topics.py tests/unit/test_dispatch_parity.py -q
 emergency_bypass:
   enabled: false
   justification: ''
@@ -65,23 +65,53 @@ dod_evidence:
     binds_ac:
       - AC1
   - id: dod-omn21804-ac2-topics-from-contract
-    description: The topic enum, contract topic and dispatch parity tests pass with the topics read from
-      contracts.
+    description: The slice checker rejects hard-coded topics and the topic enum, contract topic and dispatch
+      parity tests pass with the topics read from contracts.
     source: manual
     checks:
+      - check_type: command
+        check_value: >-
+          env PYTHONDONTWRITEBYTECODE=1 uv run python -c 'import sys; from pathlib import Path; from omnibase_core.validation.validator_contracts_and_di
+          import ValidatorContractsAndDi; paths = [Path(p) for p in sys.argv[1:]]; assert paths and all(p.is_file()
+          for p in paths), "missing slice path"; result = ValidatorContractsAndDi().validate(paths); assert
+          result.metadata is not None and result.metadata.files_processed == len(paths), "incomplete scan";
+          findings = [i for i in result.issues if i.rule_name in {"literal_topic", "unparseable_file"}];
+          print(result.summary); [print(i) for i in findings]; sys.exit(bool(findings))' src/omniintelligence/review_pairing/topics.py
+          src/omniintelligence/nodes/node_compliance_evaluate_effect/node_tests/test_handler_compliance_evaluate.py
+          src/omniintelligence/nodes/node_llm_routing_decision_effect/node_tests/test_handler_llm_routing_decision.py
+          src/omniintelligence/nodes/node_pattern_demotion_effect/node_tests/test_demotion.py src/omniintelligence/nodes/node_pattern_lifecycle_effect/node_tests/test_handler_transition.py
+          src/omniintelligence/nodes/node_pattern_projection_effect/node_tests/test_handler_projection.py
+          src/omniintelligence/nodes/node_routing_feedback_effect/node_tests/test_handler_routing_feedback.py
+        cwd: ${OMNI_HOME}/omniintelligence
       - check_type: test_passes
-        check_value: uv run pytest tests/unit/review_pairing/test_topics.py tests/unit/review_pairing/test_calibration_topics.py
-          tests/unit/runtime/test_contract_topics.py tests/unit/test_dispatch_parity.py -q -n 0
+        check_value: env PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/unit/review_pairing/test_topics.py
+          tests/unit/review_pairing/test_calibration_topics.py tests/unit/runtime/test_contract_topics.py
+          tests/unit/test_dispatch_parity.py -q
         cwd: ${OMNI_HOME}/omniintelligence
     binds_ac:
       - AC2
   - id: dod-omn21804-ac3-lab-proof
-    description: Unit suite run on the lab at the PR head.
+    description: Focused topic tests and the slice checker run on the lab at the PR head; the checker
+      rejects the literal topics present before the refactor.
     source: manual
     checks:
+      - check_type: command
+        check_value: >-
+          env PYTHONDONTWRITEBYTECODE=1 uv run python -c 'import sys; from pathlib import Path; from omnibase_core.validation.validator_contracts_and_di
+          import ValidatorContractsAndDi; paths = [Path(p) for p in sys.argv[1:]]; assert paths and all(p.is_file()
+          for p in paths), "missing slice path"; result = ValidatorContractsAndDi().validate(paths); assert
+          result.metadata is not None and result.metadata.files_processed == len(paths), "incomplete scan";
+          findings = [i for i in result.issues if i.rule_name in {"literal_topic", "unparseable_file"}];
+          print(result.summary); [print(i) for i in findings]; sys.exit(bool(findings))' src/omniintelligence/review_pairing/topics.py
+          src/omniintelligence/nodes/node_compliance_evaluate_effect/node_tests/test_handler_compliance_evaluate.py
+          src/omniintelligence/nodes/node_llm_routing_decision_effect/node_tests/test_handler_llm_routing_decision.py
+          src/omniintelligence/nodes/node_pattern_demotion_effect/node_tests/test_demotion.py src/omniintelligence/nodes/node_pattern_lifecycle_effect/node_tests/test_handler_transition.py
+          src/omniintelligence/nodes/node_pattern_projection_effect/node_tests/test_handler_projection.py
+          src/omniintelligence/nodes/node_routing_feedback_effect/node_tests/test_handler_routing_feedback.py
+        cwd: ${OMNI_HOME}/omniintelligence
       - check_type: test_passes
-        check_value: uv run pytest tests/unit/review_pairing/test_topics.py tests/unit/runtime/test_contract_topics.py
-          -q -n 0
+        check_value: env PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/unit/review_pairing/test_topics.py
+          tests/unit/runtime/test_contract_topics.py -q
         cwd: ${OMNI_HOME}/omniintelligence
     binds_ac:
       - AC3
