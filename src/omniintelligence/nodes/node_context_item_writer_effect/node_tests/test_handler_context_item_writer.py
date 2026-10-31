@@ -26,6 +26,7 @@ from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID, uuid4
 
 import pytest
+import yaml
 
 from omniintelligence.nodes.node_chunk_classifier_compute.models.enum_context_item_type import (
     EnumContextItemType,
@@ -50,6 +51,10 @@ from omniintelligence.nodes.node_context_item_writer_effect.models.model_tier_po
 from omniintelligence.nodes.node_embedding_generation_effect.models.model_embedded_chunk import (
     ModelEmbeddedChunk,
 )
+
+_ENDPOINTS_FILE = Path(__file__).with_name("test_endpoints.yaml")
+_QDRANT_URL = yaml.safe_load(_ENDPOINTS_FILE.read_text())["qdrant_url"]
+
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -106,7 +111,7 @@ def _make_input(
         crawl_scope="omninode/omniintelligence",
         emit_event=emit_event,
         correlation_id=correlation_id,
-        qdrant_url="http://localhost:6333",
+        qdrant_url=_QDRANT_URL,
     )
 
 

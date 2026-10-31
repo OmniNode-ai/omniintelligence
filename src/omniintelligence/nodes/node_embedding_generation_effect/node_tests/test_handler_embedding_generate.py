@@ -24,9 +24,11 @@ Ticket: OMN-2392, OMN-368
 
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import yaml
 
 from omniintelligence.adapters.embedding_client import (
     EmbeddingClient,
@@ -59,7 +61,8 @@ from omniintelligence.nodes.node_embedding_generation_effect.models.model_embedd
 # Test fixtures / helpers
 # ---------------------------------------------------------------------------
 
-_EMBEDDING_URL = "http://localhost:8100"
+_ENDPOINTS_FILE = Path(__file__).with_name("test_endpoints.yaml")
+_EMBEDDING_URL = yaml.safe_load(_ENDPOINTS_FILE.read_text())["embedding_url"]
 _FAKE_EMBEDDING = [0.1] * 1024  # 1024-dim fake embedding
 
 
@@ -477,12 +480,12 @@ class TestProviderSelection:
     """Test that the correct client is created based on embedding_provider."""
 
     def test_create_client_qwen3(self) -> None:
-        config = ModelEmbeddingClientConfig(base_url="http://localhost:8100")
+        config = ModelEmbeddingClientConfig(base_url=_EMBEDDING_URL)
         client = _create_client_for_provider(EnumEmbeddingProvider.QWEN3, config)
         assert isinstance(client, EmbeddingClient)
 
     def test_create_client_local_openai(self) -> None:
-        config = ModelEmbeddingClientConfig(base_url="http://localhost:8100")
+        config = ModelEmbeddingClientConfig(base_url=_EMBEDDING_URL)
         client = _create_client_for_provider(EnumEmbeddingProvider.LOCAL_OPENAI, config)
         assert isinstance(client, EmbeddingClientLocalOpenAI)
 
@@ -550,7 +553,7 @@ class TestProviderSelection:
         """ModelEmbeddingGenerateInput defaults to QWEN3 provider."""
         input_data = ModelEmbeddingGenerateInput(
             classified_chunks=(),
-            embedding_url="http://localhost:8100",
+            embedding_url=_EMBEDDING_URL,
             source_ref="test.md",
         )
         assert input_data.embedding_provider == EnumEmbeddingProvider.QWEN3
@@ -559,7 +562,7 @@ class TestProviderSelection:
         """ModelEmbeddingGenerateInput accepts LOCAL_OPENAI provider."""
         input_data = ModelEmbeddingGenerateInput(
             classified_chunks=(),
-            embedding_url="http://localhost:8100",
+            embedding_url=_EMBEDDING_URL,
             embedding_provider=EnumEmbeddingProvider.LOCAL_OPENAI,
             source_ref="test.md",
         )
@@ -569,7 +572,7 @@ class TestProviderSelection:
         """ModelEmbeddingGenerateInput accepts string values for provider."""
         input_data = ModelEmbeddingGenerateInput(
             classified_chunks=(),
-            embedding_url="http://localhost:8100",
+            embedding_url=_EMBEDDING_URL,
             # Why: Runtime validation intentionally accepts this broader fixture/input shape.
             embedding_provider="local_openai",  # type: ignore[arg-type]
             source_ref="test.md",
@@ -586,18 +589,18 @@ class TestEmbeddingClientLocalOpenAI:
     """Test EmbeddingClientLocalOpenAI response parsing and endpoints."""
 
     def test_embeddings_url(self) -> None:
-        config = ModelEmbeddingClientConfig(base_url="http://localhost:8100")
+        config = ModelEmbeddingClientConfig(base_url=_EMBEDDING_URL)
         client = EmbeddingClientLocalOpenAI(config)
-        assert client.embeddings_url == "http://localhost:8100/v1/embeddings"
+        assert client.embeddings_url == f"{_EMBEDDING_URL}/v1/embeddings"
 
     def test_embeddings_url_trailing_slash(self) -> None:
-        config = ModelEmbeddingClientConfig(base_url="http://localhost:8100/")
+        config = ModelEmbeddingClientConfig(base_url=f"{_EMBEDDING_URL}/")
         client = EmbeddingClientLocalOpenAI(config)
-        assert client.embeddings_url == "http://localhost:8100/v1/embeddings"
+        assert client.embeddings_url == f"{_EMBEDDING_URL}/v1/embeddings"
 
     def test_parse_openai_response_valid(self) -> None:
         config = ModelEmbeddingClientConfig(
-            base_url="http://localhost:8100",
+            base_url=_EMBEDDING_URL,
             embedding_dimension=3,
         )
         client = EmbeddingClientLocalOpenAI(config, model_name="test-model")
@@ -616,7 +619,7 @@ class TestEmbeddingClientLocalOpenAI:
 
     def test_parse_openai_response_multiple_sorted_by_index(self) -> None:
         config = ModelEmbeddingClientConfig(
-            base_url="http://localhost:8100",
+            base_url=_EMBEDDING_URL,
             embedding_dimension=2,
         )
         client = EmbeddingClientLocalOpenAI(config, model_name="test-model")
@@ -642,7 +645,7 @@ class TestEmbeddingClientLocalOpenAI:
         index: object,
     ) -> None:
         config = ModelEmbeddingClientConfig(
-            base_url="http://localhost:8100",
+            base_url=_EMBEDDING_URL,
             embedding_dimension=2,
         )
         client = EmbeddingClientLocalOpenAI(config, model_name="test-model")
@@ -659,7 +662,7 @@ class TestEmbeddingClientLocalOpenAI:
 
     def test_parse_openai_response_rejects_duplicate_indices(self) -> None:
         config = ModelEmbeddingClientConfig(
-            base_url="http://localhost:8100",
+            base_url=_EMBEDDING_URL,
             embedding_dimension=2,
         )
         client = EmbeddingClientLocalOpenAI(config, model_name="test-model")
@@ -680,7 +683,7 @@ class TestEmbeddingClientLocalOpenAI:
         indices: list[int],
     ) -> None:
         config = ModelEmbeddingClientConfig(
-            base_url="http://localhost:8100",
+            base_url=_EMBEDDING_URL,
             embedding_dimension=2,
         )
         client = EmbeddingClientLocalOpenAI(config, model_name="test-model")
@@ -697,7 +700,7 @@ class TestEmbeddingClientLocalOpenAI:
 
     def test_parse_openai_response_rejects_missing_model(self) -> None:
         config = ModelEmbeddingClientConfig(
-            base_url="http://localhost:8100",
+            base_url=_EMBEDDING_URL,
             embedding_dimension=2,
         )
         client = EmbeddingClientLocalOpenAI(config, model_name="test-model")
@@ -708,7 +711,7 @@ class TestEmbeddingClientLocalOpenAI:
 
     def test_parse_openai_response_rejects_different_model(self) -> None:
         config = ModelEmbeddingClientConfig(
-            base_url="http://localhost:8100",
+            base_url=_EMBEDDING_URL,
             embedding_dimension=2,
         )
         client = EmbeddingClientLocalOpenAI(config, model_name="requested-model")
@@ -723,14 +726,14 @@ class TestEmbeddingClientLocalOpenAI:
             client._parse_openai_response(response, expected_count=1)
 
     def test_parse_openai_response_invalid_format(self) -> None:
-        config = ModelEmbeddingClientConfig(base_url="http://localhost:8100")
+        config = ModelEmbeddingClientConfig(base_url=_EMBEDDING_URL)
         client = EmbeddingClientLocalOpenAI(config)
 
         with pytest.raises(EmbeddingClientError, match="Unexpected response format"):
             client._parse_openai_response({"result": []}, expected_count=1)
 
     def test_parse_openai_response_count_mismatch(self) -> None:
-        config = ModelEmbeddingClientConfig(base_url="http://localhost:8100")
+        config = ModelEmbeddingClientConfig(base_url=_EMBEDDING_URL)
         client = EmbeddingClientLocalOpenAI(config)
 
         response = {
@@ -744,7 +747,7 @@ class TestEmbeddingClientLocalOpenAI:
 
     @pytest.mark.asyncio
     async def test_get_embedding_empty_text_raises(self) -> None:
-        config = ModelEmbeddingClientConfig(base_url="http://localhost:8100")
+        config = ModelEmbeddingClientConfig(base_url=_EMBEDDING_URL)
         client = EmbeddingClientLocalOpenAI(config)
 
         with pytest.raises(EmbeddingClientError, match="Text cannot be empty"):
@@ -752,19 +755,19 @@ class TestEmbeddingClientLocalOpenAI:
 
     @pytest.mark.asyncio
     async def test_get_embeddings_batch_empty_returns_empty(self) -> None:
-        config = ModelEmbeddingClientConfig(base_url="http://localhost:8100")
+        config = ModelEmbeddingClientConfig(base_url=_EMBEDDING_URL)
         client = EmbeddingClientLocalOpenAI(config)
 
         result = await client.get_embeddings_batch([])
         assert result == []
 
     def test_not_connected_initially(self) -> None:
-        config = ModelEmbeddingClientConfig(base_url="http://localhost:8100")
+        config = ModelEmbeddingClientConfig(base_url=_EMBEDDING_URL)
         client = EmbeddingClientLocalOpenAI(config)
         assert not client.is_connected
 
     def test_custom_model_name(self) -> None:
-        config = ModelEmbeddingClientConfig(base_url="http://localhost:8100")
+        config = ModelEmbeddingClientConfig(base_url=_EMBEDDING_URL)
         client = EmbeddingClientLocalOpenAI(config, model_name="my-model")
         assert client._model_name == "my-model"
 
