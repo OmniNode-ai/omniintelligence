@@ -22,6 +22,7 @@ import os
 import shutil
 from pathlib import Path
 
+from omniintelligence.models.review.model_review_budgets import shipped_review_budgets
 from omniintelligence.models.review.model_review_standing_rules import (
     ModelReviewStandingRules,
 )
@@ -43,18 +44,14 @@ from omniintelligence.review_pairing.prompts.adversarial_reviewer import (
 logger = logging.getLogger(__name__)
 
 # Default timeout for codex exec subprocess (seconds).
-_CODEX_TIMEOUT_SECONDS: float = 180.0
+_CODEX_TIMEOUT_SECONDS: float = shipped_review_budgets().codex_exec_seconds
 
 # Model key used in rule_id and result envelope.
 _CODEX_MODEL_KEY: str = "codex"
 
-# Known Homebrew/system locations where codex may be installed.
+# Locations where codex may be installed, declared in review_budgets.yaml.
 # shutil.which only searches PATH, which may be narrow in subprocess contexts.
-_CODEX_FALLBACK_DIRS: tuple[str, ...] = (
-    "/opt/homebrew/bin",
-    "/usr/local/bin",
-    os.path.expanduser("~/.local/bin"),
-)
+_CODEX_FALLBACK_DIRS: tuple[str, ...] = shipped_review_budgets().codex_fallback_dirs
 
 
 def _resolve_codex_binary() -> str | None:

@@ -1,0 +1,53 @@
+---
+schema_version: 1.0.0
+ticket_id: OMN-21623
+title: omniintelligence burn-down of the contracts_and_di findings, slice one -- the review pipeline's
+  time budgets and codex search path move into a contract file
+summary: >-
+  The read-only contracts_and_di scan of omniintelligence src/ (omnibase_core dev, validator ValidatorContractsAndDi)
+  reported 307 findings before this change and 295 after it. This slice removes 12 of them from review_pairing:
+  ten literal_timeout findings (the served-model probe, the TCP probe and its retry delay, the codex exec
+  budget, git show, two gh api reads, gh pr diff, the served-model resolver default, the voter probe)
+  and two literal_path findings (the codex search directories). The values now sit in review_pairing/review_budgets.yaml,
+  read through ModelReviewBudgets; a file missing a field, or naming an unknown one, fails to load. The
+  checker work is the umbrella's own and is merged; this change is the omniintelligence burn-down.
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: req-omn21623-budgets-contract
+    statement: The review pipeline's time budgets and the codex search directories are declared in review_budgets.yaml,
+      read from it by every consuming module, and every field is required.
+    acceptance:
+      - id: AC1
+        statement: 'AC1: review_budgets.yaml declares the budgets and codex_fallback_dirs, each consuming
+          module constant equals the contract value, and a file without one field fails to load -- falsifier:
+          `uv run pytest tests/unit/review_pairing/test_review_timeouts_contract_omn21623.py -q` passes'
+evidence_requirements:
+  - kind: tests
+    description: Contract tests for the required budget fields, codex_fallback_dirs and the module constants
+      that read them, plus the existing review_pairing unit tests.
+    command: uv run pytest tests/unit/review_pairing -q -n 0
+emergency_bypass:
+  enabled: false
+  justification: ''
+  follow_up_ticket_id: ''
+dod_evidence:
+  - id: dod-omn21623-ac1-budgets-contract
+    description: The budgets contract tests pass, and no timeout or fallback-directory literal remains
+      in the consuming modules.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/review_pairing/test_review_timeouts_contract_omn21623.py
+          -q -n 0
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: command
+        check_value: >-
+          grep -q '^gh_api_seconds:' src/omniintelligence/review_pairing/review_budgets.yaml && grep -q
+          '^codex_fallback_dirs:' src/omniintelligence/review_pairing/review_budgets.yaml && ! grep -nE
+          '(timeout=(30|60)\b|"/opt/homebrew/bin")' src/omniintelligence/review_pairing/cli_review.py
+          src/omniintelligence/review_pairing/adapters/adapter_codex_reviewer.py
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC1

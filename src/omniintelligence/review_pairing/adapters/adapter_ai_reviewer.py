@@ -32,6 +32,7 @@ from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, TypedDict, Unpack
 from uuid import uuid4
 
+from omniintelligence.models.review.model_review_budgets import shipped_review_budgets
 from omniintelligence.models.review.model_review_call_response import (
     ModelReviewCallResponse,
 )
@@ -126,7 +127,6 @@ MODEL_REGISTRY: dict[str, ModelEndpointConfig] = dict(_REGISTRY_CONTRACT.models)
 # healthy endpoint, and spending review budget waiting on it would trade a
 # review for nothing. An endpoint too slow to answer this is not one a review
 # would have completed against either.
-_SERVED_MODEL_PROBE_TIMEOUT_SECONDS: float = 15.0
 _LOCAL_MODEL_KEYS: frozenset[str] = frozenset(_REGISTRY_CONTRACT.local_model_keys)
 _API_FALLBACK_KEYS: tuple[str, ...] = tuple(_REGISTRY_CONTRACT.api_fallback_keys)
 _DEFAULT_MODEL_KEY: str = _REGISTRY_CONTRACT.default_model_key
@@ -158,13 +158,13 @@ _DEFAULT_TEMPERATURE: float = 0.3
 # "Models succeeded: none" false-green while the job still reported success.
 # Matching the preflight makes this probe a strict superset of the preflight's
 # tolerance, so the reviewer never degrades on an endpoint the preflight cleared.
-_PROBE_TIMEOUT_SECONDS: float = 5.0
+_PROBE_TIMEOUT_SECONDS: float = shipped_review_budgets().tcp_probe_seconds
 
 # Number of TCP probe attempts before declaring an endpoint unreachable.
 _PROBE_MAX_ATTEMPTS: int = 3
 
 # Delay between probe attempts (seconds) — matches the preflight's `sleep 2`.
-_PROBE_RETRY_DELAY_SECONDS: float = 2.0
+_PROBE_RETRY_DELAY_SECONDS: float = shipped_review_budgets().tcp_retry_delay_seconds
 
 
 # ---------------------------------------------------------------------------
@@ -419,7 +419,7 @@ def _resolve_api_model_id(
     """
     if config.model_id_source == "served":
         return resolve_served_model_id(
-            base_url, timeout_seconds=_SERVED_MODEL_PROBE_TIMEOUT_SECONDS
+            base_url, timeout_seconds=shipped_review_budgets().model_probe_seconds
         )
     return config.api_model_id or model_key
 

@@ -54,8 +54,9 @@ import urllib.error
 import urllib.request
 from typing import Final
 
+from omniintelligence.models.review.model_review_budgets import shipped_review_budgets
+
 _MODELS_PATH: Final[str] = "/v1/models"
-_DEFAULT_TIMEOUT_SECONDS: Final[float] = 15.0
 
 # Resolution is a property of the endpoint, not of the review, and a roster
 # can call the same endpoint more than once per run (a retry, or two keys on
@@ -87,7 +88,7 @@ def _models_url(base_url: str) -> str:
 def resolve_served_model_id(
     base_url: str,
     *,
-    timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS,
+    timeout_seconds: float = shipped_review_budgets().model_probe_seconds,
     use_cache: bool = True,
 ) -> str:
     """Return the single model id ``base_url`` serves.

@@ -19,7 +19,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from omnibase_core.handlers.handler_todo_format import main
+from omnibase_core.nodes.node_todo_format_check_effect.runtime_todo_format import (
+    main,
+)
 
 pytestmark = pytest.mark.unit
 
