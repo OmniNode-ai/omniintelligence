@@ -377,7 +377,7 @@ _PARITY_COMMANDS = [
     ModelPlanReviewerMultiCommand(
         plan_text=_PLAN,
         strategy=EnumReviewStrategy.S4_INDEPENDENT_MERGE,
-        model_ids=[],
+        model_ids=[EnumReviewModel.QWEN3_CODER],
         run_id="parity-empty",
     ),
     ModelPlanReviewerMultiCommand(
@@ -391,12 +391,13 @@ _PARITY_COMMANDS = [
 @pytest.mark.unit
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "command",
-    _PARITY_COMMANDS,
+    ("command", "with_findings"),
+    list(zip(_PARITY_COMMANDS, (True, False, True), strict=True)),
     ids=["normal_success", "empty_input", "s3_fallback"],
 )
 async def test_typed_dispatch_matches_strategy_handler(
     command: ModelPlanReviewerMultiCommand,
+    with_findings: bool,
 ) -> None:
     """The typed entry point returns exactly what the routed strategy handler merges."""
     from omniintelligence.nodes.node_plan_reviewer_multi_compute.handlers.strategies.handler_independent_merge import (
@@ -406,7 +407,7 @@ async def test_typed_dispatch_matches_strategy_handler(
         ModelStrategyReviewRequest,
     )
 
-    callers = _make_callers([_make_finding()])
+    callers = _make_callers([_make_finding()] if with_findings else None)
     active = (
         {m: callers[m] for m in command.model_ids if m in callers}
         if command.model_ids is not None
