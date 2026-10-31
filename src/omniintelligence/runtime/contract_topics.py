@@ -30,6 +30,7 @@ from pathlib import Path
 from omniintelligence.models.topics.model_contract_topic_reader import (
     _load_contract,
 )
+from omniintelligence.topics import IntelligenceCommandTopic
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +96,7 @@ def _has_subscribe_topics(contract_path: Path) -> bool:
 # Source: node_intelligence_orchestrator/contract.yaml (cross-repo command,
 # published by omniclaude IntelligenceEventClient).
 _ADDITIONAL_SUBSCRIBE_TOPICS: list[str] = [
-    "onex.cmd.omniintelligence.code-analysis.v1",  # onex-topic-sot OMN-6969
+    IntelligenceCommandTopic.CODE_ANALYSIS.value,  # onex-topic-sot OMN-6969
     "onex.cmd.omniintelligence.utilization-scoring.v1",  # onex-topic-sot OMN-5507
 ]
 
@@ -133,8 +134,7 @@ def collect_subscribe_topics_from_contracts(
     all_topics: list[str] = []
 
     for package in packages:
-        topics = _read_subscribe_topics(package)
-        all_topics.extend(topics)
+        all_topics.extend(_read_subscribe_topics(package))
 
     # Append additional topics not backed by dedicated effect node contracts
     if node_packages is None:

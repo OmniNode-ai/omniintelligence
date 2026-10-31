@@ -37,6 +37,7 @@ from uuid import UUID
 
 import pytest
 
+from omniintelligence.models.topics import read_contract_event
 from omniintelligence.nodes.node_compliance_evaluate_effect.handlers import (
     handle_compliance_evaluate_command,
 )
@@ -59,6 +60,10 @@ from omniintelligence.nodes.node_compliance_evaluate_effect.node_tests.conftest 
     sha256_of,
 )
 
+_COMPLIANCE_EVALUATED_TOPIC = read_contract_event(
+    "node_compliance_evaluate_effect", "compliance-evaluated"
+)
+
 pytestmark = pytest.mark.unit
 
 # =============================================================================
@@ -68,10 +73,7 @@ pytestmark = pytest.mark.unit
 
 def test_publish_topic_matches_contract() -> None:
     """PUBLISH_TOPIC constant matches contract.yaml publish_topics[0]."""
-    assert (
-        PUBLISH_TOPIC
-        == "onex.evt.omniintelligence.compliance-evaluated.v1"  # onex-topic-test-fixture
-    )
+    assert PUBLISH_TOPIC == _COMPLIANCE_EVALUATED_TOPIC
 
 
 def test_dlq_topic_is_publish_topic_with_dlq_suffix() -> None:
