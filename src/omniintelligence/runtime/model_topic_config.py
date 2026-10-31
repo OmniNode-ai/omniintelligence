@@ -5,10 +5,11 @@
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from omniintelligence.constants import (
-    TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1,
-    TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
-)
+from omniintelligence.constants import TOPIC_SUFFIX_INTENT_CLASSIFIED_V1
+from omniintelligence.models.topics import read_contract_topic
+
+# The Claude Code hook command topic, read from the hook node's contract.
+_HOOK = read_contract_topic("node_claude_hook_event_effect", "cmd", "claude-hook-event")
 
 
 class ModelTopicConfig(BaseModel):
@@ -25,9 +26,9 @@ class ModelTopicConfig(BaseModel):
     """
 
     commands: str = Field(
-        default=TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1,
+        default=_HOOK,
         description="Topic for incoming command messages",
-        examples=[TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1],
+        examples=[_HOOK],
     )
 
     events: str = Field(

@@ -13,10 +13,8 @@ Background:
     the constants don't drift from the contract definitions.
 
 Validated Constants:
-    - TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1: subscribe topic for claude hook events
     - TOPIC_SUFFIX_INTENT_CLASSIFIED_V1: publish topic for classified intents
     - TOPIC_SUFFIX_PATTERN_LEARNING_CMD_V1: publish topic for pattern learning commands
-    - TOPIC_SUFFIX_PATTERN_PROMOTED_V1: publish topic for promoted patterns
 """
 
 from __future__ import annotations
@@ -28,12 +26,8 @@ import pytest
 import yaml
 
 from omniintelligence.constants import (
-    TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1,
     TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
     TOPIC_SUFFIX_PATTERN_LEARNING_CMD_V1,
-    TOPIC_SUFFIX_PATTERN_PROMOTED_V1,
-    TOPIC_SUFFIX_PATTERN_STORED_V1,
-    TOPIC_SUFFIX_TOOL_CONTENT_V1,
 )
 
 # =========================================================================
@@ -48,20 +42,6 @@ NODES_DIR = Path("src/omniintelligence/nodes")
 # topic_type is either "subscribe_topics" or "publish_topics"
 TOPIC_CONSTANT_MAPPINGS: list[tuple[str, str, str, str, str]] = [
     (
-        "TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1",
-        TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1,
-        "node_claude_hook_event_effect",
-        "subscribe_topics",
-        "contract.yaml",
-    ),
-    (
-        "TOPIC_SUFFIX_TOOL_CONTENT_V1",
-        TOPIC_SUFFIX_TOOL_CONTENT_V1,
-        "node_claude_hook_event_effect",
-        "subscribe_topics",
-        "contract.yaml",
-    ),
-    (
         "TOPIC_SUFFIX_INTENT_CLASSIFIED_V1",
         TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
         "node_claude_hook_event_effect",
@@ -72,20 +52,6 @@ TOPIC_CONSTANT_MAPPINGS: list[tuple[str, str, str, str, str]] = [
         "TOPIC_SUFFIX_PATTERN_LEARNING_CMD_V1",
         TOPIC_SUFFIX_PATTERN_LEARNING_CMD_V1,
         "node_claude_hook_event_effect",
-        "publish_topics",
-        "contract.yaml",
-    ),
-    (
-        "TOPIC_SUFFIX_PATTERN_STORED_V1",
-        TOPIC_SUFFIX_PATTERN_STORED_V1,
-        "node_pattern_storage_effect",
-        "publish_topics",
-        "contract.yaml",
-    ),
-    (
-        "TOPIC_SUFFIX_PATTERN_PROMOTED_V1",
-        TOPIC_SUFFIX_PATTERN_PROMOTED_V1,
-        "node_pattern_storage_effect",
         "publish_topics",
         "contract.yaml",
     ),
@@ -183,12 +149,8 @@ class TestTopicConstantSync:
         validation mapping.
         """
         expected_constants = {
-            "TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1",
             "TOPIC_SUFFIX_INTENT_CLASSIFIED_V1",
             "TOPIC_SUFFIX_PATTERN_LEARNING_CMD_V1",
-            "TOPIC_SUFFIX_PATTERN_PROMOTED_V1",
-            "TOPIC_SUFFIX_PATTERN_STORED_V1",
-            "TOPIC_SUFFIX_TOOL_CONTENT_V1",
         }
         mapped_constants = {mapping[0] for mapping in TOPIC_CONSTANT_MAPPINGS}
 

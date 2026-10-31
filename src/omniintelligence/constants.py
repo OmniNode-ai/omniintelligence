@@ -66,35 +66,6 @@ Used in:
 # The names will be removed entirely with OMN-1546; renaming is not worthwhile.
 # =============================================================================
 
-TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1: str = (
-    "onex.cmd.omniintelligence.claude-hook-event.v1"
-)
-"""
-TEMP_BOOTSTRAP: Canonical topic for Claude Code hook events (INPUT).
-
-Canonical topic: onex.cmd.omniintelligence.claude-hook-event.v1
-
-omniclaude publishes Claude Code hook events to this topic.
-RuntimeHostProcess routes them to NodeClaudeHookEventEffect.
-
-Deletion ticket: OMN-1546
-"""
-
-TOPIC_SUFFIX_CURSOR_HOOK_EVENT_V1: str = (
-    "onex.cmd.omniintelligence.cursor-hook-event.v1"
-)
-"""
-Canonical topic for Cursor IDE hook events (INPUT).
-
-Canonical topic: onex.cmd.omniintelligence.cursor-hook-event.v1
-
-OmniCursor publishes Cursor hook events to this topic (via the omnimarket
-emit daemon). RuntimeHostProcess routes them to NodeCursorHookEventEffect,
-the Cursor-side peer of NodeClaudeHookEventEffect. Cursor and Claude are
-interchangeable dispatchers; the agent_source field on emitted events keeps
-their provenance distinct.
-"""
-
 TOPIC_SUFFIX_INTENT_CLASSIFIED_V1: str = (
     "onex.evt.omniintelligence.intent-classified.v1"
 )
@@ -105,58 +76,6 @@ Canonical topic: onex.evt.omniintelligence.intent-classified.v1
 
 NodeClaudeHookEventEffect publishes classified intents to this topic.
 omnimemory consumes for graph storage.
-
-Deletion ticket: OMN-1546
-"""
-
-TOPIC_SUFFIX_PATTERN_STORED_V1: str = "onex.evt.omniintelligence.pattern-stored.v1"
-"""
-TEMP_BOOTSTRAP: Canonical topic for pattern storage events (OUTPUT).
-
-Canonical topic: onex.evt.omniintelligence.pattern-stored.v1
-
-NodePatternStorageEffect publishes when a pattern is stored in the database.
-
-Deletion ticket: OMN-1546
-"""
-
-TOPIC_SUFFIX_PATTERN_PROMOTED_V1: str = "onex.evt.omniintelligence.pattern-promoted.v1"
-"""
-TEMP_BOOTSTRAP: Canonical topic for pattern promotion events (OUTPUT).
-
-Canonical topic: onex.evt.omniintelligence.pattern-promoted.v1
-
-NodePatternPromotionEffect publishes when a pattern is promoted
-from candidate to active status based on confidence thresholds
-and validation criteria.
-
-Deletion ticket: OMN-1546
-"""
-
-TOPIC_SUFFIX_PATTERN_DEPRECATED_V1: str = (
-    "onex.evt.omniintelligence.pattern-deprecated.v1"
-)
-"""
-TEMP_BOOTSTRAP: Canonical topic for pattern deprecation events (OUTPUT).
-
-Canonical topic: onex.evt.omniintelligence.pattern-deprecated.v1
-
-NodePatternDemotionEffect publishes when a validated pattern is deprecated,
-e.g., due to rolling-window success metrics, failure streaks, or manual disable,
-subject to cooldown/threshold gates.
-
-Deletion ticket: OMN-1546
-"""
-
-TOPIC_SUFFIX_TOOL_CONTENT_V1: str = "onex.cmd.omniintelligence.tool-content.v1"
-"""
-TEMP_BOOTSTRAP: Canonical topic for tool content events (INPUT).
-
-Canonical topic: onex.cmd.omniintelligence.tool-content.v1
-
-omniclaude publishes PostToolUse payloads with file contents and command
-outputs to this topic. The claude hook event effect node consumes them
-for intelligence analysis.
 
 Deletion ticket: OMN-1546
 """
@@ -294,11 +213,6 @@ Reference: OMN-3282
 """
 
 # Mirror of contract.yaml topics — canonical source is contract.yaml
-TOPIC_BLOOM_EVAL_RUN_V1: str = "onex.cmd.omniintelligence.bloom-eval-run.v1"
-"""Command topic to trigger a bloom eval suite run.
-Canonical declaration: nodes/node_bloom_eval_orchestrator/contract.yaml
-Reference: OMN-4028
-"""
 
 TOPIC_BLOOM_EVAL_COMPLETED_V1: str = "onex.evt.omniintelligence.bloom-eval-completed.v1"
 """Event topic emitted after each bloom eval suite run with aggregated results.
@@ -408,26 +322,6 @@ and emit code-file-discovered.v1 per file found.
 Reference: OMN-5662, OMN-5657 (epic)
 """
 
-TOPIC_CODE_FILE_DISCOVERED_V1: str = "onex.evt.omniintelligence.code-file-discovered.v1"
-"""Canonical topic for code file discovery events (OUTPUT/INPUT).
-
-Emitted by the code crawl handler for each Python file found. Consumed by the
-code extract handler which runs AST extraction and relationship detection.
-
-Reference: OMN-5662, OMN-5658
-"""
-
-TOPIC_CODE_ENTITIES_EXTRACTED_V1: str = (
-    "onex.evt.omniintelligence.code-entities-extracted.v1"
-)
-"""Canonical topic for code entities extracted events (OUTPUT/INPUT).
-
-Emitted by the code extract handler after AST parsing. Consumed by the code
-persist handler which upserts entities/relationships to Postgres.
-
-Reference: OMN-5662, OMN-5659
-"""
-
 TOPIC_CODE_ENTITIES_PERSISTED_V1: str = (
     "onex.evt.omniintelligence.code-entities-persisted.v1"
 )
@@ -437,35 +331,6 @@ Emitted by the code persist handler after successful upsert to Postgres.
 Consumed by Part 2 enrichment handlers (classification, quality scoring).
 
 Reference: OMN-5677
-"""
-
-TOPIC_CODE_ENTITY_PATTERNS_DERIVED_V1: str = (
-    "onex.evt.omniintelligence.code-entity-patterns-derived.v1"
-)
-"""Canonical topic for code entity patterns derived events (OUTPUT).
-
-Emitted by the code entity bridge handler after deriving learned_patterns
-from code_entities. Consumed by downstream pattern storage pipeline.
-
-Reference: OMN-7863
-"""
-
-TOPIC_CODE_ENTITIES_CLASSIFIED_V1: str = (
-    "onex.evt.omniintelligence.code-entities-classified.v1"
-)
-"""Canonical topic for code entities classified events (OUTPUT).
-
-Emitted by the deterministic classification handler after classifying entities.
-
-Reference: OMN-5674
-"""
-
-TOPIC_CODE_ENTITIES_SCORED_V1: str = "onex.evt.omniintelligence.code-entities-scored.v1"
-"""Canonical topic for code entities scored events (OUTPUT).
-
-Emitted by the quality scoring handler after scoring entities.
-
-Reference: OMN-5675
 """
 
 # =============================================================================
@@ -548,28 +413,6 @@ effectiveness scoring, routing patterns through the quality assessment FSM.
 Reference: OMN-8144
 """
 
-TOPIC_QUALITY_ASSESSMENT_COMPLETED_V1: str = (
-    "onex.evt.omniintelligence.quality-assessment-completed.v1"
-)
-"""Canonical topic for quality-assessment completion events (OUTPUT).
-
-Published by the quality-assessment dispatch handler after computing real
-quality scores via NodeQualityScoringCompute. Consumed by omnidash to project
-computed scores into pattern_quality_metrics.
-
-Reference: SOW Phase 2 Quality Score Lineage
-"""
-
-TOPIC_OMNICLAUDE_ROUTING_FEEDBACK_V1: str = "onex.evt.omniclaude.routing-feedback.v1"
-"""Canonical subscribe topic for routing feedback events from omniclaude (INPUT, cross-repo).
-
-Published by omniclaude hooks (omniclaude.hooks.event_registry, TopicBase.ROUTING_FEEDBACK).
-This is a cross-system exception: the topic uses 'evt' kind because it is produced by omniclaude.
-OMN-2622: Carries both produced and skipped outcomes via feedback_status field.
-
-Reference: OMN-2622, OMN-2366
-"""
-
 TOPIC_OMNICLAUDE_DISPATCH_WORKER_COMPLETED_V1: str = (
     "onex.evt.omniclaude.dispatch_worker-completed.v1"
 )
@@ -648,16 +491,10 @@ __all__ = [
     "MAX_PATTERN_MATCH_RESULTS",
     "PERCENTAGE_MULTIPLIER",
     "TOPIC_BLOOM_EVAL_COMPLETED_V1",
-    "TOPIC_BLOOM_EVAL_RUN_V1",
     "TOPIC_CI_DEBUG_ESCALATION_V1",
     "TOPIC_COMPLIANCE_EVALUATED_V1",
     "TOPIC_CODE_CRAWL_REQUESTED_V1",
-    "TOPIC_CODE_ENTITIES_CLASSIFIED_V1",
-    "TOPIC_CODE_ENTITIES_EXTRACTED_V1",
     "TOPIC_CODE_ENTITIES_PERSISTED_V1",
-    "TOPIC_CODE_ENTITIES_SCORED_V1",
-    "TOPIC_CODE_ENTITY_PATTERNS_DERIVED_V1",
-    "TOPIC_CODE_FILE_DISCOVERED_V1",
     "TOPIC_CONTEXT_UTILIZATION_EVT_V1",
     "TOPIC_DECISION_RECORDED_CMD_V1",
     "TOPIC_DECISION_RECORDED_EVT_V1",
@@ -675,22 +512,14 @@ __all__ = [
     "TOPIC_GMAIL_INTENT_EVALUATED_V1",
     "TOPIC_GMAIL_INTENT_SURFACED_V1",
     "TOPIC_OMNICLAUDE_DISPATCH_WORKER_COMPLETED_V1",
-    "TOPIC_OMNICLAUDE_ROUTING_FEEDBACK_V1",
     "TOPIC_QUALITY_ASSESSMENT_CMD_V1",
-    "TOPIC_QUALITY_ASSESSMENT_COMPLETED_V1",
     "TOPIC_RATIONALE_MISMATCH_EVT_V1",
     "TOPIC_RL_ROUTING_DECISION_V1",
     "TOPIC_ROUTING_FEEDBACK_PROCESSED",
     "TOPIC_RUN_EVALUATED_V1",
-    "TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1",
-    "TOPIC_SUFFIX_CURSOR_HOOK_EVENT_V1",
     "TOPIC_SUFFIX_INTENT_CLASSIFIED_V1",
-    "TOPIC_SUFFIX_PATTERN_DEPRECATED_V1",
     "TOPIC_SUFFIX_PATTERN_LEARNING_CMD_V1",
     "TOPIC_SUFFIX_PATTERN_LIFECYCLE_TRANSITIONED_V1",
     "TOPIC_SUFFIX_PATTERN_PROJECTION_V1",
-    "TOPIC_SUFFIX_PATTERN_PROMOTED_V1",
-    "TOPIC_SUFFIX_PATTERN_STORED_V1",
-    "TOPIC_SUFFIX_TOOL_CONTENT_V1",
     "TOPIC_UTILIZATION_SCORING_CMD_V1",
 ]

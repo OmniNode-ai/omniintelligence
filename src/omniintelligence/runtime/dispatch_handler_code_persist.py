@@ -35,7 +35,6 @@ from omnibase_core.protocols.handler.protocol_handler_context import (
 )
 
 from omniintelligence.constants import (
-    TOPIC_CODE_ENTITIES_EXTRACTED_V1,
     TOPIC_CODE_ENTITIES_PERSISTED_V1,
 )
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
@@ -289,6 +288,5 @@ def create_code_persist_dispatch_handler(
 # =============================================================================
 
 __all__ = [
-    "TOPIC_CODE_ENTITIES_EXTRACTED_V1",
     "create_code_persist_dispatch_handler",
 ]

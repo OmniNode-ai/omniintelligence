@@ -53,6 +53,7 @@ from omnibase_core.protocols.handler.protocol_handler_context import (
 from omnibase_infra.runtime.message_dispatch_engine import MessageDispatchEngine
 from pydantic import ValidationError
 
+from omniintelligence.models.topics import read_contract_topic
 from omniintelligence.nodes.node_claude_hook_event_effect.models import (
     ModelClaudeCodeHookEvent,
     ModelClaudeCodeHookEventPayload,
@@ -97,6 +98,12 @@ from omniintelligence.protocols import (
 #
 # Usage: when calling dispatch(), pass the alias instead of the raw topic.
 
+
+# Dispatch alias of the topic a node's contract declares for an event.
+def _contract_dispatch_alias(node: str, kind: str, event: str) -> str:
+    return canonical_topic_to_dispatch_alias(read_contract_topic(node, kind, event))
+
+
 DISPATCH_ALIAS_CLAUDE_HOOK = canonical_topic_to_dispatch_alias(
     IntelligenceCommandTopic.CLAUDE_HOOK_EVENT
 )
@@ -105,20 +112,20 @@ DISPATCH_ALIAS_CLAUDE_CODE_REVIEW = canonical_topic_to_dispatch_alias(
     IntelligenceCommandTopic.CLAUDE_CODE_REVIEW
 )
 """Dispatch-compatible alias for claude-code-review canonical topic (OMN-20910)."""
-DISPATCH_ALIAS_CURSOR_HOOK = canonical_topic_to_dispatch_alias(
-    IntelligenceCommandTopic.CURSOR_HOOK_EVENT
+DISPATCH_ALIAS_CURSOR_HOOK = _contract_dispatch_alias(
+    "node_cursor_hook_event_effect", "cmd", "cursor-hook-event"
 )
 """Dispatch-compatible alias for cursor-hook-event canonical topic."""
-DISPATCH_ALIAS_SESSION_OUTCOME = canonical_topic_to_dispatch_alias(
-    IntelligenceCommandTopic.SESSION_OUTCOME
+DISPATCH_ALIAS_SESSION_OUTCOME = _contract_dispatch_alias(
+    "node_pattern_feedback_effect", "cmd", "session-outcome"
 )
 """Dispatch-compatible alias for session-outcome canonical topic."""
-DISPATCH_ALIAS_PATTERN_LIFECYCLE = canonical_topic_to_dispatch_alias(
-    IntelligenceCommandTopic.PATTERN_LIFECYCLE_TRANSITION
+DISPATCH_ALIAS_PATTERN_LIFECYCLE = _contract_dispatch_alias(
+    "node_pattern_lifecycle_effect", "cmd", "pattern-lifecycle-transition"
 )
 """Dispatch-compatible alias for pattern-lifecycle canonical topic."""
-DISPATCH_ALIAS_PATTERN_LEARNED = canonical_topic_to_dispatch_alias(
-    IntentTopic.PATTERN_LEARNED
+DISPATCH_ALIAS_PATTERN_LEARNED = _contract_dispatch_alias(
+    "node_pattern_storage_effect", "evt", "pattern-learned"
 )
 """Dispatch-compatible alias for pattern-learned canonical topic."""
 DISPATCH_ALIAS_PATTERN_DISCOVERED = canonical_topic_to_dispatch_alias(
@@ -141,8 +148,8 @@ DISPATCH_ALIAS_PATTERN_STORED = canonical_topic_to_dispatch_alias(
     IntentTopic.PATTERN_STORED
 )
 """Dispatch-compatible alias for pattern-stored canonical topic (OMN-5611)."""
-DISPATCH_ALIAS_PATTERN_PROMOTED = canonical_topic_to_dispatch_alias(
-    IntentTopic.PATTERN_PROMOTED
+DISPATCH_ALIAS_PATTERN_PROMOTED = _contract_dispatch_alias(
+    "node_pattern_storage_effect", "evt", "pattern-promoted"
 )
 """Dispatch-compatible alias for pattern-promoted canonical topic (OMN-2424)."""
 DISPATCH_ALIAS_PATTERN_LIFECYCLE_TRANSITIONED = canonical_topic_to_dispatch_alias(
@@ -153,16 +160,16 @@ DISPATCH_ALIAS_INTELLIGENCE_ORCHESTRATOR = canonical_topic_to_dispatch_alias(
     IntelligenceCommandTopic.INTENT_RECEIVED
 )
 """Dispatch-compatible alias for intelligence orchestrator intent reception (OMN-6590)."""
-DISPATCH_ALIAS_CI_FINGERPRINT = canonical_topic_to_dispatch_alias(
-    IntelligenceCommandTopic.CI_FAILURE_DETECTED
+DISPATCH_ALIAS_CI_FINGERPRINT = _contract_dispatch_alias(
+    "node_ci_failure_tracker_effect", "cmd", "ci-failure-detected"
 )
 """Dispatch-compatible alias for CI failure fingerprint compute (OMN-6598)."""
-DISPATCH_ALIAS_CI_FAILURE_TRACKER = canonical_topic_to_dispatch_alias(
-    IntelligenceCommandTopic.CI_FAILURE_TRACK
+DISPATCH_ALIAS_CI_FAILURE_TRACKER = _contract_dispatch_alias(
+    "node_ci_failure_tracker_effect", "cmd", "ci-failure-track"
 )
 """Dispatch-compatible alias for CI failure tracker effect (OMN-6598)."""
-DISPATCH_ALIAS_CI_RECOVERY = canonical_topic_to_dispatch_alias(
-    IntelligenceCommandTopic.CI_RECOVERY_DETECTED
+DISPATCH_ALIAS_CI_RECOVERY = _contract_dispatch_alias(
+    "node_debug_fix_record_effect", "cmd", "ci-recovery-detected"
 )
 """Dispatch-compatible alias for CI recovery handler (OMN-6598)."""
 _FALLBACK_TOPIC_PATTERN_STORED = IntentTopic.PATTERN_STORED.value
@@ -171,6 +178,15 @@ _FALLBACK_TOPIC_COMPLIANCE_EVALUATED = canonical_topic_to_dispatch_alias(
     IntentTopic.COMPLIANCE_EVALUATED
 )
 """Fallback compliance-evaluated publish topic when contract-resolved topic is unavailable."""
+DISPATCH_ALIAS_CODE_CRAWL_REQUESTED = _contract_dispatch_alias(
+    "node_code_crawler_effect", "cmd", "code-crawl-requested"
+)
+DISPATCH_ALIAS_CODE_FILE_DISCOVERED = _contract_dispatch_alias(
+    "node_ast_extraction_compute", "evt", "code-file-discovered"
+)
+DISPATCH_ALIAS_CODE_ENTITIES_EXTRACTED = _contract_dispatch_alias(
+    "node_code_entity_bridge_compute", "evt", "code-entities-extracted"
+)
 DISPATCH_ALIAS_DECISION_RECORDED_CMD = canonical_topic_to_dispatch_alias(
     IntelligenceCommandTopic.DECISION_RECORDED
 )
@@ -191,24 +207,26 @@ DISPATCH_ALIAS_REVIEW_PAIRING_PAIR_CREATED = canonical_topic_to_dispatch_alias(
     IntentTopic.PAIR_CREATED
 )
 """Dispatch-compatible alias for pair-created event (OMN-6592)."""
-DISPATCH_ALIAS_CI_FAILURE_DETECTED_CMD = canonical_topic_to_dispatch_alias(
-    IntelligenceCommandTopic.CI_FAILURE_DETECTED_TRACK
+DISPATCH_ALIAS_CI_FAILURE_DETECTED_CMD = _contract_dispatch_alias(
+    "node_ci_failure_tracker_effect", "cmd", "ci-failure-detected-track"
 )
 """Dispatch-compatible alias for ci-failure-detected tracking command topic (OMN-6597).
 
 Note: Distinct from DISPATCH_ALIAS_CI_FINGERPRINT which routes to the fingerprint
 compute handler. This alias routes to the failure tracker effect handler.
 """
-DISPATCH_ALIAS_DEBUG_TRIGGER_RECORD_CREATED = canonical_topic_to_dispatch_alias(
-    IntentTopic.DEBUG_TRIGGER_RECORD_CREATED
+DISPATCH_ALIAS_DEBUG_TRIGGER_RECORD_CREATED = _contract_dispatch_alias(
+    "node_ci_failure_tracker_effect", "evt", "debug-trigger-record-created"
 )
 """Dispatch-compatible alias for debug-trigger-record-created event topic (OMN-6597)."""
-DISPATCH_ALIAS_DISPATCH_WORKER_COMPLETED = canonical_topic_to_dispatch_alias(
-    "onex.evt.omniclaude.dispatch_worker-completed.v1"  # onex-topic-allow: cross-repo omniclaude producer topic, no local registry entry (OMN-13944)
+DISPATCH_ALIAS_DISPATCH_WORKER_COMPLETED = _contract_dispatch_alias(
+    "node_dispatch_outcome_eval_effect", "evt", "dispatch_worker-completed"
 )
 """Dispatch-compatible alias for dispatch_worker-completed event (OMN-12280)."""
-TOPIC_DISPATCH_OUTCOME_EVALUATED_V1 = "onex.evt.omniintelligence.dispatch-outcome-evaluated.v1"  # onex-topic-allow: canonical Kafka topic const, referenced below and by the fallback default publish topic (OMN-13944)
-"""Canonical Kafka topic for dispatch-outcome-evaluated events (OMN-12280)."""
+# Canonical Kafka topic for dispatch-outcome-evaluated events (OMN-12280), read from the node contract.
+TOPIC_DISPATCH_OUTCOME_EVALUATED_V1 = read_contract_topic(
+    "node_dispatch_outcome_eval_effect", "evt", "dispatch-outcome-evaluated"
+)
 DISPATCH_ALIAS_DISPATCH_OUTCOME_EVALUATED = canonical_topic_to_dispatch_alias(
     TOPIC_DISPATCH_OUTCOME_EVALUATED_V1
 )
@@ -3272,11 +3290,6 @@ def create_intelligence_dispatch_engine(
     )
 
     # --- Handler 12: code-crawl-requested (OMN-5662) ---
-    from omniintelligence.constants import (
-        TOPIC_CODE_CRAWL_REQUESTED_V1,
-        TOPIC_CODE_ENTITIES_EXTRACTED_V1,
-        TOPIC_CODE_FILE_DISCOVERED_V1,
-    )
     from omniintelligence.runtime.dispatch_handler_code_crawl import (
         create_code_crawl_dispatch_handler,
     )
@@ -3296,9 +3309,7 @@ def create_intelligence_dispatch_engine(
     engine.register_route(
         ModelDispatchRoute(
             route_id="intelligence-code-crawl-route",
-            topic_pattern=canonical_topic_to_dispatch_alias(
-                TOPIC_CODE_CRAWL_REQUESTED_V1
-            ),
+            topic_pattern=DISPATCH_ALIAS_CODE_CRAWL_REQUESTED,
             message_category=EnumMessageCategory.COMMAND,
             handler_id="intelligence-code-crawl-handler",
             description=(
@@ -3329,9 +3340,7 @@ def create_intelligence_dispatch_engine(
     engine.register_route(
         ModelDispatchRoute(
             route_id="intelligence-code-extract-route",
-            topic_pattern=canonical_topic_to_dispatch_alias(
-                TOPIC_CODE_FILE_DISCOVERED_V1
-            ),
+            topic_pattern=DISPATCH_ALIAS_CODE_FILE_DISCOVERED,
             message_category=EnumMessageCategory.EVENT,
             handler_id="intelligence-code-extract-handler",
             description=(
@@ -3359,9 +3368,7 @@ def create_intelligence_dispatch_engine(
     engine.register_route(
         ModelDispatchRoute(
             route_id="intelligence-code-persist-route",
-            topic_pattern=canonical_topic_to_dispatch_alias(
-                TOPIC_CODE_ENTITIES_EXTRACTED_V1
-            ),
+            topic_pattern=DISPATCH_ALIAS_CODE_ENTITIES_EXTRACTED,
             message_category=EnumMessageCategory.EVENT,
             handler_id="intelligence-code-persist-handler",
             description=(
@@ -3427,9 +3434,7 @@ def create_intelligence_dispatch_engine(
     engine.register_route(
         ModelDispatchRoute(
             route_id="intelligence-code-entity-bridge-route",
-            topic_pattern=canonical_topic_to_dispatch_alias(
-                TOPIC_CODE_ENTITIES_EXTRACTED_V1
-            ),
+            topic_pattern=DISPATCH_ALIAS_CODE_ENTITIES_EXTRACTED,
             message_category=EnumMessageCategory.EVENT,
             handler_id="intelligence-code-entity-bridge-handler",
             description=(
@@ -3795,8 +3800,8 @@ def create_intelligence_dispatch_engine(
 
     # --- Handler: protocol-execute (OMN-6979) ---
     # Bridge handler for protocol handler effect node.
-    _DISPATCH_ALIAS_PROTOCOL_EXECUTE = canonical_topic_to_dispatch_alias(
-        IntelligenceCommandTopic.PROTOCOL_EXECUTE
+    _DISPATCH_ALIAS_PROTOCOL_EXECUTE = _contract_dispatch_alias(
+        "node_protocol_handler_effect", "cmd", "protocol-execute"
     )
 
     async def _protocol_execute_handler(
