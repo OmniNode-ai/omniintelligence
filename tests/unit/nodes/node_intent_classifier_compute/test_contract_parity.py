@@ -22,7 +22,7 @@ from omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_lang
     DOMAIN_TO_INTENT_MAP,
 )
 from omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_typed_classification import (
-    get_category_to_typed_class_mapping,
+    HandlerTypedClassification,
 )
 from omniintelligence.nodes.node_intent_classifier_compute.models.enum_intent_category import (
     EnumIntentCategory,
@@ -140,7 +140,7 @@ class TestTypedClassMappingCoverage:
 
     def test_every_intent_category_has_typed_class_mapping(self) -> None:
         """Every EnumIntentCategory (except UNKNOWN) must appear in the typed-class mapping."""
-        mapping = get_category_to_typed_class_mapping()
+        mapping = HandlerTypedClassification.get_category_to_typed_class_mapping()
         enum_values = {
             m.value for m in EnumIntentCategory if m != EnumIntentCategory.UNKNOWN
         }

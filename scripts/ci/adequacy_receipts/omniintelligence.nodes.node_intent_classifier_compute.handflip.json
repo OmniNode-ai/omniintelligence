@@ -1,0 +1,38 @@
+{
+  "base_ref": "978c264",
+  "canonical_handler_module": "omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_intent_classification",
+  "legacy_handler_module": "omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_intent_classification",
+  "node_id": "omniintelligence.nodes.node_intent_classifier_compute",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:4286c36d6423c4b95b6020a039912e7ad35542936ce4f0559e5754ea45a34787",
+      "sha256:333698df29abc1cb6c03790d2a5944b8c280b4f631e80b9c561fa1ff4e13aca0",
+      "sha256:ec69fc50b0e141f1d9069933608d4a33d339f7708e51c0c0a2b19d4f51434e7b",
+      "sha256:a085c7b6dfe4dee4332f9a6e5c87f84a159f21316d111690a811cb07ec5c4fc7",
+      "sha256:23090da3bae5e262d01b233d0a238f3eb84bb74ea8c8c0464397d243c55905f1",
+      "sha256:1bc7b4783f4275ffdac47e5e3c64a6c99c3e3f17c69f463dace52e769f21fcce",
+      "sha256:f95d0886c9f3f84a542c4d595aa8e80eea8572f0e68629f954fd6c077b5d27e8",
+      "sha256:066d473afdb08612f9ed1194e3b549fa633c10c1db15871dbc16e55cbb461aa1"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_intent_classifier_compute/test_canonical_parity.py::test_canonical_dispatch_matches_preserved_core[code_generation]",
+      "tests/unit/nodes/node_intent_classifier_compute/test_canonical_parity.py::test_canonical_dispatch_matches_preserved_core[mixed_intents]",
+      "tests/unit/nodes/node_intent_classifier_compute/test_canonical_parity.py::test_canonical_dispatch_matches_preserved_core[unmatched]",
+      "tests/unit/nodes/node_intent_classifier_compute/test_canonical_parity.py::test_canonical_dispatch_matches_preserved_core[no_tokens]",
+      "tests/unit/nodes/node_intent_classifier_compute/test_canonical_parity.py::test_canonical_dispatch_matches_preserved_core[whitespace_validation]",
+      "tests/unit/nodes/node_intent_classifier_compute/test_canonical_parity.py::test_canonical_dispatch_matches_preserved_core[empty_validation]",
+      "tests/unit/nodes/node_intent_classifier_compute/test_canonical_parity.py::test_canonical_dispatch_matches_preserved_core[compute_error]",
+      "tests/unit/nodes/node_intent_classifier_compute/test_canonical_parity.py::test_canonical_dispatch_matches_preserved_core[unexpected_error]"
+    ]
+  },
+  "preserved_symbols": [
+    "_tokenize",
+    "_calculate_term_frequency",
+    "_calculate_intent_score",
+    "_build_single_label_result",
+    "_build_multi_label_result",
+    "_build_error_response"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

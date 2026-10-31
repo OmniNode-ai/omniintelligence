@@ -161,18 +161,18 @@ handler_routing:
   handlers:
     - operation: "classify_intent"
       handler:
-        function: "handle_intent_classification"
-        module: "omniintelligence.nodes.node_intent_classifier_compute.handlers"
+        class: "HandlerIntentClassification"
+        module: "omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_intent_classification"
         type: "sync"
     - operation: "analyze_semantics"
       handler:
-        function: "analyze_semantics"
-        module: "omniintelligence.nodes.node_intent_classifier_compute.handlers"
+        class: "HandlerSemanticAnalysis"
+        module: "omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_langextract"
         type: "sync"
     - operation: "map_semantic_to_intent_boost"
       handler:
-        function: "map_semantic_to_intent_boost"
-        module: "omniintelligence.nodes.node_intent_classifier_compute.handlers"
+        class: "HandlerSemanticIntentBoost"
+        module: "omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_langextract"
         type: "sync"
 dependencies: []
 # Future dependency (when OMN-1478 is implemented):

@@ -7,12 +7,12 @@ This package provides code quality analysis and intelligence operations
 as first-class ONEX nodes.
 
 Quick Start - Quality Scoring:
-    >>> from omniintelligence import score_code_quality, OnexStrictnessLevel
-    >>> result = score_code_quality(
-    ...     content="class Model(BaseModel): x: int",
-    ...     language="python",
-    ...     preset=OnexStrictnessLevel.STRICT,
+    >>> from omniintelligence import HandlerQualityScoring, OnexStrictnessLevel
+    >>> from omniintelligence.nodes.node_quality_scoring_compute.handlers import ModelScoreCodeQualityRequest
+    >>> request = ModelScoreCodeQualityRequest(
+    ...     content="class Model(BaseModel): x: int", language="python", preset=OnexStrictnessLevel.STRICT,
     ... )
+    >>> result = HandlerQualityScoring().handle(request)
     >>> result["success"]
     True
     >>> result["quality_score"]  # 0.0 to 1.0
@@ -38,6 +38,9 @@ if TYPE_CHECKING:
         DimensionScores as DimensionScores,
     )
     from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
+        HandlerQualityScoring as HandlerQualityScoring,
+    )
+    from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
         OnexStrictnessLevel as OnexStrictnessLevel,
     )
     from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
@@ -48,9 +51,6 @@ if TYPE_CHECKING:
     )
     from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
         QualityScoringValidationError as QualityScoringValidationError,
-    )
-    from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
-        score_code_quality as score_code_quality,
     )
 
 # Do not hardcode versions here; version is sourced from distribution metadata.
@@ -70,7 +70,7 @@ _LAZY_EXPORTS = frozenset(
         "QualityScoringComputeError",
         "QualityScoringResult",
         "QualityScoringValidationError",
-        "score_code_quality",
+        "HandlerQualityScoring",
     }
 )
 
@@ -123,5 +123,5 @@ __all__ = [
     # Exceptions
     "QualityScoringValidationError",
     # Main API
-    "score_code_quality",
+    "HandlerQualityScoring",
 ]

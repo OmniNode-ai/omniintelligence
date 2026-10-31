@@ -20,7 +20,8 @@ pytestmark = pytest.mark.unit
 
 from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
     ANALYSIS_VERSION,
-    score_code_quality,
+    HandlerQualityScoring,
+    ModelScoreCodeQualityRequest,
 )
 
 
@@ -37,7 +38,9 @@ class ModelExample(BaseModel):
 
     model_config = {"frozen": True, "extra": "forbid"}
 '''
-        result = score_code_quality(code, "python")
+        result = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=code, language="python")
+        )
 
         assert result["success"] is True
         assert 0.0 <= result["quality_score"] <= 1.0
@@ -73,7 +76,9 @@ class ModelConfig(BaseModel):
         """Validate and normalize value."""
         return v.strip()
 '''
-        result = score_code_quality(onex_code, "python")
+        result = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=onex_code, language="python")
+        )
 
         assert result["dimensions"]["patterns"] >= 0.7
         # High quality code should be ONEX compliant with default threshold
@@ -88,7 +93,9 @@ def process(data, **kwargs):
         result[k] = v
     return result
 """
-        result = score_code_quality(bad_code, "python")
+        result = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=bad_code, language="python")
+        )
 
         # Untyped functions with mutable defaults and **kwargs
         assert result["dimensions"]["patterns"] < 0.7
@@ -108,7 +115,11 @@ def process(data, **kwargs):
             "patterns": 0.05,
             "architectural": 0.10,
         }
-        result_doc = score_code_quality(code, "python", weights=doc_weights)
+        result_doc = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(
+                content=code, language="python", weights=doc_weights
+            )
+        )
 
         # Weight heavily on complexity (simple code should score well)
         complexity_weights = {
@@ -119,8 +130,10 @@ def process(data, **kwargs):
             "patterns": 0.05,
             "architectural": 0.10,
         }
-        result_complexity = score_code_quality(
-            code, "python", weights=complexity_weights
+        result_complexity = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(
+                content=code, language="python", weights=complexity_weights
+            )
         )
 
         # Complexity-weighted should be higher than doc-weighted for this simple code
@@ -135,10 +148,18 @@ class Example:
         self.value = value
 '''
         # Low threshold - should pass
-        result_low = score_code_quality(medium_code, "python", onex_threshold=0.3)
+        result_low = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(
+                content=medium_code, language="python", onex_threshold=0.3
+            )
+        )
 
         # High threshold - should fail
-        result_high = score_code_quality(medium_code, "python", onex_threshold=0.95)
+        result_high = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(
+                content=medium_code, language="python", onex_threshold=0.95
+            )
+        )
 
         # Same dimension scores for both
         assert (
@@ -156,7 +177,9 @@ class Example:
         """Malformed Python should not crash, returns low baseline scores."""
         bad_syntax = "def broken( class while:"
 
-        result = score_code_quality(bad_syntax, "python")
+        result = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=bad_syntax, language="python")
+        )
 
         assert result["success"] is True  # Does not crash
         assert result["quality_score"] >= 0.0
@@ -169,7 +192,9 @@ class Example:
         """Unsupported languages should return baseline scores."""
         code = 'fn main() { println!("Hello"); }'
 
-        result = score_code_quality(code, "rust")
+        result = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=code, language="rust")
+        )
 
         assert result["success"] is True
         assert result["source_language"] == "rust"
@@ -186,19 +211,25 @@ class Example:
         Per CLAUDE.md handler pattern, validation errors are domain errors
         returned as structured output with success=False, not raised.
         """
-        result = score_code_quality("", "python")
+        result = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content="", language="python")
+        )
         assert result["success"] is False
         assert result["quality_score"] == 0.0
         assert any("empty" in r.lower() for r in result["recommendations"])
         assert any("validation_error" in r.lower() for r in result["recommendations"])
 
-        result_whitespace = score_code_quality("   \n\t  ", "python")
+        result_whitespace = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content="   \n\t  ", language="python")
+        )
         assert result_whitespace["success"] is False
         assert any("empty" in r.lower() for r in result_whitespace["recommendations"])
 
     def test_returns_typed_dict_structure(self) -> None:
         """Result should match QualityScoringResult TypedDict structure."""
-        result = score_code_quality("x = 1", "python")
+        result = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content="x = 1", language="python")
+        )
 
         # Verify all required keys present
         required_keys = {
@@ -232,7 +263,9 @@ class Large:
         ]
 
         for code in test_cases:
-            result = score_code_quality(code, "python")
+            result = HandlerQualityScoring().handle(
+                ModelScoreCodeQualityRequest(content=code, language="python")
+            )
 
             assert 0.0 <= result["quality_score"] <= 1.0
             for dim, score in result["dimensions"].items():

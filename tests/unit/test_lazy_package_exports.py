@@ -31,7 +31,7 @@ LAZY_EXPORTS = (
     "QualityScoringComputeError",
     "QualityScoringResult",
     "QualityScoringValidationError",
-    "score_code_quality",
+    "HandlerQualityScoring",
 )
 
 _QUALITY_SCORING_MODULE = "omniintelligence.nodes.node_quality_scoring_compute"

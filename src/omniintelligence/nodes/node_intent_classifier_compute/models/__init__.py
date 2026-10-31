@@ -12,8 +12,14 @@ from omniintelligence.nodes.node_intent_classifier_compute.models.enum_intent_cl
 from omniintelligence.nodes.node_intent_classifier_compute.models.enum_semantic_domain import (
     EnumSemanticDomain,
 )
+from omniintelligence.nodes.node_intent_classifier_compute.models.model_analyze_semantics_request import (
+    ModelAnalyzeSemanticsRequest,
+)
 from omniintelligence.nodes.node_intent_classifier_compute.models.model_classification_config import (
     ModelClassificationConfig,
+)
+from omniintelligence.nodes.node_intent_classifier_compute.models.model_classify_intent_request import (
+    ModelClassifyIntentRequest,
 )
 from omniintelligence.nodes.node_intent_classifier_compute.models.model_intent_classification_input import (
     IntentContextDict,
@@ -26,6 +32,9 @@ from omniintelligence.nodes.node_intent_classifier_compute.models.model_intent_c
 )
 from omniintelligence.nodes.node_intent_classifier_compute.models.model_intent_classified_event import (
     ModelIntentClassifiedEvent,
+)
+from omniintelligence.nodes.node_intent_classifier_compute.models.model_resolve_typed_intent_request import (
+    ModelResolveTypedIntentRequest,
 )
 from omniintelligence.nodes.node_intent_classifier_compute.models.model_semantic_analysis_config import (
     ModelSemanticAnalysisConfig,
@@ -49,16 +58,19 @@ from omniintelligence.nodes.node_intent_classifier_compute.models.model_typed_in
 )
 
 __all__ = [
-    "INTENT_CLASS_CONFIG_TABLE",
     "EnumIntentCategory",
     "EnumIntentClass",
     "EnumSemanticDomain",
+    "INTENT_CLASS_CONFIG_TABLE",
     "IntentContextDict",
     "IntentMetadataDict",
+    "ModelAnalyzeSemanticsRequest",
     "ModelClassificationConfig",
+    "ModelClassifyIntentRequest",
     "ModelIntentClassificationInput",
     "ModelIntentClassificationOutput",
     "ModelIntentClassifiedEvent",
+    "ModelResolveTypedIntentRequest",
     "ModelSemanticAnalysisConfig",
     "ModelSemanticBoostsConfig",
     "ModelSemanticLimitsConfig",

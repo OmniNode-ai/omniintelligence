@@ -71,8 +71,8 @@ handler_routing:
   handlers:
     - operation: "score_quality"
       handler:
-        function: "handle_quality_scoring_compute"
-        module: "omniintelligence.nodes.node_quality_scoring_compute.handlers"
+        class: "HandlerQualityScoringCompute"
+        module: "omniintelligence.nodes.node_quality_scoring_compute.handlers.handler_compute"
         type: "sync"
 dependencies: []
 # Future dependency (when #13 is implemented):

@@ -19,7 +19,8 @@ import pytest
 pytestmark = pytest.mark.unit
 
 from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
-    score_code_quality,
+    HandlerQualityScoring,
+    ModelScoreCodeQualityRequest,
 )
 
 
@@ -38,8 +39,12 @@ def process(data, **kwargs):
     result = []
     return result
 """
-        result_typed = score_code_quality(typed, "python")
-        result_untyped = score_code_quality(untyped, "python")
+        result_typed = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=typed, language="python")
+        )
+        result_untyped = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=untyped, language="python")
+        )
 
         # Typed code with docstrings should score better on patterns than code with antipatterns
         assert (
@@ -71,9 +76,15 @@ def process(data: dict[str, int], limit: int) -> list[str]:
 def process(data, limit):
     return list(data.keys())[:limit]
 """
-        result_full = score_code_quality(fully_documented, "python")
-        result_partial = score_code_quality(partial_documented, "python")
-        result_none = score_code_quality(undocumented, "python")
+        result_full = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=fully_documented, language="python")
+        )
+        result_partial = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=partial_documented, language="python")
+        )
+        result_none = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=undocumented, language="python")
+        )
 
         assert (
             result_full["dimensions"]["documentation"]
@@ -102,8 +113,12 @@ def process(data: dict) -> list:
 def process(data: dict) -> list:
     return list(data.keys())
 """
-        result_doc = score_code_quality(documented, "python")
-        result_undoc = score_code_quality(undocumented, "python")
+        result_doc = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=documented, language="python")
+        )
+        result_undoc = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=undocumented, language="python")
+        )
 
         assert (
             result_doc["dimensions"]["documentation"]
@@ -127,8 +142,12 @@ class Processor:
     def process(self, data: dict) -> list:
         return list(data.keys())
 """
-        result_with = score_code_quality(with_docstrings, "python")
-        result_without = score_code_quality(without_docstrings, "python")
+        result_with = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=with_docstrings, language="python")
+        )
+        result_without = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=without_docstrings, language="python")
+        )
 
         assert (
             result_with["dimensions"]["documentation"]
@@ -156,8 +175,12 @@ def process(data):
                         result *= 2
     return result
 """
-        result_simple = score_code_quality(simple, "python")
-        result_complex = score_code_quality(complex_code, "python")
+        result_simple = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=simple, language="python")
+        )
+        result_complex = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=complex_code, language="python")
+        )
 
         assert (
             result_simple["dimensions"]["complexity"]
@@ -180,8 +203,12 @@ def complex(x: int) -> int:
         result = -1
     return result
 """
-        result_simple = score_code_quality(without_try, "python")
-        result_with_try = score_code_quality(with_try, "python")
+        result_simple = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=without_try, language="python")
+        )
+        result_with_try = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=with_try, language="python")
+        )
 
         # More exception handlers = higher complexity = lower complexity score
         assert (
@@ -211,8 +238,12 @@ class user_account:
     def ValidateAmount(self, Amount):
         return Amount > 0
 """
-        result_good = score_code_quality(good_naming, "python")
-        result_bad = score_code_quality(bad_naming, "python")
+        result_good = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=good_naming, language="python")
+        )
+        result_bad = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=bad_naming, language="python")
+        )
 
         assert (
             result_good["dimensions"]["maintainability"]
@@ -250,8 +281,12 @@ class Model:
 def process(data, **kwargs):
     return dict(data)
 """
-        result_with = score_code_quality(with_patterns, "python")
-        result_without = score_code_quality(without_patterns, "python")
+        result_with = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=with_patterns, language="python")
+        )
+        result_without = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=without_patterns, language="python")
+        )
 
         assert (
             result_with["dimensions"]["patterns"]
@@ -272,8 +307,12 @@ def process(data: dict[str, Any], **kwargs) -> list:
     defaults = {}
     return result
 """
-        result_clean = score_code_quality(clean_code, "python")
-        result_antipatterns = score_code_quality(with_antipatterns, "python")
+        result_clean = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=clean_code, language="python")
+        )
+        result_antipatterns = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=with_antipatterns, language="python")
+        )
 
         assert (
             result_clean["dimensions"]["patterns"]
