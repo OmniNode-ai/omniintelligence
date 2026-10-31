@@ -23,7 +23,9 @@ from omniintelligence.nodes.node_watchdog_effect.models import (
     EnumWatchdogObserverType,
     ModelWatchdogConfig,
 )
-from omniintelligence.nodes.node_watchdog_effect.node import NodeWatchdogEffect
+from omniintelligence.nodes.node_watchdog_effect.node_tests.container.container_watchdog_effect import (
+    resolve_watchdog_effect,
+)
 from omniintelligence.nodes.node_watchdog_effect.registry.registry_watchdog_effect import (
     RegistryWatchdogEffect,
 )
@@ -43,7 +45,7 @@ def assert_node_protocol_conformance() -> None:
     from omnibase_core.nodes.node_effect import NodeEffect
 
     container = ModelONEXContainer()
-    node = NodeWatchdogEffect(container)
+    node = resolve_watchdog_effect(container)
     assert isinstance(node, NodeEffect), (
         f"NodeWatchdogEffect must be an instance of NodeEffect. Got: {type(node)}"
     )

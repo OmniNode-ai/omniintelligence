@@ -40,6 +40,9 @@ from omniintelligence.nodes.node_policy_state_reducer.models.model_transition_th
 from omniintelligence.nodes.node_policy_state_reducer.node import (
     NodePolicyStateReducer,
 )
+from omniintelligence.nodes.node_policy_state_reducer.node_tests.container.container_policy_state_reducer import (
+    resolve_policy_state_reducer,
+)
 
 # Default thresholds for testing
 _THRESHOLDS = ModelTransitionThresholds(
@@ -321,7 +324,7 @@ class TestNodePolicyStateReducer:
     ) -> tuple[NodePolicyStateReducer, MockRepository, MockAlertPublisher]:
         repo = MockRepository()
         publisher = MockAlertPublisher()
-        reducer = NodePolicyStateReducer(
+        reducer = resolve_policy_state_reducer(
             repository=repo,
             alert_publisher=publisher,
         )

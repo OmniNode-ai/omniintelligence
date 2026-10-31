@@ -32,14 +32,14 @@ from omnibase_core.protocols.handler.protocol_handler_context import (
     ProtocolHandlerContext,
 )
 
+from omniintelligence.nodes.node_code_entity_bridge_compute.container.container_code_entity_bridge import (
+    resolve_code_entity_bridge,
+)
 from omniintelligence.nodes.node_code_entity_bridge_compute.models.model_input import (
     ModelCodeEntityBridgeInput,
 )
 from omniintelligence.nodes.node_code_entity_bridge_compute.models.model_output import (
     ModelDerivedPattern,
-)
-from omniintelligence.nodes.node_code_entity_bridge_compute.node import (
-    NodeCodeEntityBridgeCompute,
 )
 from omniintelligence.runtime.contract_topics import canonical_topic_to_dispatch_alias
 from omniintelligence.topics import IntentTopic
@@ -58,7 +58,7 @@ DispatchHandler = Callable[
     Awaitable[str],
 ]
 
-_BRIDGE_NODE = NodeCodeEntityBridgeCompute()
+_BRIDGE_NODE = resolve_code_entity_bridge()
 
 
 def create_code_entity_bridge_dispatch_handler(
