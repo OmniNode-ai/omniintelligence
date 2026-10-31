@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# Time budgets and the codex search path of the review pipeline (OMN-21623).
+#
+# Code holds none of these values: every consuming module reads them from here
+# through ModelReviewBudgets, and a file that omits a field, or names one the
+# model does not know, fails to load rather than falling back to a number in
+# code.
+#
+#   model_probe_seconds:      budget of the /v1/models served-model probe
+#                             (OMN-18623). Small and independent of the review
+#                             timeout: an endpoint too slow to answer it is not
+#                             one a review would have completed against.
+#   tcp_probe_seconds:        one TCP reachability attempt; matches the CI
+#                             reviewer endpoint preflight (`timeout 5`,
+#                             OMN-14176).
+#   tcp_retry_delay_seconds:  delay between attempts; matches the preflight's
+#                             `sleep 2`.
+#   codex_exec_seconds:       one `codex exec` subprocess.
+#   git_show_seconds:         one `git show` read.
+#   gh_api_seconds:           one paginated `gh api` read.
+#   gh_pr_diff_seconds:       one `gh pr diff` read.
+#   codex_fallback_dirs:      directories searched for the codex binary when it
+#                             is not on PATH (shutil.which only searches PATH,
+#                             which may be narrow in subprocess contexts). A
+#                             leading `~` is expanded.
+model_probe_seconds: 15.0
+tcp_probe_seconds: 5.0
+tcp_retry_delay_seconds: 2.0
+codex_exec_seconds: 180.0
+git_show_seconds: 30.0
+gh_api_seconds: 60.0
+gh_pr_diff_seconds: 30.0
+codex_fallback_dirs:
+  - "/opt/homebrew/bin"
+  - "/usr/local/bin"
+  - "~/.local/bin"

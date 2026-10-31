@@ -115,6 +115,7 @@ from uuid import uuid4
 from omniintelligence.handlers.handler_review_standing_rules import (
     handle as handle_standing_rules,
 )
+from omniintelligence.models.review.model_review_budgets import shipped_review_budgets
 from omniintelligence.models.review.model_review_standing_rules import (
     ModelReviewStandingRules,
 )
@@ -212,7 +213,6 @@ _LARGE_PR_DIFF_MARKERS: tuple[str, ...] = (
 )
 _MAX_FALLBACK_REVIEW_CHARS = 120_000
 _MAX_FALLBACK_PATCH_CHARS = 6_000
-_VOTER_MODEL_PROBE_TIMEOUT_SECONDS = 15.0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -410,7 +410,7 @@ def _git_show(repo_dir: str, ref: str, path: str) -> str | None:
             ["git", "-C", repo_dir, "show", f"{ref}:{path}"],
             capture_output=True,
             text=True,
-            timeout=30,
+            timeout=shipped_review_budgets().git_show_seconds,
             check=False,
         )
     except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
@@ -769,9 +769,7 @@ def _select_overlay_voters(
         ):
             continue
         try:
-            served = resolve_served_model_id(
-                voter.base_url, timeout_seconds=_VOTER_MODEL_PROBE_TIMEOUT_SECONDS
-            )
+            served = resolve_served_model_id(voter.base_url)
         except ServedModelResolutionError as exc:
             print(
                 f"WARNING: review voter {voter_id!r} served model unresolved: {exc}",
@@ -832,7 +830,7 @@ def _fetch_pr_reviews(repo: str, pr: int) -> list[ModelPullRequestReviewView]:
         capture_output=True,
         text=True,
         check=True,
-        timeout=60,
+        timeout=shipped_review_budgets().gh_api_seconds,
     )
     reviews: list[ModelPullRequestReviewView] = []
     for item in _parse_paginated_gh_json(completed.stdout):
@@ -1048,7 +1046,7 @@ def _fetch_pr_files_fallback(pr_number: int, repo: str, reason: str) -> str:
         capture_output=True,
         text=True,
         check=True,
-        timeout=60,
+        timeout=shipped_review_budgets().gh_api_seconds,
     )
     files = _parse_paginated_gh_json(result.stdout)
     file_dicts = [file_info for file_info in files if isinstance(file_info, dict)]
@@ -1421,7 +1419,7 @@ def main(argv: list[str] | None = None) -> int:
                 capture_output=True,
                 text=True,
                 check=True,
-                timeout=30,
+                timeout=shipped_review_budgets().gh_pr_diff_seconds,
             )
             review_content = gh_result.stdout
             # OMN-17293: GitHub served the diff, but "GitHub will serve it" and
