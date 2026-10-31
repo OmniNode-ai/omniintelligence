@@ -48,14 +48,16 @@ output_model:
 handler_routing:
   routing_strategy: "operation_match"
   entry_point:
-    function: "handle_chunk_classify"
+    class: "HandlerChunkClassify"
+    function: "handle"
     module: "omniintelligence.nodes.node_chunk_classifier_compute.handlers.handler_chunk_classifier"
     type: "sync"
     description: "Main entry point: apply v1 rule set to each raw chunk"
   handlers:
     - operation: "classify_chunks"
       handler:
-        function: "handle_chunk_classify"
+        class: "HandlerChunkClassify"
+        function: "handle"
         module: "omniintelligence.nodes.node_chunk_classifier_compute.handlers.handler_chunk_classifier"
         type: "sync"
       description: "Apply v1 frozen classification rules to raw chunks"
@@ -67,7 +69,8 @@ handler_routing:
         - "compute SHA-256 version hash of content_fingerprint + source_ref + source_version"
         - "return ordered list of ClassifiedChunk objects"
   default_handler:
-    function: "handle_chunk_classify"
+    class: "HandlerChunkClassify"
+    function: "handle"
     module: "omniintelligence.nodes.node_chunk_classifier_compute.handlers.handler_chunk_classifier"
     type: "sync"
     description: "Default to classify_chunks operation"

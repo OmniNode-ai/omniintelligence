@@ -402,77 +402,78 @@ def _compute_version_hash(
 # ---------------------------------------------------------------------------
 
 
-def handle_chunk_classify(
-    input_data: ModelChunkClassifyInput,
-) -> ModelChunkClassifyOutput:
-    """Classify raw chunks using v1 deterministic rules.
+class HandlerChunkClassify:
+    """Typed entry point for deterministic chunk classification."""
 
-    Pure function — no I/O, no LLM calls. Same input always produces
-    the same output (replay-safe).
+    def handle(self, request: ModelChunkClassifyInput) -> ModelChunkClassifyOutput:
+        """Classify raw chunks using v1 deterministic rules.
 
-    Args:
-        input_data: Classification request with source metadata and raw chunks.
+        Pure function — no I/O, no LLM calls. Same input always produces
+        the same output (replay-safe).
 
-    Returns:
-        ModelChunkClassifyOutput with classified chunks, fingerprints, and tags.
-    """
-    classified: list[ModelClassifiedChunk] = []
+        Args:
+            request: Classification request with source metadata and raw chunks.
 
-    for raw in input_data.raw_chunks:
-        # Classify by v1 rules
-        item_type = _classify_chunk_v1(
-            raw.content,
-            raw.section_heading,
-            raw.has_code_fence,
-        )
+        Returns:
+            ModelChunkClassifyOutput with classified chunks, fingerprints, and tags.
+        """
+        classified: list[ModelClassifiedChunk] = []
 
-        # Extract tags
-        tags = extract_tags(
-            raw,
-            input_data.source_ref,
-            input_data.crawl_scope,
-            input_data.doc_type,
-        )
-
-        # Fingerprints
-        content_fp = _compute_content_fingerprint(raw.content)
-        version_hash = _compute_version_hash(
-            content_fp,
-            input_data.source_ref,
-            input_data.source_version,
-        )
-
-        classified.append(
-            ModelClassifiedChunk(
-                content=raw.content,
-                section_heading=raw.section_heading,
-                item_type=item_type,
-                rule_version=RULE_VERSION,
-                tags=tags,
-                content_fingerprint=content_fp,
-                version_hash=version_hash,
-                character_offset_start=raw.character_offset_start,
-                character_offset_end=raw.character_offset_end,
-                token_estimate=raw.token_estimate,
-                has_code_fence=raw.has_code_fence,
-                code_fence_language=raw.code_fence_language,
-                source_ref=input_data.source_ref,
-                crawl_scope=input_data.crawl_scope,
-                source_version=input_data.source_version,
-                correlation_id=input_data.correlation_id,
+        for raw in request.raw_chunks:
+            # Classify by v1 rules
+            item_type = _classify_chunk_v1(
+                raw.content,
+                raw.section_heading,
+                raw.has_code_fence,
             )
-        )
 
-    return ModelChunkClassifyOutput(
-        classified_chunks=tuple(classified),
-        source_ref=input_data.source_ref,
-        total_chunks=len(classified),
-        correlation_id=input_data.correlation_id,
-    )
+            # Extract tags
+            tags = extract_tags(
+                raw,
+                request.source_ref,
+                request.crawl_scope,
+                request.doc_type,
+            )
+
+            # Fingerprints
+            content_fp = _compute_content_fingerprint(raw.content)
+            version_hash = _compute_version_hash(
+                content_fp,
+                request.source_ref,
+                request.source_version,
+            )
+
+            classified.append(
+                ModelClassifiedChunk(
+                    content=raw.content,
+                    section_heading=raw.section_heading,
+                    item_type=item_type,
+                    rule_version=RULE_VERSION,
+                    tags=tags,
+                    content_fingerprint=content_fp,
+                    version_hash=version_hash,
+                    character_offset_start=raw.character_offset_start,
+                    character_offset_end=raw.character_offset_end,
+                    token_estimate=raw.token_estimate,
+                    has_code_fence=raw.has_code_fence,
+                    code_fence_language=raw.code_fence_language,
+                    source_ref=request.source_ref,
+                    crawl_scope=request.crawl_scope,
+                    source_version=request.source_version,
+                    correlation_id=request.correlation_id,
+                )
+            )
+
+        return ModelChunkClassifyOutput(
+            classified_chunks=tuple(classified),
+            source_ref=request.source_ref,
+            total_chunks=len(classified),
+            correlation_id=request.correlation_id,
+        )
 
 
 __all__ = [
     "RULE_VERSION",
     "extract_tags",
-    "handle_chunk_classify",
+    "HandlerChunkClassify",
 ]

@@ -19,10 +19,11 @@ from __future__ import annotations
 from omnibase_core.nodes.node_compute import NodeCompute
 
 from omniintelligence.nodes.node_intent_drift_detect_compute.handlers import (
-    detect_drift,
+    HandlerDriftDetect,
 )
 from omniintelligence.nodes.node_intent_drift_detect_compute.models import (
     DriftDetectionSettings,
+    ModelDriftDetectRequest,
     ModelDriftSensitivity,
     ModelIntentDriftInput,
     ModelIntentDriftSignal,
@@ -39,7 +40,7 @@ class NodeIntentDriftDetectCompute(
     on each compute call (settings are cheap to construct and reads env vars).
 
     This node is a thin shell following the ONEX declarative pattern.
-    All detection logic is delegated to the handler function.
+    All detection logic is delegated to the handler.
 
     Detection is observational only — it NEVER blocks execution.
     """
@@ -61,7 +62,9 @@ class NodeIntentDriftDetectCompute(
             Never raises — detection is always non-blocking.
         """
         sensitivity: ModelDriftSensitivity = DriftDetectionSettings().to_sensitivity()
-        return detect_drift(input_data, sensitivity)
+        return HandlerDriftDetect().handle(
+            ModelDriftDetectRequest(input_data=input_data, sensitivity=sensitivity)
+        )
 
 
 __all__ = ["NodeIntentDriftDetectCompute"]

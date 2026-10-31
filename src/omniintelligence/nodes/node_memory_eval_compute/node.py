@@ -4,7 +4,7 @@
 """NodeMemoryEvalCompute — thin shell delegating to handler.
 
 Evaluates MEMORY_SYSTEM failure modes via LLM judge.
-All computation is delegated to handle_memory_evaluation.
+All computation is delegated to HandlerMemoryEvaluation.
 """
 
 from __future__ import annotations
@@ -15,10 +15,11 @@ from omniintelligence.nodes.node_bloom_eval_orchestrator.models.model_eval_resul
     ModelEvalSuiteResult,
 )
 from omniintelligence.nodes.node_memory_eval_compute.handlers import (
-    handle_memory_evaluation,
+    HandlerMemoryEvaluation,
 )
 from omniintelligence.nodes.node_memory_eval_compute.models import (
     ModelMemoryEvalInput,
+    ModelMemoryEvalRequest,
 )
 
 
@@ -26,16 +27,19 @@ class NodeMemoryEvalCompute(NodeCompute[ModelMemoryEvalInput, ModelEvalSuiteResu
     """Compute node that evaluates MEMORY_SYSTEM failure modes via LLM judge.
 
     Thin shell following the ONEX declarative pattern.
-    All logic is delegated to handle_memory_evaluation.
+    All logic is delegated to HandlerMemoryEvaluation.
     """
 
     async def compute(self, input_data: ModelMemoryEvalInput) -> ModelEvalSuiteResult:
-        """Delegate to handle_memory_evaluation."""
-        return await handle_memory_evaluation(
-            scenarios=input_data.scenarios,
-            memory_output=input_data.memory_output,
-            memory_context=input_data.memory_context,
+        """Delegate to HandlerMemoryEvaluation."""
+        return await HandlerMemoryEvaluation(
             judge_caller=input_data.judge_caller,
+        ).handle(
+            ModelMemoryEvalRequest(
+                scenarios=input_data.scenarios,
+                memory_output=input_data.memory_output,
+                memory_context=input_data.memory_context,
+            )
         )
 
 

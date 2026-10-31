@@ -21,11 +21,15 @@ from __future__ import annotations
 import hashlib
 import json
 
+import pytest
+
+from omniintelligence.nodes.node_chunk_classifier_compute.handlers import (
+    handler_chunk_classifier as handler_module,
+)
 from omniintelligence.nodes.node_chunk_classifier_compute.handlers.handler_chunk_classifier import (
     RULE_VERSION,
     _classify_chunk_v1,
     extract_tags,
-    handle_chunk_classify,
 )
 from omniintelligence.nodes.node_chunk_classifier_compute.models.enum_context_item_type import (
     EnumContextItemType,
@@ -33,6 +37,12 @@ from omniintelligence.nodes.node_chunk_classifier_compute.models.enum_context_it
 from omniintelligence.nodes.node_chunk_classifier_compute.models.model_chunk_classify_input import (
     ModelChunkClassifyInput,
     ModelRawChunkRef,
+)
+from omniintelligence.nodes.node_chunk_classifier_compute.models.model_chunk_classify_output import (
+    ModelChunkClassifyOutput,
+)
+from omniintelligence.nodes.node_chunk_classifier_compute.models.model_classified_chunk import (
+    ModelClassifiedChunk,
 )
 
 # ---------------------------------------------------------------------------
@@ -295,7 +305,7 @@ class TestClassifyExample:
     """Priority 5: EXAMPLE."""
 
     def test_example_colon_with_code_fence(self) -> None:
-        content = "Example:\n```python\nresult = handle_chunk_classify(input_data)\n```"
+        content = "Example:\n```python\nresult = HandlerChunkClassify().handle(input_data)\n```"
         chunk = _make_chunk(content, has_code_fence=True)
         assert (
             _classify_chunk_v1(
@@ -484,15 +494,15 @@ class TestReplaySafety:
     """Same input always produces same output."""
 
     def test_classify_deterministic(self) -> None:
-        """Calling handle_chunk_classify twice with same input yields identical output."""
+        """Calling HandlerChunkClassify.handle twice with same input yields identical output."""
         chunks = [
             _make_chunk("You must use frozen=True for all event models."),
             _make_chunk("Connect to https://kafka.example.com:9092"),
             _make_chunk("This section describes the pipeline overview."),
         ]
         input_data = _make_input(chunks)
-        result1 = handle_chunk_classify(input_data)
-        result2 = handle_chunk_classify(input_data)
+        result1 = handler_module.HandlerChunkClassify().handle(input_data)
+        result2 = handler_module.HandlerChunkClassify().handle(input_data)
 
         assert result1.total_chunks == result2.total_chunks
         for c1, c2 in zip(
@@ -509,7 +519,7 @@ class TestReplaySafety:
             _make_chunk("The pipeline processes documents in batch."),
             _make_chunk("You must configure Kafka before starting."),
         ]
-        result = handle_chunk_classify(_make_input(chunks))
+        result = handler_module.HandlerChunkClassify().handle(_make_input(chunks))
         for chunk in result.classified_chunks:
             assert chunk.rule_version == RULE_VERSION
 
@@ -526,7 +536,7 @@ class TestFingerprintDeterminism:
         """Same content always produces same fingerprint."""
         content = "The ingestion pipeline processes documents in stages."
         chunk = _make_chunk(content)
-        result = handle_chunk_classify(_make_input([chunk]))
+        result = handler_module.HandlerChunkClassify().handle(_make_input([chunk]))
         classified = result.classified_chunks[0]
 
         # Recompute manually
@@ -538,8 +548,12 @@ class TestFingerprintDeterminism:
         """Whitespace normalization: extra spaces don't change fingerprint."""
         content_a = "The pipeline  processes    documents."
         content_b = "The pipeline processes documents."
-        result_a = handle_chunk_classify(_make_input([_make_chunk(content_a)]))
-        result_b = handle_chunk_classify(_make_input([_make_chunk(content_b)]))
+        result_a = handler_module.HandlerChunkClassify().handle(
+            _make_input([_make_chunk(content_a)])
+        )
+        result_b = handler_module.HandlerChunkClassify().handle(
+            _make_input([_make_chunk(content_b)])
+        )
         assert (
             result_a.classified_chunks[0].content_fingerprint
             == result_b.classified_chunks[0].content_fingerprint
@@ -548,10 +562,10 @@ class TestFingerprintDeterminism:
     def test_version_hash_changes_with_source_version(self) -> None:
         """version_hash differs when source_version changes."""
         chunk = _make_chunk("The pipeline processes documents.")
-        result_v1 = handle_chunk_classify(
+        result_v1 = handler_module.HandlerChunkClassify().handle(
             _make_input([chunk], source_version="sha1abc")
         )
-        result_v2 = handle_chunk_classify(
+        result_v2 = handler_module.HandlerChunkClassify().handle(
             _make_input([chunk], source_version="sha2def")
         )
         assert (
@@ -562,8 +576,12 @@ class TestFingerprintDeterminism:
     def test_version_hash_changes_with_source_ref(self) -> None:
         """version_hash differs when source_ref changes."""
         chunk = _make_chunk("The pipeline processes documents.")
-        result_a = handle_chunk_classify(_make_input([chunk], source_ref="docs/a.md"))
-        result_b = handle_chunk_classify(_make_input([chunk], source_ref="docs/b.md"))
+        result_a = handler_module.HandlerChunkClassify().handle(
+            _make_input([chunk], source_ref="docs/a.md")
+        )
+        result_b = handler_module.HandlerChunkClassify().handle(
+            _make_input([chunk], source_ref="docs/b.md")
+        )
         assert (
             result_a.classified_chunks[0].version_hash
             != result_b.classified_chunks[0].version_hash
@@ -576,7 +594,7 @@ class TestFingerprintDeterminism:
         source_ref = "docs/CLAUDE.md"
         source_version = "abc123"
 
-        result = handle_chunk_classify(
+        result = handler_module.HandlerChunkClassify().handle(
             _make_input([chunk], source_ref=source_ref, source_version=source_version)
         )
         classified = result.classified_chunks[0]
@@ -608,25 +626,27 @@ class TestTagExtraction:
 
     def test_source_tag_always_present(self) -> None:
         chunk = _make_chunk("Some content.")
-        result = handle_chunk_classify(_make_input([chunk], source_ref="docs/api.md"))
+        result = handler_module.HandlerChunkClassify().handle(
+            _make_input([chunk], source_ref="docs/api.md")
+        )
         tags = result.classified_chunks[0].tags
         assert "source:docs/api.md" in tags
 
     def test_section_tag_from_heading(self) -> None:
         chunk = _make_chunk("Some content.", section_heading="API Reference")
-        result = handle_chunk_classify(_make_input([chunk]))
+        result = handler_module.HandlerChunkClassify().handle(_make_input([chunk]))
         tags = result.classified_chunks[0].tags
         assert "section:api-reference" in tags
 
     def test_section_tag_absent_without_heading(self) -> None:
         chunk = _make_chunk("Some content.", section_heading=None)
-        result = handle_chunk_classify(_make_input([chunk]))
+        result = handler_module.HandlerChunkClassify().handle(_make_input([chunk]))
         tags = result.classified_chunks[0].tags
         assert not any(t.startswith("section:") for t in tags)
 
     def test_repo_tag_from_crawl_scope(self) -> None:
         chunk = _make_chunk("Some content.")
-        result = handle_chunk_classify(
+        result = handler_module.HandlerChunkClassify().handle(
             _make_input([chunk], crawl_scope="omninode/omniintelligence")
         )
         tags = result.classified_chunks[0].tags
@@ -638,13 +658,13 @@ class TestTagExtraction:
             has_code_fence=True,
             code_fence_language="python",
         )
-        result = handle_chunk_classify(_make_input([chunk]))
+        result = handler_module.HandlerChunkClassify().handle(_make_input([chunk]))
         tags = result.classified_chunks[0].tags
         assert "lang:python" in tags
 
     def test_lang_tag_absent_without_fence(self) -> None:
         chunk = _make_chunk("Plain text.", has_code_fence=False)
-        result = handle_chunk_classify(_make_input([chunk]))
+        result = handler_module.HandlerChunkClassify().handle(_make_input([chunk]))
         tags = result.classified_chunks[0].tags
         assert not any(t.startswith("lang:") for t in tags)
 
@@ -652,19 +672,21 @@ class TestTagExtraction:
         chunk = _make_chunk(
             "The omniintelligence service handles embedding generation."
         )
-        result = handle_chunk_classify(_make_input([chunk]))
+        result = handler_module.HandlerChunkClassify().handle(_make_input([chunk]))
         tags = result.classified_chunks[0].tags
         assert "svc:omniintelligence" in tags
 
     def test_svc_tag_absent_for_unknown_service(self) -> None:
         chunk = _make_chunk("Some third-party service handles this.")
-        result = handle_chunk_classify(_make_input([chunk]))
+        result = handler_module.HandlerChunkClassify().handle(_make_input([chunk]))
         tags = result.classified_chunks[0].tags
         assert not any(t.startswith("svc:") for t in tags)
 
     def test_doctype_tag(self) -> None:
         chunk = _make_chunk("Some content.")
-        result = handle_chunk_classify(_make_input([chunk], doc_type="claude_md"))
+        result = handler_module.HandlerChunkClassify().handle(
+            _make_input([chunk], doc_type="claude_md")
+        )
         tags = result.classified_chunks[0].tags
         assert "doctype:claude_md" in tags
 
@@ -675,7 +697,7 @@ class TestTagExtraction:
             has_code_fence=True,
             code_fence_language="python",
         )
-        result = handle_chunk_classify(_make_input([chunk]))
+        result = handler_module.HandlerChunkClassify().handle(_make_input([chunk]))
         tags = result.classified_chunks[0].tags
         assert tags == tuple(sorted(set(tags)))
 
@@ -689,45 +711,45 @@ class TestOutputModelIntegrity:
     """Verify output model fields are correctly populated."""
 
     def test_empty_chunks_returns_empty_output(self) -> None:
-        result = handle_chunk_classify(_make_input([]))
+        result = handler_module.HandlerChunkClassify().handle(_make_input([]))
         assert result.total_chunks == 0
         assert result.classified_chunks == ()
 
     def test_total_chunks_matches_input(self) -> None:
         chunks = [_make_chunk(f"Chunk number {i}.") for i in range(5)]
-        result = handle_chunk_classify(_make_input(chunks))
+        result = handler_module.HandlerChunkClassify().handle(_make_input(chunks))
         assert result.total_chunks == 5
         assert len(result.classified_chunks) == 5
 
     def test_source_ref_propagated(self) -> None:
-        result = handle_chunk_classify(
+        result = handler_module.HandlerChunkClassify().handle(
             _make_input([_make_chunk("content")], source_ref="path/to/doc.md")
         )
         assert result.source_ref == "path/to/doc.md"
         assert result.classified_chunks[0].source_ref == "path/to/doc.md"
 
     def test_correlation_id_propagated(self) -> None:
-        result = handle_chunk_classify(
+        result = handler_module.HandlerChunkClassify().handle(
             _make_input([_make_chunk("content")], correlation_id="corr-xyz")
         )
         assert result.correlation_id == "corr-xyz"
         assert result.classified_chunks[0].correlation_id == "corr-xyz"
 
     def test_crawl_scope_propagated(self) -> None:
-        result = handle_chunk_classify(
+        result = handler_module.HandlerChunkClassify().handle(
             _make_input([_make_chunk("content")], crawl_scope="omninode/docs")
         )
         assert result.classified_chunks[0].crawl_scope == "omninode/docs"
 
     def test_source_version_propagated(self) -> None:
-        result = handle_chunk_classify(
+        result = handler_module.HandlerChunkClassify().handle(
             _make_input([_make_chunk("content")], source_version="sha-deadbeef")
         )
         assert result.classified_chunks[0].source_version == "sha-deadbeef"
 
     def test_has_code_fence_propagated(self) -> None:
         chunk = _make_chunk("content", has_code_fence=True, code_fence_language="yaml")
-        result = handle_chunk_classify(_make_input([chunk]))
+        result = handler_module.HandlerChunkClassify().handle(_make_input([chunk]))
         classified = result.classified_chunks[0]
         assert classified.has_code_fence is True
         assert classified.code_fence_language == "yaml"
@@ -739,7 +761,7 @@ class TestOutputModelIntegrity:
             character_offset_end=200,
             token_estimate=42,
         )
-        result = handle_chunk_classify(_make_input([chunk]))
+        result = handler_module.HandlerChunkClassify().handle(_make_input([chunk]))
         classified = result.classified_chunks[0]
         assert classified.character_offset_start == 100
         assert classified.character_offset_end == 200
@@ -748,12 +770,12 @@ class TestOutputModelIntegrity:
     def test_ordering_preserved(self) -> None:
         """Chunk order in output matches input order."""
         chunks = [_make_chunk(f"Content for chunk {i}.") for i in range(10)]
-        result = handle_chunk_classify(_make_input(chunks))
+        result = handler_module.HandlerChunkClassify().handle(_make_input(chunks))
         for i, classified in enumerate(result.classified_chunks):
             assert classified.content == f"Content for chunk {i}."
 
     def test_none_correlation_id(self) -> None:
-        result = handle_chunk_classify(
+        result = handler_module.HandlerChunkClassify().handle(
             _make_input([_make_chunk("content")], correlation_id=None)
         )
         assert result.correlation_id is None
@@ -788,3 +810,239 @@ class TestExtractTagsUnit:
         tags = extract_tags(chunk, "docs/arch.md", "omninode/docs", "general_markdown")
         assert "svc:omniintelligence" in tags
         assert "svc:omniclaude" in tags
+
+
+# ---------------------------------------------------------------------------
+# Canonical dispatch parity against the preserved module-level core (OMN-21536)
+# ---------------------------------------------------------------------------
+
+CANONICAL_PARITY_CASES: list[tuple[str, ModelChunkClassifyInput]] = [
+    ("empty_chunks", _make_input([], source_version=None, correlation_id=None)),
+    (
+        "api_constraints",
+        _make_input(
+            [
+                _make_chunk("https://api.example.test must be configured"),
+                _make_chunk("ws://events.example.test", section_heading="Usage"),
+                _make_chunk("Listen on :9092", has_code_fence=True),
+                _make_chunk("HOST=broker", code_fence_language="sh"),
+                _make_chunk("KAFKA_BOOTSTRAP_SERVERS=broker"),
+                _make_chunk("Listen on port 8080"),
+            ],
+            doc_type="api_reference",
+        ),
+    ),
+    (
+        "config_notes",
+        _make_input(
+            [
+                _make_chunk("source .env before startup"),
+                _make_chunk("POSTGRES_DB=demo", section_heading="Config & Setup!"),
+                _make_chunk("docker network inspect demo", has_code_fence=True),
+                _make_chunk("SERVICE_HOST"),
+                _make_chunk("SERVICE_PORT"),
+                _make_chunk("SERVICE_PASSWORD"),
+                _make_chunk("SERVICE_USER"),
+                _make_chunk("DOCKER_IMAGE"),
+            ],
+            source_ref="config/settings.md",
+            doc_type="config",
+            source_version="",
+        ),
+    ),
+    (
+        "rules",
+        _make_input(
+            [
+                _make_chunk("You must validate events."),
+                _make_chunk(
+                    "CRITICAL: Never block; avoid sync calls.",
+                    section_heading="Examples",
+                    has_code_fence=True,
+                    code_fence_language="python",
+                ),
+            ],
+            doc_type="claude_md",
+        ),
+    ),
+    (
+        "failure_content",
+        _make_input(
+            [_make_chunk("A common mistake is a broken import."), _make_chunk("❌")],
+            source_ref="/work/omnimemory/docs/README.md",
+            crawl_scope="local",
+            source_version=None,
+        ),
+    ),
+    (
+        "failure_headings",
+        _make_input(
+            [
+                _make_chunk("Plain explanation.", section_heading="Known Gotchas"),
+                _make_chunk(
+                    "print('demo')",
+                    section_heading="Anti-pattern Examples",
+                    has_code_fence=True,
+                    code_fence_language="python",
+                ),
+            ],
+            source_ref="OMN-21536",
+            crawl_scope="linear",
+            doc_type="linear_ticket",
+        ),
+    ),
+    (
+        "example_fence",
+        _make_input(
+            [
+                ModelRawChunkRef(
+                    content="Example:\n```python\nprint('demo')\n```",
+                    character_offset_start=17,
+                    character_offset_end=65,
+                    token_estimate=12,
+                    has_code_fence=True,
+                    code_fence_language="python",
+                )
+            ],
+            correlation_id="parity-offsets",
+        ),
+    ),
+    (
+        "example_headings",
+        _make_input(
+            [
+                _make_chunk("Call the handler.", section_heading="Usage"),
+                _make_chunk("Follow these steps.", section_heading="How-to Configure"),
+                _make_chunk(
+                    "A snippet.", section_heading="Example", has_code_fence=True
+                ),
+            ],
+            crawl_scope="org/nested/repo",
+        ),
+    ),
+    (
+        "repo_maps",
+        _make_input(
+            [
+                _make_chunk("├── src/\n└── tests/"),
+                _make_chunk(
+                    "│   docs/", has_code_fence=True, code_fence_language="text"
+                ),
+                _make_chunk("│\tsrc/"),
+                _make_chunk("A directory listing.", section_heading="Repository Map"),
+                _make_chunk("A file listing.", section_heading="Project Layout"),
+                _make_chunk("Tree.", section_heading="Directory Structure"),
+                _make_chunk("Files.", section_heading="File Structure"),
+            ],
+            source_ref="README.md",
+            crawl_scope="org/",
+            doc_type="repo_map",
+        ),
+    ),
+    (
+        "fallback_edges",
+        _make_input(
+            [
+                _make_chunk(""),
+                _make_chunk("  \n\t  ", section_heading=""),
+                _make_chunk("Example: prose without a fence"),
+                _make_chunk("```text\nplain prose\n```", has_code_fence=True),
+                _make_chunk(
+                    "  Spaced   text. ", section_heading="-- API_Overview & Notes! --"
+                ),
+                _make_chunk("Spaced text.", section_heading="!!!"),
+            ],
+            source_ref="",
+            crawl_scope="",
+            doc_type="",
+            source_version=None,
+            correlation_id=None,
+        ),
+    ),
+    (
+        "windows_source",
+        _make_input(
+            [
+                _make_chunk(
+                    "OMNIINTELLIGENCE omniclaude omnibase_core omnibase_infra "
+                    "omnimemory omniintelligence",
+                    section_heading="Services",
+                )
+            ],
+            source_ref=r"C:\work\omniclaude\README.md",
+            crawl_scope="local",
+            doc_type="design_doc",
+        ),
+    ),
+    (
+        "no_repo",
+        _make_input(
+            [_make_chunk("Ordinary prose.", section_heading="Overview")],
+            source_ref="README.md",
+            crawl_scope="local",
+            source_version=None,
+        ),
+    ),
+]
+
+
+def parity_call(parity_request: ModelChunkClassifyInput) -> object:
+    """Run canonical dispatch with deterministic, entirely local inputs."""
+    return handler_module.HandlerChunkClassify().handle(parity_request)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "case_id,parity_request",
+    CANONICAL_PARITY_CASES,
+    ids=[case_id for case_id, _ in CANONICAL_PARITY_CASES],
+)
+def test_canonical_dispatch_matches_preserved_core(
+    case_id: str, parity_request: ModelChunkClassifyInput
+) -> None:
+    handler_class = getattr(handler_module, "HandlerChunkClassify", None)
+    assert handler_class is not None
+
+    # Re-compose HEAD's old handle_chunk_classify body from its preserved helpers.
+    classified: list[ModelClassifiedChunk] = []
+    for raw in parity_request.raw_chunks:
+        item_type = handler_module._classify_chunk_v1(
+            raw.content, raw.section_heading, raw.has_code_fence
+        )
+        tags = handler_module.extract_tags(
+            raw,
+            parity_request.source_ref,
+            parity_request.crawl_scope,
+            parity_request.doc_type,
+        )
+        content_fp = handler_module._compute_content_fingerprint(raw.content)
+        version_hash = handler_module._compute_version_hash(
+            content_fp, parity_request.source_ref, parity_request.source_version
+        )
+        classified.append(
+            ModelClassifiedChunk(
+                content=raw.content,
+                section_heading=raw.section_heading,
+                item_type=item_type,
+                rule_version=RULE_VERSION,
+                tags=tags,
+                content_fingerprint=content_fp,
+                version_hash=version_hash,
+                character_offset_start=raw.character_offset_start,
+                character_offset_end=raw.character_offset_end,
+                token_estimate=raw.token_estimate,
+                has_code_fence=raw.has_code_fence,
+                code_fence_language=raw.code_fence_language,
+                source_ref=parity_request.source_ref,
+                crawl_scope=parity_request.crawl_scope,
+                source_version=parity_request.source_version,
+                correlation_id=parity_request.correlation_id,
+            )
+        )
+    expected = ModelChunkClassifyOutput(
+        classified_chunks=tuple(classified),
+        source_ref=parity_request.source_ref,
+        total_chunks=len(classified),
+        correlation_id=parity_request.correlation_id,
+    )
+    assert parity_call(parity_request) == expected

@@ -21,6 +21,9 @@ from omniintelligence.nodes.node_review_rubric_check_compute.models.model_review
 from omniintelligence.nodes.node_review_rubric_check_compute.models.model_review_rubric_load import (
     ModelReviewRubricLoad,
 )
+from omniintelligence.nodes.node_review_rubric_check_compute.models.model_review_rubric_load_request import (
+    ModelReviewRubricLoadRequest,
+)
 from omniintelligence.nodes.node_review_rubric_check_compute.models.model_review_rubric_refusal import (
     ModelReviewRubricRefusal,
 )
@@ -36,6 +39,7 @@ __all__ = [
     "ModelReviewRubricCheckRequest",
     "ModelReviewRubricCheckResult",
     "ModelReviewRubricLoad",
+    "ModelReviewRubricLoadRequest",
     "ModelReviewRubricRefusal",
     "ModelReviewRubricRule",
 ]

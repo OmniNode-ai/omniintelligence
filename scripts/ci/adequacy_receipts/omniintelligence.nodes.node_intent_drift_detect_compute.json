@@ -1,0 +1,25 @@
+{
+  "branch_coverage_pct": 85.58,
+  "candidate_count": 14,
+  "coverage_target": 80.0,
+  "handler_module": "omniintelligence.nodes.node_intent_drift_detect_compute.handlers.handler_drift_detect",
+  "handler_module_sha256": "sha256:2231f2b91a90f3c40ba7595d645bb491c90093551a292dbb5be09eb244744a68",
+  "meets_target": true,
+  "node_id": "omniintelligence.nodes.node_intent_drift_detect_compute",
+  "receipt_schema": "adequacy_receipt.v1",
+  "recorded_at": "2026-10-31T09:09:09.657389+00:00",
+  "recorder_schema": "adequacy_receipt.v1",
+  "selected_count": 9,
+  "selected_input_hashes": [
+    "sha256:ce4870d3a36165afcb8866030cc854a256a553006c648944d74ad266430aeb45",
+    "sha256:eebd8c38ec277caaeb63393e64d0a3e04d86531a54c2138d32343a0a6ff12080",
+    "sha256:be199d4f3837c6e06d188920d68259f16232704c7c8bc2de6c0bfea552971b01",
+    "sha256:45e9872ed61e140bd45d31fea0869dbf92b8b71fa59b4110d48820d3187db121",
+    "sha256:d3d90dd1d614a1a15cee1ef5e28458a8c86311862558acb568027f1fefe2883b",
+    "sha256:dc8cc87243c9daf6d6695bfe61ed3a67cf8e37e006845625cfa427e82a252c8f",
+    "sha256:0203aa790dc0c37fcad3ae4089f7f0724359fd6ed84e18afaadfc63a1146c4bb",
+    "sha256:926cd52d0fe2e821d5a0a373669530ce68e7284bd2e27f6cb0e882d2b34b5070",
+    "sha256:b72653e0d2a1a789bcc5dff2a5d15c815c2ac06c7b8aa6db9b7dabc7f3cef7b6"
+  ],
+  "volatile_mask": []
+}

@@ -24,10 +24,11 @@ from omnibase_core.enums.intelligence.enum_intent_class import EnumIntentClass
 from omnibase_core.nodes.node_compute import NodeCompute
 
 from omniintelligence.nodes.node_intent_cost_forecast_compute.handlers import (
-    compute_forecast,
+    HandlerCostForecast,
 )
 from omniintelligence.nodes.node_intent_cost_forecast_compute.models import (
     ModelCostBaseline,
+    ModelCostForecastRequest,
     ModelIntentCostForecast,
     ModelIntentCostForecastInput,
     build_all_seeded_baselines,
@@ -47,7 +48,7 @@ class NodeIntentCostForecastCompute(
     prevent cold-start empty forecasts.
 
     This node is a thin shell following the ONEX declarative pattern.
-    All computation logic is delegated to handler functions.
+    All computation logic is delegated to the handler.
     """
 
     is_stub: ClassVar[bool] = True
@@ -75,10 +76,12 @@ class NodeIntentCostForecastCompute(
         Returns:
             Frozen ModelIntentCostForecast for attachment to session context.
         """
-        return await compute_forecast(
-            input_data,
-            self._baselines,
-            forecasted_at=datetime.now(tz=UTC),
+        return await HandlerCostForecast().handle(
+            ModelCostForecastRequest(
+                input_data=input_data,
+                baselines=self._baselines,
+                forecasted_at=datetime.now(tz=UTC),
+            )
         )
 
 

@@ -728,10 +728,11 @@ async def _fire_and_forget_drift_detection(
         from omnibase_core.enums.intelligence.enum_intent_class import EnumIntentClass
 
         from omniintelligence.nodes.node_intent_drift_detect_compute.handlers import (
-            detect_drift,
+            HandlerDriftDetect,
         )
         from omniintelligence.nodes.node_intent_drift_detect_compute.models import (
             DriftDetectionSettings,
+            ModelDriftDetectRequest,
             ModelIntentDriftInput,
         )
         from omniintelligence.topics import IntentTopic
@@ -766,7 +767,9 @@ async def _fire_and_forget_drift_detection(
         )
 
         sensitivity = DriftDetectionSettings().to_sensitivity()
-        signal = detect_drift(drift_input, sensitivity)
+        signal = HandlerDriftDetect().handle(
+            ModelDriftDetectRequest(input_data=drift_input, sensitivity=sensitivity)
+        )
 
         if signal is None:
             metadata["drift_detection"] = "clean"

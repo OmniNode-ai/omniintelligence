@@ -16,9 +16,9 @@ description: >-
   only and never blocks execution. Signals are emitted to onex.evt.omniintelligence.intent-drift-detected.v1
   by the orchestrator.
 input_model:
-  name: "ModelIntentDriftInput"
+  name: "ModelDriftDetectRequest"
   module: "omniintelligence.nodes.node_intent_drift_detect_compute.models"
-  description: "Tool-call event correlated with active session intent class."
+  description: "Tool-call event correlated with active session intent class and sensitivity thresholds."
 output_model:
   name: "ModelIntentDriftSignal"
   module: "omniintelligence.nodes.node_intent_drift_detect_compute.models"
@@ -27,12 +27,8 @@ operations:
   - name: "detect_drift"
     description: "Classify a tool-call event for drift against the active session intent"
     input_fields:
-      - session_id
-      - correlation_id
-      - intent_class
-      - tool_name
-      - files_modified
-      - detected_at
+      - input_data
+      - sensitivity
     output_fields:
       - event_type
       - session_id
@@ -49,8 +45,9 @@ handler_routing:
   handlers:
     - operation: "detect_drift"
       handler:
-        function: "detect_drift"
-        module: "omniintelligence.nodes.node_intent_drift_detect_compute.handlers"
+        class: "HandlerDriftDetect"
+        function: "handle"
+        module: "omniintelligence.nodes.node_intent_drift_detect_compute.handlers.handler_drift_detect"
         type: "sync"
 # No event_bus section — this is a pure compute node (no Kafka I/O).
 # The orchestrator emits the returned signal to onex.evt.omniintelligence.intent-drift-detected.v1.

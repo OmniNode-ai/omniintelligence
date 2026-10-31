@@ -19,7 +19,7 @@ Reference: OMN-2489
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from omnibase_core.enums.intelligence.enum_intent_class import EnumIntentClass
@@ -27,11 +27,14 @@ from omnibase_core.models.container.model_onex_container import ModelONEXContain
 from pydantic import ValidationError
 
 from omniintelligence.nodes.node_intent_drift_detect_compute.handlers import (
-    detect_drift,
+    handler_drift_detect as handler_module,
+)
+from omniintelligence.nodes.node_intent_drift_detect_compute.handlers import (
     score_severity,
 )
 from omniintelligence.nodes.node_intent_drift_detect_compute.models import (
     DriftDetectionSettings,
+    ModelDriftDetectRequest,
     ModelDriftSensitivity,
     ModelIntentDriftInput,
     ModelIntentDriftSignal,
@@ -85,6 +88,190 @@ def _high_sensitivity() -> ModelDriftSensitivity:
         file_surface_threshold=1.0,
         scope_expansion_threshold=1.0,
     )
+
+
+def _parity_request(
+    intent_class: EnumIntentClass,
+    tool_name: str,
+    files_modified: list[str],
+    sensitivity: ModelDriftSensitivity,
+) -> ModelDriftDetectRequest:
+    """Keep the parity corpus independent of generated UUIDs and environment."""
+    return ModelDriftDetectRequest(
+        input_data=ModelIntentDriftInput(
+            session_id=f"parity-{intent_class.value}",
+            correlation_id=UUID("00000000-0000-0000-0000-000000000001"),
+            intent_class=intent_class,
+            tool_name=tool_name,
+            files_modified=files_modified,
+            detected_at=datetime(2026, 1, 1, tzinfo=UTC),
+        ),
+        sensitivity=sensitivity,
+    )
+
+
+CANONICAL_PARITY_CASES: list[tuple[str, ModelDriftDetectRequest]] = [
+    (
+        "feature_empty",
+        _parity_request(EnumIntentClass.FEATURE, "Write", [], ModelDriftSensitivity()),
+    ),
+    (
+        "configuration_unrestricted",
+        _parity_request(
+            EnumIntentClass.CONFIGURATION,
+            "Write",
+            ["config.py"],
+            ModelDriftSensitivity(),
+        ),
+    ),
+    (
+        "migration_unrestricted",
+        _parity_request(
+            EnumIntentClass.MIGRATION,
+            "Write",
+            ["migration.py"],
+            ModelDriftSensitivity(),
+        ),
+    ),
+    (
+        "analysis_tool_info",
+        _parity_request(
+            EnumIntentClass.ANALYSIS,
+            "Edit",
+            [],
+            ModelDriftSensitivity(tool_mismatch_threshold=0.3299),
+        ),
+    ),
+    (
+        "security_tool_alert",
+        _parity_request(
+            EnumIntentClass.SECURITY,
+            "Write",
+            ["auth.py"],
+            ModelDriftSensitivity(tool_mismatch_threshold=0.66),
+        ),
+    ),
+    (
+        "tool_before_file_surface",
+        _parity_request(
+            EnumIntentClass.DOCUMENTATION,
+            "Edit",
+            ["module.py"],
+            ModelDriftSensitivity(
+                tool_mismatch_threshold=0.33, file_surface_threshold=1.0
+            ),
+        ),
+    ),
+    (
+        "tool_before_scope_expansion",
+        _parity_request(
+            EnumIntentClass.REFACTOR,
+            "Write",
+            ["new_feature.py"],
+            ModelDriftSensitivity(
+                tool_mismatch_threshold=1.0, scope_expansion_threshold=1.0
+            ),
+        ),
+    ),
+    (
+        "documentation_code_surface",
+        _parity_request(
+            EnumIntentClass.DOCUMENTATION,
+            "Edit",
+            ["a.py", "b.ts", "c.go", "d.rs", "e.java", "__init__.py", "README.md"],
+            ModelDriftSensitivity(
+                tool_mismatch_threshold=0.0, file_surface_threshold=0.66
+            ),
+        ),
+    ),
+    (
+        "bugfix_six_files",
+        _parity_request(
+            EnumIntentClass.BUGFIX,
+            "Edit",
+            [f"module_{index}.py" for index in range(6)],
+            ModelDriftSensitivity(file_surface_threshold=0.33),
+        ),
+    ),
+    (
+        "bugfix_five_files",
+        _parity_request(
+            EnumIntentClass.BUGFIX,
+            "Edit",
+            [f"module_{index}.py" for index in range(5)],
+            ModelDriftSensitivity(),
+        ),
+    ),
+    (
+        "documentation_non_code",
+        _parity_request(
+            EnumIntentClass.DOCUMENTATION,
+            "Read",
+            ["pkg/__init__.py", "README.md", "notes.txt"],
+            ModelDriftSensitivity(),
+        ),
+    ),
+    (
+        "scope_expansion_info",
+        _parity_request(
+            EnumIntentClass.REFACTOR,
+            "Write",
+            ["new_feature.py"],
+            ModelDriftSensitivity(
+                tool_mismatch_threshold=0.0,
+                file_surface_threshold=0.0,
+                scope_expansion_threshold=0.0001,
+            ),
+        ),
+    ),
+    (
+        "all_detectors_disabled",
+        _parity_request(
+            EnumIntentClass.REFACTOR,
+            "Write",
+            ["new_feature.py"],
+            ModelDriftSensitivity(
+                tool_mismatch_threshold=0.0,
+                file_surface_threshold=0.0,
+                scope_expansion_threshold=0.0,
+            ),
+        ),
+    ),
+    (
+        "refactor_read",
+        _parity_request(EnumIntentClass.REFACTOR, "Read", [], ModelDriftSensitivity()),
+    ),
+]
+
+
+def parity_call(parity_request: ModelDriftDetectRequest) -> object:
+    return handler_module.HandlerDriftDetect().handle(parity_request)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "case_id,parity_request",
+    CANONICAL_PARITY_CASES,
+    ids=[case_id for case_id, _ in CANONICAL_PARITY_CASES],
+)
+def test_canonical_dispatch_matches_preserved_core(
+    case_id: str, parity_request: ModelDriftDetectRequest
+) -> None:
+    handler_class = getattr(handler_module, "HandlerDriftDetect", None)
+    assert handler_class is not None, case_id
+
+    # Recompose HEAD's detect_drift body: the first signal wins, regardless of
+    # whether a later detector would report a higher severity.
+    expected = None
+    for detector in (
+        handler_module._detect_tool_mismatch,
+        handler_module._detect_file_surface,
+        handler_module._detect_scope_expansion,
+    ):
+        expected = detector(parity_request.input_data, parity_request.sensitivity)
+        if expected is not None:
+            break
+    assert parity_call(parity_request) == expected
 
 
 # ---------------------------------------------------------------------------
@@ -176,7 +363,11 @@ class TestToolMismatchDrift:
         input_data = _make_input(
             intent_class=EnumIntentClass.DOCUMENTATION, tool_name="Bash"
         )
-        signal = detect_drift(input_data, _default_sensitivity())
+        signal = handler_module.HandlerDriftDetect().handle(
+            ModelDriftDetectRequest(
+                input_data=input_data, sensitivity=_default_sensitivity()
+            )
+        )
         assert signal is not None
         assert signal.drift_type == "tool_mismatch"
         assert signal.intent_class == EnumIntentClass.DOCUMENTATION
@@ -185,14 +376,22 @@ class TestToolMismatchDrift:
     def test_bugfix_intent_write_triggers_drift(self) -> None:
         """BUGFIX intent calling Write triggers tool_mismatch drift."""
         input_data = _make_input(intent_class=EnumIntentClass.BUGFIX, tool_name="Write")
-        signal = detect_drift(input_data, _default_sensitivity())
+        signal = handler_module.HandlerDriftDetect().handle(
+            ModelDriftDetectRequest(
+                input_data=input_data, sensitivity=_default_sensitivity()
+            )
+        )
         assert signal is not None
         assert signal.drift_type == "tool_mismatch"
 
     def test_feature_intent_bash_no_drift(self) -> None:
         """FEATURE intent calling Bash does NOT trigger drift (broad scope)."""
         input_data = _make_input(intent_class=EnumIntentClass.FEATURE, tool_name="Bash")
-        signal = detect_drift(input_data, _default_sensitivity())
+        signal = handler_module.HandlerDriftDetect().handle(
+            ModelDriftDetectRequest(
+                input_data=input_data, sensitivity=_default_sensitivity()
+            )
+        )
         assert signal is None
 
     def test_feature_intent_write_no_drift(self) -> None:
@@ -200,7 +399,11 @@ class TestToolMismatchDrift:
         input_data = _make_input(
             intent_class=EnumIntentClass.FEATURE, tool_name="Write"
         )
-        signal = detect_drift(input_data, _default_sensitivity())
+        signal = handler_module.HandlerDriftDetect().handle(
+            ModelDriftDetectRequest(
+                input_data=input_data, sensitivity=_default_sensitivity()
+            )
+        )
         assert signal is None
 
     def test_refactor_read_no_drift(self) -> None:
@@ -208,7 +411,11 @@ class TestToolMismatchDrift:
         input_data = _make_input(
             intent_class=EnumIntentClass.REFACTOR, tool_name="Read"
         )
-        signal = detect_drift(input_data, _default_sensitivity())
+        signal = handler_module.HandlerDriftDetect().handle(
+            ModelDriftDetectRequest(
+                input_data=input_data, sensitivity=_default_sensitivity()
+            )
+        )
         assert signal is None
 
     def test_zero_threshold_suppresses_drift(self) -> None:
@@ -217,7 +424,9 @@ class TestToolMismatchDrift:
             intent_class=EnumIntentClass.DOCUMENTATION, tool_name="Bash"
         )
         sensitivity = ModelDriftSensitivity(tool_mismatch_threshold=0.0)
-        signal = detect_drift(input_data, sensitivity)
+        signal = handler_module.HandlerDriftDetect().handle(
+            ModelDriftDetectRequest(input_data=input_data, sensitivity=sensitivity)
+        )
         assert signal is None
 
     def test_drift_signal_is_frozen(self) -> None:
@@ -225,7 +434,11 @@ class TestToolMismatchDrift:
         input_data = _make_input(
             intent_class=EnumIntentClass.DOCUMENTATION, tool_name="Bash"
         )
-        signal = detect_drift(input_data, _default_sensitivity())
+        signal = handler_module.HandlerDriftDetect().handle(
+            ModelDriftDetectRequest(
+                input_data=input_data, sensitivity=_default_sensitivity()
+            )
+        )
         assert signal is not None
         with pytest.raises((TypeError, ValidationError)):
             signal.drift_type = "scope_expansion"  # type: ignore[misc]
@@ -235,7 +448,11 @@ class TestToolMismatchDrift:
         input_data = _make_input(
             intent_class=EnumIntentClass.DOCUMENTATION, tool_name="Bash"
         )
-        signal = detect_drift(input_data, _default_sensitivity())
+        signal = handler_module.HandlerDriftDetect().handle(
+            ModelDriftDetectRequest(
+                input_data=input_data, sensitivity=_default_sensitivity()
+            )
+        )
         assert signal is not None
         assert len(signal.reason) > 0
         assert "Bash" in signal.reason or "DOCUMENTATION" in signal.reason
@@ -250,7 +467,11 @@ class TestToolMismatchDrift:
             files_modified=[],
             detected_at=_now(),
         )
-        signal = detect_drift(input_data, _default_sensitivity())
+        signal = handler_module.HandlerDriftDetect().handle(
+            ModelDriftDetectRequest(
+                input_data=input_data, sensitivity=_default_sensitivity()
+            )
+        )
         assert signal is not None
         assert signal.session_id == "my-session-123"
 
@@ -259,7 +480,11 @@ class TestToolMismatchDrift:
         input_data = _make_input(
             intent_class=EnumIntentClass.DOCUMENTATION, tool_name="Bash"
         )
-        signal = detect_drift(input_data, _high_sensitivity())
+        signal = handler_module.HandlerDriftDetect().handle(
+            ModelDriftDetectRequest(
+                input_data=input_data, sensitivity=_high_sensitivity()
+            )
+        )
         assert signal is not None
         assert signal.severity == "alert"
 
@@ -268,7 +493,11 @@ class TestToolMismatchDrift:
         input_data = _make_input(
             intent_class=EnumIntentClass.DOCUMENTATION, tool_name="Bash"
         )
-        signal = detect_drift(input_data, _default_sensitivity())
+        signal = handler_module.HandlerDriftDetect().handle(
+            ModelDriftDetectRequest(
+                input_data=input_data, sensitivity=_default_sensitivity()
+            )
+        )
         assert signal is not None
         assert signal.severity in ("info", "warning")
 
@@ -296,7 +525,11 @@ class TestFileSurfaceDrift:
             tool_name="Glob",
             files_modified=["src/omniintelligence/nodes/node_foo/node.py"],
         )
-        signal = detect_drift(input_data, _default_sensitivity())
+        signal = handler_module.HandlerDriftDetect().handle(
+            ModelDriftDetectRequest(
+                input_data=input_data, sensitivity=_default_sensitivity()
+            )
+        )
         assert signal is not None
         assert signal.drift_type == "file_surface"
 
@@ -307,7 +540,11 @@ class TestFileSurfaceDrift:
             tool_name="Write",
             files_modified=["docs/README.md"],
         )
-        signal = detect_drift(input_data, _default_sensitivity())
+        signal = handler_module.HandlerDriftDetect().handle(
+            ModelDriftDetectRequest(
+                input_data=input_data, sensitivity=_default_sensitivity()
+            )
+        )
         # May trigger tool_mismatch for Write+DOCUMENTATION, but NOT file_surface
         if signal is not None:
             assert signal.drift_type != "file_surface"
@@ -320,7 +557,11 @@ class TestFileSurfaceDrift:
             tool_name="Edit",
             files_modified=many_files,
         )
-        signal = detect_drift(input_data, _default_sensitivity())
+        signal = handler_module.HandlerDriftDetect().handle(
+            ModelDriftDetectRequest(
+                input_data=input_data, sensitivity=_default_sensitivity()
+            )
+        )
         assert signal is not None
         assert signal.drift_type == "file_surface"
 
@@ -331,7 +572,11 @@ class TestFileSurfaceDrift:
             tool_name="Edit",
             files_modified=["src/module_a.py", "src/module_b.py", "tests/test_a.py"],
         )
-        signal = detect_drift(input_data, _default_sensitivity())
+        signal = handler_module.HandlerDriftDetect().handle(
+            ModelDriftDetectRequest(
+                input_data=input_data, sensitivity=_default_sensitivity()
+            )
+        )
         # No file_surface drift; may have none at all
         if signal is not None:
             assert signal.drift_type != "file_surface"
@@ -345,7 +590,9 @@ class TestFileSurfaceDrift:
             files_modified=many_files,
         )
         sensitivity = ModelDriftSensitivity(file_surface_threshold=0.0)
-        signal = detect_drift(input_data, sensitivity)
+        signal = handler_module.HandlerDriftDetect().handle(
+            ModelDriftDetectRequest(input_data=input_data, sensitivity=sensitivity)
+        )
         if signal is not None:
             assert signal.drift_type != "file_surface"
 
@@ -365,7 +612,11 @@ class TestScopeExpansionDrift:
         input_data = _make_input(
             intent_class=EnumIntentClass.REFACTOR, tool_name="Write"
         )
-        signal = detect_drift(input_data, _default_sensitivity())
+        signal = handler_module.HandlerDriftDetect().handle(
+            ModelDriftDetectRequest(
+                input_data=input_data, sensitivity=_default_sensitivity()
+            )
+        )
         assert signal is not None
         assert signal.drift_type in ("tool_mismatch", "scope_expansion")
 
@@ -374,7 +625,11 @@ class TestScopeExpansionDrift:
         input_data = _make_input(
             intent_class=EnumIntentClass.REFACTOR, tool_name="Edit"
         )
-        signal = detect_drift(input_data, _default_sensitivity())
+        signal = handler_module.HandlerDriftDetect().handle(
+            ModelDriftDetectRequest(
+                input_data=input_data, sensitivity=_default_sensitivity()
+            )
+        )
         # Edit is in the REFACTOR allowlist; should not trigger scope_expansion
         if signal is not None:
             assert signal.drift_type != "scope_expansion"
@@ -388,7 +643,9 @@ class TestScopeExpansionDrift:
             tool_mismatch_threshold=0.0,
             scope_expansion_threshold=0.0,
         )
-        signal = detect_drift(input_data, sensitivity)
+        signal = handler_module.HandlerDriftDetect().handle(
+            ModelDriftDetectRequest(input_data=input_data, sensitivity=sensitivity)
+        )
         assert signal is None
 
     def test_feature_write_no_scope_expansion(self) -> None:
@@ -396,7 +653,11 @@ class TestScopeExpansionDrift:
         input_data = _make_input(
             intent_class=EnumIntentClass.FEATURE, tool_name="Write"
         )
-        signal = detect_drift(input_data, _default_sensitivity())
+        signal = handler_module.HandlerDriftDetect().handle(
+            ModelDriftDetectRequest(
+                input_data=input_data, sensitivity=_default_sensitivity()
+            )
+        )
         assert signal is None
 
 
@@ -411,23 +672,35 @@ class TestNoDrift:
     """Tests for clean tool calls that should not trigger drift."""
 
     def test_clean_refactor_read_no_drift(self) -> None:
-        signal = detect_drift(
-            _make_input(intent_class=EnumIntentClass.REFACTOR, tool_name="Read"),
-            _default_sensitivity(),
+        signal = handler_module.HandlerDriftDetect().handle(
+            ModelDriftDetectRequest(
+                input_data=_make_input(
+                    intent_class=EnumIntentClass.REFACTOR, tool_name="Read"
+                ),
+                sensitivity=_default_sensitivity(),
+            )
         )
         assert signal is None
 
     def test_clean_bugfix_grep_no_drift(self) -> None:
-        signal = detect_drift(
-            _make_input(intent_class=EnumIntentClass.BUGFIX, tool_name="Grep"),
-            _default_sensitivity(),
+        signal = handler_module.HandlerDriftDetect().handle(
+            ModelDriftDetectRequest(
+                input_data=_make_input(
+                    intent_class=EnumIntentClass.BUGFIX, tool_name="Grep"
+                ),
+                sensitivity=_default_sensitivity(),
+            )
         )
         assert signal is None
 
     def test_clean_security_read_no_drift(self) -> None:
-        signal = detect_drift(
-            _make_input(intent_class=EnumIntentClass.SECURITY, tool_name="Read"),
-            _default_sensitivity(),
+        signal = handler_module.HandlerDriftDetect().handle(
+            ModelDriftDetectRequest(
+                input_data=_make_input(
+                    intent_class=EnumIntentClass.SECURITY, tool_name="Read"
+                ),
+                sensitivity=_default_sensitivity(),
+            )
         )
         assert signal is None
 
@@ -439,9 +712,13 @@ class TestNoDrift:
             (EnumIntentClass.REFACTOR, "Write"),
         ]
         for intent_class, tool_name in cases:
-            signal = detect_drift(
-                _make_input(intent_class=intent_class, tool_name=tool_name),
-                _zero_sensitivity(),
+            signal = handler_module.HandlerDriftDetect().handle(
+                ModelDriftDetectRequest(
+                    input_data=_make_input(
+                        intent_class=intent_class, tool_name=tool_name
+                    ),
+                    sensitivity=_zero_sensitivity(),
+                )
             )
             assert signal is None, (
                 f"Expected no signal for {intent_class}/{tool_name} at zero sensitivity"
@@ -505,7 +782,11 @@ class TestFrozenModels:
         input_data = _make_input(
             intent_class=EnumIntentClass.DOCUMENTATION, tool_name="Bash"
         )
-        signal = detect_drift(input_data, _default_sensitivity())
+        signal = handler_module.HandlerDriftDetect().handle(
+            ModelDriftDetectRequest(
+                input_data=input_data, sensitivity=_default_sensitivity()
+            )
+        )
         assert signal is not None
         assert signal.event_type == "IntentDriftSignal"
 
@@ -520,7 +801,11 @@ class TestFrozenModels:
             files_modified=[],
             detected_at=ts,
         )
-        signal = detect_drift(input_data, _default_sensitivity())
+        signal = handler_module.HandlerDriftDetect().handle(
+            ModelDriftDetectRequest(
+                input_data=input_data, sensitivity=_default_sensitivity()
+            )
+        )
         assert signal is not None
         assert signal.detected_at == ts
 

@@ -1,0 +1,23 @@
+{
+  "base_ref": "978c2645",
+  "canonical_handler_module": "omniintelligence.nodes.node_debug_retrieval_compute.handlers.handler_retrieval",
+  "legacy_handler_module": "omniintelligence.nodes.node_debug_retrieval_compute.handlers.handler_retrieval",
+  "node_id": "omniintelligence.nodes.node_debug_retrieval_compute",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:95906e9ceb4472a02fdb056cf45768e16e99b816765851b9829a8e4ca1d8a57e",
+      "sha256:7133389f7ed92644b35213123a950dfab948752bba2fdb1d535f97f6be1004e3",
+      "sha256:df117ccf3815b2914ed037f8ed95baa0ba57ffa2f96120083c0fb18368e657e9"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_debug_retrieval_compute/handlers/test_handler_retrieval.py::test_canonical_dispatch_matches_preserved_core[empty_store]",
+      "tests/unit/nodes/node_debug_retrieval_compute/handlers/test_handler_retrieval.py::test_canonical_dispatch_matches_preserved_core[naive_timestamp]",
+      "tests/unit/nodes/node_debug_retrieval_compute/handlers/test_handler_retrieval.py::test_canonical_dispatch_matches_preserved_core[mixed_ages]"
+    ]
+  },
+  "preserved_symbols": [
+    "_time_decay_weight"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

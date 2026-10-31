@@ -1,0 +1,33 @@
+{
+  "base_ref": "978c2645",
+  "canonical_handler_module": "omniintelligence.nodes.node_anti_gaming_guardrails_compute.handlers.handler_guardrails",
+  "legacy_handler_module": "omniintelligence.nodes.node_anti_gaming_guardrails_compute.handlers.handler_guardrails",
+  "node_id": "omniintelligence.nodes.node_anti_gaming_guardrails_compute",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:904ab7dc981d272a74d2a0ae541a0c4ff3cb9e57bfeb439dc9e61a35ea5e9d3a",
+      "sha256:aa52c963db6cb94b390ee8e7c90568f830b4432abac5949658d0b203dabaa358",
+      "sha256:d516bb4bb543a2270cc2ec59d55764ef674aee79f4bd2ae20046478834b53d80",
+      "sha256:850e3a8dddb552896cfeb4046ff05b5d09e84164ab38a0e26605d9dfbeab6c08",
+      "sha256:6349eeef5ae50dd7bd9f77f0f770dea4421792bdeed259a695993f86f1692526",
+      "sha256:6af5600016f1c64536605f45bd6977af5f2651e7c94bb31b3a1473b8d866b91b"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "src/omniintelligence/nodes/node_anti_gaming_guardrails_compute/node_tests/test_guardrails.py::test_canonical_dispatch_matches_preserved_core[all_clean]",
+      "src/omniintelligence/nodes/node_anti_gaming_guardrails_compute/node_tests/test_guardrails.py::test_canonical_dispatch_matches_preserved_core[first_run_empty]",
+      "src/omniintelligence/nodes/node_anti_gaming_guardrails_compute/node_tests/test_guardrails.py::test_canonical_dispatch_matches_preserved_core[goodhart_only]",
+      "src/omniintelligence/nodes/node_anti_gaming_guardrails_compute/node_tests/test_guardrails.py::test_canonical_dispatch_matches_preserved_core[threshold_boundaries]",
+      "src/omniintelligence/nodes/node_anti_gaming_guardrails_compute/node_tests/test_guardrails.py::test_canonical_dispatch_matches_preserved_core[acceptance_improves]",
+      "src/omniintelligence/nodes/node_anti_gaming_guardrails_compute/node_tests/test_guardrails.py::test_canonical_dispatch_matches_preserved_core[all_alerts_and_veto]"
+    ]
+  },
+  "preserved_symbols": [
+    "_symmetric_kl_divergence",
+    "check_distributional_shift",
+    "check_diversity_constraint",
+    "check_goodhart_violation",
+    "check_reward_hacking"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

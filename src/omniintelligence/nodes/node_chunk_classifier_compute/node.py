@@ -58,14 +58,14 @@ class NodeChunkClassifierCompute(
     Example:
         ```python
         from omniintelligence.nodes.node_chunk_classifier_compute.handlers import (
-            handle_chunk_classify,
+            HandlerChunkClassify,
         )
         from omniintelligence.nodes.node_chunk_classifier_compute.models import (
             ModelChunkClassifyInput,
             ModelRawChunkRef,
         )
 
-        result = handle_chunk_classify(
+        result = HandlerChunkClassify().handle(
             ModelChunkClassifyInput(
                 source_ref="docs/CLAUDE.md",
                 crawl_scope="omninode/omniintelligence",

@@ -1,0 +1,29 @@
+{
+  "base_ref": "978c2645",
+  "canonical_handler_module": "omniintelligence.nodes.node_memory_eval_compute.handlers.handler_memory_evaluation",
+  "legacy_handler_module": "omniintelligence.nodes.node_memory_eval_compute.handlers.handler_memory_evaluation",
+  "node_id": "omniintelligence.nodes.node_memory_eval_compute",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:c9f74646f2574664549453bdb77c0d3111bd787d07c1913fcbd52e5117a3932a",
+      "sha256:90986e1057b7823a4763912cf5d8c2731bbe65306aabe96f4387aaddba07a442",
+      "sha256:83f883c5b8ddbd2b5a41b6b23bc6818ee80fd742e8dac02cf50a5780504b33d1"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/nodes/node_memory_eval_compute/test_handlers.py::test_canonical_dispatch_matches_preserved_core[regression_amnesia]",
+      "tests/nodes/node_memory_eval_compute/test_handlers.py::test_canonical_dispatch_matches_preserved_core[malformed_response_values]",
+      "tests/nodes/node_memory_eval_compute/test_handlers.py::test_canonical_dispatch_matches_preserved_core[boolean_scores_mixed_lists]"
+    ]
+  },
+  "preserved_symbols": [
+    "_build_criteria",
+    "_build_eval_result",
+    "_build_system_prompt",
+    "_build_user_prompt",
+    "_response_bool",
+    "_response_float",
+    "_response_str_list"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

@@ -18,7 +18,7 @@ from omniintelligence.nodes.node_bloom_eval_orchestrator.models.model_eval_scena
 class ModelMemoryEvalInput(BaseModel):
     """Input for memory evaluation compute node.
 
-    Carries all parameters required by handle_memory_evaluation.
+    Carries request data for HandlerMemoryEvaluation and its judge collaborator.
     ``judge_caller`` is excluded from serialization and must be provided
     at runtime.
     """

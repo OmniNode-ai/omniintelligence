@@ -18,19 +18,31 @@ from omniintelligence.nodes.node_objective_ab_framework_compute.models.model_ab_
     ModelObjectiveVariantDivergenceEvent,
     ModelRunEvaluatedEvent,
 )
+from omniintelligence.nodes.node_objective_ab_framework_compute.models.model_check_upgrade_ready_request import (
+    ModelCheckUpgradeReadyRequest,
+)
 from omniintelligence.nodes.node_objective_ab_framework_compute.models.model_objective_variant import (
     ModelObjectiveVariant,
     ModelObjectiveVariantRegistry,
+)
+from omniintelligence.nodes.node_objective_ab_framework_compute.models.model_route_to_variant_request import (
+    ModelRouteToVariantRequest,
+)
+from omniintelligence.nodes.node_objective_ab_framework_compute.models.model_upgrade_ready_response import (
+    ModelUpgradeReadyResponse,
 )
 
 __all__ = [
     "EnumVariantRole",
     "ModelABEvaluationInput",
     "ModelABEvaluationOutput",
+    "ModelCheckUpgradeReadyRequest",
     "ModelObjectiveUpgradeReadyEvent",
     "ModelObjectiveVariant",
     "ModelObjectiveVariantDivergenceEvent",
     "ModelObjectiveVariantRegistry",
+    "ModelRouteToVariantRequest",
     "ModelRunEvaluatedEvent",
+    "ModelUpgradeReadyResponse",
     "ModelVariantEvaluationResult",
 ]

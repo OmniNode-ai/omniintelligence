@@ -23,7 +23,7 @@ from __future__ import annotations
 from omnibase_core.nodes.node_compute import NodeCompute
 
 from omniintelligence.nodes.node_anti_gaming_guardrails_compute.handlers.handler_guardrails import (
-    run_all_guardrails,
+    HandlerGuardrails,
 )
 from omniintelligence.nodes.node_anti_gaming_guardrails_compute.models.model_guardrail_input import (
     ModelGuardrailInput,
@@ -47,12 +47,12 @@ class NodeAntiGamingGuardrailsCompute(
     Guards 1-3 emit non-blocking alerts.
     Guard 4 is a VETO: output.should_veto=True means reject the evaluation.
 
-    This node is a thin declarative shell delegating to run_all_guardrails.
+    This node is a thin declarative shell delegating to HandlerGuardrails.handle.
     """
 
     async def compute(self, input_data: ModelGuardrailInput) -> ModelGuardrailOutput:
         """Run all anti-gaming guardrail checks."""
-        return run_all_guardrails(input_data)
+        return HandlerGuardrails().handle(input_data)
 
 
 __all__ = ["NodeAntiGamingGuardrailsCompute"]

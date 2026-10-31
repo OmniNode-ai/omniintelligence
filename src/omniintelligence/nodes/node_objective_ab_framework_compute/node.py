@@ -30,7 +30,7 @@ from __future__ import annotations
 from omnibase_core.nodes.node_compute import NodeCompute
 
 from omniintelligence.nodes.node_objective_ab_framework_compute.handlers.handler_ab_framework import (
-    run_ab_evaluation,
+    HandlerRunAbEvaluation,
 )
 from omniintelligence.nodes.node_objective_ab_framework_compute.models.model_ab_evaluation_input import (
     ModelABEvaluationInput,
@@ -48,14 +48,14 @@ class NodeObjectiveABFrameworkCompute(
     Evaluates an EvidenceBundle against all registered objective variants,
     detects divergence, and signals upgrade readiness.
 
-    This node is a thin declarative shell delegating to run_ab_evaluation.
+    This node is a thin declarative shell delegating to HandlerRunAbEvaluation.
     """
 
     async def compute(
         self, input_data: ModelABEvaluationInput
     ) -> ModelABEvaluationOutput:
         """Run A/B evaluation against all registered variants."""
-        return run_ab_evaluation(input_data)
+        return HandlerRunAbEvaluation().handle(input_data)
 
 
 __all__ = ["NodeObjectiveABFrameworkCompute"]

@@ -330,90 +330,93 @@ def check_diversity_constraint(
     )
 
 
-def run_all_guardrails(input_data: ModelGuardrailInput) -> ModelGuardrailOutput:
-    """Run all four anti-gaming guardrail checks.
+class HandlerGuardrails:
+    """Typed entry point for anti-gaming guardrail evaluation."""
 
-    Evaluation order:
-    1. Diversity constraint (veto — checked first)
-    2. Goodhart's Law detection (non-blocking)
-    3. Reward hacking detection (non-blocking)
-    4. Distributional shift detection (non-blocking)
+    def handle(self, request: ModelGuardrailInput) -> ModelGuardrailOutput:
+        """Run all four anti-gaming guardrail checks.
 
-    Pure function: identical inputs → identical outputs.
+        Evaluation order:
+        1. Diversity constraint (veto — checked first)
+        2. Goodhart's Law detection (non-blocking)
+        3. Reward hacking detection (non-blocking)
+        4. Distributional shift detection (non-blocking)
 
-    Args:
-        input_data: Guardrail input with scores, distribution, and config.
+        Pure function: identical inputs → identical outputs.
 
-    Returns:
-        ModelGuardrailOutput with all detected alerts and veto flag.
-    """
-    now_utc = datetime.now(tz=UTC).isoformat()
-    config = input_data.config
-    objective_id = config.objective_id
+        Args:
+            request: Guardrail input with scores, distribution, and config.
 
-    # 1. Diversity constraint check (VETO)
-    diversity_violation = check_diversity_constraint(
-        run_id=input_data.run_id,
-        objective_id=objective_id,
-        evidence_sources=input_data.evidence_sources,
-        config=config,
-        occurred_at_utc=now_utc,
-    )
+        Returns:
+            ModelGuardrailOutput with all detected alerts and veto flag.
+        """
+        now_utc = datetime.now(tz=UTC).isoformat()
+        config = request.config
+        objective_id = config.objective_id
 
-    alerts: list[ModelAntiGamingAlertUnion] = []
-
-    # 2-4 only run with previous score available
-    if input_data.previous_score is not None:
-        # 2. Goodhart's Law detection
-        goodhart_alerts = check_goodhart_violation(
-            run_id=input_data.run_id,
+        # 1. Diversity constraint check (VETO)
+        diversity_violation = check_diversity_constraint(
+            run_id=request.run_id,
             objective_id=objective_id,
-            current_score=input_data.current_score,
-            previous_score=input_data.previous_score,
+            evidence_sources=request.evidence_sources,
             config=config,
             occurred_at_utc=now_utc,
         )
-        alerts.extend(goodhart_alerts)
 
-        # 3. Reward hacking detection
-        rh_alert = check_reward_hacking(
-            run_id=input_data.run_id,
+        alerts: list[ModelAntiGamingAlertUnion] = []
+
+        # 2-4 only run with previous score available
+        if request.previous_score is not None:
+            # 2. Goodhart's Law detection
+            goodhart_alerts = check_goodhart_violation(
+                run_id=request.run_id,
+                objective_id=objective_id,
+                current_score=request.current_score,
+                previous_score=request.previous_score,
+                config=config,
+                occurred_at_utc=now_utc,
+            )
+            alerts.extend(goodhart_alerts)
+
+            # 3. Reward hacking detection
+            rh_alert = check_reward_hacking(
+                run_id=request.run_id,
+                objective_id=objective_id,
+                current_score=request.current_score,
+                previous_score=request.previous_score,
+                human_acceptance_rate=request.human_acceptance_rate,
+                previous_acceptance_rate=request.previous_acceptance_rate,
+                config=config,
+                occurred_at_utc=now_utc,
+            )
+            if rh_alert is not None:
+                alerts.append(rh_alert)
+
+        # 4. Distributional shift detection
+        drift_alert = check_distributional_shift(
+            run_id=request.run_id,
             objective_id=objective_id,
-            current_score=input_data.current_score,
-            previous_score=input_data.previous_score,
-            human_acceptance_rate=input_data.human_acceptance_rate,
-            previous_acceptance_rate=input_data.previous_acceptance_rate,
+            current_dist=request.current_source_distribution,
+            baseline_dist=request.baseline_source_distribution,
             config=config,
             occurred_at_utc=now_utc,
         )
-        if rh_alert is not None:
-            alerts.append(rh_alert)
+        if drift_alert is not None:
+            alerts.append(drift_alert)
 
-    # 4. Distributional shift detection
-    drift_alert = check_distributional_shift(
-        run_id=input_data.run_id,
-        objective_id=objective_id,
-        current_dist=input_data.current_source_distribution,
-        baseline_dist=input_data.baseline_source_distribution,
-        config=config,
-        occurred_at_utc=now_utc,
-    )
-    if drift_alert is not None:
-        alerts.append(drift_alert)
+        if alerts or diversity_violation:
+            logger.info(
+                "Guardrail check (run=%s): %d alert(s) raised, veto=%s",
+                request.run_id,
+                len(alerts),
+                diversity_violation is not None,
+            )
 
-    if alerts or diversity_violation:
-        logger.info(
-            "Guardrail check (run=%s): %d alert(s) raised, veto=%s",
-            input_data.run_id,
-            len(alerts),
-            diversity_violation is not None,
+        return ModelGuardrailOutput(
+            run_id=request.run_id,
+            alerts=tuple(alerts),
+            diversity_violation=diversity_violation,
         )
-
-    return ModelGuardrailOutput(
-        run_id=input_data.run_id,
-        alerts=tuple(alerts),
-        diversity_violation=diversity_violation,
-    )
 
 
 __all__ = [
@@ -421,5 +424,5 @@ __all__ = [
     "check_diversity_constraint",
     "check_goodhart_violation",
     "check_reward_hacking",
-    "run_all_guardrails",
+    "HandlerGuardrails",
 ]

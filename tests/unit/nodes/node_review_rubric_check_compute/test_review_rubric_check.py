@@ -17,11 +17,9 @@ import pytest
 import yaml
 
 from omniintelligence.nodes.node_review_rubric_check_compute.handlers.handler_review_rubric_check import (
-    handle,
-)
-from omniintelligence.nodes.node_review_rubric_check_compute.handlers.handler_review_rubric_loader import (
+    HandlerReviewRubricLoader,
     compute_content_hash,
-    load_review_rubric,
+    handle,
 )
 from omniintelligence.nodes.node_review_rubric_check_compute.models.enum_review_rubric_check_outcome import (
     EnumReviewRubricCheckOutcome,
@@ -31,6 +29,9 @@ from omniintelligence.nodes.node_review_rubric_check_compute.models.enum_review_
 )
 from omniintelligence.nodes.node_review_rubric_check_compute.models.model_review_rubric_check_request import (
     ModelReviewRubricCheckRequest,
+)
+from omniintelligence.nodes.node_review_rubric_check_compute.models.model_review_rubric_load_request import (
+    ModelReviewRubricLoadRequest,
 )
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -54,8 +55,10 @@ def _valid_mapping() -> dict[str, Any]:
 @pytest.mark.unit
 class TestLoaderFormat:
     def test_valid_fixture_loads(self) -> None:
-        loaded = load_review_rubric(
-            _read("review_rubric.valid.v1.yaml"), token_budget=GENEROUS_BUDGET
+        loaded = HandlerReviewRubricLoader().handle(
+            ModelReviewRubricLoadRequest(
+                text=_read("review_rubric.valid.v1.yaml"), token_budget=GENEROUS_BUDGET
+            )
         )
         assert loaded.refusal is None
         assert loaded.rubric is not None
@@ -71,8 +74,11 @@ class TestLoaderFormat:
         assert 0 < loaded.token_count <= GENEROUS_BUDGET
 
     def test_malformed_fixture_is_refused_by_name_and_field(self) -> None:
-        loaded = load_review_rubric(
-            _read("review_rubric.malformed.v1.yaml"), token_budget=GENEROUS_BUDGET
+        loaded = HandlerReviewRubricLoader().handle(
+            ModelReviewRubricLoadRequest(
+                text=_read("review_rubric.malformed.v1.yaml"),
+                token_budget=GENEROUS_BUDGET,
+            )
         )
         assert loaded.rubric is None
         assert loaded.refusal is not None
@@ -80,24 +86,40 @@ class TestLoaderFormat:
         assert "rules.0.instruction" in loaded.refusal.message
 
     def test_text_that_is_not_yaml_is_refused(self) -> None:
-        loaded = load_review_rubric("rules: [unclosed", token_budget=GENEROUS_BUDGET)
+        loaded = HandlerReviewRubricLoader().handle(
+            ModelReviewRubricLoadRequest(
+                text="rules: [unclosed", token_budget=GENEROUS_BUDGET
+            )
+        )
         assert loaded.refusal is not None
         assert loaded.refusal.code is EnumReviewRubricRefusal.NOT_YAML
 
     def test_yaml_that_is_not_a_mapping_is_refused(self) -> None:
-        loaded = load_review_rubric("- a\n- b\n", token_budget=GENEROUS_BUDGET)
+        loaded = HandlerReviewRubricLoader().handle(
+            ModelReviewRubricLoadRequest(
+                text="- a\n- b\n", token_budget=GENEROUS_BUDGET
+            )
+        )
         assert loaded.refusal is not None
         assert loaded.refusal.code is EnumReviewRubricRefusal.NOT_A_MAPPING
 
     def test_unknown_schema_version_is_refused(self) -> None:
         mapping = {**_valid_mapping(), "schema_version": "review_rubric.v9"}
-        loaded = load_review_rubric(_sealed(mapping), token_budget=GENEROUS_BUDGET)
+        loaded = HandlerReviewRubricLoader().handle(
+            ModelReviewRubricLoadRequest(
+                text=_sealed(mapping), token_budget=GENEROUS_BUDGET
+            )
+        )
         assert loaded.refusal is not None
         assert loaded.refusal.code is EnumReviewRubricRefusal.UNSUPPORTED_SCHEMA_VERSION
 
     def test_unknown_key_is_refused_naming_it(self) -> None:
         mapping = {**_valid_mapping(), "severity": "high"}
-        loaded = load_review_rubric(_sealed(mapping), token_budget=GENEROUS_BUDGET)
+        loaded = HandlerReviewRubricLoader().handle(
+            ModelReviewRubricLoadRequest(
+                text=_sealed(mapping), token_budget=GENEROUS_BUDGET
+            )
+        )
         assert loaded.refusal is not None
         assert loaded.refusal.code is EnumReviewRubricRefusal.MALFORMED
         assert "severity" in loaded.refusal.message
@@ -105,28 +127,42 @@ class TestLoaderFormat:
     def test_a_rule_without_repositories_is_refused(self) -> None:
         mapping = _valid_mapping()
         mapping["rules"][0]["repositories"] = []
-        loaded = load_review_rubric(_sealed(mapping), token_budget=GENEROUS_BUDGET)
+        loaded = HandlerReviewRubricLoader().handle(
+            ModelReviewRubricLoadRequest(
+                text=_sealed(mapping), token_budget=GENEROUS_BUDGET
+            )
+        )
         assert loaded.refusal is not None
         assert loaded.refusal.code is EnumReviewRubricRefusal.MALFORMED
         assert "rules.0.repositories" in loaded.refusal.message
 
     def test_a_parent_version_not_below_the_version_is_refused(self) -> None:
         mapping = {**_valid_mapping(), "parent_version": 2}
-        loaded = load_review_rubric(_sealed(mapping), token_budget=GENEROUS_BUDGET)
+        loaded = HandlerReviewRubricLoader().handle(
+            ModelReviewRubricLoadRequest(
+                text=_sealed(mapping), token_budget=GENEROUS_BUDGET
+            )
+        )
         assert loaded.refusal is not None
         assert loaded.refusal.code is EnumReviewRubricRefusal.MALFORMED
         assert "parent_version" in loaded.refusal.message
 
     def test_unquoted_false_key_is_refused_as_malformed(self) -> None:
         text = _read("review_rubric.valid.v1.yaml").replace("false_finding:", "false:")
-        loaded = load_review_rubric(text, token_budget=GENEROUS_BUDGET)
+        loaded = HandlerReviewRubricLoader().handle(
+            ModelReviewRubricLoadRequest(text=text, token_budget=GENEROUS_BUDGET)
+        )
         assert loaded.refusal is not None
         assert loaded.refusal.code is EnumReviewRubricRefusal.MALFORMED
 
     def test_negative_support_count_is_refused(self) -> None:
         mapping = _valid_mapping()
         mapping["rules"][1]["support"]["truth"]["false_finding"] = -1
-        loaded = load_review_rubric(_sealed(mapping), token_budget=GENEROUS_BUDGET)
+        loaded = HandlerReviewRubricLoader().handle(
+            ModelReviewRubricLoadRequest(
+                text=_sealed(mapping), token_budget=GENEROUS_BUDGET
+            )
+        )
         assert loaded.refusal is not None
         assert loaded.refusal.code is EnumReviewRubricRefusal.MALFORMED
         assert "rules.1.support.truth.false_finding" in loaded.refusal.message
@@ -151,8 +187,11 @@ class TestContentHash:
     def test_edited_content_with_a_stale_hash_is_refused(self) -> None:
         mapping = _valid_mapping()
         mapping["rules"][0]["instruction"] = "Edited after the hash was frozen."
-        loaded = load_review_rubric(
-            yaml.safe_dump(mapping, sort_keys=False), token_budget=GENEROUS_BUDGET
+        loaded = HandlerReviewRubricLoader().handle(
+            ModelReviewRubricLoadRequest(
+                text=yaml.safe_dump(mapping, sort_keys=False),
+                token_budget=GENEROUS_BUDGET,
+            )
         )
         assert loaded.refusal is not None
         assert loaded.refusal.code is EnumReviewRubricRefusal.CONTENT_HASH_MISMATCH
@@ -164,10 +203,14 @@ class TestTokenBudget:
         mapping = _valid_mapping()
         mapping["rules"][0]["instruction"] = "word " * 500
         text = _sealed(mapping)
-        loaded = load_review_rubric(text, token_budget=GENEROUS_BUDGET)
+        loaded = HandlerReviewRubricLoader().handle(
+            ModelReviewRubricLoadRequest(text=text, token_budget=GENEROUS_BUDGET)
+        )
         assert loaded.refusal is None
         budget = loaded.token_count - 1
-        refused = load_review_rubric(text, token_budget=budget)
+        refused = HandlerReviewRubricLoader().handle(
+            ModelReviewRubricLoadRequest(text=text, token_budget=budget)
+        )
         assert refused.rubric is None
         assert refused.refusal is not None
         assert refused.refusal.code is EnumReviewRubricRefusal.OVER_BUDGET
@@ -176,17 +219,33 @@ class TestTokenBudget:
 
     def test_rubric_exactly_at_budget_loads(self) -> None:
         text = _read("review_rubric.valid.v1.yaml")
-        count = load_review_rubric(text, token_budget=GENEROUS_BUDGET).token_count
-        at_budget = load_review_rubric(text, token_budget=count)
+        count = (
+            HandlerReviewRubricLoader()
+            .handle(
+                ModelReviewRubricLoadRequest(text=text, token_budget=GENEROUS_BUDGET)
+            )
+            .token_count
+        )
+        at_budget = HandlerReviewRubricLoader().handle(
+            ModelReviewRubricLoadRequest(text=text, token_budget=count)
+        )
         assert at_budget.refusal is None
         assert at_budget.token_count == count
 
     def test_budget_counts_prompt_text_not_support_metadata(self) -> None:
         mapping = _valid_mapping()
-        base = load_review_rubric(_sealed(mapping), token_budget=GENEROUS_BUDGET)
+        base = HandlerReviewRubricLoader().handle(
+            ModelReviewRubricLoadRequest(
+                text=_sealed(mapping), token_budget=GENEROUS_BUDGET
+            )
+        )
         mapping["rules"][0]["support"]["truth"]["real"] = 99999
         mapping["created_from"].append("label-event-9999")
-        bumped = load_review_rubric(_sealed(mapping), token_budget=GENEROUS_BUDGET)
+        bumped = HandlerReviewRubricLoader().handle(
+            ModelReviewRubricLoadRequest(
+                text=_sealed(mapping), token_budget=GENEROUS_BUDGET
+            )
+        )
         assert bumped.token_count == base.token_count
 
     def test_non_positive_budget_is_rejected_by_the_request_model(self) -> None:

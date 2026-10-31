@@ -1,0 +1,21 @@
+{
+  "base_ref": "978c2645",
+  "canonical_handler_module": "omniintelligence.nodes.node_intent_cost_forecast_compute.handlers.handler_cost_forecast",
+  "legacy_handler_module": "omniintelligence.nodes.node_intent_cost_forecast_compute.handlers.handler_cost_forecast",
+  "node_id": "omniintelligence.nodes.node_intent_cost_forecast_compute",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:23faafaa57d7636220fc96e154274a5ec8ae34ae0cd6ff252fc4234153622217"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_intent_cost_forecast_compute/test_cost_forecast.py::test_canonical_dispatch_matches_preserved_core[seeded_refactor]"
+    ]
+  },
+  "preserved_symbols": [
+    "check_escalation",
+    "compute_accuracy_record",
+    "update_baseline"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

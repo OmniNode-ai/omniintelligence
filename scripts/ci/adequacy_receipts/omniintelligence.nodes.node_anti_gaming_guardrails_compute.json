@@ -1,0 +1,22 @@
+{
+  "branch_coverage_pct": 85.0,
+  "candidate_count": 12,
+  "coverage_target": 80.0,
+  "handler_module": "omniintelligence.nodes.node_anti_gaming_guardrails_compute.handlers.handler_guardrails",
+  "handler_module_sha256": "sha256:e9febff82709fc4da109eccb599ead21b93f5feafa8292613c5c55352be482c5",
+  "meets_target": true,
+  "node_id": "omniintelligence.nodes.node_anti_gaming_guardrails_compute",
+  "receipt_schema": "adequacy_receipt.v1",
+  "recorded_at": "2026-10-31T09:09:07.759083+00:00",
+  "recorder_schema": "adequacy_receipt.v1",
+  "selected_count": 6,
+  "selected_input_hashes": [
+    "sha256:904ab7dc981d272a74d2a0ae541a0c4ff3cb9e57bfeb439dc9e61a35ea5e9d3a",
+    "sha256:aa52c963db6cb94b390ee8e7c90568f830b4432abac5949658d0b203dabaa358",
+    "sha256:d516bb4bb543a2270cc2ec59d55764ef674aee79f4bd2ae20046478834b53d80",
+    "sha256:850e3a8dddb552896cfeb4046ff05b5d09e84164ab38a0e26605d9dfbeab6c08",
+    "sha256:6349eeef5ae50dd7bd9f77f0f770dea4421792bdeed259a695993f86f1692526",
+    "sha256:6af5600016f1c64536605f45bd6977af5f2651e7c94bb31b3a1473b8d866b91b"
+  ],
+  "volatile_mask": []
+}

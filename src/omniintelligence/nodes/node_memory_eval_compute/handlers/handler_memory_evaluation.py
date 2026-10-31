@@ -17,14 +17,20 @@ for each scenario and aggregates results into a ModelEvalSuiteResult.
 Example::
 
     from omniintelligence.nodes.node_memory_eval_compute.handlers import (
-        handle_memory_evaluation,
+        HandlerMemoryEvaluation,
     )
 
-    suite_result = await handle_memory_evaluation(
-        scenarios=scenarios,
-        memory_output="The agent recalled X correctly.",
-        memory_context={"session_id": "abc", "prior_tasks": ["task1"]},
-        judge_caller=my_judge_caller,
+    from omniintelligence.nodes.node_memory_eval_compute.models import (
+        ModelMemoryEvalRequest,
+    )
+
+    handler = HandlerMemoryEvaluation(judge_caller=my_judge_caller)
+    suite_result = await handler.handle(
+        ModelMemoryEvalRequest(
+            scenarios=scenarios,
+            memory_output="The agent recalled X correctly.",
+            memory_context={"session_id": "abc", "prior_tasks": ["task1"]},
+        )
     )
 """
 
@@ -43,6 +49,9 @@ from omniintelligence.nodes.node_bloom_eval_orchestrator.models.model_eval_resul
 from omniintelligence.nodes.node_bloom_eval_orchestrator.models.model_eval_scenario import (
     ModelEvalScenario,
 )
+from omniintelligence.nodes.node_memory_eval_compute.models import (
+    ModelMemoryEvalRequest,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -58,69 +67,77 @@ MEMORY_FAILURE_MODES: frozenset[str] = frozenset(
 )
 
 
-async def handle_memory_evaluation(
-    scenarios: list[ModelEvalScenario],
-    memory_output: str,
-    memory_context: dict[str, JsonType],
-    *,
-    judge_caller: Callable[[str, str, list[str]], Awaitable[dict[str, JsonType]]],
-) -> ModelEvalSuiteResult:
-    """Evaluate MEMORY_SYSTEM failure modes via LLM judge.
+class HandlerMemoryEvaluation:
+    """Evaluate memory behavior using an injected LLM judge."""
 
-    Iterates over each scenario and calls judge_caller with the scenario's
-    input_text, the memory_output, and an assembled prompt that includes
-    memory_context. Aggregates individual ModelEvalResult objects into a
-    ModelEvalSuiteResult.
+    def __init__(
+        self,
+        *,
+        judge_caller: Callable[[str, str, list[str]], Awaitable[dict[str, JsonType]]],
+    ) -> None:
+        """Initialize the evaluation handler.
 
-    Args:
-        scenarios: Pre-generated evaluation scenarios for MEMORY_SYSTEM domain.
-            Each scenario carries its own failure_mode and input_text.
-        memory_output: The agent's memory output string to evaluate.
-        memory_context: Contextual metadata passed to judge_caller as part of
-            the prompt (session state, prior task history, etc.).
-        judge_caller: Async callable with signature
-            ``(system_prompt: str, user_prompt: str, criteria: list[str])
-            -> dict[str, JsonType]``.
-            The dict must include the keys consumed by _build_eval_result:
-            ``schema_pass``, ``trace_coverage_pct``, ``missing_acceptance_criteria``,
-            ``invented_requirements``, ``ambiguity_flags``,
-            ``reference_integrity_pass``, ``metamorphic_stability_score``,
-            ``compliance_theater_risk``.
+        Args:
+            judge_caller: Async callable with signature
+                ``(system_prompt: str, user_prompt: str, criteria: list[str])
+                -> dict[str, JsonType]``.
+                The dict must include the keys consumed by _build_eval_result:
+                ``schema_pass``, ``trace_coverage_pct``, ``missing_acceptance_criteria``,
+                ``invented_requirements``, ``ambiguity_flags``,
+                ``reference_integrity_pass``, ``metamorphic_stability_score``,
+                ``compliance_theater_risk``.
+        """
+        self._judge_caller = judge_caller
 
-    Returns:
-        ModelEvalSuiteResult containing all per-scenario results and aggregate
-        statistics. The ``failure_mode`` on the suite result is taken from the
-        first scenario (all scenarios in a memory eval suite share the same mode).
+    async def handle(self, request: ModelMemoryEvalRequest) -> ModelEvalSuiteResult:
+        """Evaluate MEMORY_SYSTEM failure modes via LLM judge.
 
-    Raises:
-        ValueError: If scenarios is empty.
-    """
-    if not scenarios:
-        raise ValueError("scenarios must not be empty")
+        Iterates over each scenario and calls judge_caller with the scenario's
+        input_text, the memory_output, and an assembled prompt that includes
+        memory_context. Aggregates individual ModelEvalResult objects into a
+        ModelEvalSuiteResult.
 
-    results: list[ModelEvalResult] = []
+        Args:
+            request: Scenarios, memory output, and context to evaluate.
 
-    for scenario in scenarios:
-        system_prompt = _build_system_prompt(scenario, memory_context)
-        user_prompt = _build_user_prompt(scenario, memory_output, memory_context)
-        criteria = _build_criteria(scenario)
+        Returns:
+            ModelEvalSuiteResult containing all per-scenario results and aggregate
+            statistics. The ``failure_mode`` on the suite result is taken from the
+            first scenario (all scenarios in a memory eval suite share the same mode).
 
-        raw = await judge_caller(system_prompt, user_prompt, criteria)
-        result = _build_eval_result(scenario, raw)
-        results.append(result)
+        Raises:
+            ValueError: If scenarios is empty.
+        """
+        scenarios = request.scenarios
+        memory_output = request.memory_output
+        memory_context = request.memory_context
 
-    passed_count = sum(1 for r in results if r.eval_passed)
-    # Suite-level failure_mode is taken from the first scenario's mode.
-    suite_failure_mode = scenarios[0].failure_mode
+        if not scenarios:
+            raise ValueError("scenarios must not be empty")
 
-    return ModelEvalSuiteResult(
-        suite_id=uuid4(),
-        spec_id=scenarios[0].spec_id,
-        failure_mode=suite_failure_mode,
-        results=results,
-        total_scenarios=len(results),
-        passed_count=passed_count,
-    )
+        results: list[ModelEvalResult] = []
+
+        for scenario in scenarios:
+            system_prompt = _build_system_prompt(scenario, memory_context)
+            user_prompt = _build_user_prompt(scenario, memory_output, memory_context)
+            criteria = _build_criteria(scenario)
+
+            raw = await self._judge_caller(system_prompt, user_prompt, criteria)
+            result = _build_eval_result(scenario, raw)
+            results.append(result)
+
+        passed_count = sum(1 for r in results if r.eval_passed)
+        # Suite-level failure_mode is taken from the first scenario's mode.
+        suite_failure_mode = scenarios[0].failure_mode
+
+        return ModelEvalSuiteResult(
+            suite_id=uuid4(),
+            spec_id=scenarios[0].spec_id,
+            failure_mode=suite_failure_mode,
+            results=results,
+            total_scenarios=len(results),
+            passed_count=passed_count,
+        )
 
 
 def _build_system_prompt(
@@ -224,4 +241,4 @@ def _response_str_list(raw: Mapping[str, JsonType], key: str) -> list[str]:
     return [str(item) for item in value]
 
 
-__all__ = ["handle_memory_evaluation"]
+__all__ = ["HandlerMemoryEvaluation"]

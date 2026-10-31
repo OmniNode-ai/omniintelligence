@@ -17,12 +17,12 @@ description: >-
   Compute node that evaluates MEMORY_SYSTEM failure modes via LLM judge. Evaluates 5 failure modes: regression_amnesia,
   over_trust_prior_context, cross_task_contamination, failure_to_surface_memory, incorrect_suppression.
 input_model:
-  name: "ModelMemoryEvalInput"
-  module: "omniintelligence.nodes.node_memory_eval_compute.models"
-  description: "Input carrying evaluation scenarios, memory output, and judge_caller."
+  name: "ModelMemoryEvalRequest"
+  module: "omniintelligence.nodes.node_memory_eval_compute.models.model_memory_eval_request"
+  description: "Input carrying evaluation scenarios, memory output, and context."
 output_model:
   name: "ModelEvalSuiteResult"
-  module: "omniintelligence.nodes.node_bloom_eval_orchestrator.models"
+  module: "omniintelligence.nodes.node_bloom_eval_orchestrator.models.model_eval_result"
   description: "Aggregated evaluation results for the memory domain."
 operations:
   - name: "evaluate_memory"
@@ -31,7 +31,6 @@ operations:
       - scenarios
       - memory_output
       - memory_context
-      - judge_caller
     output_fields:
       - suite_id
       - spec_id
@@ -44,8 +43,9 @@ handler_routing:
   handlers:
     - operation: "evaluate_memory"
       handler:
-        function: "handle_memory_evaluation"
-        module: "omniintelligence.nodes.node_memory_eval_compute.handlers"
+        class: "HandlerMemoryEvaluation"
+        function: "handle"
+        module: "omniintelligence.nodes.node_memory_eval_compute.handlers.handler_memory_evaluation"
         type: "async"
 dependencies: []
 error_handling:

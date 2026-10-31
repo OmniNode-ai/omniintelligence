@@ -44,8 +44,9 @@ handler_routing:
   handlers:
     - operation: "run_all_guardrails"
       handler:
-        function: "run_all_guardrails"
-        module: "omniintelligence.nodes.node_anti_gaming_guardrails_compute.handlers"
+        class: "HandlerGuardrails"
+        function: "handle"
+        module: "omniintelligence.nodes.node_anti_gaming_guardrails_compute.handlers.handler_guardrails"
         type: "sync"
 dependencies: []
 metadata:

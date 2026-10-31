@@ -1,0 +1,23 @@
+{
+  "branch_coverage_pct": 18.86,
+  "candidate_count": 12,
+  "coverage_target": 80.0,
+  "handler_module": "omniintelligence.nodes.node_debug_retrieval_compute.handlers.handler_retrieval",
+  "handler_module_sha256": "sha256:c446fe7596311cd36e74707666868e7e44c527f768284fbb60f92e8aa9b1302f",
+  "meets_target": false,
+  "node_id": "omniintelligence.nodes.node_debug_retrieval_compute",
+  "receipt_schema": "adequacy_receipt.v1",
+  "recorded_at": "2026-10-31T09:09:09.086657+00:00",
+  "recorder_schema": "adequacy_receipt.v1",
+  "selected_count": 3,
+  "selected_input_hashes": [
+    "sha256:95906e9ceb4472a02fdb056cf45768e16e99b816765851b9829a8e4ca1d8a57e",
+    "sha256:7133389f7ed92644b35213123a950dfab948752bba2fdb1d535f97f6be1004e3",
+    "sha256:df117ccf3815b2914ed037f8ed95baa0ba57ffa2f96120083c0fb18368e657e9"
+  ],
+  "uncovered_waiver": {
+    "reason": "The parity corpus drives the typed handle(request) entry and the git-preserved helper functions through the branch cases listed in the parity test; coverage is measured after module import, excluding imports and definitions. The corpus does not exhaust every malformed input.",
+    "uncovered_branch_count": 0
+  },
+  "volatile_mask": []
+}

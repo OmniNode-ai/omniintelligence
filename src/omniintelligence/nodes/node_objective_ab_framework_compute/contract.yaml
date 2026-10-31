@@ -68,32 +68,36 @@ operations:
       - shadow_wins
       - registry
     output_fields:
-      - upgrade_ready
+      - ready
 
 handler_routing:
   routing_strategy: "operation_match"
   handlers:
     - operation: "run_ab_evaluation"
       handler:
-        function: "run_ab_evaluation"
+        class: "HandlerRunAbEvaluation"
+        function: "handle"
         module: "omniintelligence.nodes.node_objective_ab_framework_compute.handlers.handler_ab_framework"
         type: "sync"
       description: "Full A/B evaluation: route, evaluate all variants, detect divergence, check significance"
     - operation: "route_to_variant"
       handler:
-        function: "route_to_variant"
+        class: "HandlerRouteToVariant"
+        function: "handle"
         module: "omniintelligence.nodes.node_objective_ab_framework_compute.handlers.handler_ab_framework"
         type: "sync"
       description: "Deterministic hash-based variant routing"
     - operation: "check_upgrade_ready"
       handler:
-        function: "check_upgrade_ready"
+        class: "HandlerCheckUpgradeReady"
+        function: "handle"
         module: "omniintelligence.nodes.node_objective_ab_framework_compute.handlers.handler_ab_framework"
         type: "sync"
       description: "Statistical significance check for shadow variant promotion"
 
   default_handler:
-    function: "run_ab_evaluation"
+    class: "HandlerRunAbEvaluation"
+    function: "handle"
     module: "omniintelligence.nodes.node_objective_ab_framework_compute.handlers.handler_ab_framework"
     type: "sync"
     description: "Default to full A/B evaluation"

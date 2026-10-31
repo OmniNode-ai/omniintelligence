@@ -1,10 +1,10 @@
 # SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
 
-"""Tests for handle_memory_evaluation handler.
+"""Tests for HandlerMemoryEvaluation handler.
 
 Acceptance criteria verified:
-- Handler name is exactly ``handle_memory_evaluation``
+- Handler name is exactly ``HandlerMemoryEvaluation``
 - ``memory_context`` is passed to judge_caller (mock receives it as part of prompt)
 - Returns ``ModelEvalSuiteResult`` with correct ``failure_mode``
 - Node passes thin-shell audit (verified by test_node_purity.py suite)
@@ -14,11 +14,15 @@ Acceptance criteria verified:
 
 from __future__ import annotations
 
+import asyncio
+from datetime import UTC, datetime
 from typing import Any
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
+from omnibase_core.types import JsonType
 
+import omniintelligence.nodes.node_memory_eval_compute.handlers.handler_memory_evaluation as handler_module
 from omniintelligence.nodes.node_bloom_eval_orchestrator.models.enum_failure_mode import (
     EnumFailureMode,
 )
@@ -28,8 +32,8 @@ from omniintelligence.nodes.node_bloom_eval_orchestrator.models.model_eval_resul
 from omniintelligence.nodes.node_bloom_eval_orchestrator.models.model_eval_scenario import (
     ModelEvalScenario,
 )
-from omniintelligence.nodes.node_memory_eval_compute.handlers.handler_memory_evaluation import (
-    handle_memory_evaluation,
+from omniintelligence.nodes.node_memory_eval_compute.models import (
+    ModelMemoryEvalRequest,
 )
 
 pytestmark = pytest.mark.unit
@@ -90,7 +94,7 @@ def _failing_judge_response() -> dict[str, Any]:
 
 
 @pytest.mark.asyncio
-async def test_handle_memory_evaluation_returns_suite_result() -> None:
+async def test_handle_returns_suite_result() -> None:
     """Handler returns a ModelEvalSuiteResult."""
     scenario = _make_scenario(EnumFailureMode.REGRESSION_AMNESIA)
 
@@ -99,11 +103,12 @@ async def test_handle_memory_evaluation_returns_suite_result() -> None:
     ) -> dict[str, Any]:
         return _passing_judge_response()
 
-    result = await handle_memory_evaluation(
-        scenarios=[scenario],
-        memory_output="Agent recalled prior context correctly.",
-        memory_context={"session": "abc"},
-        judge_caller=judge,
+    result = await handler_module.HandlerMemoryEvaluation(judge_caller=judge).handle(
+        ModelMemoryEvalRequest(
+            scenarios=[scenario],
+            memory_output="Agent recalled prior context correctly.",
+            memory_context={"session": "abc"},
+        )
     )
 
     assert isinstance(result, ModelEvalSuiteResult)
@@ -123,11 +128,12 @@ async def test_failure_mode_propagated_to_suite_result() -> None:
         ) -> dict[str, Any]:
             return _passing_judge_response()
 
-        result = await handle_memory_evaluation(
-            scenarios=[scenario],
-            memory_output="output",
-            memory_context={},
-            judge_caller=judge,
+        result = await handler_module.HandlerMemoryEvaluation(
+            judge_caller=judge
+        ).handle(
+            ModelMemoryEvalRequest(
+                scenarios=[scenario], memory_output="output", memory_context={}
+            )
         )
 
         assert result.failure_mode == mode, (
@@ -150,11 +156,12 @@ async def test_memory_context_passed_to_judge_caller() -> None:
 
     scenario = _make_scenario(EnumFailureMode.OVER_TRUST_PRIOR_CONTEXT)
 
-    await handle_memory_evaluation(
-        scenarios=[scenario],
-        memory_output="some output",
-        memory_context=expected_context,
-        judge_caller=judge,
+    await handler_module.HandlerMemoryEvaluation(judge_caller=judge).handle(
+        ModelMemoryEvalRequest(
+            scenarios=[scenario],
+            memory_output="some output",
+            memory_context=expected_context,
+        )
     )
 
     # memory_context must appear in at least one of the prompts sent to judge
@@ -177,11 +184,12 @@ async def test_multiple_scenarios_aggregated() -> None:
         call_count += 1
         return _passing_judge_response()
 
-    result = await handle_memory_evaluation(
-        scenarios=scenarios,
-        memory_output="Memory output covering all 5 failure modes.",
-        memory_context={"run_id": "test-run"},
-        judge_caller=judge,
+    result = await handler_module.HandlerMemoryEvaluation(judge_caller=judge).handle(
+        ModelMemoryEvalRequest(
+            scenarios=scenarios,
+            memory_output="Memory output covering all 5 failure modes.",
+            memory_context={"run_id": "test-run"},
+        )
     )
 
     assert result.total_scenarios == 5
@@ -200,11 +208,12 @@ async def test_failing_scenarios_counted_correctly() -> None:
     ) -> dict[str, Any]:
         return _failing_judge_response()
 
-    result = await handle_memory_evaluation(
-        scenarios=[scenario],
-        memory_output="Agent contaminated output with prior task state.",
-        memory_context={},
-        judge_caller=judge,
+    result = await handler_module.HandlerMemoryEvaluation(judge_caller=judge).handle(
+        ModelMemoryEvalRequest(
+            scenarios=[scenario],
+            memory_output="Agent contaminated output with prior task state.",
+            memory_context={},
+        )
     )
 
     assert result.total_scenarios == 1
@@ -222,11 +231,10 @@ async def test_scenario_id_preserved_in_result() -> None:
     ) -> dict[str, Any]:
         return _passing_judge_response()
 
-    result = await handle_memory_evaluation(
-        scenarios=[scenario],
-        memory_output="output",
-        memory_context={},
-        judge_caller=judge,
+    result = await handler_module.HandlerMemoryEvaluation(judge_caller=judge).handle(
+        ModelMemoryEvalRequest(
+            scenarios=[scenario], memory_output="output", memory_context={}
+        )
     )
 
     assert result.results[0].scenario_id == scenario.scenario_id
@@ -242,11 +250,10 @@ async def test_empty_scenarios_raises_value_error() -> None:
         return _passing_judge_response()
 
     with pytest.raises(ValueError, match="scenarios must not be empty"):
-        await handle_memory_evaluation(
-            scenarios=[],
-            memory_output="output",
-            memory_context={},
-            judge_caller=judge,
+        await handler_module.HandlerMemoryEvaluation(judge_caller=judge).handle(
+            ModelMemoryEvalRequest(
+                scenarios=[], memory_output="output", memory_context={}
+            )
         )
 
 
@@ -260,12 +267,220 @@ async def test_incorrect_suppression_failure_mode() -> None:
     ) -> dict[str, Any]:
         return _passing_judge_response()
 
-    result = await handle_memory_evaluation(
-        scenarios=[scenario],
-        memory_output="Agent incorrectly suppressed relevant memory.",
-        memory_context={"suppression_context": "task_b_overrides"},
-        judge_caller=judge,
+    result = await handler_module.HandlerMemoryEvaluation(judge_caller=judge).handle(
+        ModelMemoryEvalRequest(
+            scenarios=[scenario],
+            memory_output="Agent incorrectly suppressed relevant memory.",
+            memory_context={"suppression_context": "task_b_overrides"},
+        )
     )
 
     assert result.failure_mode == EnumFailureMode.INCORRECT_SUPPRESSION
     assert result.results[0].failure_mode == EnumFailureMode.INCORRECT_SUPPRESSION
+
+
+def _parity_request(
+    *cases: tuple[EnumFailureMode, dict[str, JsonType]],
+    memory_output: str = "Memory output for parity evaluation.",
+    memory_context: dict[str, JsonType] | None = None,
+) -> ModelMemoryEvalRequest:
+    """Create stable scenarios with raw judge fixtures carried in context."""
+    return ModelMemoryEvalRequest(
+        scenarios=[
+            ModelEvalScenario(
+                scenario_id=UUID(int=index),
+                spec_id=UUID(int=100 + index),
+                failure_mode=mode,
+                input_text=f"Parity scenario {index}: {mode.value}",
+                context={"judge_response": raw},
+                generated_at=datetime(2026, 1, 1, tzinfo=UTC),
+            )
+            for index, (mode, raw) in enumerate(cases, start=1)
+        ],
+        memory_output=memory_output,
+        memory_context={} if memory_context is None else memory_context,
+    )
+
+
+CANONICAL_PARITY_CASES: list[tuple[str, ModelMemoryEvalRequest]] = [
+    *[
+        (
+            mode.value,
+            _parity_request(
+                (mode, _passing_judge_response()),
+                memory_context={
+                    "session_id": "parity-session",
+                    "prior_tasks": ["task_a", "task_b"],
+                    "nested": {"enabled": True, "weight": 0.5},
+                },
+            ),
+        )
+        for mode in MEMORY_FAILURE_MODES
+    ],
+    (
+        "missing_response_keys",
+        _parity_request((EnumFailureMode.REGRESSION_AMNESIA, {}), memory_output=""),
+    ),
+    (
+        "malformed_response_values",
+        _parity_request(
+            (
+                EnumFailureMode.OVER_TRUST_PRIOR_CONTEXT,
+                {
+                    "schema_pass": [],
+                    "reference_integrity_pass": "",
+                    "trace_coverage_pct": "not_a_number",
+                    "metamorphic_stability_score": None,
+                    "compliance_theater_risk": {"bad": "type"},
+                    "missing_acceptance_criteria": None,
+                    "invented_requirements": "not_a_list",
+                    "ambiguity_flags": {"not": "a_list"},
+                },
+            )
+        ),
+    ),
+    (
+        "boolean_scores_mixed_lists",
+        _parity_request(
+            (
+                EnumFailureMode.CROSS_TASK_CONTAMINATION,
+                {
+                    "schema_pass": 1,
+                    "reference_integrity_pass": "true",
+                    "trace_coverage_pct": True,
+                    "metamorphic_stability_score": False,
+                    "compliance_theater_risk": True,
+                    "missing_acceptance_criteria": ["criterion", 1, None, True],
+                    "invented_requirements": [{"key": "value"}],
+                    "ambiguity_flags": [["nested"]],
+                },
+            )
+        ),
+    ),
+    (
+        "string_number_scores",
+        _parity_request(
+            (
+                EnumFailureMode.FAILURE_TO_SURFACE_MEMORY,
+                {
+                    **_passing_judge_response(),
+                    "trace_coverage_pct": "0.8",
+                    "metamorphic_stability_score": "0.75",
+                    "compliance_theater_risk": "0.25",
+                },
+            )
+        ),
+    ),
+    (
+        "integer_scores_low_coverage",
+        _parity_request(
+            (
+                EnumFailureMode.INCORRECT_SUPPRESSION,
+                {
+                    **_passing_judge_response(),
+                    "trace_coverage_pct": 0,
+                    "metamorphic_stability_score": 1,
+                    "compliance_theater_risk": 0,
+                },
+            )
+        ),
+    ),
+    (
+        "reference_failure",
+        _parity_request(
+            (
+                EnumFailureMode.REGRESSION_AMNESIA,
+                {**_passing_judge_response(), "reference_integrity_pass": False},
+            )
+        ),
+    ),
+    (
+        "mixed_scenario_results",
+        _parity_request(
+            (EnumFailureMode.INCORRECT_SUPPRESSION, _failing_judge_response()),
+            (EnumFailureMode.REGRESSION_AMNESIA, _passing_judge_response()),
+            (EnumFailureMode.CROSS_TASK_CONTAMINATION, {}),
+            memory_context={"prior_tasks": [], "suppressed": False},
+        ),
+    ),
+]
+
+
+def parity_call(parity_request: ModelMemoryEvalRequest) -> object:
+    """Run canonical dispatch with deterministic, ordered judge responses."""
+    scenarios = iter(parity_request.scenarios)
+    calls: list[tuple[str, str, list[str]]] = []
+
+    async def judge(
+        system_prompt: str, user_prompt: str, criteria: list[str]
+    ) -> dict[str, JsonType]:
+        scenario = next(scenarios)
+        call = (system_prompt, user_prompt, criteria)
+        assert call == (
+            handler_module._build_system_prompt(
+                scenario, parity_request.memory_context
+            ),
+            handler_module._build_user_prompt(
+                scenario, parity_request.memory_output, parity_request.memory_context
+            ),
+            handler_module._build_criteria(scenario),
+        )
+        calls.append(call)
+        return scenario.context["judge_response"]
+
+    result = asyncio.run(
+        handler_module.HandlerMemoryEvaluation(judge_caller=judge).handle(
+            parity_request
+        )
+    )
+    assert len(calls) == len(parity_request.scenarios)
+    return result.model_dump(exclude={"suite_id"})
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "case_id,parity_request",
+    CANONICAL_PARITY_CASES,
+    ids=[case_id for case_id, _ in CANONICAL_PARITY_CASES],
+)
+def test_canonical_dispatch_matches_preserved_core(
+    case_id: str, parity_request: ModelMemoryEvalRequest
+) -> None:
+    handler_class = getattr(handler_module, "HandlerMemoryEvaluation", None)
+    assert handler_class is not None
+
+    responses = {
+        (
+            handler_module._build_system_prompt(
+                scenario, parity_request.memory_context
+            ),
+            handler_module._build_user_prompt(
+                scenario, parity_request.memory_output, parity_request.memory_context
+            ),
+            tuple(handler_module._build_criteria(scenario)),
+        ): scenario.context["judge_response"]
+        for scenario in parity_request.scenarios
+    }
+    results = []
+    for scenario in parity_request.scenarios:
+        system_prompt = handler_module._build_system_prompt(
+            scenario, parity_request.memory_context
+        )
+        user_prompt = handler_module._build_user_prompt(
+            scenario, parity_request.memory_output, parity_request.memory_context
+        )
+        criteria = handler_module._build_criteria(scenario)
+        raw = responses[(system_prompt, user_prompt, tuple(criteria))]
+        # _build_eval_result delegates parsing to the preserved _response_bool,
+        # _response_float and _response_str_list helpers.
+        results.append(handler_module._build_eval_result(scenario, raw))
+
+    expected = ModelEvalSuiteResult(
+        suite_id=UUID(int=0),
+        spec_id=parity_request.scenarios[0].spec_id,
+        failure_mode=parity_request.scenarios[0].failure_mode,
+        results=results,
+        total_scenarios=len(results),
+        passed_count=sum(1 for result in results if result.eval_passed),
+    ).model_dump(exclude={"suite_id"})
+    assert parity_call(parity_request) == expected, case_id

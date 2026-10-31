@@ -14,15 +14,20 @@ from __future__ import annotations
 
 import pytest
 
+from omniintelligence.nodes.node_anti_gaming_guardrails_compute.handlers import (
+    handler_guardrails as handler_module,
+)
 from omniintelligence.nodes.node_anti_gaming_guardrails_compute.handlers.handler_guardrails import (
     check_distributional_shift,
     check_diversity_constraint,
     check_goodhart_violation,
     check_reward_hacking,
-    run_all_guardrails,
 )
 from omniintelligence.nodes.node_anti_gaming_guardrails_compute.models.enum_alert_type import (
     EnumAlertType,
+)
+from omniintelligence.nodes.node_anti_gaming_guardrails_compute.models.model_alert_event import (
+    ModelAntiGamingAlertUnion,
 )
 from omniintelligence.nodes.node_anti_gaming_guardrails_compute.models.model_guardrail_config import (
     ModelCorrelationPair,
@@ -31,6 +36,9 @@ from omniintelligence.nodes.node_anti_gaming_guardrails_compute.models.model_gua
 from omniintelligence.nodes.node_anti_gaming_guardrails_compute.models.model_guardrail_input import (
     ModelGuardrailInput,
     ModelScoreVectorSnapshot,
+)
+from omniintelligence.nodes.node_anti_gaming_guardrails_compute.models.model_guardrail_output import (
+    ModelGuardrailOutput,
 )
 
 # =============================================================================
@@ -342,7 +350,7 @@ class TestDiversityConstraint:
 
 
 # =============================================================================
-# Tests: run_all_guardrails integration
+# Tests: HandlerGuardrails.handle integration
 # =============================================================================
 
 
@@ -357,7 +365,7 @@ class TestRunAllGuardrails:
             evidence_sources=("test_result", "lint_result"),
             config=_CONFIG,
         )
-        output = run_all_guardrails(inp)
+        output = handler_module.HandlerGuardrails().handle(inp)
         assert output.alerts == ()
         assert output.diversity_violation is None
         assert not output.should_veto
@@ -370,7 +378,7 @@ class TestRunAllGuardrails:
             evidence_sources=("test_result",),  # only 1 source
             config=_CONFIG,
         )
-        output = run_all_guardrails(inp)
+        output = handler_module.HandlerGuardrails().handle(inp)
         assert output.should_veto is True
         assert output.diversity_violation is not None
 
@@ -383,7 +391,7 @@ class TestRunAllGuardrails:
             evidence_sources=("test_result", "lint_result"),
             config=_CONFIG,
         )
-        output = run_all_guardrails(inp)
+        output = handler_module.HandlerGuardrails().handle(inp)
         assert not output.should_veto
         assert output.alert_count >= 1
 
@@ -398,7 +406,7 @@ class TestRunAllGuardrails:
             previous_acceptance_rate=0.5,
             config=_CONFIG,
         )
-        output = run_all_guardrails(inp)
+        output = handler_module.HandlerGuardrails().handle(inp)
         assert not output.should_veto
         assert output.alert_count >= 1
 
@@ -427,7 +435,7 @@ class TestRunAllGuardrails:
             current_source_distribution={"test_result": 0.9, "coverage_report": 0.9},
             config=config_low_threshold,
         )
-        output = run_all_guardrails(inp)
+        output = handler_module.HandlerGuardrails().handle(inp)
         assert output.alert_count >= 2  # At least goodhart + reward hacking
         assert not output.should_veto  # Still passes diversity (2 sources)
 
@@ -448,5 +456,269 @@ class TestRunAllGuardrails:
             evidence_sources=sources,
             config=_CONFIG,
         )
-        output = run_all_guardrails(inp)
+        output = handler_module.HandlerGuardrails().handle(inp)
         assert output.should_veto is should_veto
+
+
+# =============================================================================
+# Canonical dispatch parity against the preserved core (OMN-21536)
+# =============================================================================
+
+CANONICAL_PARITY_CASES: list[tuple[str, ModelGuardrailInput]] = [
+    (
+        "all_clean",
+        ModelGuardrailInput(
+            run_id="parity-clean",
+            current_score=_score(),
+            previous_score=_score(),
+            evidence_sources=("test", "lint"),
+            human_acceptance_rate=0.5,
+            previous_acceptance_rate=0.5,
+            current_source_distribution={"test": 2.0, "lint": 2.0},
+            baseline_source_distribution={"test": 0.5, "lint": 0.5},
+            config=_CONFIG,
+        ),
+    ),
+    (
+        "first_run_empty",
+        ModelGuardrailInput(
+            run_id="parity-first",
+            current_score=_score(correctness=1.0),
+            evidence_sources=(),
+            config=_CONFIG,
+        ),
+    ),
+    (
+        "goodhart_only",
+        ModelGuardrailInput(
+            run_id="parity-goodhart",
+            current_score=_score(correctness=0.9, safety=0.1),
+            previous_score=_score(),
+            evidence_sources=("test", "lint"),
+            human_acceptance_rate=None,
+            previous_acceptance_rate=0.5,
+            config=_CONFIG,
+        ),
+    ),
+    (
+        "threshold_boundaries",
+        ModelGuardrailInput(
+            run_id="parity-boundaries",
+            current_score=_score(correctness=0.625, safety=0.375),
+            previous_score=_score(),
+            evidence_sources=("test", "lint"),
+            human_acceptance_rate=0.5,
+            previous_acceptance_rate=0.5,
+            config=_CONFIG.model_copy(
+                update={
+                    "reward_hacking_score_threshold": 0.125,
+                    "correlation_pairs": (
+                        ModelCorrelationPair(
+                            metric_a="correctness",
+                            metric_b="safety",
+                            divergence_threshold=0.25,
+                        ),
+                    ),
+                }
+            ),
+        ),
+    ),
+    (
+        "reward_hacking_only",
+        ModelGuardrailInput(
+            run_id="parity-reward",
+            current_score=_score(correctness=0.9),
+            previous_score=_score(),
+            evidence_sources=("test", "lint"),
+            human_acceptance_rate=0.5,
+            previous_acceptance_rate=0.5,
+            config=_CONFIG,
+        ),
+    ),
+    (
+        "acceptance_improves",
+        ModelGuardrailInput(
+            run_id="parity-acceptance",
+            current_score=_score(correctness=0.9, safety=0.8),
+            previous_score=_score(),
+            evidence_sources=("test", "lint", "review"),
+            human_acceptance_rate=0.8,
+            previous_acceptance_rate=0.5,
+            config=_CONFIG,
+        ),
+    ),
+    (
+        "all_alerts_and_veto",
+        ModelGuardrailInput(
+            run_id="parity-all-alerts",
+            current_score=_score(correctness=0.9, safety=0.1, cost=0.9, latency=0.1),
+            previous_score=_score(),
+            evidence_sources=("test", "test"),
+            human_acceptance_rate=0.3,
+            previous_acceptance_rate=0.5,
+            current_source_distribution={
+                "stable": 0.25,
+                "changed": 0.1,
+                "new": 0.65,
+                "zero": 0.0,
+            },
+            baseline_source_distribution={
+                "stable": 0.25,
+                "changed": 0.5,
+                "removed": 0.25,
+            },
+            config=_CONFIG.model_copy(
+                update={
+                    "correlation_pairs": (
+                        *_CONFIG.correlation_pairs,
+                        ModelCorrelationPair(
+                            metric_a="cost",
+                            metric_b="latency",
+                            divergence_threshold=0.2,
+                        ),
+                    )
+                }
+            ),
+        ),
+    ),
+    (
+        "no_pairs_empty_baseline",
+        ModelGuardrailInput(
+            run_id="parity-no-pairs",
+            current_score=_score(correctness=0.3, safety=0.3),
+            previous_score=_score(),
+            evidence_sources=("test", "lint"),
+            human_acceptance_rate=0.5,
+            previous_acceptance_rate=None,
+            current_source_distribution={"test": 1.0},
+            baseline_source_distribution={},
+            config=_CONFIG.model_copy(update={"correlation_pairs": ()}),
+        ),
+    ),
+    (
+        "missing_current_distribution",
+        ModelGuardrailInput(
+            run_id="parity-no-current",
+            current_score=_score(correctness=0.3, safety=0.3),
+            previous_score=_score(),
+            evidence_sources=("lint", "test", "lint"),
+            baseline_source_distribution={"test": 1.0},
+            config=_CONFIG,
+        ),
+    ),
+    (
+        "missing_baseline_distribution",
+        ModelGuardrailInput(
+            run_id="parity-no-baseline",
+            current_score=_score(correctness=0.55, safety=0.45),
+            previous_score=_score(),
+            evidence_sources=("test", "lint"),
+            human_acceptance_rate=0.5,
+            previous_acceptance_rate=0.5,
+            current_source_distribution={"test": 1.0},
+            config=_CONFIG,
+        ),
+    ),
+    (
+        "drift_without_previous_score",
+        ModelGuardrailInput(
+            run_id="parity-empty-current",
+            current_score=_score(),
+            evidence_sources=("test", "lint"),
+            current_source_distribution={},
+            baseline_source_distribution={"test": 1.0, "lint": 0.0},
+            config=_CONFIG,
+        ),
+    ),
+    (
+        "zero_mass_baseline",
+        ModelGuardrailInput(
+            run_id="parity-zero-mass",
+            current_score=_score(),
+            evidence_sources=("test", "lint"),
+            current_source_distribution={"new": 1.0, "zero": 0.0},
+            baseline_source_distribution={"old": 0.0},
+            config=_CONFIG,
+        ),
+    ),
+]
+
+
+def parity_call(parity_request: ModelGuardrailInput) -> object:
+    """Return every result field except timestamps generated from the wall clock."""
+    result = handler_module.HandlerGuardrails().handle(parity_request)
+    return result.model_dump(
+        exclude={
+            "alerts": {"__all__": {"occurred_at_utc"}},
+            "diversity_violation": {"occurred_at_utc"},
+        }
+    )
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "case_id,parity_request",
+    CANONICAL_PARITY_CASES,
+    ids=[case_id for case_id, _ in CANONICAL_PARITY_CASES],
+)
+def test_canonical_dispatch_matches_preserved_core(
+    case_id: str, parity_request: ModelGuardrailInput
+) -> None:
+    handler_class = getattr(handler_module, "HandlerGuardrails", None)
+    assert handler_class is not None
+
+    # Re-compose HEAD's run_all_guardrails body using only preserved checks.
+    config = parity_request.config
+    objective_id = config.objective_id
+    diversity_violation = handler_module.check_diversity_constraint(
+        run_id=parity_request.run_id,
+        objective_id=objective_id,
+        evidence_sources=parity_request.evidence_sources,
+        config=config,
+        occurred_at_utc=_NOW,
+    )
+    alerts: list[ModelAntiGamingAlertUnion] = []
+    if parity_request.previous_score is not None:
+        alerts.extend(
+            handler_module.check_goodhart_violation(
+                run_id=parity_request.run_id,
+                objective_id=objective_id,
+                current_score=parity_request.current_score,
+                previous_score=parity_request.previous_score,
+                config=config,
+                occurred_at_utc=_NOW,
+            )
+        )
+        rh_alert = handler_module.check_reward_hacking(
+            run_id=parity_request.run_id,
+            objective_id=objective_id,
+            current_score=parity_request.current_score,
+            previous_score=parity_request.previous_score,
+            human_acceptance_rate=parity_request.human_acceptance_rate,
+            previous_acceptance_rate=parity_request.previous_acceptance_rate,
+            config=config,
+            occurred_at_utc=_NOW,
+        )
+        if rh_alert is not None:
+            alerts.append(rh_alert)
+    drift_alert = handler_module.check_distributional_shift(
+        run_id=parity_request.run_id,
+        objective_id=objective_id,
+        current_dist=parity_request.current_source_distribution,
+        baseline_dist=parity_request.baseline_source_distribution,
+        config=config,
+        occurred_at_utc=_NOW,
+    )
+    if drift_alert is not None:
+        alerts.append(drift_alert)
+    expected = ModelGuardrailOutput(
+        run_id=parity_request.run_id,
+        alerts=tuple(alerts),
+        diversity_violation=diversity_violation,
+    ).model_dump(
+        exclude={
+            "alerts": {"__all__": {"occurred_at_utc"}},
+            "diversity_violation": {"occurred_at_utc"},
+        }
+    )
+    assert parity_call(parity_request) == expected

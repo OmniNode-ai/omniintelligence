@@ -5,6 +5,7 @@
 """Models for the intent cost forecast compute node.
 
 Exports:
+    ModelCostForecastRequest: Frozen request with input, baselines, and timestamp.
     ModelCostBaseline: Mutable historical baseline per intent class.
     ModelIntentCostForecastInput: Frozen input for forecast computation.
     ModelIntentCostForecast: Frozen forecast output.
@@ -18,6 +19,9 @@ from omniintelligence.nodes.node_intent_cost_forecast_compute.models.model_cost_
     build_all_seeded_baselines,
     build_seeded_baseline,
 )
+from omniintelligence.nodes.node_intent_cost_forecast_compute.models.model_cost_forecast_request import (
+    ModelCostForecastRequest,
+)
 from omniintelligence.nodes.node_intent_cost_forecast_compute.models.model_intent_cost_forecast import (
     ModelForecastAccuracyRecord,
     ModelIntentCostForecast,
@@ -26,6 +30,7 @@ from omniintelligence.nodes.node_intent_cost_forecast_compute.models.model_inten
 
 __all__ = [
     "ModelCostBaseline",
+    "ModelCostForecastRequest",
     "ModelForecastAccuracyRecord",
     "ModelIntentCostForecast",
     "ModelIntentCostForecastInput",

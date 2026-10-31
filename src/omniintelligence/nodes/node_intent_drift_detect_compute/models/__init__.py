@@ -5,6 +5,7 @@
 """Models for the intent drift detect compute node.
 
 Exports:
+    ModelDriftDetectRequest: Frozen request with tool event and sensitivity.
     ModelIntentDriftInput: Frozen input — tool event correlated with active intent.
     ModelIntentDriftSignal: Frozen drift signal emitted on detection.
     ModelDriftSensitivity: Per-drift-type sensitivity thresholds.
@@ -19,6 +20,9 @@ from omniintelligence.nodes.node_intent_drift_detect_compute.models.model_drift_
     get_suspicious_tools,
     get_tool_allowlist,
 )
+from omniintelligence.nodes.node_intent_drift_detect_compute.models.model_drift_detect_request import (
+    ModelDriftDetectRequest,
+)
 from omniintelligence.nodes.node_intent_drift_detect_compute.models.model_intent_drift import (
     ModelIntentDriftInput,
     ModelIntentDriftSignal,
@@ -26,6 +30,7 @@ from omniintelligence.nodes.node_intent_drift_detect_compute.models.model_intent
 
 __all__ = [
     "DriftDetectionSettings",
+    "ModelDriftDetectRequest",
     "ModelDriftSensitivity",
     "ModelIntentDriftInput",
     "ModelIntentDriftSignal",

@@ -4,14 +4,14 @@
 # Copyright (c) 2025 OmniNode Team
 """Pure compute handlers for intent cost and latency forecasting.
 
-All functions are pure (no I/O). The baseline registry is passed in by the
+All computations are pure (no I/O). The baseline registry is passed in by the
 caller so tests can supply controlled baselines without mocking.
 
 Public API:
-    compute_forecast         — Produce a ModelIntentCostForecast from a baseline.
-    update_baseline          — Record a completed session into the baseline.
-    check_escalation         — Return True if actual tokens exceed p90 threshold.
-    compute_accuracy_record  — Build a ModelForecastAccuracyRecord for logging.
+    HandlerCostForecast.handle — Produce a ModelIntentCostForecast from a baseline.
+    update_baseline            — Record a completed session into the baseline.
+    check_escalation           — Return True if actual tokens exceed p90 threshold.
+    compute_accuracy_record    — Build a ModelForecastAccuracyRecord for logging.
 
 Reference: OMN-2490
 """
@@ -26,10 +26,12 @@ from omniintelligence.nodes.node_intent_cost_forecast_compute.models.model_cost_
     ModelCostBaseline,
     build_seeded_baseline,
 )
+from omniintelligence.nodes.node_intent_cost_forecast_compute.models.model_cost_forecast_request import (
+    ModelCostForecastRequest,
+)
 from omniintelligence.nodes.node_intent_cost_forecast_compute.models.model_intent_cost_forecast import (
     ModelForecastAccuracyRecord,
     ModelIntentCostForecast,
-    ModelIntentCostForecastInput,
 )
 
 # Maximum confidence interval width. Multiplied by (1 - classification_confidence)
@@ -37,50 +39,51 @@ from omniintelligence.nodes.node_intent_cost_forecast_compute.models.model_inten
 _MAX_CONFIDENCE_INTERVAL: float = 0.8
 
 
-async def compute_forecast(
-    input_data: ModelIntentCostForecastInput,
-    baselines: dict[EnumIntentClass, ModelCostBaseline],
-    *,
-    forecasted_at: datetime,
-) -> ModelIntentCostForecast:
-    """Produce a frozen ModelIntentCostForecast from the given baseline.
+class HandlerCostForecast:
+    """Typed entry point for intent cost and latency forecasting."""
 
-    Uses the historical p50/p90/p99 token distributions to estimate cost and
-    latency. Widens the confidence interval as classification confidence drops.
+    async def handle(
+        self, request: ModelCostForecastRequest
+    ) -> ModelIntentCostForecast:
+        """Produce a frozen ModelIntentCostForecast from the given baseline.
 
-    Args:
-        input_data: Frozen forecast input (session_id, intent_class, confidence, …).
-        baselines: Registry mapping each intent class to its historical baseline.
-            If the class is missing, a fresh seeded baseline is used.
-        forecasted_at: Timestamp injected by the caller — no datetime.now().
+        Uses the historical p50/p90/p99 token distributions to estimate cost and
+        latency. Widens the confidence interval as classification confidence drops.
 
-    Returns:
-        Frozen ModelIntentCostForecast ready for attachment to session context.
-    """
-    intent_class = input_data.intent_class
-    baseline = baselines.get(intent_class) or build_seeded_baseline(intent_class)
+        Args:
+            request: Frozen forecast input, baseline registry, and caller-injected
+                timestamp. If the intent class is missing from the registry, a fresh
+                seeded baseline is used.
 
-    # Widen confidence interval inversely with classification confidence
-    confidence_interval = round(
-        (1.0 - input_data.confidence) * _MAX_CONFIDENCE_INTERVAL, 4
-    )
+        Returns:
+            Frozen ModelIntentCostForecast ready for attachment to session context.
+        """
+        input_data = request.input_data
+        baselines = request.baselines
+        intent_class = input_data.intent_class
+        baseline = baselines.get(intent_class) or build_seeded_baseline(intent_class)
 
-    return ModelIntentCostForecast(
-        session_id=input_data.session_id,
-        correlation_id=input_data.correlation_id,
-        intent_class=intent_class,
-        estimated_tokens_p50=baseline.token_p50,
-        estimated_tokens_p90=baseline.token_p90,
-        estimated_tokens_p99=baseline.token_p99,
-        estimated_cost_usd_p50=baseline.estimated_cost_usd(baseline.token_p50),
-        estimated_cost_usd_p90=baseline.estimated_cost_usd(baseline.token_p90),
-        estimated_latency_ms_p50=baseline.latency_p50_ms,
-        estimated_latency_ms_p90=baseline.latency_p90_ms,
-        confidence_interval=confidence_interval,
-        escalation_threshold_tokens=baseline.token_p90,
-        baseline_sample_count=baseline.sample_count,
-        forecasted_at=forecasted_at,
-    )
+        # Widen confidence interval inversely with classification confidence
+        confidence_interval = round(
+            (1.0 - input_data.confidence) * _MAX_CONFIDENCE_INTERVAL, 4
+        )
+
+        return ModelIntentCostForecast(
+            session_id=input_data.session_id,
+            correlation_id=input_data.correlation_id,
+            intent_class=intent_class,
+            estimated_tokens_p50=baseline.token_p50,
+            estimated_tokens_p90=baseline.token_p90,
+            estimated_tokens_p99=baseline.token_p99,
+            estimated_cost_usd_p50=baseline.estimated_cost_usd(baseline.token_p50),
+            estimated_cost_usd_p90=baseline.estimated_cost_usd(baseline.token_p90),
+            estimated_latency_ms_p50=baseline.latency_p50_ms,
+            estimated_latency_ms_p90=baseline.latency_p90_ms,
+            confidence_interval=confidence_interval,
+            escalation_threshold_tokens=baseline.token_p90,
+            baseline_sample_count=baseline.sample_count,
+            forecasted_at=request.forecasted_at,
+        )
 
 
 def update_baseline(
@@ -160,8 +163,8 @@ def compute_accuracy_record(
 
 
 __all__ = [
+    "HandlerCostForecast",
     "check_escalation",
     "compute_accuracy_record",
-    "compute_forecast",
     "update_baseline",
 ]

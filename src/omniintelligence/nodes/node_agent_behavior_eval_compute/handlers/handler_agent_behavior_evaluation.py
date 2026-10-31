@@ -17,13 +17,19 @@ and aggregates results into a ModelEvalSuiteResult.
 Example::
 
     from omniintelligence.nodes.node_agent_behavior_eval_compute.handlers import (
-        handle_agent_behavior_evaluation,
+        HandlerAgentBehaviorEvaluation,
     )
 
-    suite_result = await handle_agent_behavior_evaluation(
-        scenarios=scenarios,
-        agent_output="The agent completed the task successfully.",
-        judge_caller=my_judge_caller,
+    from omniintelligence.nodes.node_agent_behavior_eval_compute.models import (
+        ModelAgentBehaviorEvalRequest,
+    )
+
+    handler = HandlerAgentBehaviorEvaluation(judge_caller=my_judge_caller)
+    suite_result = await handler.handle(
+        ModelAgentBehaviorEvalRequest(
+            scenarios=scenarios,
+            agent_output="The agent completed the task successfully.",
+        )
     )
 """
 
@@ -34,6 +40,9 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 from uuid import uuid4
 
+from omniintelligence.nodes.node_agent_behavior_eval_compute.models import (
+    ModelAgentBehaviorEvalRequest,
+)
 from omniintelligence.nodes.node_bloom_eval_orchestrator.models.model_eval_result import (
     ModelEvalResult,
     ModelEvalSuiteResult,
@@ -56,66 +65,80 @@ AGENT_FAILURE_MODES: frozenset[str] = frozenset(
 )
 
 
-async def handle_agent_behavior_evaluation(
-    scenarios: list[ModelEvalScenario],
-    agent_output: str,
-    *,
-    judge_caller: Callable[[str, str, list[str]], Awaitable[dict[str, Any]]],
-) -> ModelEvalSuiteResult:
-    """Evaluate AGENT_EXECUTION failure modes via LLM judge.
+class HandlerAgentBehaviorEvaluation:
+    """Evaluate agent behavior using an injected LLM judge."""
 
-    Iterates over each scenario and calls judge_caller with the scenario's
-    input_text, the agent_output, and assembled prompts. Aggregates individual
-    ModelEvalResult objects into a ModelEvalSuiteResult.
+    def __init__(
+        self,
+        *,
+        judge_caller: Callable[[str, str, list[str]], Awaitable[dict[str, Any]]],
+    ) -> None:
+        """Initialize the evaluation handler.
 
-    Args:
-        scenarios: Pre-generated evaluation scenarios for AGENT_EXECUTION domain.
-            Each scenario carries its own failure_mode and input_text.
-        agent_output: The agent's output string to evaluate.
-        judge_caller: Async callable with signature
-            ``(system_prompt: str, user_prompt: str, criteria: list[str])
-            -> dict[str, Any]``.
-            The dict must include the keys consumed by _build_eval_result:
-            ``schema_pass``, ``trace_coverage_pct``, ``missing_acceptance_criteria``,
-            ``invented_requirements``, ``ambiguity_flags``,
-            ``reference_integrity_pass``, ``metamorphic_stability_score``,
-            ``compliance_theater_risk``.
+        Args:
+            judge_caller: Async callable with signature
+                ``(system_prompt: str, user_prompt: str, criteria: list[str])
+                -> dict[str, Any]``.
+                The dict must include the keys consumed by _build_eval_result:
+                ``schema_pass``, ``trace_coverage_pct``, ``missing_acceptance_criteria``,
+                ``invented_requirements``, ``ambiguity_flags``,
+                ``reference_integrity_pass``, ``metamorphic_stability_score``,
+                ``compliance_theater_risk``.
+        """
+        self._judge_caller = judge_caller
 
-    Returns:
-        ModelEvalSuiteResult containing all per-scenario results and aggregate
-        statistics. The ``failure_mode`` on the suite result is taken from the
-        first scenario (all scenarios in an agent behavior eval suite share the
-        same mode).
+    async def handle(
+        self, request: ModelAgentBehaviorEvalRequest
+    ) -> ModelEvalSuiteResult:
+        """Evaluate AGENT_EXECUTION failure modes via LLM judge.
 
-    Raises:
-        ValueError: If scenarios is empty.
-    """
-    if not scenarios:
-        raise ValueError("scenarios must not be empty")
+        Iterates over each scenario and calls judge_caller with the scenario's
+        input_text, the agent_output, and assembled prompts. Aggregates individual
+        ModelEvalResult objects into a ModelEvalSuiteResult.
 
-    results: list[ModelEvalResult] = []
+        Args:
+            request: Scenarios and agent output to evaluate.
 
-    for scenario in scenarios:
-        system_prompt = _build_system_prompt(scenario)
-        user_prompt = _build_user_prompt(scenario, agent_output)
-        criteria = _build_criteria(scenario)
+        Returns:
+            ModelEvalSuiteResult containing all per-scenario results and aggregate
+            statistics. The ``failure_mode`` on the suite result is taken from the
+            first scenario (all scenarios in an agent behavior eval suite share the
+            same mode).
 
-        raw: dict[str, Any] = await judge_caller(system_prompt, user_prompt, criteria)
-        result = _build_eval_result(scenario, raw)
-        results.append(result)
+        Raises:
+            ValueError: If scenarios is empty.
+        """
+        scenarios = request.scenarios
+        agent_output = request.agent_output
 
-    passed_count = sum(1 for r in results if r.eval_passed)
-    # Suite-level failure_mode is taken from the first scenario's mode.
-    suite_failure_mode = scenarios[0].failure_mode
+        if not scenarios:
+            raise ValueError("scenarios must not be empty")
 
-    return ModelEvalSuiteResult(
-        suite_id=uuid4(),
-        spec_id=scenarios[0].spec_id,
-        failure_mode=suite_failure_mode,
-        results=results,
-        total_scenarios=len(results),
-        passed_count=passed_count,
-    )
+        results: list[ModelEvalResult] = []
+
+        for scenario in scenarios:
+            system_prompt = _build_system_prompt(scenario)
+            user_prompt = _build_user_prompt(scenario, agent_output)
+            criteria = _build_criteria(scenario)
+
+            raw: dict[str, Any] = await self._judge_caller(
+                system_prompt, user_prompt, criteria
+            )
+            result = _build_eval_result(scenario, raw)
+            results.append(result)
+
+        passed_count = sum(1 for r in results if r.eval_passed)
+        # Suite-level failure_mode is taken from the first scenario's mode.
+        suite_failure_mode = scenarios[0].failure_mode
+
+        return ModelEvalSuiteResult(
+            suite_id=uuid4(),
+            spec_id=scenarios[0].spec_id,
+            failure_mode=suite_failure_mode,
+            results=results,
+            total_scenarios=len(results),
+            passed_count=passed_count,
+        )
 
 
 def _build_system_prompt(scenario: ModelEvalScenario) -> str:
@@ -182,4 +205,4 @@ def _build_eval_result(
     )
 
 
-__all__ = ["handle_agent_behavior_evaluation"]
+__all__ = ["HandlerAgentBehaviorEvaluation"]

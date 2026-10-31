@@ -4,14 +4,14 @@
 # Copyright (c) 2025 OmniNode Team
 """Pure compute handlers for intent drift detection.
 
-All functions are pure (no I/O, no side effects). Sensitivity configuration
+All computations are pure (no I/O, no side effects). Sensitivity configuration
 is passed in by the caller so tests can supply controlled values.
 
 Detection is observational only — it NEVER blocks execution.
 
 Public API:
-    detect_drift    — Classify a tool-call event for drift; returns signal or None.
-    score_severity  — Map a raw drift score to a severity literal.
+    HandlerDriftDetect.handle — Classify a tool-call event; returns signal or None.
+    score_severity            — Map a raw drift score to a severity literal.
 
 Reference: OMN-2489
 """
@@ -25,6 +25,9 @@ from omnibase_core.enums.intelligence.enum_intent_class import EnumIntentClass
 from omniintelligence.nodes.node_intent_drift_detect_compute.models.model_drift_config import (
     ModelDriftSensitivity,
     get_suspicious_tools,
+)
+from omniintelligence.nodes.node_intent_drift_detect_compute.models.model_drift_detect_request import (
+    ModelDriftDetectRequest,
 )
 from omniintelligence.nodes.node_intent_drift_detect_compute.models.model_intent_drift import (
     ModelIntentDriftInput,
@@ -226,49 +229,52 @@ def _detect_scope_expansion(
     return None
 
 
-def detect_drift(
-    input_data: ModelIntentDriftInput,
-    sensitivity: ModelDriftSensitivity,
-) -> ModelIntentDriftSignal | None:
-    """Classify a tool-call event for drift. Returns the first detected signal.
+class HandlerDriftDetect:
+    """Typed entry point for observational intent drift detection."""
 
-    Detection runs per-tool-call. Checks are applied in priority order:
-    1. tool_mismatch (tool is in suspicious set for intent class)
-    2. file_surface (files outside expected scope)
-    3. scope_expansion (execution scope grew beyond intent boundary)
+    def handle(self, request: ModelDriftDetectRequest) -> ModelIntentDriftSignal | None:
+        """Classify a tool-call event for drift. Returns the first detected signal.
 
-    Detection is NEVER blocking — it always returns promptly and has no
-    side effects. Callers may emit the returned signal to Kafka but are not
-    required to.
+        Detection runs per-tool-call. Checks are applied in priority order:
+        1. tool_mismatch (tool is in suspicious set for intent class)
+        2. file_surface (files outside expected scope)
+        3. scope_expansion (execution scope grew beyond intent boundary)
 
-    FEATURE intent never triggers tool_mismatch (broad scope is expected).
+        Detection is NEVER blocking — it always returns promptly and has no
+        side effects. Callers may emit the returned signal to Kafka but are not
+        required to.
 
-    Args:
-        input_data: Frozen drift detection input with session, intent, and tool call.
-        sensitivity: Sensitivity thresholds controlling trigger levels.
+        FEATURE intent never triggers tool_mismatch (broad scope is expected).
 
-    Returns:
-        First detected ModelIntentDriftSignal, or None if no drift detected.
-    """
-    # Priority 1: tool_mismatch
-    signal = _detect_tool_mismatch(input_data, sensitivity)
-    if signal is not None:
-        return signal
+        Args:
+            request: Frozen drift detection input with session, intent, tool call,
+                and sensitivity thresholds controlling trigger levels.
 
-    # Priority 2: file_surface
-    signal = _detect_file_surface(input_data, sensitivity)
-    if signal is not None:
-        return signal
+        Returns:
+            First detected ModelIntentDriftSignal, or None if no drift detected.
+        """
+        input_data = request.input_data
+        sensitivity = request.sensitivity
 
-    # Priority 3: scope_expansion
-    signal = _detect_scope_expansion(input_data, sensitivity)
-    if signal is not None:
-        return signal
+        # Priority 1: tool_mismatch
+        signal = _detect_tool_mismatch(input_data, sensitivity)
+        if signal is not None:
+            return signal
 
-    return None
+        # Priority 2: file_surface
+        signal = _detect_file_surface(input_data, sensitivity)
+        if signal is not None:
+            return signal
+
+        # Priority 3: scope_expansion
+        signal = _detect_scope_expansion(input_data, sensitivity)
+        if signal is not None:
+            return signal
+
+        return None
 
 
 __all__ = [
-    "detect_drift",
+    "HandlerDriftDetect",
     "score_severity",
 ]

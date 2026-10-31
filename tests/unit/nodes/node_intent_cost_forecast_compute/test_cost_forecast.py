@@ -5,7 +5,7 @@
 
 Tests:
     - Baseline seeding produces non-empty distributions for all 8 intent classes
-    - compute_forecast returns a frozen ModelIntentCostForecast
+    - HandlerCostForecast.handle returns a frozen ModelIntentCostForecast
     - update_baseline accumulates real observations and increments sample_count
     - check_escalation fires when actual tokens exceed p90
     - compute_accuracy_record captures actual vs. forecasted correctly
@@ -18,6 +18,7 @@ Reference: OMN-2490
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -27,11 +28,14 @@ from omnibase_core.enums.intelligence.enum_intent_class import EnumIntentClass
 from omniintelligence.nodes.node_intent_cost_forecast_compute.handlers import (
     check_escalation,
     compute_accuracy_record,
-    compute_forecast,
     update_baseline,
+)
+from omniintelligence.nodes.node_intent_cost_forecast_compute.handlers import (
+    handler_cost_forecast as handler_module,
 )
 from omniintelligence.nodes.node_intent_cost_forecast_compute.models import (
     ModelCostBaseline,
+    ModelCostForecastRequest,
     ModelIntentCostForecast,
     ModelIntentCostForecastInput,
     build_all_seeded_baselines,
@@ -64,6 +68,134 @@ def _make_baselines(
 
 def _now() -> datetime:
     return datetime.now(tz=UTC)
+
+
+def _parity_request(
+    intent_class: EnumIntentClass,
+    confidence: float,
+    baselines: dict[EnumIntentClass, ModelCostBaseline],
+) -> ModelCostForecastRequest:
+    """Build parity inputs without the existing helpers' clock or UUID defaults."""
+    return ModelCostForecastRequest(
+        input_data=ModelIntentCostForecastInput(
+            session_id=f"parity-{intent_class.value}",
+            correlation_id="00000000-0000-0000-0000-000000000001",
+            intent_class=intent_class,
+            confidence=confidence,
+            requested_at=datetime(2026, 1, 1, tzinfo=UTC),
+        ),
+        baselines=baselines,
+        forecasted_at=datetime(2026, 1, 2, tzinfo=UTC),
+    )
+
+
+CANONICAL_PARITY_CASES: list[tuple[str, ModelCostForecastRequest]] = [
+    *[
+        (f"seeded_{intent_class.value}", _parity_request(intent_class, confidence, {}))
+        for intent_class, confidence in (
+            (EnumIntentClass.REFACTOR, 1.0),
+            (EnumIntentClass.BUGFIX, 0.0),
+            (EnumIntentClass.FEATURE, 0.5),
+            (EnumIntentClass.ANALYSIS, 0.333333),
+            (EnumIntentClass.CONFIGURATION, 0.9),
+            (EnumIntentClass.DOCUMENTATION, 0.75),
+            (EnumIntentClass.MIGRATION, 0.01),
+            (EnumIntentClass.SECURITY, 0.99999),
+        )
+    ],
+    (
+        "unrelated_baseline",
+        _parity_request(
+            EnumIntentClass.SECURITY,
+            0.6,
+            {EnumIntentClass.BUGFIX: build_seeded_baseline(EnumIntentClass.BUGFIX)},
+        ),
+    ),
+    (
+        "observed_baseline",
+        _parity_request(
+            EnumIntentClass.REFACTOR,
+            0.876543,
+            {
+                EnumIntentClass.REFACTOR: ModelCostBaseline(
+                    intent_class=EnumIntentClass.REFACTOR,
+                    token_samples=[900, 100, 500, 300, 700],
+                    latency_samples_ms=[90.0, 10.0, 50.0, 30.0, 70.0],
+                    sample_count=5,
+                )
+            },
+        ),
+    ),
+    (
+        "empty_baseline",
+        _parity_request(
+            EnumIntentClass.FEATURE,
+            0.0,
+            {
+                EnumIntentClass.FEATURE: ModelCostBaseline(
+                    intent_class=EnumIntentClass.FEATURE
+                )
+            },
+        ),
+    ),
+    (
+        "single_observation",
+        _parity_request(
+            EnumIntentClass.ANALYSIS,
+            1.0,
+            {
+                EnumIntentClass.ANALYSIS: ModelCostBaseline(
+                    intent_class=EnumIntentClass.ANALYSIS,
+                    token_samples=[42],
+                    latency_samples_ms=[12.5],
+                    sample_count=1,
+                )
+            },
+        ),
+    ),
+]
+
+
+def parity_call(parity_request: ModelCostForecastRequest) -> object:
+    return asyncio.run(handler_module.HandlerCostForecast().handle(parity_request))
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "case_id,parity_request",
+    CANONICAL_PARITY_CASES,
+    ids=[case_id for case_id, _ in CANONICAL_PARITY_CASES],
+)
+def test_canonical_dispatch_matches_preserved_core(
+    case_id: str, parity_request: ModelCostForecastRequest
+) -> None:
+    handler_class = getattr(handler_module, "HandlerCostForecast", None)
+    assert handler_class is not None, case_id
+
+    # Recompose HEAD's compute_forecast body from the preserved baseline helpers.
+    # update_baseline/check_escalation/compute_accuracy_record are separate APIs;
+    # the old forecast body did not call them.
+    input_data = parity_request.input_data
+    baseline = parity_request.baselines.get(
+        input_data.intent_class
+    ) or build_seeded_baseline(input_data.intent_class)
+    expected = ModelIntentCostForecast(
+        session_id=input_data.session_id,
+        correlation_id=input_data.correlation_id,
+        intent_class=input_data.intent_class,
+        estimated_tokens_p50=baseline.token_p50,
+        estimated_tokens_p90=baseline.token_p90,
+        estimated_tokens_p99=baseline.token_p99,
+        estimated_cost_usd_p50=baseline.estimated_cost_usd(baseline.token_p50),
+        estimated_cost_usd_p90=baseline.estimated_cost_usd(baseline.token_p90),
+        estimated_latency_ms_p50=baseline.latency_p50_ms,
+        estimated_latency_ms_p90=baseline.latency_p90_ms,
+        confidence_interval=round((1.0 - input_data.confidence) * 0.8, 4),
+        escalation_threshold_tokens=baseline.token_p90,
+        baseline_sample_count=baseline.sample_count,
+        forecasted_at=parity_request.forecasted_at,
+    )
+    assert parity_call(parity_request) == expected
 
 
 # ---------------------------------------------------------------------------
@@ -136,15 +268,19 @@ class TestBaselineSeeding:
 @pytest.mark.unit
 @pytest.mark.forecast
 class TestComputeForecast:
-    """Tests for compute_forecast handler."""
+    """Tests for HandlerCostForecast.handle handler."""
 
     async def test_returns_frozen_forecast(self) -> None:
-        """compute_forecast returns a frozen ModelIntentCostForecast."""
+        """HandlerCostForecast.handle returns a frozen ModelIntentCostForecast."""
         from pydantic import ValidationError
 
         input_data = _make_input()
         baselines = _make_baselines()
-        forecast = await compute_forecast(input_data, baselines, forecasted_at=_now())
+        forecast = await handler_module.HandlerCostForecast().handle(
+            ModelCostForecastRequest(
+                input_data=input_data, baselines=baselines, forecasted_at=_now()
+            )
+        )
 
         assert isinstance(forecast, ModelIntentCostForecast)
         with pytest.raises((TypeError, ValidationError)):
@@ -154,7 +290,11 @@ class TestComputeForecast:
         """Forecast session_id matches the input session_id."""
         input_data = _make_input()
         baselines = _make_baselines()
-        forecast = await compute_forecast(input_data, baselines, forecasted_at=_now())
+        forecast = await handler_module.HandlerCostForecast().handle(
+            ModelCostForecastRequest(
+                input_data=input_data, baselines=baselines, forecasted_at=_now()
+            )
+        )
         assert forecast.session_id == input_data.session_id
 
     async def test_forecast_intent_class_matches_input(self) -> None:
@@ -163,21 +303,33 @@ class TestComputeForecast:
         baselines = {
             EnumIntentClass.BUGFIX: build_seeded_baseline(EnumIntentClass.BUGFIX)
         }
-        forecast = await compute_forecast(input_data, baselines, forecasted_at=_now())
+        forecast = await handler_module.HandlerCostForecast().handle(
+            ModelCostForecastRequest(
+                input_data=input_data, baselines=baselines, forecasted_at=_now()
+            )
+        )
         assert forecast.intent_class == EnumIntentClass.BUGFIX
 
     async def test_estimated_tokens_p50_positive(self) -> None:
         """Estimated tokens p50 is positive for seeded baselines."""
         input_data = _make_input()
         baselines = _make_baselines()
-        forecast = await compute_forecast(input_data, baselines, forecasted_at=_now())
+        forecast = await handler_module.HandlerCostForecast().handle(
+            ModelCostForecastRequest(
+                input_data=input_data, baselines=baselines, forecasted_at=_now()
+            )
+        )
         assert forecast.estimated_tokens_p50 > 0
 
     async def test_token_percentiles_ordered(self) -> None:
         """Forecast p50 <= p90 <= p99."""
         input_data = _make_input()
         baselines = _make_baselines()
-        forecast = await compute_forecast(input_data, baselines, forecasted_at=_now())
+        forecast = await handler_module.HandlerCostForecast().handle(
+            ModelCostForecastRequest(
+                input_data=input_data, baselines=baselines, forecasted_at=_now()
+            )
+        )
         assert forecast.estimated_tokens_p50 <= forecast.estimated_tokens_p90
         assert forecast.estimated_tokens_p90 <= forecast.estimated_tokens_p99
 
@@ -185,42 +337,66 @@ class TestComputeForecast:
         """Estimated cost at p50 is positive."""
         input_data = _make_input()
         baselines = _make_baselines()
-        forecast = await compute_forecast(input_data, baselines, forecasted_at=_now())
+        forecast = await handler_module.HandlerCostForecast().handle(
+            ModelCostForecastRequest(
+                input_data=input_data, baselines=baselines, forecasted_at=_now()
+            )
+        )
         assert forecast.estimated_cost_usd_p50 > 0.0
 
     async def test_cost_usd_p90_gte_p50(self) -> None:
         """Cost at p90 >= cost at p50."""
         input_data = _make_input()
         baselines = _make_baselines()
-        forecast = await compute_forecast(input_data, baselines, forecasted_at=_now())
+        forecast = await handler_module.HandlerCostForecast().handle(
+            ModelCostForecastRequest(
+                input_data=input_data, baselines=baselines, forecasted_at=_now()
+            )
+        )
         assert forecast.estimated_cost_usd_p90 >= forecast.estimated_cost_usd_p50
 
     async def test_latency_p50_positive(self) -> None:
         """Estimated latency p50 is positive."""
         input_data = _make_input()
         baselines = _make_baselines()
-        forecast = await compute_forecast(input_data, baselines, forecasted_at=_now())
+        forecast = await handler_module.HandlerCostForecast().handle(
+            ModelCostForecastRequest(
+                input_data=input_data, baselines=baselines, forecasted_at=_now()
+            )
+        )
         assert forecast.estimated_latency_ms_p50 > 0
 
     async def test_escalation_threshold_equals_p90(self) -> None:
         """Escalation threshold equals the p90 token estimate."""
         input_data = _make_input()
         baselines = _make_baselines()
-        forecast = await compute_forecast(input_data, baselines, forecasted_at=_now())
+        forecast = await handler_module.HandlerCostForecast().handle(
+            ModelCostForecastRequest(
+                input_data=input_data, baselines=baselines, forecasted_at=_now()
+            )
+        )
         assert forecast.escalation_threshold_tokens == forecast.estimated_tokens_p90
 
     async def test_baseline_sample_count_zero_for_seeded(self) -> None:
         """Seeded baselines report sample_count=0 (no real observations yet)."""
         input_data = _make_input()
         baselines = _make_baselines()
-        forecast = await compute_forecast(input_data, baselines, forecasted_at=_now())
+        forecast = await handler_module.HandlerCostForecast().handle(
+            ModelCostForecastRequest(
+                input_data=input_data, baselines=baselines, forecasted_at=_now()
+            )
+        )
         assert forecast.baseline_sample_count == 0
 
     async def test_missing_baseline_uses_seeded_fallback(self) -> None:
-        """compute_forecast falls back to seeded baseline when class is absent."""
+        """HandlerCostForecast.handle falls back to seeded baseline when class is absent."""
         input_data = _make_input(intent_class=EnumIntentClass.MIGRATION)
         baselines: dict[EnumIntentClass, ModelCostBaseline] = {}  # empty registry
-        forecast = await compute_forecast(input_data, baselines, forecasted_at=_now())
+        forecast = await handler_module.HandlerCostForecast().handle(
+            ModelCostForecastRequest(
+                input_data=input_data, baselines=baselines, forecasted_at=_now()
+            )
+        )
         # Should not raise; should produce valid forecast
         assert forecast.estimated_tokens_p50 > 0
 
@@ -229,8 +405,16 @@ class TestComputeForecast:
         input_data = _make_input()
         baselines = _make_baselines()
         ts = _now()
-        f1 = await compute_forecast(input_data, baselines, forecasted_at=ts)
-        f2 = await compute_forecast(input_data, baselines, forecasted_at=ts)
+        f1 = await handler_module.HandlerCostForecast().handle(
+            ModelCostForecastRequest(
+                input_data=input_data, baselines=baselines, forecasted_at=ts
+            )
+        )
+        f2 = await handler_module.HandlerCostForecast().handle(
+            ModelCostForecastRequest(
+                input_data=input_data, baselines=baselines, forecasted_at=ts
+            )
+        )
         assert f1.estimated_tokens_p50 == f2.estimated_tokens_p50
         assert f1.confidence_interval == f2.confidence_interval
 
@@ -238,7 +422,11 @@ class TestComputeForecast:
         """Forecast event_type is 'IntentCostForecast'."""
         input_data = _make_input()
         baselines = _make_baselines()
-        forecast = await compute_forecast(input_data, baselines, forecasted_at=_now())
+        forecast = await handler_module.HandlerCostForecast().handle(
+            ModelCostForecastRequest(
+                input_data=input_data, baselines=baselines, forecasted_at=_now()
+            )
+        )
         assert forecast.event_type == "IntentCostForecast"
 
 
@@ -256,28 +444,44 @@ class TestConfidenceInterval:
         """High classification confidence (0.9) yields a narrow interval."""
         input_data = _make_input(confidence=0.9)
         baselines = _make_baselines()
-        forecast = await compute_forecast(input_data, baselines, forecasted_at=_now())
+        forecast = await handler_module.HandlerCostForecast().handle(
+            ModelCostForecastRequest(
+                input_data=input_data, baselines=baselines, forecasted_at=_now()
+            )
+        )
         assert forecast.confidence_interval < 0.2
 
     async def test_low_confidence_produces_wide_interval(self) -> None:
         """Low classification confidence (0.3) yields a wide interval."""
         input_data = _make_input(confidence=0.3)
         baselines = _make_baselines()
-        forecast = await compute_forecast(input_data, baselines, forecasted_at=_now())
+        forecast = await handler_module.HandlerCostForecast().handle(
+            ModelCostForecastRequest(
+                input_data=input_data, baselines=baselines, forecasted_at=_now()
+            )
+        )
         assert forecast.confidence_interval > 0.4
 
     async def test_perfect_confidence_yields_zero_interval(self) -> None:
         """Confidence=1.0 yields confidence_interval=0.0."""
         input_data = _make_input(confidence=1.0)
         baselines = _make_baselines()
-        forecast = await compute_forecast(input_data, baselines, forecasted_at=_now())
+        forecast = await handler_module.HandlerCostForecast().handle(
+            ModelCostForecastRequest(
+                input_data=input_data, baselines=baselines, forecasted_at=_now()
+            )
+        )
         assert forecast.confidence_interval == 0.0
 
     async def test_zero_confidence_yields_max_interval(self) -> None:
         """Confidence=0.0 yields confidence_interval=0.8 (MAX_CONFIDENCE_INTERVAL)."""
         input_data = _make_input(confidence=0.0)
         baselines = _make_baselines()
-        forecast = await compute_forecast(input_data, baselines, forecasted_at=_now())
+        forecast = await handler_module.HandlerCostForecast().handle(
+            ModelCostForecastRequest(
+                input_data=input_data, baselines=baselines, forecasted_at=_now()
+            )
+        )
         assert forecast.confidence_interval == pytest.approx(0.8)
 
     async def test_confidence_interval_monotonically_decreases(self) -> None:
@@ -285,8 +489,12 @@ class TestConfidenceInterval:
         baselines = _make_baselines()
         ts = _now()
         forecasts = [
-            await compute_forecast(
-                _make_input(confidence=c), baselines, forecasted_at=ts
+            await handler_module.HandlerCostForecast().handle(
+                ModelCostForecastRequest(
+                    input_data=_make_input(confidence=c),
+                    baselines=baselines,
+                    forecasted_at=ts,
+                )
             )
             for c in [0.2, 0.5, 0.8, 1.0]
         ]
@@ -350,14 +558,22 @@ class TestUpdateBaseline:
         baselines = {EnumIntentClass.REFACTOR: baseline}
 
         input_data = _make_input()
-        before = await compute_forecast(input_data, baselines, forecasted_at=_now())
+        before = await handler_module.HandlerCostForecast().handle(
+            ModelCostForecastRequest(
+                input_data=input_data, baselines=baselines, forecasted_at=_now()
+            )
+        )
 
         for _ in range(30):
             update_baseline(
                 baseline, actual_tokens=100_000, actual_latency_ms=120_000.0
             )
 
-        after = await compute_forecast(input_data, baselines, forecasted_at=_now())
+        after = await handler_module.HandlerCostForecast().handle(
+            ModelCostForecastRequest(
+                input_data=input_data, baselines=baselines, forecasted_at=_now()
+            )
+        )
         assert after.estimated_tokens_p90 > before.estimated_tokens_p90
 
 
@@ -431,7 +647,11 @@ class TestComputeAccuracyRecord:
     async def _make_forecast(self) -> ModelIntentCostForecast:
         input_data = _make_input()
         baselines = _make_baselines()
-        return await compute_forecast(input_data, baselines, forecasted_at=_now())
+        return await handler_module.HandlerCostForecast().handle(
+            ModelCostForecastRequest(
+                input_data=input_data, baselines=baselines, forecasted_at=_now()
+            )
+        )
 
     async def test_returns_frozen_accuracy_record(self) -> None:
         """compute_accuracy_record returns a frozen ModelForecastAccuracyRecord."""

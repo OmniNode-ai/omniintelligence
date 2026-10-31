@@ -1,0 +1,27 @@
+{
+  "branch_coverage_pct": 75.25,
+  "candidate_count": 26,
+  "coverage_target": 80.0,
+  "handler_module": "omniintelligence.nodes.node_objective_ab_framework_compute.handlers.handler_ab_framework",
+  "handler_module_sha256": "sha256:773585f0de7c94449802deb5d5bbd4b6fac22dc4389b90e4b5cb058e25630321",
+  "meets_target": false,
+  "node_id": "omniintelligence.nodes.node_objective_ab_framework_compute",
+  "receipt_schema": "adequacy_receipt.v1",
+  "recorded_at": "2026-10-31T09:09:10.447349+00:00",
+  "recorder_schema": "adequacy_receipt.v1",
+  "selected_count": 7,
+  "selected_input_hashes": [
+    "sha256:95014284dfaba08d4d19c51ee492c03f0596f194b8caed38ba55a751ae2f829b",
+    "sha256:c18139407c1698a5e2243b0938cba9001b5923b23d98df020e2b6922c56dfdd4",
+    "sha256:70270ca49f3eafe602bfa238f0ced975e865d0232d06db32b6ceaf548360370f",
+    "sha256:b90adbd98b089ae23e08f432e3e3072859a3896fe006f2e413ebe0f74ce30d6b",
+    "sha256:e824551c6f566cbb92e91555663bfbc1e63da0236b53b9e1853f23d8f7ecf884",
+    "sha256:222d5234ea8995391769895c876407beb9e8c7d1f7cc4dfdba85a60e5b34d724",
+    "sha256:c64367b85c05a5f2ca342732742acd022db03c6c39108fdf652af8ef8340a979"
+  ],
+  "uncovered_waiver": {
+    "reason": "The parity corpus drives the typed handle(request) entry and the git-preserved helper functions through the branch cases listed in the parity test; coverage is measured after module import, excluding imports and definitions. The corpus does not exhaust every malformed input.",
+    "uncovered_branch_count": 0
+  },
+  "volatile_mask": []
+}

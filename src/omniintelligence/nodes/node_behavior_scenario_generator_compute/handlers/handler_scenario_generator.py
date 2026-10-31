@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """Handler: scenario generation for NodeBehaviorScenarioGeneratorCompute.
 
-Pure async function — no I/O, no logging, no container access.
+Pure async handler — no I/O, no logging, no container access.
 LLM calls are delegated to the injected llm_caller.
 """
 
@@ -12,6 +12,10 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 
+from omniintelligence.nodes.node_behavior_scenario_generator_compute.models import (
+    ModelScenarioGenerationRequest,
+    ModelScenarioGenerationResponse,
+)
 from omniintelligence.nodes.node_bloom_eval_orchestrator.models.model_behavior_spec import (
     ModelBehaviorSpec,
 )
@@ -50,4 +54,43 @@ async def handle_scenario_generation(
     ]
 
 
-__all__ = ["handle_scenario_generation"]
+class HandlerScenarioGeneration:
+    """Generate behavior scenarios using an injected LLM caller.
+
+    ``handle`` is the typed entry point; the generation core stays the
+    git-preserved ``handle_scenario_generation`` above, so the shape change moves
+    only the request/response boundary.
+    """
+
+    def __init__(
+        self,
+        *,
+        llm_caller: Callable[[str, int], Awaitable[list[str]]],
+    ) -> None:
+        """Initialize the scenario generation handler.
+
+        Args:
+            llm_caller: Async callable that accepts (prompt_template, n) and returns
+                a list of exactly n raw scenario text strings.
+        """
+        self._llm_caller = llm_caller
+
+    async def handle(
+        self, request: ModelScenarioGenerationRequest
+    ) -> ModelScenarioGenerationResponse:
+        """Generate exactly n ModelEvalScenario objects from a BehaviorSpec.
+
+        Args:
+            request: Behavior specification and number of scenarios to generate.
+
+        Returns:
+            Response containing exactly n ModelEvalScenario objects with spec_id
+            and failure_mode propagated from spec.
+        """
+        scenarios = await handle_scenario_generation(
+            request.spec, request.n, llm_caller=self._llm_caller
+        )
+        return ModelScenarioGenerationResponse(scenarios=scenarios)
+
+
+__all__ = ["HandlerScenarioGeneration", "handle_scenario_generation"]

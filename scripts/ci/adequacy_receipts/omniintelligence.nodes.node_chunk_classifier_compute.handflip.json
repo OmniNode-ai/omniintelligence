@@ -1,0 +1,45 @@
+{
+  "base_ref": "978c2645",
+  "canonical_handler_module": "omniintelligence.nodes.node_chunk_classifier_compute.handlers.handler_chunk_classifier",
+  "legacy_handler_module": "omniintelligence.nodes.node_chunk_classifier_compute.handlers.handler_chunk_classifier",
+  "node_id": "omniintelligence.nodes.node_chunk_classifier_compute",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:7956ea5fa1620ed2810f4b3348fa9c95b284f382a1e34f7378b6bd7e7be4cc59",
+      "sha256:e0fe896f4f96dc9456182dfa80c7f57d0a140cd4d6b0336f248c05208723d2db",
+      "sha256:ab64c4b8ea84bf567f359e1e904b25bf159c37f04ad259ce3fd929b15602c257",
+      "sha256:c51fd7da72a2f4175a4af3b92076fdba4a10da87022059e0669dbdb9800a04e6",
+      "sha256:00e965c8c78fc2ce17b8c2fb7af88e6abe30daa0fbcd59a5e99b3f82756662b6",
+      "sha256:d68b3af114605ade9081ef5f0bb591e2a55e15fef385cf1e2b08cd9181ded42b",
+      "sha256:14aa43d507bd6a1bb23adbca8e8855d7fd3a5c4fcf46660156296def2c365698",
+      "sha256:94b04e03eff04dd88f89fea3a161a6e77c71ba269132105a7eaf9307a15e67ec"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "src/omniintelligence/nodes/node_chunk_classifier_compute/node_tests/test_handler_chunk_classifier.py::test_canonical_dispatch_matches_preserved_core[api_constraints]",
+      "src/omniintelligence/nodes/node_chunk_classifier_compute/node_tests/test_handler_chunk_classifier.py::test_canonical_dispatch_matches_preserved_core[config_notes]",
+      "src/omniintelligence/nodes/node_chunk_classifier_compute/node_tests/test_handler_chunk_classifier.py::test_canonical_dispatch_matches_preserved_core[rules]",
+      "src/omniintelligence/nodes/node_chunk_classifier_compute/node_tests/test_handler_chunk_classifier.py::test_canonical_dispatch_matches_preserved_core[failure_content]",
+      "src/omniintelligence/nodes/node_chunk_classifier_compute/node_tests/test_handler_chunk_classifier.py::test_canonical_dispatch_matches_preserved_core[example_fence]",
+      "src/omniintelligence/nodes/node_chunk_classifier_compute/node_tests/test_handler_chunk_classifier.py::test_canonical_dispatch_matches_preserved_core[repo_maps]",
+      "src/omniintelligence/nodes/node_chunk_classifier_compute/node_tests/test_handler_chunk_classifier.py::test_canonical_dispatch_matches_preserved_core[fallback_edges]",
+      "src/omniintelligence/nodes/node_chunk_classifier_compute/node_tests/test_handler_chunk_classifier.py::test_canonical_dispatch_matches_preserved_core[windows_source]"
+    ]
+  },
+  "preserved_symbols": [
+    "_classify_chunk_v1",
+    "_compute_content_fingerprint",
+    "_compute_version_hash",
+    "_extract_repo_name",
+    "_extract_service_tags",
+    "_is_api_constraint",
+    "_is_config_note",
+    "_is_example",
+    "_is_failure_pattern",
+    "_is_repo_map",
+    "_is_rule",
+    "_slugify",
+    "extract_tags"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

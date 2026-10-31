@@ -12,7 +12,10 @@ from typing import ClassVar
 
 from omniintelligence.debug_intel.protocols import ProtocolDebugStore
 from omniintelligence.nodes.node_debug_retrieval_compute.handlers.handler_retrieval import (
-    query_fix_records_with_decay,
+    HandlerDebugRetrieval,
+)
+from omniintelligence.nodes.node_debug_retrieval_compute.models import (
+    ModelDebugRetrievalRequest,
 )
 from omniintelligence.nodes.node_debug_retrieval_compute.models.model_input import (
     ModelDebugRetrievalInput,
@@ -26,7 +29,7 @@ class NodeDebugRetrievalCompute:
     """Compute node for time-decayed retrieval of past CI fixes.
 
     This node requires a ``ProtocolDebugStore`` injected at construction time.
-    All retrieval and decay logic is delegated to the handler function.
+    All retrieval and decay logic is delegated to the handler.
 
     The ``is_stub`` marker opts this node out of the no-custom-init purity
     check — the stored dependency is the only state; no business logic lives
@@ -46,18 +49,19 @@ class NodeDebugRetrievalCompute:
         Args:
             store: Protocol-conformant debug store for fix record retrieval.
         """
-        self._store = store
+        self._handler = HandlerDebugRetrieval(store=store)
 
     async def compute(
         self, input_data: ModelDebugRetrievalInput
     ) -> ModelDebugRetrievalOutput:
         """Retrieve time-decayed fix records by delegating to handler."""
-        fix_records = await query_fix_records_with_decay(
-            failure_fingerprint=input_data.failure_fingerprint,
-            store=self._store,
-            limit=input_data.limit,
+        response = await self._handler.handle(
+            ModelDebugRetrievalRequest(
+                failure_fingerprint=input_data.failure_fingerprint,
+                limit=input_data.limit,
+            )
         )
-        return ModelDebugRetrievalOutput(fix_records=fix_records)
+        return ModelDebugRetrievalOutput(fix_records=response.records)
 
 
 __all__ = ["NodeDebugRetrievalCompute"]

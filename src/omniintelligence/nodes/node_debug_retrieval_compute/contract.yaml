@@ -15,13 +15,13 @@ description: |
   each with an exponential time-decay weight (half-life 30 days).
 
 input_model:
-  name: "ModelDebugRetrievalInput"
-  module: "omniintelligence.nodes.node_debug_retrieval_compute.models.model_input"
-  description: "Failure fingerprint and max fix records to retrieve."
+  name: "ModelDebugRetrievalRequest"
+  module: "omniintelligence.nodes.node_debug_retrieval_compute.models.model_debug_retrieval_request"
+  description: "Failure fingerprint, max fix records, and optional reference time."
 
 output_model:
-  name: "ModelDebugRetrievalOutput"
-  module: "omniintelligence.nodes.node_debug_retrieval_compute.models.model_output"
+  name: "ModelDebugRetrievalResponse"
+  module: "omniintelligence.nodes.node_debug_retrieval_compute.models.model_debug_retrieval_response"
   description: "Fix records annotated with time_decay_weight."
 
 handler_routing:
@@ -29,7 +29,8 @@ handler_routing:
   handlers:
     - operation: "query_fix_records_with_decay"
       handler:
-        function: "query_fix_records_with_decay"
+        class: "HandlerDebugRetrieval"
+        function: "handle"
         module: "omniintelligence.nodes.node_debug_retrieval_compute.handlers.handler_retrieval"
         type: "async"
 

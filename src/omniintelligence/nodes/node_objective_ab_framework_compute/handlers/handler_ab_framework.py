@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 # Copyright (c) 2025 OmniNode Team
-"""A/B objective testing framework handler — pure functions.
+"""A/B objective testing framework handlers and pure helpers.
 
 Core logic for multi-variant objective evaluation:
 
@@ -45,56 +45,63 @@ from omniintelligence.nodes.node_objective_ab_framework_compute.models.model_ab_
     ModelABEvaluationOutput,
     ModelVariantEvaluationResult,
 )
+from omniintelligence.nodes.node_objective_ab_framework_compute.models.model_check_upgrade_ready_request import (
+    ModelCheckUpgradeReadyRequest,
+)
 from omniintelligence.nodes.node_objective_ab_framework_compute.models.model_objective_variant import (
     ModelObjectiveVariant,
-    ModelObjectiveVariantRegistry,
+)
+from omniintelligence.nodes.node_objective_ab_framework_compute.models.model_route_to_variant_request import (
+    ModelRouteToVariantRequest,
+)
+from omniintelligence.nodes.node_objective_ab_framework_compute.models.model_upgrade_ready_response import (
+    ModelUpgradeReadyResponse,
 )
 
 logger = logging.getLogger(__name__)
 
 
-def route_to_variant(
-    run_id: str,
-    registry: ModelObjectiveVariantRegistry,
-) -> ModelObjectiveVariant:
-    """Deterministically route a run_id to a variant using hash-based splitting.
+class HandlerRouteToVariant:
+    """Typed entry point for deterministic objective variant routing."""
 
-    The routing is reproducible: the same run_id always maps to the same
-    variant. Implements a consistent hash that respects traffic_weight.
+    def handle(self, request: ModelRouteToVariantRequest) -> ModelObjectiveVariant:
+        """Deterministically route a run_id to a variant using hash-based splitting.
 
-    Algorithm:
-        1. Hash run_id to a float in [0.0, 1.0]
-        2. Cumulative weight scan to find the variant bucket
-        3. Return the variant whose bucket contains the hash value
+        The routing is reproducible: the same run_id always maps to the same
+        variant. Implements a consistent hash that respects traffic_weight.
 
-    Args:
-        run_id:   Execution run identifier.
-        registry: Registry of variants with traffic weights.
+        Algorithm:
+            1. Hash run_id to a float in [0.0, 1.0]
+            2. Cumulative weight scan to find the variant bucket
+            3. Return the variant whose bucket contains the hash value
 
-    Returns:
-        The variant that should receive this run.
-    """
-    # SHA-256 hash of run_id → deterministic float in [0.0, 1.0)
-    hash_bytes = hashlib.sha256(run_id.encode("utf-8")).digest()
-    hash_int = int.from_bytes(hash_bytes[:8], "big")
-    hash_frac = hash_int / (2**64)  # normalize to [0.0, 1.0)
+        Args:
+            request: Run identifier and registry of variants with traffic weights.
 
-    # Cumulative weight scan
-    cumulative = 0.0
-    for variant in registry.variants:
-        if not variant.is_active:
-            continue
-        cumulative += variant.traffic_weight
-        if hash_frac < cumulative:
-            return variant
+        Returns:
+            The variant that should receive this run.
+        """
+        # SHA-256 hash of run_id → deterministic float in [0.0, 1.0)
+        hash_bytes = hashlib.sha256(request.run_id.encode("utf-8")).digest()
+        hash_int = int.from_bytes(hash_bytes[:8], "big")
+        hash_frac = hash_int / (2**64)  # normalize to [0.0, 1.0)
 
-    # Fallback: return the active variant (handles floating point edge cases)
-    for variant in registry.variants:
-        if variant.role == EnumVariantRole.ACTIVE:
-            return variant
+        # Cumulative weight scan
+        cumulative = 0.0
+        for variant in request.registry.variants:
+            if not variant.is_active:
+                continue
+            cumulative += variant.traffic_weight
+            if hash_frac < cumulative:
+                return variant
 
-    # Should never reach here (registry validates exactly 1 active)
-    return registry.variants[0]
+        # Fallback: return the active variant (handles floating point edge cases)
+        for variant in request.registry.variants:
+            if variant.role == EnumVariantRole.ACTIVE:
+                return variant
+
+        # Should never reach here (registry validates exactly 1 active)
+        return request.registry.variants[0]
 
 
 def compute_score_delta(
@@ -149,37 +156,36 @@ def detect_divergence(
     return compute_score_delta(active, shadow) > threshold
 
 
-def check_upgrade_ready(
-    _shadow_variant_id: str,
-    run_count: int,
-    shadow_wins: int,
-    registry: ModelObjectiveVariantRegistry,
-) -> bool:
-    """Check if a shadow variant has reached statistical significance for upgrade.
+class HandlerCheckUpgradeReady:
+    """Typed entry point for shadow variant upgrade readiness."""
 
-    Uses a simple win-rate threshold check:
-    - Must have at least min_runs_for_significance runs
-    - Shadow win rate must exceed (1 - significance_threshold)
+    def handle(
+        self, request: ModelCheckUpgradeReadyRequest
+    ) -> ModelUpgradeReadyResponse:
+        """Check if a shadow variant has reached statistical significance for upgrade.
 
-    Note: This is a simplified significance test. A full binomial test
-    would be more rigorous, but this provides a practical threshold.
+        Uses a simple win-rate threshold check:
+        - Must have at least min_runs_for_significance runs
+        - Shadow win rate must exceed (1 - significance_threshold)
 
-    Args:
-        _shadow_variant_id: Shadow variant ID being checked (reserved for future use).
-        run_count:          Total runs evaluated for this variant.
-        shadow_wins:        Runs where shadow outperformed active.
-        registry:           Registry containing threshold config.
+        Note: This is a simplified significance test. A full binomial test
+        would be more rigorous, but this provides a practical threshold.
 
-    Returns:
-        True if the shadow variant is ready for promotion.
-    """
-    if run_count < registry.min_runs_for_significance:
-        return False
+        Args:
+            request: Shadow variant identifier, run/win counters, and registry config.
 
-    win_rate = shadow_wins / max(run_count, 1)
-    # Upgrade ready when win rate exceeds (1 - significance_threshold)
-    # e.g., threshold=0.05 → need win_rate > 0.95
-    return win_rate >= (1.0 - registry.significance_threshold)
+        Returns:
+            ModelUpgradeReadyResponse indicating whether the shadow is ready for promotion.
+        """
+        if request.run_count < request.registry.min_runs_for_significance:
+            return ModelUpgradeReadyResponse(ready=False)
+
+        win_rate = request.shadow_wins / max(request.run_count, 1)
+        # Upgrade ready when win rate exceeds (1 - significance_threshold)
+        # e.g., threshold=0.05 → need win_rate > 0.95
+        return ModelUpgradeReadyResponse(
+            ready=win_rate >= (1.0 - request.registry.significance_threshold)
+        )
 
 
 def _evaluate_variant_against_bundle(  # stub-ok: ab-framework-variant-eval-deferred
@@ -225,93 +231,103 @@ def _evaluate_variant_against_bundle(  # stub-ok: ab-framework-variant-eval-defe
     )
 
 
-def run_ab_evaluation(input_data: ModelABEvaluationInput) -> ModelABEvaluationOutput:
-    """Run A/B evaluation of an EvidenceBundle against all registered variants.
+class HandlerRunAbEvaluation:
+    """Typed entry point for A/B objective evaluation."""
 
-    Evaluation order:
-    1. Evaluate all variants against the same evidence bundle
-    2. Detect divergence between active and shadow variants
-    3. Check statistical significance for upgrade-ready signal
+    def handle(self, request: ModelABEvaluationInput) -> ModelABEvaluationOutput:
+        """Run A/B evaluation of an EvidenceBundle against all registered variants.
 
-    Shadow variants do NOT affect policy state (drives_policy_state=False).
-    Same run_id always produces same routing decision (deterministic).
+        Evaluation order:
+        1. Evaluate all variants against the same evidence bundle
+        2. Detect divergence between active and shadow variants
+        3. Check statistical significance for upgrade-ready signal
 
-    Args:
-        input_data: A/B evaluation input with evidence bundle and registry.
+        Shadow variants do NOT affect policy state (drives_policy_state=False).
+        Same run_id always produces same routing decision (deterministic).
 
-    Returns:
-        ModelABEvaluationOutput with per-variant results and divergence/upgrade flags.
-    """
-    registry = input_data.registry
+        Args:
+            request: A/B evaluation input with evidence bundle and registry.
 
-    # Evaluate all active variants against the same evidence bundle
-    variant_results: list[ModelVariantEvaluationResult] = []
-    for variant in registry.variants:
-        result = _evaluate_variant_against_bundle(
-            variant=variant,
-            evidence_bundle=input_data.evidence_bundle,
-        )
-        variant_results.append(result)
+        Returns:
+            ModelABEvaluationOutput with per-variant results and divergence/upgrade flags.
+        """
+        registry = request.registry
 
-    # Find active and shadow results for divergence detection
-    active_result = next(
-        (r for r in variant_results if r.role == EnumVariantRole.ACTIVE), None
-    )
-    shadow_results = [r for r in variant_results if r.role == EnumVariantRole.SHADOW]
-
-    divergence_detected = False
-    upgrade_ready = False
-    upgrade_ready_variant_id: str | None = None
-
-    if active_result is not None:
-        for shadow_result in shadow_results:
-            # Check divergence
-            if detect_divergence(
-                active_result, shadow_result, registry.divergence_threshold
-            ):
-                divergence_detected = True
-                logger.info(
-                    "Variant divergence detected (run=%s): active=%s shadow=%s",
-                    input_data.run_id,
-                    active_result.objective_version,
-                    shadow_result.objective_version,
-                )
-
-            # Check upgrade-ready signal
-            run_count = input_data.run_count_by_variant.get(shadow_result.variant_id, 0)
-            shadow_wins = input_data.shadow_win_count_by_variant.get(
-                shadow_result.variant_id, 0
+        # Evaluate all active variants against the same evidence bundle
+        variant_results: list[ModelVariantEvaluationResult] = []
+        for variant in registry.variants:
+            result = _evaluate_variant_against_bundle(
+                variant=variant,
+                evidence_bundle=request.evidence_bundle,
             )
+            variant_results.append(result)
 
-            if check_upgrade_ready(
-                shadow_result.variant_id,
-                run_count=run_count,
-                shadow_wins=shadow_wins,
-                registry=registry,
-            ):
-                upgrade_ready = True
-                upgrade_ready_variant_id = shadow_result.variant_id
-                logger.info(
-                    "Upgrade ready: shadow variant '%s' reached significance "
-                    "(run_count=%d, shadow_wins=%d)",
-                    shadow_result.variant_id,
-                    run_count,
-                    shadow_wins,
+        # Find active and shadow results for divergence detection
+        active_result = next(
+            (r for r in variant_results if r.role == EnumVariantRole.ACTIVE), None
+        )
+        shadow_results = [
+            r for r in variant_results if r.role == EnumVariantRole.SHADOW
+        ]
+
+        divergence_detected = False
+        upgrade_ready = False
+        upgrade_ready_variant_id: str | None = None
+
+        if active_result is not None:
+            for shadow_result in shadow_results:
+                # Check divergence
+                if detect_divergence(
+                    active_result, shadow_result, registry.divergence_threshold
+                ):
+                    divergence_detected = True
+                    logger.info(
+                        "Variant divergence detected (run=%s): active=%s shadow=%s",
+                        request.run_id,
+                        active_result.objective_version,
+                        shadow_result.objective_version,
+                    )
+
+                # Check upgrade-ready signal
+                run_count = request.run_count_by_variant.get(
+                    shadow_result.variant_id, 0
+                )
+                shadow_wins = request.shadow_win_count_by_variant.get(
+                    shadow_result.variant_id, 0
                 )
 
-    return ModelABEvaluationOutput(
-        run_id=input_data.run_id,
-        variant_results=tuple(variant_results),
-        divergence_detected=divergence_detected,
-        upgrade_ready=upgrade_ready,
-        upgrade_ready_variant_id=upgrade_ready_variant_id,
-    )
+                upgrade_response = HandlerCheckUpgradeReady().handle(
+                    ModelCheckUpgradeReadyRequest(
+                        shadow_variant_id=shadow_result.variant_id,
+                        run_count=run_count,
+                        shadow_wins=shadow_wins,
+                        registry=registry,
+                    )
+                )
+                if upgrade_response.ready:
+                    upgrade_ready = True
+                    upgrade_ready_variant_id = shadow_result.variant_id
+                    logger.info(
+                        "Upgrade ready: shadow variant '%s' reached significance "
+                        "(run_count=%d, shadow_wins=%d)",
+                        shadow_result.variant_id,
+                        run_count,
+                        shadow_wins,
+                    )
+
+        return ModelABEvaluationOutput(
+            run_id=request.run_id,
+            variant_results=tuple(variant_results),
+            divergence_detected=divergence_detected,
+            upgrade_ready=upgrade_ready,
+            upgrade_ready_variant_id=upgrade_ready_variant_id,
+        )
 
 
 __all__ = [
-    "check_upgrade_ready",
+    "HandlerCheckUpgradeReady",
+    "HandlerRouteToVariant",
+    "HandlerRunAbEvaluation",
     "compute_score_delta",
     "detect_divergence",
-    "route_to_variant",
-    "run_ab_evaluation",
 ]

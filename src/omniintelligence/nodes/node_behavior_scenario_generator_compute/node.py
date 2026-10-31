@@ -5,7 +5,7 @@
 """Node NodeBehaviorScenarioGeneratorCompute — adversarial scenario generation.
 
 Bloom eval compute node. Receives a ModelBehaviorSpec and an injected llm_caller,
-delegates to handler_scenario_generation, and returns exactly n ModelEvalScenario objects.
+delegates to HandlerScenarioGeneration, and returns a typed response with n scenarios.
 
 This node follows the ONEX declarative pattern:
     - DECLARATIVE compute driven by contract.yaml
@@ -31,16 +31,14 @@ from __future__ import annotations
 
 from omnibase_core.nodes.node_compute import NodeCompute
 
-from omniintelligence.nodes.node_bloom_eval_orchestrator.models.model_behavior_spec import (
-    ModelBehaviorSpec,
-)
-from omniintelligence.nodes.node_bloom_eval_orchestrator.models.model_eval_scenario import (
-    ModelEvalScenario,
+from omniintelligence.nodes.node_behavior_scenario_generator_compute.models import (
+    ModelScenarioGenerationRequest,
+    ModelScenarioGenerationResponse,
 )
 
 
 class NodeBehaviorScenarioGeneratorCompute(
-    NodeCompute[ModelBehaviorSpec, list[ModelEvalScenario]]
+    NodeCompute[ModelScenarioGenerationRequest, ModelScenarioGenerationResponse]
 ):
     """Declarative compute node for adversarial scenario generation.
 
@@ -53,14 +51,17 @@ class NodeBehaviorScenarioGeneratorCompute(
     Example:
         ```python
         from omniintelligence.nodes.node_behavior_scenario_generator_compute.handlers import (
-            handle_scenario_generation,
+            HandlerScenarioGeneration,
         )
 
-        scenarios = await handle_scenario_generation(
-            spec=some_spec,
-            n=3,
-            llm_caller=async_llm_fn,
+        from omniintelligence.nodes.node_behavior_scenario_generator_compute.models import (
+            ModelScenarioGenerationRequest,
         )
+
+        response = await HandlerScenarioGeneration(llm_caller=async_llm_fn).handle(
+            ModelScenarioGenerationRequest(spec=some_spec, n=3)
+        )
+        scenarios = response.scenarios
         ```
     """
 

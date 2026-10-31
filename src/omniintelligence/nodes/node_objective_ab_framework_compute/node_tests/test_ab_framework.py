@@ -8,20 +8,22 @@ Tests cover:
   - Divergence detection (passed mismatch, score delta)
   - Statistical significance / upgrade-ready signal
   - Shadow variant never drives policy state
-  - run_ab_evaluation end-to-end
+  - HandlerRunAbEvaluation end-to-end
 """
 
 from __future__ import annotations
 
+import hashlib
+
 import pytest
 from pydantic import ValidationError
 
+from omniintelligence.nodes.node_objective_ab_framework_compute.handlers import (
+    handler_ab_framework as handler_module,
+)
 from omniintelligence.nodes.node_objective_ab_framework_compute.handlers.handler_ab_framework import (
-    check_upgrade_ready,
     compute_score_delta,
     detect_divergence,
-    route_to_variant,
-    run_ab_evaluation,
 )
 from omniintelligence.nodes.node_objective_ab_framework_compute.models.enum_variant_role import (
     EnumVariantRole,
@@ -30,11 +32,21 @@ from omniintelligence.nodes.node_objective_ab_framework_compute.models.model_ab_
     ModelABEvaluationInput,
 )
 from omniintelligence.nodes.node_objective_ab_framework_compute.models.model_ab_evaluation_output import (
+    ModelABEvaluationOutput,
     ModelVariantEvaluationResult,
+)
+from omniintelligence.nodes.node_objective_ab_framework_compute.models.model_check_upgrade_ready_request import (
+    ModelCheckUpgradeReadyRequest,
 )
 from omniintelligence.nodes.node_objective_ab_framework_compute.models.model_objective_variant import (
     ModelObjectiveVariant,
     ModelObjectiveVariantRegistry,
+)
+from omniintelligence.nodes.node_objective_ab_framework_compute.models.model_route_to_variant_request import (
+    ModelRouteToVariantRequest,
+)
+from omniintelligence.nodes.node_objective_ab_framework_compute.models.model_upgrade_ready_response import (
+    ModelUpgradeReadyResponse,
 )
 
 # =============================================================================
@@ -109,8 +121,12 @@ class TestTrafficSplitting:
                 _variant("v2", EnumVariantRole.SHADOW, weight=0.1),
             ]
         )
-        route1 = route_to_variant("run-abc-123", reg)
-        route2 = route_to_variant("run-abc-123", reg)
+        route1 = handler_module.HandlerRouteToVariant().handle(
+            ModelRouteToVariantRequest(run_id="run-abc-123", registry=reg)
+        )
+        route2 = handler_module.HandlerRouteToVariant().handle(
+            ModelRouteToVariantRequest(run_id="run-abc-123", registry=reg)
+        )
         assert route1.variant_id == route2.variant_id
 
     def test_different_run_ids_may_route_differently(self) -> None:
@@ -124,7 +140,9 @@ class TestTrafficSplitting:
         # With 50/50 split and many run_ids, some should route to v2
         routes = set()
         for i in range(100):
-            v = route_to_variant(f"run-{i:04d}", reg)
+            v = handler_module.HandlerRouteToVariant().handle(
+                ModelRouteToVariantRequest(run_id=f"run-{i:04d}", registry=reg)
+            )
             routes.add(v.variant_id)
 
         assert len(routes) == 2  # Both variants got traffic
@@ -136,7 +154,9 @@ class TestTrafficSplitting:
             ]
         )
         for i in range(20):
-            v = route_to_variant(f"run-{i}", reg)
+            v = handler_module.HandlerRouteToVariant().handle(
+                ModelRouteToVariantRequest(run_id=f"run-{i}", registry=reg)
+            )
             assert v.variant_id == "v1"
 
     def test_routing_is_consistent_across_calls(self) -> None:
@@ -147,7 +167,12 @@ class TestTrafficSplitting:
                 _variant("shadow", EnumVariantRole.SHADOW, weight=0.3),
             ]
         )
-        results = [route_to_variant("stable-run-id", reg).variant_id for _ in range(10)]
+        results = [
+            handler_module.HandlerRouteToVariant()
+            .handle(ModelRouteToVariantRequest(run_id="stable-run-id", registry=reg))
+            .variant_id
+            for _ in range(10)
+        ]
         assert len(set(results)) == 1  # All same
 
 
@@ -246,7 +271,15 @@ class TestUpgradeReady:
             min_runs=100,
             significance_threshold=0.05,
         )
-        result = check_upgrade_ready("v2", run_count=50, shadow_wins=49, registry=reg)
+        result = (
+            handler_module.HandlerCheckUpgradeReady()
+            .handle(
+                ModelCheckUpgradeReadyRequest(
+                    shadow_variant_id="v2", run_count=50, shadow_wins=49, registry=reg
+                )
+            )
+            .ready
+        )
         assert result is False
 
     def test_ready_when_significance_threshold_met(self) -> None:
@@ -258,7 +291,15 @@ class TestUpgradeReady:
             min_runs=10,
             significance_threshold=0.05,  # need win_rate >= 0.95
         )
-        result = check_upgrade_ready("v2", run_count=100, shadow_wins=96, registry=reg)
+        result = (
+            handler_module.HandlerCheckUpgradeReady()
+            .handle(
+                ModelCheckUpgradeReadyRequest(
+                    shadow_variant_id="v2", run_count=100, shadow_wins=96, registry=reg
+                )
+            )
+            .ready
+        )
         assert result is True
 
     def test_not_ready_when_win_rate_low(self) -> None:
@@ -270,7 +311,15 @@ class TestUpgradeReady:
             min_runs=10,
             significance_threshold=0.05,
         )
-        result = check_upgrade_ready("v2", run_count=100, shadow_wins=50, registry=reg)
+        result = (
+            handler_module.HandlerCheckUpgradeReady()
+            .handle(
+                ModelCheckUpgradeReadyRequest(
+                    shadow_variant_id="v2", run_count=100, shadow_wins=50, registry=reg
+                )
+            )
+            .ready
+        )
         assert result is False
 
     def test_exact_threshold_boundary(self) -> None:
@@ -284,12 +333,20 @@ class TestUpgradeReady:
             significance_threshold=0.1,  # need win_rate >= 0.9
         )
         # 90/100 = 0.9 exactly
-        result = check_upgrade_ready("v2", run_count=100, shadow_wins=90, registry=reg)
+        result = (
+            handler_module.HandlerCheckUpgradeReady()
+            .handle(
+                ModelCheckUpgradeReadyRequest(
+                    shadow_variant_id="v2", run_count=100, shadow_wins=90, registry=reg
+                )
+            )
+            .ready
+        )
         assert result is True
 
 
 # =============================================================================
-# Tests: run_ab_evaluation end-to-end
+# Tests: HandlerRunAbEvaluation end-to-end
 # =============================================================================
 
 
@@ -307,7 +364,7 @@ class TestRunABEvaluation:
             evidence_bundle={"metadata": {"passed": True}},
             registry=reg,
         )
-        output = run_ab_evaluation(inp)
+        output = handler_module.HandlerRunAbEvaluation().handle(inp)
         assert len(output.variant_results) == 2
 
     def test_active_variant_drives_policy_state(self) -> None:
@@ -322,7 +379,7 @@ class TestRunABEvaluation:
             evidence_bundle={"metadata": {"passed": True}},
             registry=reg,
         )
-        output = run_ab_evaluation(inp)
+        output = handler_module.HandlerRunAbEvaluation().handle(inp)
         active_results = [
             r for r in output.variant_results if r.role == EnumVariantRole.ACTIVE
         ]
@@ -349,7 +406,7 @@ class TestRunABEvaluation:
             run_count_by_variant={"shadow": 100},
             shadow_win_count_by_variant={"shadow": 95},  # 95% win rate > 90%
         )
-        output = run_ab_evaluation(inp)
+        output = handler_module.HandlerRunAbEvaluation().handle(inp)
         assert output.upgrade_ready is True
         assert output.upgrade_ready_variant_id == "shadow"
 
@@ -369,7 +426,7 @@ class TestRunABEvaluation:
             run_count_by_variant={"shadow": 50},  # below min_runs=100
             shadow_win_count_by_variant={"shadow": 48},
         )
-        output = run_ab_evaluation(inp)
+        output = handler_module.HandlerRunAbEvaluation().handle(inp)
         assert output.upgrade_ready is False
 
     def test_single_active_variant_no_divergence(self) -> None:
@@ -380,7 +437,7 @@ class TestRunABEvaluation:
             evidence_bundle={"metadata": {"passed": True}},
             registry=reg,
         )
-        output = run_ab_evaluation(inp)
+        output = handler_module.HandlerRunAbEvaluation().handle(inp)
         assert output.divergence_detected is False
         assert len(output.variant_results) == 1
 
@@ -407,8 +464,8 @@ class TestRunABEvaluation:
             registry=reg,
         )
         # Two evaluations should produce identical routing
-        out1 = run_ab_evaluation(inp)
-        out2 = run_ab_evaluation(inp)
+        out1 = handler_module.HandlerRunAbEvaluation().handle(inp)
+        out2 = handler_module.HandlerRunAbEvaluation().handle(inp)
         assert out1.variant_results == out2.variant_results
 
 
@@ -441,3 +498,397 @@ class TestRegistryValidation:
             ]
         )
         assert len(reg.variants) == 2
+
+
+# Shared immutable registries make the receipt corpus deterministic.
+_PARITY_SINGLE_REGISTRY = _registry([_variant("active")])
+_PARITY_SPLIT_REGISTRY = _registry(
+    [
+        _variant("active", weight=0.5),
+        _variant("shadow", EnumVariantRole.SHADOW, weight=0.5, version="2.0.0"),
+    ],
+    significance_threshold=0.1,
+)
+_PARITY_MULTI_REGISTRY = _registry(
+    [
+        _variant("active", weight=0.5),
+        _variant("shadow", EnumVariantRole.SHADOW, weight=0.25),
+        _variant("shadow_second", EnumVariantRole.SHADOW, weight=0.25),
+    ],
+    significance_threshold=0.1,
+)
+
+CANONICAL_PARITY_CASES: list[tuple[str, ModelABEvaluationInput]] = [
+    (
+        "empty_bundle_single_active",
+        ModelABEvaluationInput(
+            run_id="empty_bundle", evidence_bundle={}, registry=_PARITY_SINGLE_REGISTRY
+        ),
+    ),
+    (
+        "nonmapping_metadata",
+        ModelABEvaluationInput(
+            run_id="nonmapping",
+            evidence_bundle={"metadata": None},
+            registry=_PARITY_SPLIT_REGISTRY,
+        ),
+    ),
+    (
+        "failed_partial_scores",
+        ModelABEvaluationInput(
+            run_id="failed",
+            evidence_bundle={
+                "metadata": {
+                    "passed": False,
+                    "precomputed_scores": {"correctness": "0.25", "safety": 0.5},
+                }
+            },
+            registry=_PARITY_SPLIT_REGISTRY,
+        ),
+    ),
+    (
+        "all_score_dimensions",
+        ModelABEvaluationInput(
+            run_id="all_scores",
+            evidence_bundle={
+                "metadata": {
+                    "passed": True,
+                    "precomputed_scores": {
+                        "correctness": 1.0,
+                        "safety": 0.9,
+                        "cost": 0.8,
+                        "latency": 0.7,
+                        "maintainability": 0.6,
+                        "human_time": 0.5,
+                    },
+                }
+            },
+            registry=_PARITY_SPLIT_REGISTRY,
+        ),
+    ),
+    (
+        "below_minimum_runs",
+        ModelABEvaluationInput(
+            run_id="below_minimum",
+            evidence_bundle={},
+            registry=_PARITY_SPLIT_REGISTRY,
+            run_count_by_variant={"shadow": 9},
+            shadow_win_count_by_variant={"shadow": 9},
+        ),
+    ),
+    (
+        "below_win_threshold",
+        ModelABEvaluationInput(
+            run_id="below_rate",
+            evidence_bundle={},
+            registry=_PARITY_SPLIT_REGISTRY,
+            run_count_by_variant={"shadow": 10},
+            shadow_win_count_by_variant={"shadow": 8},
+        ),
+    ),
+    (
+        "at_win_threshold",
+        ModelABEvaluationInput(
+            run_id="at_rate",
+            evidence_bundle={},
+            registry=_PARITY_SPLIT_REGISTRY,
+            run_count_by_variant={"shadow": 10},
+            shadow_win_count_by_variant={"shadow": 9},
+        ),
+    ),
+    (
+        "above_win_threshold",
+        ModelABEvaluationInput(
+            run_id="above_rate",
+            evidence_bundle={},
+            registry=_PARITY_SPLIT_REGISTRY,
+            run_count_by_variant={"shadow": 10},
+            shadow_win_count_by_variant={"shadow": 10},
+        ),
+    ),
+    (
+        "last_ready_shadow_wins",
+        ModelABEvaluationInput(
+            run_id="multiple_ready",
+            evidence_bundle={},
+            registry=_PARITY_MULTI_REGISTRY,
+            run_count_by_variant={"shadow": 10, "shadow_second": 20},
+            shadow_win_count_by_variant={"shadow": 9, "shadow_second": 20},
+        ),
+    ),
+    (
+        "inactive_shadow_evaluated",
+        ModelABEvaluationInput(
+            run_id="inactive_shadow",
+            evidence_bundle={},
+            registry=_registry(
+                [
+                    _variant("active"),
+                    _variant("shadow", EnumVariantRole.SHADOW, weight=0.0).model_copy(
+                        update={"is_active": False}
+                    ),
+                ]
+            ),
+        ),
+    ),
+    # All variants receive identical scores and passed values from the current
+    # stub. A synthetic negative threshold reaches the divergence dispatch arm;
+    # ordinary validated registries above cover the non-divergent path.
+    (
+        "synthetic_divergence",
+        ModelABEvaluationInput(
+            run_id="divergent",
+            evidence_bundle={},
+            registry=_PARITY_SPLIT_REGISTRY.model_copy(
+                update={"divergence_threshold": -0.1}
+            ),
+        ),
+    ),
+    # Bypass registry validation only to exercise the defensive no-active arm.
+    (
+        "synthetic_no_active",
+        ModelABEvaluationInput.model_construct(
+            run_id="no_active",
+            evidence_bundle={},
+            registry=_PARITY_SPLIT_REGISTRY.model_copy(
+                update={"variants": (_variant("shadow", EnumVariantRole.SHADOW),)}
+            ),
+        ),
+    ),
+]
+
+ROUTE_PARITY_CASES: list[tuple[str, ModelRouteToVariantRequest]] = [
+    (
+        "single_active",
+        ModelRouteToVariantRequest(run_id="run-0000", registry=_PARITY_SINGLE_REGISTRY),
+    ),
+    (
+        "split_active",
+        ModelRouteToVariantRequest(run_id="run-0001", registry=_PARITY_SPLIT_REGISTRY),
+    ),
+    (
+        "split_shadow",
+        ModelRouteToVariantRequest(run_id="run-0000", registry=_PARITY_SPLIT_REGISTRY),
+    ),
+    (
+        "empty_run_id",
+        ModelRouteToVariantRequest(run_id="", registry=_PARITY_SPLIT_REGISTRY),
+    ),
+    (
+        "inactive_shadow_skipped",
+        ModelRouteToVariantRequest(
+            run_id="run-0001",
+            registry=_registry(
+                [
+                    _variant("disabled", EnumVariantRole.SHADOW).model_copy(
+                        update={"is_active": False}
+                    ),
+                    _variant("active"),
+                ]
+            ),
+        ),
+    ),
+    (
+        "inactive_active_skipped",
+        ModelRouteToVariantRequest(
+            run_id="run-0001",
+            registry=_registry(
+                [
+                    _variant("active", weight=0.0).model_copy(
+                        update={"is_active": False}
+                    ),
+                    _variant("shadow", EnumVariantRole.SHADOW),
+                ]
+            ),
+        ),
+    ),
+    (
+        "zero_weights_role_fallback",
+        ModelRouteToVariantRequest(
+            run_id="run-0001",
+            registry=_registry(
+                [
+                    _variant("shadow", EnumVariantRole.SHADOW, weight=0.0),
+                    _variant("active", weight=0.0),
+                ]
+            ),
+        ),
+    ),
+    # Exactly one ACTIVE is normally validated; bypass it to cover the final
+    # defensive fallback to the first variant when no bucket or role matches.
+    (
+        "synthetic_first_variant_fallback",
+        ModelRouteToVariantRequest.model_construct(
+            run_id="run-0001",
+            registry=_PARITY_SPLIT_REGISTRY.model_copy(
+                update={
+                    "variants": (
+                        _variant("shadow", EnumVariantRole.SHADOW, weight=0.0),
+                    )
+                }
+            ),
+        ),
+    ),
+]
+
+UPGRADE_PARITY_CASES: list[tuple[str, ModelCheckUpgradeReadyRequest]] = [
+    (
+        case_id,
+        ModelCheckUpgradeReadyRequest(
+            shadow_variant_id="shadow",
+            run_count=run_count,
+            shadow_wins=shadow_wins,
+            registry=registry,
+        ),
+    )
+    for case_id, run_count, shadow_wins, registry in [
+        ("zero_runs", 0, 0, _PARITY_SPLIT_REGISTRY),
+        ("below_minimum_runs", 9, 9, _PARITY_SPLIT_REGISTRY),
+        ("below_win_threshold", 10, 8, _PARITY_SPLIT_REGISTRY),
+        ("at_win_threshold", 10, 9, _PARITY_SPLIT_REGISTRY),
+        ("above_win_threshold", 10, 10, _PARITY_SPLIT_REGISTRY),
+        (
+            "significance_one_zero_wins",
+            10,
+            0,
+            _PARITY_SPLIT_REGISTRY.model_copy(update={"significance_threshold": 1.0}),
+        ),
+    ]
+]
+
+
+def parity_call(parity_request: ModelABEvaluationInput) -> object:
+    """Replay evaluation without calling any external services."""
+    return handler_module.HandlerRunAbEvaluation().handle(parity_request)
+
+
+def route_parity_call(parity_request: ModelRouteToVariantRequest) -> object:
+    """Replay deterministic traffic routing."""
+    return handler_module.HandlerRouteToVariant().handle(parity_request)
+
+
+def upgrade_parity_call(parity_request: ModelCheckUpgradeReadyRequest) -> object:
+    """Replay the significance decision."""
+    return handler_module.HandlerCheckUpgradeReady().handle(parity_request)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "case_id,parity_request",
+    CANONICAL_PARITY_CASES,
+    ids=[case_id for case_id, _ in CANONICAL_PARITY_CASES],
+)
+def test_canonical_dispatch_matches_preserved_core(
+    case_id: str, parity_request: ModelABEvaluationInput
+) -> None:
+    """Recompose the old evaluation body using only preserved core helpers."""
+    handler_cls = getattr(handler_module, "HandlerRunAbEvaluation", None)
+    assert handler_cls is not None, case_id
+
+    registry = parity_request.registry
+    variant_results = [
+        handler_module._evaluate_variant_against_bundle(
+            variant, parity_request.evidence_bundle
+        )
+        for variant in registry.variants
+    ]
+    active_result = next(
+        (result for result in variant_results if result.role == EnumVariantRole.ACTIVE),
+        None,
+    )
+    shadow_results = [
+        result for result in variant_results if result.role == EnumVariantRole.SHADOW
+    ]
+    divergence_detected = False
+    upgrade_ready = False
+    upgrade_ready_variant_id: str | None = None
+    if active_result is not None:
+        for shadow_result in shadow_results:
+            if detect_divergence(
+                active_result, shadow_result, registry.divergence_threshold
+            ):
+                divergence_detected = True
+
+            # Inline the preserved check_upgrade_ready body, never the new
+            # handler, so a dispatch regression cannot contaminate the oracle.
+            run_count = parity_request.run_count_by_variant.get(
+                shadow_result.variant_id, 0
+            )
+            shadow_wins = parity_request.shadow_win_count_by_variant.get(
+                shadow_result.variant_id, 0
+            )
+            if run_count < registry.min_runs_for_significance:
+                continue
+            win_rate = shadow_wins / max(run_count, 1)
+            if win_rate >= (1.0 - registry.significance_threshold):
+                upgrade_ready = True
+                upgrade_ready_variant_id = shadow_result.variant_id
+
+    expected = ModelABEvaluationOutput(
+        run_id=parity_request.run_id,
+        variant_results=tuple(variant_results),
+        divergence_detected=divergence_detected,
+        upgrade_ready=upgrade_ready,
+        upgrade_ready_variant_id=upgrade_ready_variant_id,
+    )
+    assert parity_call(parity_request) == expected
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "case_id,parity_request",
+    ROUTE_PARITY_CASES,
+    ids=[case_id for case_id, _ in ROUTE_PARITY_CASES],
+)
+def test_canonical_route_matches_preserved_core(
+    case_id: str, parity_request: ModelRouteToVariantRequest
+) -> None:
+    """Recompose the preserved hash, bucket scan, and fallback routing body."""
+    handler_cls = getattr(handler_module, "HandlerRouteToVariant", None)
+    assert handler_cls is not None, case_id
+
+    hash_bytes = hashlib.sha256(parity_request.run_id.encode("utf-8")).digest()
+    hash_frac = int.from_bytes(hash_bytes[:8], "big") / (2**64)
+    cumulative = 0.0
+    expected = None
+    for variant in parity_request.registry.variants:
+        if not variant.is_active:
+            continue
+        cumulative += variant.traffic_weight
+        if hash_frac < cumulative:
+            expected = variant
+            break
+    if expected is None:
+        expected = next(
+            (
+                variant
+                for variant in parity_request.registry.variants
+                if variant.role == EnumVariantRole.ACTIVE
+            ),
+            parity_request.registry.variants[0],
+        )
+
+    assert route_parity_call(parity_request) == expected
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "case_id,parity_request",
+    UPGRADE_PARITY_CASES,
+    ids=[case_id for case_id, _ in UPGRADE_PARITY_CASES],
+)
+def test_canonical_upgrade_ready_matches_preserved_core(
+    case_id: str, parity_request: ModelCheckUpgradeReadyRequest
+) -> None:
+    """Recompose the preserved minimum-runs and inclusive win-rate checks."""
+    handler_cls = getattr(handler_module, "HandlerCheckUpgradeReady", None)
+    assert handler_cls is not None, case_id
+
+    if parity_request.run_count < parity_request.registry.min_runs_for_significance:
+        ready = False
+    else:
+        win_rate = parity_request.shadow_wins / max(parity_request.run_count, 1)
+        ready = win_rate >= (1.0 - parity_request.registry.significance_threshold)
+    expected = ModelUpgradeReadyResponse(ready=ready)
+
+    assert upgrade_parity_call(parity_request) == expected

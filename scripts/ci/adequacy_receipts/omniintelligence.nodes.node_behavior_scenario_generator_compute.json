@@ -1,0 +1,21 @@
+{
+  "branch_coverage_pct": 33.33,
+  "candidate_count": 12,
+  "coverage_target": 80.0,
+  "handler_module": "omniintelligence.nodes.node_behavior_scenario_generator_compute.handlers.handler_scenario_generator",
+  "handler_module_sha256": "sha256:ececc6047c5f04eb06ddaa9fc82c7aa622c7a4f0406ecb3cf35244318587e94c",
+  "meets_target": false,
+  "node_id": "omniintelligence.nodes.node_behavior_scenario_generator_compute",
+  "receipt_schema": "adequacy_receipt.v1",
+  "recorded_at": "2026-10-31T09:09:08.048153+00:00",
+  "recorder_schema": "adequacy_receipt.v1",
+  "selected_count": 1,
+  "selected_input_hashes": [
+    "sha256:fd8b234c367ed4f525ee2f67a87d769e0d0ac6e195e052ae27dd180145f2de49"
+  ],
+  "uncovered_waiver": {
+    "reason": "The parity corpus drives the typed handle(request) entry and the git-preserved helper functions through the branch cases listed in the parity test; coverage is measured after module import, excluding imports and definitions. The corpus does not exhaust every malformed input.",
+    "uncovered_branch_count": 0
+  },
+  "volatile_mask": []
+}

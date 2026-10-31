@@ -15,9 +15,9 @@ description: >-
   Uses historical p50/p90/p99 token distributions seeded with synthetic baselines on first run. Escalation
   signals fire when actual usage exceeds the p90 threshold (observational only).
 input_model:
-  name: "ModelIntentCostForecastInput"
+  name: "ModelCostForecastRequest"
   module: "omniintelligence.nodes.node_intent_cost_forecast_compute.models"
-  description: "Session ID, intent class, classification confidence, and requested_at timestamp."
+  description: "Forecast input, baseline registry, and caller-injected forecast timestamp."
 output_model:
   name: "ModelIntentCostForecast"
   module: "omniintelligence.nodes.node_intent_cost_forecast_compute.models"
@@ -26,11 +26,9 @@ operations:
   - name: "forecast"
     description: "Produce a cost and latency forecast for a classified intent"
     input_fields:
-      - session_id
-      - correlation_id
-      - intent_class
-      - confidence
-      - requested_at
+      - input_data
+      - baselines
+      - forecasted_at
     output_fields:
       - session_id
       - correlation_id
@@ -51,8 +49,9 @@ handler_routing:
   handlers:
     - operation: "forecast"
       handler:
-        function: "compute_forecast"
-        module: "omniintelligence.nodes.node_intent_cost_forecast_compute.handlers"
+        class: "HandlerCostForecast"
+        function: "handle"
+        module: "omniintelligence.nodes.node_intent_cost_forecast_compute.handlers.handler_cost_forecast"
         type: "async"
 # =============================================================================
 # EVENT BUS SUBCONTRACT
@@ -91,7 +90,7 @@ state_machine:
   transitions:
     - from_state: "idle"
       to_state: "forecasted"
-      trigger: "compute_forecast"
+      trigger: "forecast"
       description: "Forecast computation completed"
       actions: []
     - from_state: "forecasted"

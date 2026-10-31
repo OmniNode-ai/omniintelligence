@@ -13,9 +13,12 @@ from __future__ import annotations
 import logging
 import math
 from datetime import UTC, datetime
-from typing import Any
 
 from omniintelligence.debug_intel.protocols import ProtocolDebugStore
+from omniintelligence.nodes.node_debug_retrieval_compute.models import (
+    ModelDebugRetrievalRequest,
+    ModelDebugRetrievalResponse,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -46,55 +49,55 @@ def _time_decay_weight(created_at_utc: datetime, now: datetime | None = None) ->
     return math.exp(-decay_lambda * age_seconds)
 
 
-async def query_fix_records_with_decay(
-    failure_fingerprint: str,
-    store: ProtocolDebugStore,
-    limit: int = 10,
-    now: datetime | None = None,
-) -> list[dict[str, Any]]:
-    """Retrieve past fix records for a fingerprint with time-decay weights.
+class HandlerDebugRetrieval:
+    """Retrieve time-decayed fix records using an injected debug store."""
 
-    Fetches confirmed fix records (join-verified, no orphans) and annotates
-    each with a time_decay_weight field for caller scoring.
+    def __init__(self, *, store: ProtocolDebugStore) -> None:
+        """Initialise with a debug store protocol implementation."""
+        self._store = store
 
-    Args:
-        failure_fingerprint: SHA-256 fingerprint to look up past fixes for.
-        store: Debug store protocol implementation.
-        limit: Maximum number of fix records to retrieve.
-        now: Reference time for decay calculation (defaults to UTC now).
+    async def handle(
+        self, request: ModelDebugRetrievalRequest
+    ) -> ModelDebugRetrievalResponse:
+        """Retrieve past fix records for a fingerprint with time-decay weights.
 
-    Returns:
-        List of fix record dicts, each with additional 'time_decay_weight' field.
-        Ordered by recency (newest first, from DB query).
-    """
-    records = await store.query_fix_records(
-        failure_fingerprint=failure_fingerprint,
-        limit=limit,
-    )
+        Fetches confirmed fix records (join-verified, no orphans) and annotates
+        each with a time_decay_weight field for caller scoring.
 
-    if not records:
-        logger.debug(
-            "No fix records found for fingerprint=%s",
-            failure_fingerprint[:16],  # truncate for log safety
+        Args:
+            request: Fingerprint, maximum record count, and optional reference
+                time for decay calculation (defaults to UTC now).
+
+        Returns:
+            Response containing fix record dicts, each with an additional
+            'time_decay_weight' field. Ordered by recency (newest first, from
+            DB query).
+        """
+        records = await self._store.query_fix_records(
+            failure_fingerprint=request.failure_fingerprint,
+            limit=request.limit,
         )
-        return []
 
-    # Annotate each record with time-decay weight
-    annotated = []
-    for record in records:
-        created_at = record.get("created_at_utc")
-        if created_at is not None and isinstance(created_at, datetime):
-            weight = _time_decay_weight(created_at, now=now)
-        else:
-            # Fallback: treat as maximum age (no decay info)
-            weight = 0.0
+        if not records:
+            logger.debug(
+                "No fix records found for fingerprint=%s",
+                request.failure_fingerprint[:16],  # truncate for log safety
+            )
+            return ModelDebugRetrievalResponse(records=[])
 
-        annotated.append({**record, "time_decay_weight": weight})
+        # Annotate each record with time-decay weight
+        annotated = []
+        for record in records:
+            created_at = record.get("created_at_utc")
+            if created_at is not None and isinstance(created_at, datetime):
+                weight = _time_decay_weight(created_at, now=request.now)
+            else:
+                # Fallback: treat as maximum age (no decay info)
+                weight = 0.0
 
-    return annotated
+            annotated.append({**record, "time_decay_weight": weight})
+
+        return ModelDebugRetrievalResponse(records=annotated)
 
 
-__all__ = [
-    "_time_decay_weight",
-    "query_fix_records_with_decay",
-]
+__all__ = ["HandlerDebugRetrieval", "_time_decay_weight"]

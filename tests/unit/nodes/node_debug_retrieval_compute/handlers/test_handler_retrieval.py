@@ -8,6 +8,7 @@ Tickets: OMN-11577, OMN-11581
 
 from __future__ import annotations
 
+import asyncio
 import math
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -15,9 +16,15 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from omniintelligence.nodes.node_debug_retrieval_compute.handlers import (
+    handler_retrieval as handler_module,
+)
 from omniintelligence.nodes.node_debug_retrieval_compute.handlers.handler_retrieval import (
     _time_decay_weight,
-    query_fix_records_with_decay,
+)
+from omniintelligence.nodes.node_debug_retrieval_compute.models import (
+    ModelDebugRetrievalRequest,
+    ModelDebugRetrievalResponse,
 )
 
 # ---------------------------------------------------------------------------
@@ -90,7 +97,7 @@ def test_time_decay_weight_is_strictly_positive() -> None:
 
 
 # ---------------------------------------------------------------------------
-# query_fix_records_with_decay
+# HandlerDebugRetrieval.handle
 # ---------------------------------------------------------------------------
 
 
@@ -105,10 +112,10 @@ def _make_store(records: list[dict[str, Any]]) -> AsyncMock:
 async def test_query_returns_empty_when_store_returns_empty() -> None:
     """Empty store response produces empty output with no errors."""
     store = _make_store([])
-    result = await query_fix_records_with_decay(
-        failure_fingerprint="abc123", store=store, limit=10
+    result = await handler_module.HandlerDebugRetrieval(store=store).handle(
+        ModelDebugRetrievalRequest(failure_fingerprint="abc123", limit=10)
     )
-    assert result == []
+    assert result.records == []
     store.query_fix_records.assert_awaited_once_with(
         failure_fingerprint="abc123", limit=10
     )
@@ -121,13 +128,13 @@ async def test_query_annotates_records_with_decay_weight() -> None:
     record = {"id": "r1", "sha": "deadbeef", "created_at_utc": now}
     store = _make_store([record])
 
-    result = await query_fix_records_with_decay(
-        failure_fingerprint="fp1", store=store, limit=5, now=now
+    result = await handler_module.HandlerDebugRetrieval(store=store).handle(
+        ModelDebugRetrievalRequest(failure_fingerprint="fp1", limit=5, now=now)
     )
 
-    assert len(result) == 1
-    assert "time_decay_weight" in result[0]
-    assert abs(result[0]["time_decay_weight"] - 1.0) < 1e-9
+    assert len(result.records) == 1
+    assert "time_decay_weight" in result.records[0]
+    assert abs(result.records[0]["time_decay_weight"] - 1.0) < 1e-9
 
 
 @pytest.mark.unit
@@ -141,13 +148,13 @@ async def test_query_preserves_original_record_fields() -> None:
     }
     store = _make_store([record])
 
-    result = await query_fix_records_with_decay(
-        failure_fingerprint="fp2", store=store, now=now
+    result = await handler_module.HandlerDebugRetrieval(store=store).handle(
+        ModelDebugRetrievalRequest(failure_fingerprint="fp2", now=now)
     )
 
-    assert result[0]["id"] == "r2"
-    assert result[0]["repo"] == "omniclaude"
-    assert "time_decay_weight" in result[0]
+    assert result.records[0]["id"] == "r2"
+    assert result.records[0]["repo"] == "omniclaude"
+    assert "time_decay_weight" in result.records[0]
 
 
 @pytest.mark.unit
@@ -155,9 +162,11 @@ async def test_query_weight_zero_when_created_at_missing() -> None:
     """Records without 'created_at_utc' receive a fallback weight of 0.0."""
     store = _make_store([{"id": "r3", "sha": "cafebabe"}])
 
-    result = await query_fix_records_with_decay(failure_fingerprint="fp3", store=store)
+    result = await handler_module.HandlerDebugRetrieval(store=store).handle(
+        ModelDebugRetrievalRequest(failure_fingerprint="fp3")
+    )
 
-    assert result[0]["time_decay_weight"] == 0.0
+    assert result.records[0]["time_decay_weight"] == 0.0
 
 
 @pytest.mark.unit
@@ -165,9 +174,11 @@ async def test_query_weight_zero_when_created_at_not_datetime() -> None:
     """Records where created_at_utc is a string (bad data) get weight 0.0."""
     store = _make_store([{"id": "r4", "created_at_utc": "2025-01-01T00:00:00Z"}])
 
-    result = await query_fix_records_with_decay(failure_fingerprint="fp4", store=store)
+    result = await handler_module.HandlerDebugRetrieval(store=store).handle(
+        ModelDebugRetrievalRequest(failure_fingerprint="fp4")
+    )
 
-    assert result[0]["time_decay_weight"] == 0.0
+    assert result.records[0]["time_decay_weight"] == 0.0
 
 
 @pytest.mark.unit
@@ -175,7 +186,9 @@ async def test_query_respects_limit_parameter() -> None:
     """The limit parameter is forwarded to the store without modification."""
     store = _make_store([])
 
-    await query_fix_records_with_decay(failure_fingerprint="fp5", store=store, limit=42)
+    await handler_module.HandlerDebugRetrieval(store=store).handle(
+        ModelDebugRetrievalRequest(failure_fingerprint="fp5", limit=42)
+    )
 
     store.query_fix_records.assert_awaited_once_with(
         failure_fingerprint="fp5", limit=42
@@ -193,12 +206,107 @@ async def test_query_multiple_records_ordered_by_decay() -> None:
     ]
     store = _make_store(records)
 
-    result = await query_fix_records_with_decay(
-        failure_fingerprint="fp6", store=store, now=now
+    result = await handler_module.HandlerDebugRetrieval(store=store).handle(
+        ModelDebugRetrievalRequest(failure_fingerprint="fp6", now=now)
     )
 
-    weights = [r["time_decay_weight"] for r in result]
+    weights = [r["time_decay_weight"] for r in result.records]
     # Newer records must have higher weight
     assert weights[0] > weights[1] > weights[2]
     # Spot-check the 30-day half-life record
     assert abs(weights[1] - 0.5) < 1e-6
+
+
+# Fixed store contents keep the corpus replayable by the adequacy receipt lane.
+_PARITY_NOW = datetime(2025, 6, 1, 12, tzinfo=UTC)
+_PARITY_RECORDS: dict[str, list[dict[str, Any]]] = {
+    "empty": [],
+    "fresh": [{"id": "fresh", "created_at_utc": _PARITY_NOW, "sha": "deadbeef"}],
+    "half_life": [
+        {"id": "half_life", "created_at_utc": _PARITY_NOW - timedelta(days=30)}
+    ],
+    "double_half_life": [
+        {"id": "double_half_life", "created_at_utc": _PARITY_NOW - timedelta(days=60)}
+    ],
+    "naive": [{"id": "naive", "created_at_utc": datetime(2025, 5, 2, 12)}],
+    "future": [{"id": "future", "created_at_utc": _PARITY_NOW + timedelta(days=1)}],
+    "missing": [{"id": "missing", "repo": "omniintelligence"}],
+    "null": [{"id": "null", "created_at_utc": None}],
+    "string": [{"id": "string", "created_at_utc": "2025-05-02T12:00:00Z"}],
+    "mixed": [
+        {"id": "recent", "created_at_utc": _PARITY_NOW - timedelta(days=1)},
+        {"id": "middle", "created_at_utc": _PARITY_NOW - timedelta(days=30)},
+        {"id": "old", "created_at_utc": _PARITY_NOW - timedelta(days=3650)},
+        {"id": "unknown", "time_decay_weight": 0.9},
+    ],
+}
+
+CANONICAL_PARITY_CASES: list[tuple[str, ModelDebugRetrievalRequest]] = [
+    (
+        case_id,
+        ModelDebugRetrievalRequest(
+            failure_fingerprint=fingerprint, limit=limit, now=_PARITY_NOW
+        ),
+    )
+    for case_id, fingerprint, limit in [
+        ("empty_store", "empty", 10),
+        ("zero_age", "fresh", 10),
+        ("half_life", "half_life", 10),
+        ("double_half_life", "double_half_life", 10),
+        ("naive_timestamp", "naive", 10),
+        ("future_timestamp", "future", 10),
+        ("missing_timestamp", "missing", 10),
+        ("null_timestamp", "null", 10),
+        ("string_timestamp", "string", 10),
+        ("mixed_ages", "mixed", 10),
+        ("limit_truncation", "mixed", 2),
+        ("zero_limit", "mixed", 0),
+    ]
+]
+
+
+def parity_call(parity_request: ModelDebugRetrievalRequest) -> object:
+    """Replay retrieval against a deterministic, limit-aware in-memory store."""
+
+    async def query_fix_records(
+        *, failure_fingerprint: str, limit: int
+    ) -> list[dict[str, Any]]:
+        return [
+            dict(record)
+            for record in _PARITY_RECORDS.get(failure_fingerprint, [])[:limit]
+        ]
+
+    store = AsyncMock()
+    store.query_fix_records = AsyncMock(side_effect=query_fix_records)
+    return asyncio.run(
+        handler_module.HandlerDebugRetrieval(store=store).handle(parity_request)
+    )
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "case_id,parity_request",
+    CANONICAL_PARITY_CASES,
+    ids=[case_id for case_id, _ in CANONICAL_PARITY_CASES],
+)
+def test_canonical_dispatch_matches_preserved_core(
+    case_id: str, parity_request: ModelDebugRetrievalRequest
+) -> None:
+    """Recompose the old retrieval body using its unchanged decay helper."""
+    handler_cls = getattr(handler_module, "HandlerDebugRetrieval", None)
+    assert handler_cls is not None, case_id
+
+    records = _PARITY_RECORDS.get(parity_request.failure_fingerprint, [])[
+        : parity_request.limit
+    ]
+    annotated = []
+    for record in records:
+        created_at = record.get("created_at_utc")
+        if created_at is not None and isinstance(created_at, datetime):
+            weight = _time_decay_weight(created_at, now=parity_request.now)
+        else:
+            weight = 0.0
+        annotated.append({**record, "time_decay_weight": weight})
+    expected = ModelDebugRetrievalResponse(records=annotated)
+
+    assert parity_call(parity_request) == expected

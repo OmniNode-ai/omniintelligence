@@ -1,0 +1,38 @@
+{
+  "base_ref": "978c2645",
+  "canonical_handler_module": "omniintelligence.nodes.node_intent_drift_detect_compute.handlers.handler_drift_detect",
+  "legacy_handler_module": "omniintelligence.nodes.node_intent_drift_detect_compute.handlers.handler_drift_detect",
+  "node_id": "omniintelligence.nodes.node_intent_drift_detect_compute",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:ce4870d3a36165afcb8866030cc854a256a553006c648944d74ad266430aeb45",
+      "sha256:eebd8c38ec277caaeb63393e64d0a3e04d86531a54c2138d32343a0a6ff12080",
+      "sha256:be199d4f3837c6e06d188920d68259f16232704c7c8bc2de6c0bfea552971b01",
+      "sha256:45e9872ed61e140bd45d31fea0869dbf92b8b71fa59b4110d48820d3187db121",
+      "sha256:d3d90dd1d614a1a15cee1ef5e28458a8c86311862558acb568027f1fefe2883b",
+      "sha256:dc8cc87243c9daf6d6695bfe61ed3a67cf8e37e006845625cfa427e82a252c8f",
+      "sha256:0203aa790dc0c37fcad3ae4089f7f0724359fd6ed84e18afaadfc63a1146c4bb",
+      "sha256:926cd52d0fe2e821d5a0a373669530ce68e7284bd2e27f6cb0e882d2b34b5070",
+      "sha256:b72653e0d2a1a789bcc5dff2a5d15c815c2ac06c7b8aa6db9b7dabc7f3cef7b6"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_intent_drift_detect_compute/test_drift_detect.py::test_canonical_dispatch_matches_preserved_core[feature_empty]",
+      "tests/unit/nodes/node_intent_drift_detect_compute/test_drift_detect.py::test_canonical_dispatch_matches_preserved_core[configuration_unrestricted]",
+      "tests/unit/nodes/node_intent_drift_detect_compute/test_drift_detect.py::test_canonical_dispatch_matches_preserved_core[tool_before_file_surface]",
+      "tests/unit/nodes/node_intent_drift_detect_compute/test_drift_detect.py::test_canonical_dispatch_matches_preserved_core[documentation_code_surface]",
+      "tests/unit/nodes/node_intent_drift_detect_compute/test_drift_detect.py::test_canonical_dispatch_matches_preserved_core[bugfix_six_files]",
+      "tests/unit/nodes/node_intent_drift_detect_compute/test_drift_detect.py::test_canonical_dispatch_matches_preserved_core[bugfix_five_files]",
+      "tests/unit/nodes/node_intent_drift_detect_compute/test_drift_detect.py::test_canonical_dispatch_matches_preserved_core[documentation_non_code]",
+      "tests/unit/nodes/node_intent_drift_detect_compute/test_drift_detect.py::test_canonical_dispatch_matches_preserved_core[scope_expansion_info]",
+      "tests/unit/nodes/node_intent_drift_detect_compute/test_drift_detect.py::test_canonical_dispatch_matches_preserved_core[all_detectors_disabled]"
+    ]
+  },
+  "preserved_symbols": [
+    "_detect_file_surface",
+    "_detect_scope_expansion",
+    "_detect_tool_mismatch",
+    "score_severity"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

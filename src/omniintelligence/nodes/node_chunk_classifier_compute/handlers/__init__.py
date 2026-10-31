@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from omniintelligence.nodes.node_chunk_classifier_compute.handlers.handler_chunk_classifier import (
-    handle_chunk_classify,
+    HandlerChunkClassify,
 )
 
-__all__ = ["handle_chunk_classify"]
+__all__ = ["HandlerChunkClassify"]
