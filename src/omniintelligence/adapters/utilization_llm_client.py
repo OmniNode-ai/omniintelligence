@@ -2,9 +2,8 @@
 # SPDX-License-Identifier: MIT
 """Thin LLM client for utilization scoring via OpenAI-compatible API.
 
-Minimal client matching ProtocolLlmClient.chat_completion interface.
-Not reusing EvalLLMClient because it requires (generator_url, judge_url)
-and has no chat_completion method.
+Minimal client matching ProtocolLlmClient.chat_completion interface. Not reusing
+EvalLLMClient: it requires (generator_url, judge_url) and has no chat_completion.
 
 Reference: OMN-5507 - Wire utilization scoring handler into dispatch engine.
 Reference: OMN-8019 - Cost visibility for local model calls.
@@ -20,6 +19,7 @@ from typing import Any
 import httpx
 
 from omniintelligence.adapters.eval_llm_client import _compute_cost_usd
+from omniintelligence.models.llm_routing import llm_routing
 from omniintelligence.protocols import ProtocolKafkaPublisher
 
 logger = logging.getLogger(__name__)
@@ -50,7 +50,7 @@ class UtilizationLLMClient:
         self,
         *,
         messages: list[dict[str, str]],
-        model: str = "qwen3-14b",
+        model: str = llm_routing().utilization_model,
         temperature: float = 0.1,
         max_tokens: int = 200,
     ) -> str:

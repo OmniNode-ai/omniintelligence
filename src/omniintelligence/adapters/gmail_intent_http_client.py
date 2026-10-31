@@ -30,6 +30,7 @@ from urllib.parse import urlparse
 import httpx
 
 from omniintelligence.models.adapters import adapter_settings
+from omniintelligence.models.llm_routing import llm_routing
 
 if TYPE_CHECKING:
     from omniintelligence.protocols import ProtocolPatternRepository
@@ -178,9 +179,7 @@ async def fetch_url_content(url: str) -> tuple[str, str]:
 
 
 async def fetch_embedding(query_text: str, embedding_url: str) -> list[float]:
-    """Fetch text embedding from Qwen3-Embedding endpoint.
-
-    Returns embedding vector.
+    """Fetch the text embedding vector from the embedding endpoint.
 
     Raises:
         httpx.HTTPError: On HTTP failure.
@@ -188,7 +187,7 @@ async def fetch_embedding(query_text: str, embedding_url: str) -> list[float]:
     async with httpx.AsyncClient(timeout=adapter_settings().gmail_embed_s) as client:
         resp = await client.post(
             f"{embedding_url.rstrip('/')}/v1/embeddings",
-            json={"input": query_text[:2000], "model": "Qwen3-Embedding-8B"},
+            json={"input": query_text[:2000], "model": llm_routing().gmail_embed_model},
         )
         resp.raise_for_status()
         return list(resp.json()["data"][0]["embedding"])
@@ -218,7 +217,7 @@ async def call_deepseek_r1(
         resp = await client.post(
             f"{llm_url.rstrip('/')}/v1/chat/completions",
             json={
-                "model": "deepseek-r1",
+                "model": llm_routing().gmail_chat_model,
                 "messages": [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},

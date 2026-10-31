@@ -778,7 +778,7 @@ class TestEnumEmbeddingProvider:
     """Test EnumEmbeddingProvider values."""
 
     def test_qwen3_value(self) -> None:
-        assert EnumEmbeddingProvider.QWEN3.value == "qwen3"
+        assert EnumEmbeddingProvider.QWEN3.value == "custom_embed"
 
     def test_local_openai_value(self) -> None:
         assert EnumEmbeddingProvider.LOCAL_OPENAI.value == "local_openai"

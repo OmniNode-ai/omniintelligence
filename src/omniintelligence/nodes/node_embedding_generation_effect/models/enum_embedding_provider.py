@@ -22,12 +22,12 @@ class EnumEmbeddingProvider(StrEnum):
     """Supported embedding provider backends.
 
     Attributes:
-        QWEN3: Qwen3-Embedding-8B-4bit server with custom /embed endpoint.
+        QWEN3: Server with a custom /embed endpoint (the Qwen3 embedding server).
         LOCAL_OPENAI: Local OpenAI-compatible server (e.g., MLX) with
             /v1/embeddings endpoint.
     """
 
-    QWEN3 = "qwen3"
+    QWEN3 = "custom_embed"
     LOCAL_OPENAI = "local_openai"
 
 

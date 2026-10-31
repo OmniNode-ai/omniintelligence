@@ -1,0 +1,83 @@
+---
+schema_version: 1.0.0
+ticket_id: OMN-21678
+title: omniintelligence contracts_and_di literal_model_name burn-down, slice rf1120-c1 -- model names
+  are injected from the deployment overlay through ModelLlmRoutingSettings
+summary: >-
+  The read-only contracts_and_di scan of omniintelligence src/ (omnibase_core as locked, validator ValidatorContractsAndDi
+  through runtime_validator_run) reported 30 literal_model_name findings on dev at 67914815 and 9 after
+  this change; the other rules did not move (literal_topic 92, literal_url 48, literal_timeout 30, literal_path
+  14, literal_port 5, literal_ip 2, literal_host 1) and nothing new appeared. The 21 findings in seven
+  files no longer hold a model name. The deployment overlay now supplies the names through ModelLlmRoutingSettings
+  (OMNIINTELLIGENCE_GMAIL_INTENT_EMBEDDING_MODEL, OMNIINTELLIGENCE_GMAIL_INTENT_CHAT_MODEL, OMNIINTELLIGENCE_UTILIZATION_SCORING_MODEL,
+  OMNIINTELLIGENCE_PATTERN_COMPLIANCE_MODEL, OMNIINTELLIGENCE_RL_EXPORT_MODELS and OMNIINTELLIGENCE_EVAL_COST_RATES);
+  the repository holds no model name, because the hardcoded-model-config gate pinned in this repository
+  refuses one in any tracked file. A name the overlay does not supply is unset: the eval cost table is
+  empty (every rate it held was zero), the RL export omits the model field, and a request that must carry
+  a model name sends the placeholder default. The RL backend slugs are derived from the RoutingAction
+  member names. The embedding provider enum value that selected the custom /embed endpoint is renamed
+  to custom_embed, because it named a protocol and not a model. The 17 hardcoded-model-config baseline
+  entries of those files are removed. Not in this slice: the plan reviewer Gemini and z.ai default models
+  (the literal_url PR touches those files), the code projection embedding model pair (the timeouts and
+  literal_url PRs touch those files), and the three EnumReviewModel values, which are the model_id keys
+  of migration 020 and review_pairing/model_registry.yaml.
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: req-omn21678-model-names-from-overlay
+    statement: Every model name of the seven files comes from the deployment overlay through ModelLlmRoutingSettings,
+      the RL backend slugs are derived from RoutingAction, and the files hold no model-name literal.
+    acceptance:
+      - id: AC1
+        statement: 'AC1: the contracts_and_di literal_model_name count over the slice paths drops to zero
+          and the repo total from 30 to 9 with no baseline entry or suppression added -- falsifier: runtime_validator_run
+          with ValidatorContractsAndDi over src before and after, counts compared per rule'
+      - id: AC2
+        statement: 'AC2: every moved value is read from the overlay through an injected setting and no
+          literal of it remains in the touched code -- falsifier: `uv run pytest tests/unit/models/test_llm_routing_settings_omn21678.py
+          -q -n 0` passes and the checker re-run on the slice paths reports none'
+      - id: AC3
+        statement: 'AC3: the slice lands as one PR titled with this ticket id and carries lab proof of
+          the tests and the checker re-run -- falsifier: `uv run pytest tests/unit -q` on the lab at the
+          PR head, receipt in the PR body'
+evidence_requirements:
+  - kind: tests
+    description: Settings tests (each environment variable read, unset names stay unset, frozen), an AST
+      check that the seven consumers hold no model-family literal, the gmail request bodies, the utilization
+      client and dispatch handler models, the eval cost table, and the RL exporter tables.
+    command: uv run pytest tests/unit/models/test_llm_routing_settings_omn21678.py tests/unit/rl/test_export_llm_routing_omn21678.py
+      -q -n 0
+emergency_bypass:
+  enabled: false
+  justification: ''
+  follow_up_ticket_id: ''
+dod_evidence:
+  - id: dod-omn21678-ac2-model-names-from-overlay
+    description: The settings tests pass and the five consumer files grepped hold no qwen or deepseek
+      string literal.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/models/test_llm_routing_settings_omn21678.py -q -n 0
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: command
+        check_value: >-
+          ! grep -rEi '"(qwen|deepseek)' src/omniintelligence/rl/export.py src/omniintelligence/adapters/eval_llm_client.py
+          src/omniintelligence/adapters/gmail_intent_http_client.py src/omniintelligence/adapters/utilization_llm_client.py
+          src/omniintelligence/runtime/dispatch_handler_utilization_scoring.py
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC1
+      - AC2
+  - id: dod-omn21678-ac3-lab-regression-proof
+    description: Re-run the slice's settings and consumer tests, including the AST checks over all seven
+      consumer paths, to provide executable regression proof alongside the lab test and scan results recorded
+      in the PR body.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/models/test_llm_routing_settings_omn21678.py -q -n 0
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC3

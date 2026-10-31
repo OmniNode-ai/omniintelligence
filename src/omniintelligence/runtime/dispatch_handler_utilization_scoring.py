@@ -2,10 +2,9 @@
 # SPDX-License-Identifier: MIT
 """Dispatch handler for LLM-based utilization scoring.
 
-Receives a scoring command with session_id + injected pattern IDs,
-looks up pattern signatures from DB, calls local Qwen3-14B to score
-how much the session utilized the injected patterns, then emits
-an updated context-utilization event with the real score.
+Receives a scoring command with session_id + injected pattern IDs, looks up pattern
+signatures from DB, calls the local LLM to score how much the session utilized the
+injected patterns, then emits an updated context-utilization event with the real score.
 
 Reference: OMN-5506 - Create LLM-based utilization scoring handler.
 """
@@ -18,6 +17,7 @@ from typing import Any
 from uuid import uuid4
 
 from omniintelligence.constants import TOPIC_CONTEXT_UTILIZATION_EVT_V1
+from omniintelligence.models.llm_routing import llm_routing
 from omniintelligence.protocols import ProtocolKafkaPublisher, ProtocolPatternRepository
 
 logger = logging.getLogger(__name__)
@@ -91,7 +91,7 @@ def create_utilization_scoring_dispatch_handler(
             )
             response = await llm_client.chat_completion(
                 messages=[{"role": "user", "content": prompt}],
-                model="qwen3-14b",
+                model=llm_routing().utilization_model,
                 temperature=0.1,
                 max_tokens=200,
             )
