@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from omniintelligence.nodes.node_doc_promotion_reducer.handlers.handler_doc_promotion import (
-    handle_doc_promotion,
+    HandlerDocPromotion,
 )
 
-__all__ = ["handle_doc_promotion"]
+__all__ = ["HandlerDocPromotion"]

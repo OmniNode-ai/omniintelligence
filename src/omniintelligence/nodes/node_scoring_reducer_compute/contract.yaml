@@ -45,8 +45,8 @@ handler_routing:
   handlers:
     - operation: "evaluate_run"
       handler:
-        function: "evaluate_run"
-        module: "omniintelligence.nodes.node_scoring_reducer_compute.handlers"
+        class: "HandlerScoring"
+        module: "omniintelligence.nodes.node_scoring_reducer_compute.handlers.handler_scoring"
         type: "sync"
 dependencies: []
 error_handling:

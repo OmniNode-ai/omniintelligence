@@ -1995,9 +1995,9 @@ def create_intelligence_orchestrator_dispatch_handler(
     [ModelEventEnvelope[object], ProtocolHandlerContext],
     Awaitable[str],
 ]:
-    """Create a dispatch handler that bridges to handle_receive_intent.
+    """Create a dispatch handler that bridges to HandlerReceiveIntent.handle.
 
-    ``handle_receive_intent`` is a **sync function** (takes ``ModelIntent``,
+    ``HandlerReceiveIntent.handle`` is sync (takes ``ModelReceiveIntentRequest``,
     returns ``ModelIntentReceipt``).  This bridge wraps it in an async handler
     compatible with MessageDispatchEngine's handler signature and extracts
     the ``ModelIntent`` from the envelope payload.
@@ -2009,14 +2009,15 @@ def create_intelligence_orchestrator_dispatch_handler(
         Async handler function with signature (envelope, context) -> str.
     """
     from omniintelligence.nodes.node_intelligence_orchestrator.handlers.handler_receive_intent import (
-        handle_receive_intent,
+        HandlerReceiveIntent,
+        request_from_dispatch_payload,
     )
 
     async def _handle(
         envelope: ModelEventEnvelope[object],
         context: ProtocolHandlerContext,
     ) -> str:
-        """Bridge handler: envelope -> handle_receive_intent (sync)."""
+        """Bridge handler: envelope -> HandlerReceiveIntent.handle (sync)."""
         ctx_correlation_id = (
             correlation_id or getattr(context, "correlation_id", None) or uuid4()
         )
@@ -2037,37 +2038,9 @@ def create_intelligence_orchestrator_dispatch_handler(
             ctx_correlation_id,
         )
 
-        # Build ModelIntent from the payload dict.  The ``payload`` nested
-        # field uses ProtocolIntentPayload (a runtime-checkable Protocol)
-        # which cannot be deserialized from raw dicts via model_validate.
-        # We construct a lightweight ModelPayloadExtension as a stand-in so
-        # the bridge can forward to handle_receive_intent.
-        from omnibase_core.models.reducer.model_intent import ModelIntent
-        from omnibase_core.models.reducer.payloads import ModelPayloadExtension
-
-        raw_payload = payload.get("payload") or {}
-        intent_payload = ModelPayloadExtension(
-            intent_type="extension",
-            extension_type=str(raw_payload.get("extension_type", "dispatch.bridge")),
-            plugin_name=str(
-                raw_payload.get("plugin_name", "intelligence-orchestrator")
-            ),
+        receipt = HandlerReceiveIntent().handle(
+            request_from_dispatch_payload(payload, ctx_correlation_id)
         )
-
-        intent_id_raw = payload.get("intent_id")
-        intent_kwargs: dict[str, object] = {
-            "intent_type": str(payload.get("intent_type", "unknown")),
-            "target": str(payload.get("target", "dispatch://bridge")),
-            "payload": intent_payload,
-        }
-        if intent_id_raw is not None:
-            intent_kwargs["intent_id"] = UUID(str(intent_id_raw))
-
-        # Why: Runtime validation intentionally accepts this broader fixture/input shape.
-        intent = ModelIntent(**intent_kwargs)  # type: ignore[arg-type]
-
-        # handle_receive_intent is sync — call directly (no await)
-        receipt = handle_receive_intent(intent, correlation_id=ctx_correlation_id)
 
         logger.info(
             "Intelligence orchestrator processed intent "
@@ -2384,7 +2357,7 @@ def create_dispatch_outcome_eval_dispatch_handler(
 ]:
     """Create a dispatch handler for dispatch_worker-completed events.
 
-    Deserializes the payload as ModelInput, calls handle_dispatch_outcome(),
+    Deserializes the payload as ModelInput, calls HandlerDispatchOutcome().handle(),
     and publishes the evaluation result to dispatch-outcome-evaluated.v1.
 
     Args:
@@ -2401,7 +2374,7 @@ def create_dispatch_outcome_eval_dispatch_handler(
         context: ProtocolHandlerContext,
     ) -> str:
         from omniintelligence.nodes.node_dispatch_outcome_eval_effect.handlers.handler_dispatch_outcome import (
-            handle_dispatch_outcome,
+            HandlerDispatchOutcome,
         )
         from omniintelligence.nodes.node_dispatch_outcome_eval_effect.models import (
             ModelInput,
@@ -2439,7 +2412,7 @@ def create_dispatch_outcome_eval_dispatch_handler(
             ctx_correlation_id,
         )
 
-        result = await handle_dispatch_outcome(event)
+        result = await HandlerDispatchOutcome().handle(event)
 
         if kafka_producer is not None:
             _publish_topic = publish_topic or TOPIC_DISPATCH_OUTCOME_EVALUATED_V1

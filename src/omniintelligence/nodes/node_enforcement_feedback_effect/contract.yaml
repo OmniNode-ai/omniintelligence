@@ -64,7 +64,7 @@ handler_routing:
   handlers:
     - operation: "process_enforcement_feedback"
       handler:
-        function: "process_enforcement_feedback"
+        class: "HandlerEnforcementFeedback"
         module: "omniintelligence.nodes.node_enforcement_feedback_effect.handlers.handler_enforcement_feedback"
         type: "async"
       description: "Process enforcement event and apply conservative confidence adjustments"

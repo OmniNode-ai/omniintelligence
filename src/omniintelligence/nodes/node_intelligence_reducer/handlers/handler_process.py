@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """Process handler for Intelligence Reducer node.
 
-Handler function that builds ModelReducerOutput from
+Handler class that builds ModelReducerOutput from
 pattern lifecycle transition results. It encapsulates all the output building
 logic that was previously in the node class, following the ONEX declarative
 pattern where nodes are thin shells delegating to handlers.
@@ -41,101 +41,98 @@ from omniintelligence.nodes.node_intelligence_reducer.models.model_reducer_input
 logger = logging.getLogger(__name__)
 
 
-def handle_pattern_lifecycle_process(
-    input_data: ModelReducerInputPatternLifecycle,
-) -> ModelReducerOutput[ModelIntelligenceState]:
-    """Handle PATTERN_LIFECYCLE FSM transitions and build reducer output.
+class HandlerPatternLifecycleProcess:
+    """Typed handler for intelligence reducer."""
 
-    This handler:
-    1. Delegates to handle_pattern_lifecycle_transition for FSM validation
-    2. Builds ModelReducerOutput with ModelIntelligenceState result and intents
-    3. Logs transition acceptance or rejection with correlation context
+    def handle(
+        self, request: ModelReducerInputPatternLifecycle
+    ) -> ModelReducerOutput[ModelIntelligenceState]:
+        """Handle PATTERN_LIFECYCLE FSM transitions and build reducer output.
 
-    Args:
-        input_data: Pattern lifecycle transition request.
+        This handler:
+        1. Delegates to handle_pattern_lifecycle_transition for FSM validation
+        2. Builds ModelReducerOutput with ModelIntelligenceState result and intents
+        3. Logs transition acceptance or rejection with correlation context
 
-    Returns:
-        ModelReducerOutput with typed state and intents.
-    """
-    start_time = time.perf_counter()
-    result = handle_pattern_lifecycle_transition(input_data)
-    processing_time_ms = (time.perf_counter() - start_time) * 1000
+        Args:
+            request: Pattern lifecycle transition request.
 
-    if not result.success:
-        # Return error output with no intents
-        logger.warning(
-            "Pattern lifecycle transition rejected",
-            extra={
-                "pattern_id": input_data.payload.pattern_id,
-                "from_status": result.from_status,
-                "to_status": result.to_status,
-                "trigger": result.trigger,
-                "error_code": result.error_code,
-                "error_message": result.error_message,
-                "correlation_id": str(input_data.correlation_id),
-            },
+        Returns:
+            ModelReducerOutput with typed state and intents.
+        """
+        start_time = time.perf_counter()
+        result = handle_pattern_lifecycle_transition(request)
+        processing_time_ms = (time.perf_counter() - start_time) * 1000
+        log_extra = {
+            "pattern_id": request.payload.pattern_id,
+            "from_status": result.from_status,
+            "to_status": result.to_status,
+            "trigger": result.trigger,
+            "correlation_id": str(request.correlation_id),
+        }
+
+        if not result.success:
+            # Return error output with no intents
+            logger.warning(
+                "Pattern lifecycle transition rejected",
+                extra={
+                    **log_extra,
+                    "error_code": result.error_code,
+                    "error_message": result.error_message,
+                },
+            )
+            return ModelReducerOutput(
+                result=ModelIntelligenceState(
+                    fsm_type="PATTERN_LIFECYCLE",
+                    entity_id=request.payload.pattern_id,
+                    success=False,
+                    from_status=result.from_status,
+                    to_status=result.to_status,
+                    trigger=result.trigger,
+                    correlation_id=request.correlation_id,
+                    error_code=result.error_code,
+                    error_message=result.error_message,
+                ),
+                operation_id=uuid4(),
+                reduction_type=EnumReductionType.TRANSFORM,
+                processing_time_ms=processing_time_ms,
+                items_processed=1,
+                intents=(),
+            )
+
+        # Build intent from handler result using ModelPayloadExtension
+        # which implements ProtocolIntentPayload
+        # Note: extension_type must be in format "namespace.name" per omnibase_core
+        # Note: data must be JSON-serializable, so use mode="json" for UUIDs/datetimes
+        intent_payload = ModelPayloadExtension(
+            extension_type="omniintelligence.pattern_lifecycle_update",
+            plugin_name="omniintelligence",
+            data=result.intent.model_dump(mode="json") if result.intent else {},
         )
+        intent = ModelIntent(
+            intent_type="extension",
+            target=f"postgres://patterns/{request.payload.pattern_id}",
+            payload=intent_payload,
+        )
+
+        logger.info("Pattern lifecycle transition accepted", extra=log_extra)
+
         return ModelReducerOutput(
             result=ModelIntelligenceState(
                 fsm_type="PATTERN_LIFECYCLE",
-                entity_id=input_data.payload.pattern_id,
-                success=False,
+                entity_id=request.payload.pattern_id,
+                success=True,
                 from_status=result.from_status,
                 to_status=result.to_status,
                 trigger=result.trigger,
-                correlation_id=input_data.correlation_id,
-                error_code=result.error_code,
-                error_message=result.error_message,
+                correlation_id=request.correlation_id,
             ),
             operation_id=uuid4(),
             reduction_type=EnumReductionType.TRANSFORM,
             processing_time_ms=processing_time_ms,
             items_processed=1,
-            intents=(),
+            intents=(intent,),
         )
 
-    # Build intent from handler result using ModelPayloadExtension
-    # which implements ProtocolIntentPayload
-    # Note: extension_type must be in format "namespace.name" per omnibase_core
-    # Note: data must be JSON-serializable, so use mode="json" for UUIDs/datetimes
-    intent_payload = ModelPayloadExtension(
-        extension_type="omniintelligence.pattern_lifecycle_update",
-        plugin_name="omniintelligence",
-        data=result.intent.model_dump(mode="json") if result.intent else {},
-    )
-    intent = ModelIntent(
-        intent_type="extension",
-        target=f"postgres://patterns/{input_data.payload.pattern_id}",
-        payload=intent_payload,
-    )
 
-    logger.info(
-        "Pattern lifecycle transition accepted",
-        extra={
-            "pattern_id": input_data.payload.pattern_id,
-            "from_status": result.from_status,
-            "to_status": result.to_status,
-            "trigger": result.trigger,
-            "correlation_id": str(input_data.correlation_id),
-        },
-    )
-
-    return ModelReducerOutput(
-        result=ModelIntelligenceState(
-            fsm_type="PATTERN_LIFECYCLE",
-            entity_id=input_data.payload.pattern_id,
-            success=True,
-            from_status=result.from_status,
-            to_status=result.to_status,
-            trigger=result.trigger,
-            correlation_id=input_data.correlation_id,
-        ),
-        operation_id=uuid4(),
-        reduction_type=EnumReductionType.TRANSFORM,
-        processing_time_ms=processing_time_ms,
-        items_processed=1,
-        intents=(intent,),
-    )
-
-
-__all__ = ["handle_pattern_lifecycle_process"]
+__all__ = ["HandlerPatternLifecycleProcess"]

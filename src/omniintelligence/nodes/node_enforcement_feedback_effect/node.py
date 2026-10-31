@@ -61,20 +61,19 @@ class NodeEnforcementFeedbackEffect(NodeEffect):
           conservative confidence adjustments to violated patterns.
 
     Dependency Injection:
-        The process_enforcement_feedback handler is invoked by callers with
+        The HandlerEnforcementFeedback handler is invoked by callers with
         its dependencies (repository protocol for database operations).
         NO instance variables for handlers or repositories.
 
     Example:
         ```python
         from omniintelligence.nodes.node_enforcement_feedback_effect.handlers import (
-            process_enforcement_feedback,
+            HandlerEnforcementFeedback,
         )
 
-        # Handler receives dependencies directly via parameters
-        result = await process_enforcement_feedback(
-            event=enforcement_event,
-            repository=db_connection,
+        # Handler receives dependencies through its constructor
+        result = await HandlerEnforcementFeedback(repository=db_connection).handle(
+            enforcement_event,
         )
 
         if result.status == EnumEnforcementFeedbackStatus.SUCCESS:

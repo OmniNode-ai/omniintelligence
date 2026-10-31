@@ -9,7 +9,7 @@ Exports the enforcement feedback effect node, its models, and handler functions.
 
 from omniintelligence.nodes.node_enforcement_feedback_effect.handlers import (
     CONFIDENCE_ADJUSTMENT_PER_VIOLATION,
-    process_enforcement_feedback,
+    HandlerEnforcementFeedback,
 )
 from omniintelligence.nodes.node_enforcement_feedback_effect.models import (
     EnumEnforcementFeedbackStatus,
@@ -32,5 +32,5 @@ __all__ = [
     "ModelPatternViolation",
     "ModelProcessingError",
     "NodeEnforcementFeedbackEffect",
-    "process_enforcement_feedback",
+    "HandlerEnforcementFeedback",
 ]

@@ -60,14 +60,14 @@ output_models:
 handler_routing:
   routing_strategy: "operation_match"
   entry_point:
-    function: "handle_document_fetch"
+    class: "HandlerDocumentFetch"
     module: "omniintelligence.nodes.node_document_fetch_effect.handlers.handler_document_fetch"
     type: "async"
     description: "Main entry point: dispatch based on crawler_type"
   handlers:
     - operation: "fetch_document"
       handler:
-        function: "handle_document_fetch"
+        class: "HandlerDocumentFetch"
         module: "omniintelligence.nodes.node_document_fetch_effect.handlers.handler_document_fetch"
         type: "async"
       description: "Fetch raw document content from disk or blob store"
@@ -80,7 +80,7 @@ handler_routing:
         - "return raw content to DocumentParserCompute in-process"
 
   default_handler:
-    function: "handle_document_fetch"
+    class: "HandlerDocumentFetch"
     module: "omniintelligence.nodes.node_document_fetch_effect.handlers.handler_document_fetch"
     type: "async"
     description: "Default to fetch_document operation"

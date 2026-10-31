@@ -258,116 +258,119 @@ def _is_allowed(
 # =============================================================================
 
 
-async def handle_doc_retrieval(
-    input_data: ModelDocRetrievalInput,
-) -> ModelDocRetrievalOutput:
-    """Re-rank and budget-enforce document context items.
+class HandlerDocRetrieval:
+    """Typed handler for doc retrieval compute."""
 
-    Steps:
-      1. Filter candidates by similarity threshold and allowed tiers.
-      2. Compute final_score = similarity * scope_boost * tier_multiplier * intent_weight.
-      3. Sort by final_score descending.
-      4. Deduplicate by content_fingerprint (first occurrence wins).
-      5. Enforce adaptive token budget: accumulate tokens up to doc_token_budget.
-      6. Cap at max_doc_items.
+    async def handle(self, request: ModelDocRetrievalInput) -> ModelDocRetrievalOutput:
+        """Re-rank and budget-enforce document context items.
 
-    Args:
-        input_data: Retrieval request with Qdrant results and policy config.
+        Steps:
+          1. Filter candidates by similarity threshold and allowed tiers.
+          2. Compute final_score = similarity * scope_boost * tier_multiplier * intent_weight.
+          3. Sort by final_score descending.
+          4. Deduplicate by content_fingerprint (first occurrence wins).
+          5. Enforce adaptive token budget: accumulate tokens up to doc_token_budget.
+          6. Cap at max_doc_items.
 
-    Returns:
-        ModelDocRetrievalOutput with ranked, budget-capped items.
-    """
-    config = input_data.config
-    doc_token_budget = _compute_doc_token_budget(
-        input_data.total_token_budget,
-        input_data.intent_category,
-        config,
-    )
+        Args:
+            request: Retrieval request with Qdrant results and policy config.
 
-    items_considered = len(input_data.search_results)
-    items_filtered = 0
-
-    # Step 1: Filter + score
-    scored: list[ModelRankedDocItem] = []
-    for result in input_data.search_results:
-        if not _is_allowed(result, config):
-            items_filtered += 1
-            continue
-
-        scope_boost = _compute_scope_boost(result.crawl_scope, input_data.query_scope)
-        tier_multiplier = _compute_tier_multiplier(
-            result.tier, result.bootstrap_confidence
+        Returns:
+            ModelDocRetrievalOutput with ranked, budget-capped items.
+        """
+        config = request.config
+        doc_token_budget = _compute_doc_token_budget(
+            request.total_token_budget,
+            request.intent_category,
+            config,
         )
-        intent_weight = _compute_intent_weight(
-            input_data.intent_category, result.source_type
-        )
-        final_score = result.similarity * scope_boost * tier_multiplier * intent_weight
 
-        scored.append(
-            ModelRankedDocItem(
-                item_id=result.item_id,
-                source_ref=result.source_ref,
-                similarity=result.similarity,
-                scope_boost=scope_boost,
-                tier_multiplier=tier_multiplier,
-                intent_weight=intent_weight,
-                final_score=final_score,
-                token_estimate=result.token_estimate,
-                content_fingerprint=result.content_fingerprint,
-                section_heading=result.section_heading,
-                crawl_scope=result.crawl_scope,
-                correlation_id=result.correlation_id,
+        items_considered = len(request.search_results)
+        items_filtered = 0
+
+        # Step 1: Filter + score
+        scored: list[ModelRankedDocItem] = []
+        for result in request.search_results:
+            if not _is_allowed(result, config):
+                items_filtered += 1
+                continue
+
+            scope_boost = _compute_scope_boost(result.crawl_scope, request.query_scope)
+            tier_multiplier = _compute_tier_multiplier(
+                result.tier, result.bootstrap_confidence
             )
+            intent_weight = _compute_intent_weight(
+                request.intent_category, result.source_type
+            )
+            final_score = (
+                result.similarity * scope_boost * tier_multiplier * intent_weight
+            )
+
+            scored.append(
+                ModelRankedDocItem(
+                    item_id=result.item_id,
+                    source_ref=result.source_ref,
+                    similarity=result.similarity,
+                    scope_boost=scope_boost,
+                    tier_multiplier=tier_multiplier,
+                    intent_weight=intent_weight,
+                    final_score=final_score,
+                    token_estimate=result.token_estimate,
+                    content_fingerprint=result.content_fingerprint,
+                    section_heading=result.section_heading,
+                    crawl_scope=result.crawl_scope,
+                    correlation_id=result.correlation_id,
+                )
+            )
+
+        # Step 2: Sort by final_score descending
+        scored.sort(key=lambda x: x.final_score, reverse=True)
+
+        # Step 3: Deduplicate by content_fingerprint + enforce budget + cap at max_doc_items
+        seen_fingerprints: set[str] = set()
+        selected: list[ModelRankedDocItem] = []
+        tokens_used = 0
+
+        for item in scored:
+            if len(selected) >= config.max_doc_items:
+                break
+            if item.content_fingerprint in seen_fingerprints:
+                items_filtered += 1
+                continue
+            if tokens_used + item.token_estimate > doc_token_budget:
+                # Skip items that would exceed budget
+                continue
+
+            seen_fingerprints.add(item.content_fingerprint)
+            selected.append(item)
+            tokens_used += item.token_estimate
+
+        budget_fraction_used = tokens_used / max(request.total_token_budget, 1)
+
+        logger.info(
+            "DocRetrieval: considered=%d filtered=%d selected=%d tokens=%d/%d (%.1f%%) intent=%s",
+            items_considered,
+            items_filtered,
+            len(selected),
+            tokens_used,
+            doc_token_budget,
+            budget_fraction_used * 100,
+            request.intent_category,
         )
 
-    # Step 2: Sort by final_score descending
-    scored.sort(key=lambda x: x.final_score, reverse=True)
-
-    # Step 3: Deduplicate by content_fingerprint + enforce budget + cap at max_doc_items
-    seen_fingerprints: set[str] = set()
-    selected: list[ModelRankedDocItem] = []
-    tokens_used = 0
-
-    for item in scored:
-        if len(selected) >= config.max_doc_items:
-            break
-        if item.content_fingerprint in seen_fingerprints:
-            items_filtered += 1
-            continue
-        if tokens_used + item.token_estimate > doc_token_budget:
-            # Skip items that would exceed budget
-            continue
-
-        seen_fingerprints.add(item.content_fingerprint)
-        selected.append(item)
-        tokens_used += item.token_estimate
-
-    budget_fraction_used = tokens_used / max(input_data.total_token_budget, 1)
-
-    logger.info(
-        "DocRetrieval: considered=%d filtered=%d selected=%d tokens=%d/%d (%.1f%%) intent=%s",
-        items_considered,
-        items_filtered,
-        len(selected),
-        tokens_used,
-        doc_token_budget,
-        budget_fraction_used * 100,
-        input_data.intent_category,
-    )
-
-    return ModelDocRetrievalOutput(
-        ranked_items=tuple(selected),
-        doc_token_budget=doc_token_budget,
-        tokens_used=tokens_used,
-        items_considered=items_considered,
-        items_filtered=items_filtered,
-        budget_fraction_used=budget_fraction_used,
-        intent_category=input_data.intent_category,
-        correlation_id=input_data.correlation_id,
-    )
+        return ModelDocRetrievalOutput(
+            ranked_items=tuple(selected),
+            doc_token_budget=doc_token_budget,
+            tokens_used=tokens_used,
+            items_considered=items_considered,
+            items_filtered=items_filtered,
+            budget_fraction_used=budget_fraction_used,
+            intent_category=request.intent_category,
+            correlation_id=request.correlation_id,
+        )
 
 
 __all__ = [
     "DOCUMENT_INTENT_TYPE_WEIGHTS",
-    "handle_doc_retrieval",
+    "HandlerDocRetrieval",
 ]

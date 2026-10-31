@@ -46,7 +46,7 @@ class TestEnforcementFeedbackIntegration:
         - Build a ModelEnforcementEvent with one ModelPatternViolation where
           was_advised=True and was_corrected=True (confirmed violation).
         - Wrap db_conn in a ProtocolPatternRepository adapter and call
-          process_enforcement_feedback(event, repository=repo).
+          HandlerEnforcementFeedback(repository=repo).handle(event).
         - Assert result.status == EnumEnforcementFeedbackStatus.SUCCESS.
         - Assert len(result.adjustments) == 1 and
           result.adjustments[0].adjustment == CONFIDENCE_ADJUSTMENT_PER_VIOLATION (-0.01).
@@ -78,7 +78,7 @@ class TestEnforcementFeedbackIntegration:
           (already at the floor).
         - Build a ModelEnforcementEvent with one confirmed violation
           (was_advised=True, was_corrected=True) referencing that pattern_id.
-        - Call process_enforcement_feedback(event, repository=repo).
+        - Call HandlerEnforcementFeedback(repository=repo).handle(event).
         - Assert result.status == EnumEnforcementFeedbackStatus.SUCCESS.
         - SELECT quality_score FROM learned_patterns WHERE id=<pattern_id> and
           assert it equals 0.0 (not -0.01), confirming GREATEST(..., 0.0) in

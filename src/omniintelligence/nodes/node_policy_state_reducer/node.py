@@ -48,9 +48,9 @@ from datetime import UTC, datetime
 from typing import ClassVar
 
 from omniintelligence.nodes.node_policy_state_reducer.handlers.handler_lifecycle import (
-    apply_reward_delta,
-    compute_next_lifecycle_state,
-    should_blacklist,
+    HandlerApplyRewardDelta,
+    HandlerComputeNextLifecycleState,
+    HandlerShouldBlacklist,
 )
 from omniintelligence.nodes.node_policy_state_reducer.handlers.protocols import (
     ProtocolAlertPublisher,
@@ -62,11 +62,20 @@ from omniintelligence.nodes.node_policy_state_reducer.models.enum_policy_lifecyc
 from omniintelligence.nodes.node_policy_state_reducer.models.enum_policy_type import (
     EnumPolicyType,
 )
+from omniintelligence.nodes.node_policy_state_reducer.models.model_apply_reward_delta_request import (
+    ModelApplyRewardDeltaRequest,
+)
+from omniintelligence.nodes.node_policy_state_reducer.models.model_compute_next_lifecycle_state_request import (
+    ModelComputeNextLifecycleStateRequest,
+)
 from omniintelligence.nodes.node_policy_state_reducer.models.model_policy_state_input import (
     ModelPolicyStateInput,
 )
 from omniintelligence.nodes.node_policy_state_reducer.models.model_policy_state_output import (
     ModelPolicyStateOutput,
+)
+from omniintelligence.nodes.node_policy_state_reducer.models.model_should_blacklist_request import (
+    ModelShouldBlacklistRequest,
 )
 
 logger = logging.getLogger(__name__)
@@ -167,24 +176,35 @@ class NodePolicyStateReducer:
         already_blacklisted = bool(old_state.get("blacklisted", False))
 
         # Apply reward delta to compute new reliability and counts
-        new_reliability, new_run_count, new_failure_count = apply_reward_delta(
-            current_reliability=old_reliability,
-            reward_delta=event.reward_delta,
-            run_count=run_count,
-            failure_count=failure_count,
+        reward_update = HandlerApplyRewardDelta().handle(
+            ModelApplyRewardDeltaRequest(
+                current_reliability=old_reliability,
+                reward_delta=event.reward_delta,
+                run_count=run_count,
+                failure_count=failure_count,
+            )
         )
+        new_reliability = reward_update.new_reliability
+        new_run_count = reward_update.new_run_count
+        new_failure_count = reward_update.new_failure_count
 
         # Compute positive signal ratio for CANDIDATE → VALIDATED check
         positive_runs = new_run_count - new_failure_count
         positive_signal_ratio = positive_runs / max(new_run_count, 1)
 
         # Compute next lifecycle state (table-driven, no hardcoded chains)
-        new_lifecycle_enum = compute_next_lifecycle_state(
-            current_state=old_lifecycle_enum,
-            reliability_0_1=new_reliability,
-            run_count=new_run_count,
-            positive_signal_ratio=positive_signal_ratio,
-            thresholds=thresholds,
+        new_lifecycle_enum = (
+            HandlerComputeNextLifecycleState()
+            .handle(
+                ModelComputeNextLifecycleStateRequest(
+                    current_state=old_lifecycle_enum,
+                    reliability_0_1=new_reliability,
+                    run_count=new_run_count,
+                    positive_signal_ratio=positive_signal_ratio,
+                    thresholds=thresholds,
+                )
+            )
+            .lifecycle_state
         )
         transition_occurred = new_lifecycle_enum != old_lifecycle_enum
 
@@ -192,7 +212,17 @@ class NodePolicyStateReducer:
         blacklisted = False
         alert_emitted = False
         if event.policy_type == EnumPolicyType.TOOL_RELIABILITY:
-            if should_blacklist(new_reliability, thresholds, already_blacklisted):
+            if (
+                HandlerShouldBlacklist()
+                .handle(
+                    ModelShouldBlacklistRequest(
+                        reliability_0_1=new_reliability,
+                        thresholds=thresholds,
+                        already_blacklisted=already_blacklisted,
+                    )
+                )
+                .should_blacklist
+            ):
                 blacklisted = True
                 alert_emitted = True
                 logger.warning(

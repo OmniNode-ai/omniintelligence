@@ -98,171 +98,175 @@ def _fetch_from_disk(path: str) -> str | None:
 # ---------------------------------------------------------------------------
 
 
-async def handle_document_fetch(
-    input_data: ModelDocumentFetchInput,
-    *,
-    blob_store: ProtocolBlobStore | None = None,
-) -> ModelDocumentFetchOutput:
-    """Fetch raw document content based on crawler_type.
+class HandlerDocumentFetch:
+    """Typed handler for document fetch effect."""
 
-    Args:
-        input_data: Fetch request with source_ref, crawler_type, and optional
-            repo_path (required for git_repo).
-        blob_store: Blob store for LINEAR document content retrieval.
-            Required when crawler_type is "linear".
+    def __init__(self, blob_store: ProtocolBlobStore | None = None) -> None:
+        """Inject the blob store used for LINEAR document retrieval."""
+        self._blob_store = blob_store
 
-    Returns:
-        ModelDocumentFetchOutput with status, raw_content, and optional
-        removed_event. Passed directly to DocumentParserCompute in-process.
-    """
-    source_ref = input_data.source_ref
-    crawler_type = input_data.crawler_type
-    crawl_scope = input_data.crawl_scope
-    correlation_id = input_data.correlation_id
+    async def handle(
+        self, request: ModelDocumentFetchInput
+    ) -> ModelDocumentFetchOutput:
+        """Fetch raw document content based on crawler_type.
 
-    # ------------------------------------------------------------------
-    # FILESYSTEM / WATCHDOG: read from source_ref as absolute path
-    # ------------------------------------------------------------------
-    if crawler_type in ("filesystem", "watchdog"):
-        raw = _fetch_from_disk(source_ref)
-        if raw is None:
-            logger.info(
-                "Document not found at fetch time (crawler=%s, ref=%s) — emitting removed",
-                crawler_type,
-                source_ref,
-            )
-            return ModelDocumentFetchOutput(
-                source_ref=source_ref,
-                crawl_scope=crawl_scope,
-                status=EnumFetchStatus.FILE_NOT_FOUND,
-                removed_event=ModelDocumentRemovedEvent(
+        Args:
+            request: Fetch request with source_ref, crawler_type, and optional
+                repo_path (required for git_repo).
+
+        Returns:
+            ModelDocumentFetchOutput with status, raw_content, and optional
+            removed_event. Passed directly to DocumentParserCompute in-process.
+        """
+        blob_store = self._blob_store
+        source_ref = request.source_ref
+        crawler_type = request.crawler_type
+        crawl_scope = request.crawl_scope
+        correlation_id = request.correlation_id
+
+        # ------------------------------------------------------------------
+        # FILESYSTEM / WATCHDOG: read from source_ref as absolute path
+        # ------------------------------------------------------------------
+        if crawler_type in ("filesystem", "watchdog"):
+            raw = _fetch_from_disk(source_ref)
+            if raw is None:
+                logger.info(
+                    "Document not found at fetch time (crawler=%s, ref=%s) — emitting removed",
+                    crawler_type,
+                    source_ref,
+                )
+                return ModelDocumentFetchOutput(
                     source_ref=source_ref,
                     crawl_scope=crawl_scope,
+                    status=EnumFetchStatus.FILE_NOT_FOUND,
+                    removed_event=ModelDocumentRemovedEvent(
+                        source_ref=source_ref,
+                        crawl_scope=crawl_scope,
+                        correlation_id=correlation_id,
+                    ),
+                    error=f"File not found: {source_ref}",
                     correlation_id=correlation_id,
-                ),
-                error=f"File not found: {source_ref}",
-                correlation_id=correlation_id,
-            )
-        return ModelDocumentFetchOutput(
-            source_ref=source_ref,
-            crawl_scope=crawl_scope,
-            status=EnumFetchStatus.SUCCESS,
-            raw_content=raw,
-            correlation_id=correlation_id,
-        )
-
-    # ------------------------------------------------------------------
-    # GIT_REPO: read from repo_path + source_ref, resolve file SHA
-    # ------------------------------------------------------------------
-    if crawler_type == "git_repo":
-        if input_data.repo_path is None:
+                )
             return ModelDocumentFetchOutput(
                 source_ref=source_ref,
                 crawl_scope=crawl_scope,
-                status=EnumFetchStatus.FETCH_FAILED,
-                error="repo_path is required for crawler_type='git_repo'",
-                correlation_id=correlation_id,
-            )
-
-        full_path = str(Path(input_data.repo_path) / source_ref)
-        raw = _fetch_from_disk(full_path)
-
-        if raw is None:
-            logger.info(
-                "Git document not found at fetch time (ref=%s, repo=%s) — emitting removed",
-                source_ref,
-                input_data.repo_path,
-            )
-            return ModelDocumentFetchOutput(
-                source_ref=source_ref,
-                crawl_scope=crawl_scope,
-                status=EnumFetchStatus.FILE_NOT_FOUND,
-                removed_event=ModelDocumentRemovedEvent(
-                    source_ref=source_ref,
-                    crawl_scope=crawl_scope,
-                    correlation_id=correlation_id,
-                ),
-                error=f"File not found: {full_path}",
-                correlation_id=correlation_id,
-            )
-
-        # Resolve file-level git SHA (best-effort)
-        git_sha = _resolve_git_file_sha(input_data.repo_path, source_ref)
-
-        if git_sha is None:
-            logger.warning(
-                "Git SHA resolution failed for %s in %s — continuing without version",
-                source_ref,
-                input_data.repo_path,
-            )
-            return ModelDocumentFetchOutput(
-                source_ref=source_ref,
-                crawl_scope=crawl_scope,
-                status=EnumFetchStatus.GIT_SHA_UNAVAILABLE,
+                status=EnumFetchStatus.SUCCESS,
                 raw_content=raw,
+                correlation_id=correlation_id,
+            )
+
+        # ------------------------------------------------------------------
+        # GIT_REPO: read from repo_path + source_ref, resolve file SHA
+        # ------------------------------------------------------------------
+        if crawler_type == "git_repo":
+            if request.repo_path is None:
+                return ModelDocumentFetchOutput(
+                    source_ref=source_ref,
+                    crawl_scope=crawl_scope,
+                    status=EnumFetchStatus.FETCH_FAILED,
+                    error="repo_path is required for crawler_type='git_repo'",
+                    correlation_id=correlation_id,
+                )
+
+            full_path = str(Path(request.repo_path) / source_ref)
+            raw = _fetch_from_disk(full_path)
+
+            if raw is None:
+                logger.info(
+                    "Git document not found at fetch time (ref=%s, repo=%s) — emitting removed",
+                    source_ref,
+                    request.repo_path,
+                )
+                return ModelDocumentFetchOutput(
+                    source_ref=source_ref,
+                    crawl_scope=crawl_scope,
+                    status=EnumFetchStatus.FILE_NOT_FOUND,
+                    removed_event=ModelDocumentRemovedEvent(
+                        source_ref=source_ref,
+                        crawl_scope=crawl_scope,
+                        correlation_id=correlation_id,
+                    ),
+                    error=f"File not found: {full_path}",
+                    correlation_id=correlation_id,
+                )
+
+            # Resolve file-level git SHA (best-effort)
+            git_sha = _resolve_git_file_sha(request.repo_path, source_ref)
+
+            if git_sha is None:
+                logger.warning(
+                    "Git SHA resolution failed for %s in %s — continuing without version",
+                    source_ref,
+                    request.repo_path,
+                )
+                return ModelDocumentFetchOutput(
+                    source_ref=source_ref,
+                    crawl_scope=crawl_scope,
+                    status=EnumFetchStatus.GIT_SHA_UNAVAILABLE,
+                    raw_content=raw,
+                    resolved_source_version=None,
+                    correlation_id=correlation_id,
+                )
+
+            return ModelDocumentFetchOutput(
+                source_ref=source_ref,
+                crawl_scope=crawl_scope,
+                status=EnumFetchStatus.SUCCESS,
+                raw_content=raw,
+                resolved_source_version=git_sha,
+                correlation_id=correlation_id,
+            )
+
+        # ------------------------------------------------------------------
+        # LINEAR: fetch from blob store
+        # ------------------------------------------------------------------
+        if crawler_type == "linear":
+            if blob_store is None:
+                return ModelDocumentFetchOutput(
+                    source_ref=source_ref,
+                    crawl_scope=crawl_scope,
+                    status=EnumFetchStatus.FETCH_FAILED,
+                    error="blob_store is required for crawler_type='linear'",
+                    correlation_id=correlation_id,
+                )
+
+            try:
+                raw = await blob_store.get(source_ref)
+            except (RuntimeError, KeyError) as exc:
+                logger.error(
+                    "Blob store fetch failed for Linear item %s: %s",
+                    source_ref,
+                    exc,
+                )
+                return ModelDocumentFetchOutput(
+                    source_ref=source_ref,
+                    crawl_scope=crawl_scope,
+                    status=EnumFetchStatus.FETCH_FAILED,
+                    error=str(exc),
+                    correlation_id=correlation_id,
+                )
+
+            return ModelDocumentFetchOutput(
+                source_ref=source_ref,
+                crawl_scope=crawl_scope,
+                status=EnumFetchStatus.SUCCESS,
+                raw_content=raw,
+                # source_version for LINEAR is the updatedAt from the triggering event;
+                # callers should use the event's source_version field directly.
                 resolved_source_version=None,
                 correlation_id=correlation_id,
             )
 
+        # ------------------------------------------------------------------
+        # Unknown crawler_type (should not happen with typed input)
+        # ------------------------------------------------------------------
         return ModelDocumentFetchOutput(
             source_ref=source_ref,
             crawl_scope=crawl_scope,
-            status=EnumFetchStatus.SUCCESS,
-            raw_content=raw,
-            resolved_source_version=git_sha,
+            status=EnumFetchStatus.FETCH_FAILED,
+            error=f"Unknown crawler_type: {crawler_type!r}",
             correlation_id=correlation_id,
         )
 
-    # ------------------------------------------------------------------
-    # LINEAR: fetch from blob store
-    # ------------------------------------------------------------------
-    if crawler_type == "linear":
-        if blob_store is None:
-            return ModelDocumentFetchOutput(
-                source_ref=source_ref,
-                crawl_scope=crawl_scope,
-                status=EnumFetchStatus.FETCH_FAILED,
-                error="blob_store is required for crawler_type='linear'",
-                correlation_id=correlation_id,
-            )
 
-        try:
-            raw = await blob_store.get(source_ref)
-        except (RuntimeError, KeyError) as exc:
-            logger.error(
-                "Blob store fetch failed for Linear item %s: %s",
-                source_ref,
-                exc,
-            )
-            return ModelDocumentFetchOutput(
-                source_ref=source_ref,
-                crawl_scope=crawl_scope,
-                status=EnumFetchStatus.FETCH_FAILED,
-                error=str(exc),
-                correlation_id=correlation_id,
-            )
-
-        return ModelDocumentFetchOutput(
-            source_ref=source_ref,
-            crawl_scope=crawl_scope,
-            status=EnumFetchStatus.SUCCESS,
-            raw_content=raw,
-            # source_version for LINEAR is the updatedAt from the triggering event;
-            # callers should use the event's source_version field directly.
-            resolved_source_version=None,
-            correlation_id=correlation_id,
-        )
-
-    # ------------------------------------------------------------------
-    # Unknown crawler_type (should not happen with typed input)
-    # ------------------------------------------------------------------
-    return ModelDocumentFetchOutput(
-        source_ref=source_ref,
-        crawl_scope=crawl_scope,
-        status=EnumFetchStatus.FETCH_FAILED,
-        error=f"Unknown crawler_type: {crawler_type!r}",
-        correlation_id=correlation_id,
-    )
-
-
-__all__ = ["handle_document_fetch"]
+__all__ = ["HandlerDocumentFetch"]

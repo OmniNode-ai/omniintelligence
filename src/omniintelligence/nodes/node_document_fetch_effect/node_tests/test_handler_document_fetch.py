@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 # Copyright (c) 2025 OmniNode Team
-"""Unit tests for handle_document_fetch.
+"""Unit tests for HandlerDocumentFetch.
 
 Covers the requirements from OMN-2389:
 
@@ -36,7 +36,7 @@ from pathlib import Path
 import pytest
 
 from omniintelligence.nodes.node_document_fetch_effect.handlers.handler_document_fetch import (
-    handle_document_fetch,
+    HandlerDocumentFetch,
 )
 from omniintelligence.nodes.node_document_fetch_effect.models.enum_fetch_status import (
     EnumFetchStatus,
@@ -67,7 +67,7 @@ async def test_filesystem_success() -> None:
         tmp_path = f.name
 
     try:
-        result = await handle_document_fetch(
+        result = await HandlerDocumentFetch().handle(
             ModelDocumentFetchInput(
                 source_ref=tmp_path,
                 crawler_type="filesystem",
@@ -86,7 +86,7 @@ async def test_filesystem_success() -> None:
 @pytest.mark.asyncio
 async def test_filesystem_file_not_found() -> None:
     """Filesystem fetch returns FILE_NOT_FOUND when file is missing."""
-    result = await handle_document_fetch(
+    result = await HandlerDocumentFetch().handle(
         ModelDocumentFetchInput(
             source_ref="/nonexistent/path/to/file.md",
             crawler_type="filesystem",
@@ -112,7 +112,7 @@ async def test_watchdog_success() -> None:
         tmp_path = f.name
 
     try:
-        result = await handle_document_fetch(
+        result = await HandlerDocumentFetch().handle(
             ModelDocumentFetchInput(
                 source_ref=tmp_path,
                 crawler_type="watchdog",
@@ -139,7 +139,7 @@ async def test_git_repo_success(
     git_repo.write("docs/guide.md", "# Git Guide")
     git_repo.commit("add guide")
 
-    result = await handle_document_fetch(
+    result = await HandlerDocumentFetch().handle(
         ModelDocumentFetchInput(
             source_ref="docs/guide.md",
             crawler_type="git_repo",
@@ -159,7 +159,7 @@ async def test_git_repo_file_not_found(
     git_repo: GitRepoFixture,
 ) -> None:
     """Git repo fetch returns FILE_NOT_FOUND when file is missing."""
-    result = await handle_document_fetch(
+    result = await HandlerDocumentFetch().handle(
         ModelDocumentFetchInput(
             source_ref="missing/file.md",
             crawler_type="git_repo",
@@ -176,7 +176,7 @@ async def test_git_repo_file_not_found(
 @pytest.mark.asyncio
 async def test_git_repo_missing_repo_path() -> None:
     """Git repo fetch fails gracefully when repo_path is not provided."""
-    result = await handle_document_fetch(
+    result = await HandlerDocumentFetch().handle(
         ModelDocumentFetchInput(
             source_ref="docs/file.md",
             crawler_type="git_repo",
@@ -197,7 +197,7 @@ async def test_git_repo_sha_unavailable_when_file_untracked(
     # Write file to disk but do NOT commit it
     git_repo.write("untracked.md", "# Untracked")
 
-    result = await handle_document_fetch(
+    result = await HandlerDocumentFetch().handle(
         ModelDocumentFetchInput(
             source_ref="untracked.md",
             crawler_type="git_repo",
@@ -224,13 +224,12 @@ async def test_linear_success(
     """Linear fetch succeeds when blob store returns content."""
     blob_store.put("OMN-1234", "# Ticket 1234\n\nContent here.")
 
-    result = await handle_document_fetch(
+    result = await HandlerDocumentFetch(blob_store=blob_store).handle(
         ModelDocumentFetchInput(
             source_ref="OMN-1234",
             crawler_type="linear",
             crawl_scope=SCOPE,
-        ),
-        blob_store=blob_store,
+        )
     )
 
     assert result.status == EnumFetchStatus.SUCCESS
@@ -243,13 +242,12 @@ async def test_linear_blob_not_found(
     blob_store: InMemoryBlobStore,
 ) -> None:
     """Linear fetch returns FETCH_FAILED when blob is not in store."""
-    result = await handle_document_fetch(
+    result = await HandlerDocumentFetch(blob_store=blob_store).handle(
         ModelDocumentFetchInput(
             source_ref="OMN-9999",
             crawler_type="linear",
             crawl_scope=SCOPE,
-        ),
-        blob_store=blob_store,
+        )
     )
 
     assert result.status == EnumFetchStatus.FETCH_FAILED
@@ -260,13 +258,12 @@ async def test_linear_blob_not_found(
 @pytest.mark.asyncio
 async def test_linear_missing_blob_store() -> None:
     """Linear fetch returns FETCH_FAILED when no blob_store provided."""
-    result = await handle_document_fetch(
+    result = await HandlerDocumentFetch(blob_store=None).handle(
         ModelDocumentFetchInput(
             source_ref="OMN-1234",
             crawler_type="linear",
             crawl_scope=SCOPE,
-        ),
-        blob_store=None,
+        )
     )
 
     assert result.status == EnumFetchStatus.FETCH_FAILED
@@ -281,7 +278,7 @@ async def test_linear_missing_blob_store() -> None:
 @pytest.mark.asyncio
 async def test_correlation_id_propagated() -> None:
     """correlation_id from input is propagated to the output."""
-    result = await handle_document_fetch(
+    result = await HandlerDocumentFetch().handle(
         ModelDocumentFetchInput(
             source_ref="/nonexistent.md",
             crawler_type="filesystem",

@@ -10,7 +10,7 @@ and produces tier transition decisions. Pure reducer — does NOT persist.
 This node follows the ONEX declarative pattern:
     - DECLARATIVE reducer driven by contract.yaml
     - Pure reduction: no I/O, no side effects
-    - Lightweight shell that delegates to handle_doc_promotion
+    - Lightweight shell that delegates to HandlerDocPromotion
 
 Responsibilities:
     - Dispatch on source_type to select PromotionThresholdSet
@@ -53,7 +53,7 @@ class NodeDocPromotionReducer(
     custom routing code.
 
     Threshold sets are defined in models/model_promotion_threshold_set.py
-    and injected into the handler at call time.
+    and injected into the handler constructor.
 
     Supported Operations (defined in contract.yaml handler_routing):
         - evaluate_promotion: Evaluate candidates and return tier decisions
@@ -61,14 +61,14 @@ class NodeDocPromotionReducer(
     Example:
         ```python
         from omniintelligence.nodes.node_doc_promotion_reducer.handlers import (
-            handle_doc_promotion,
+            HandlerDocPromotion,
         )
         from omniintelligence.nodes.node_doc_promotion_reducer.models import (
             ModelDocPromotionInput,
             ModelPromotionCandidate,
         )
 
-        result = await handle_doc_promotion(
+        result = await HandlerDocPromotion().handle(
             ModelDocPromotionInput(candidates=(candidate,)),
         )
         ```

@@ -24,6 +24,9 @@ from omniintelligence.nodes.node_scoring_reducer_compute.models.enum_policy_type
 from omniintelligence.nodes.node_scoring_reducer_compute.models.enum_reward_target_type import (
     EnumRewardTargetType,
 )
+from omniintelligence.nodes.node_scoring_reducer_compute.models.model_evaluate_run_request import (
+    ModelEvaluateRunRequest,
+)
 from omniintelligence.nodes.node_scoring_reducer_compute.models.model_evaluation_result import (
     ModelEvaluationResult,
 )
@@ -50,6 +53,7 @@ from omniintelligence.nodes.node_scoring_reducer_compute.models.model_scoring_ou
 )
 
 __all__ = [
+    "ModelEvaluateRunRequest",
     "EnumGateType",
     "EnumObjectiveLayer",
     "EnumPolicyType",

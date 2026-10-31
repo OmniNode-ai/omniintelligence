@@ -16,7 +16,7 @@ Pipeline:
        dimensions. minimize-direction terms invert the evidence value.
 
 Public API:
-    ``evaluate_run(evidence, spec) -> EvaluationResult``
+    ``HandlerScoring().handle(ModelEvaluateRunRequest(evidence=evidence, spec=spec))``
 
 Replay invariant: identical inputs → bit-identical outputs (enforced by tests).
 
@@ -36,7 +36,10 @@ from __future__ import annotations
 from omnibase_core.nodes.node_compute import NodeCompute
 
 from omniintelligence.nodes.node_scoring_reducer_compute.handlers.handler_scoring import (
-    evaluate_run,
+    HandlerScoring,
+)
+from omniintelligence.nodes.node_scoring_reducer_compute.models import (
+    ModelEvaluateRunRequest,
 )
 from omniintelligence.nodes.node_scoring_reducer_compute.models.model_scoring_input import (
     ModelScoringInput,
@@ -54,15 +57,17 @@ class NodeScoringReducerCompute(NodeCompute[ModelScoringInput, ModelScoringOutpu
       2. Shaped reward — weighted ScoreVector computation (only on gate pass).
 
     This node is a thin declarative shell. All computation is delegated to
-    ``evaluate_run`` in the handler module.
+    ``HandlerScoring.handle`` in the handler module.
 
     Example:
         ```python
         from omniintelligence.nodes.node_scoring_reducer_compute.handlers import (
-            evaluate_run,
+            HandlerScoring,
         )
 
-        result = evaluate_run(evidence=bundle, spec=objective_spec)
+        result = HandlerScoring().handle(
+            ModelEvaluateRunRequest(evidence=bundle, spec=objective_spec)
+        )
         if result.passed:
             print(f"Score: {result.score_vector}")
         else:
@@ -73,11 +78,10 @@ class NodeScoringReducerCompute(NodeCompute[ModelScoringInput, ModelScoringOutpu
     async def compute(self, input_data: ModelScoringInput) -> ModelScoringOutput:
         """Evaluate evidence against objective spec.
 
-        Delegates entirely to the pure ``evaluate_run`` handler.
+        Delegates entirely to the pure ``HandlerScoring.handle`` handler.
         """
-        result = evaluate_run(
-            evidence=input_data.evidence,
-            spec=input_data.spec,
+        result = HandlerScoring().handle(
+            ModelEvaluateRunRequest(evidence=input_data.evidence, spec=input_data.spec)
         )
         return ModelScoringOutput(
             result=result,

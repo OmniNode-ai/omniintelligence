@@ -117,60 +117,65 @@ def filter_confirmed_violations(
     return [v for v in violations if v.was_advised and v.was_corrected]
 
 
-async def process_enforcement_feedback(
-    event: ModelEnforcementEvent,
-    *,
-    repository: ProtocolPatternRepository,
-) -> ModelEnforcementFeedbackResult:
-    """Process an enforcement feedback event and apply confidence adjustments.
+class HandlerEnforcementFeedback:
+    """Apply conservative confidence adjustments for confirmed violations."""
 
-    This is the main entry point for the enforcement feedback handler. It:
-    1. Validates the event contains violations
-    2. Filters to only confirmed violations (advised AND corrected)
-    3. Applies conservative confidence adjustments (-0.01 per confirmed violation)
-    4. Returns structured result with adjustment details
+    def __init__(self, repository: ProtocolPatternRepository) -> None:
+        """Inject the repository used for confidence adjustments."""
+        self._repository = repository
 
-    Per handler contract: ALL exceptions are caught and returned as structured
-    ERROR results. This function never raises - unexpected errors produce a
-    result with status=EnumEnforcementFeedbackStatus.ERROR.
+    async def handle(
+        self, request: ModelEnforcementEvent
+    ) -> ModelEnforcementFeedbackResult:
+        """Process an enforcement feedback event and apply confidence adjustments.
 
-    Args:
-        event: The enforcement event from omniclaude's PostToolUse hook.
-        repository: Database repository implementing ProtocolPatternRepository.
+        This is the main entry point for the enforcement feedback handler. It:
+        1. Validates the event contains violations
+        2. Filters to only confirmed violations (advised AND corrected)
+        3. Applies conservative confidence adjustments (-0.01 per confirmed violation)
+        4. Returns structured result with adjustment details
 
-    Returns:
-        ModelEnforcementFeedbackResult with processing status and adjustments.
-    """
-    try:
-        return await _process_enforcement_feedback_inner(
-            event=event,
-            repository=repository,
-        )
-    except Exception as exc:
-        # Handler contract: return structured errors, never raise.
-        # This catches unexpected exceptions not handled in the inner function
-        # (e.g., infrastructure failures before any violation processing).
-        sanitized_error = get_log_sanitizer().sanitize(str(exc))
-        logger.exception(
-            "Unhandled exception in enforcement feedback handler",
-            extra={
-                "correlation_id": str(event.correlation_id),
-                "session_id": str(event.session_id),
-                "error": sanitized_error,
-                "error_type": type(exc).__name__,
-            },
-        )
-        return ModelEnforcementFeedbackResult(
-            status=EnumEnforcementFeedbackStatus.ERROR,
-            correlation_id=event.correlation_id,
-            session_id=event.session_id,
-            patterns_checked=event.patterns_checked,
-            violations_found=event.violations_found,
-            eligible_violations=0,
-            adjustments=[],
-            processed_at=datetime.now(UTC),
-            error_message=sanitized_error,
-        )
+        Per handler contract: ALL exceptions are caught and returned as structured
+        ERROR results. This method never raises - unexpected errors produce a
+        result with status=EnumEnforcementFeedbackStatus.ERROR.
+
+        Args:
+            request: The enforcement event from omniclaude's PostToolUse hook.
+
+        Returns:
+            ModelEnforcementFeedbackResult with processing status and adjustments.
+        """
+        event = request
+        try:
+            return await _process_enforcement_feedback_inner(
+                event=event,
+                repository=self._repository,
+            )
+        except Exception as exc:
+            # Handler contract: return structured errors, never raise.
+            # This catches unexpected exceptions not handled in the inner function
+            # (e.g., infrastructure failures before any violation processing).
+            sanitized_error = get_log_sanitizer().sanitize(str(exc))
+            logger.exception(
+                "Unhandled exception in enforcement feedback handler",
+                extra={
+                    "correlation_id": str(event.correlation_id),
+                    "session_id": str(event.session_id),
+                    "error": sanitized_error,
+                    "error_type": type(exc).__name__,
+                },
+            )
+            return ModelEnforcementFeedbackResult(
+                status=EnumEnforcementFeedbackStatus.ERROR,
+                correlation_id=event.correlation_id,
+                session_id=event.session_id,
+                patterns_checked=event.patterns_checked,
+                violations_found=event.violations_found,
+                eligible_violations=0,
+                adjustments=[],
+                processed_at=datetime.now(UTC),
+                error_message=sanitized_error,
+            )
 
 
 async def _process_enforcement_feedback_inner(
@@ -374,5 +379,5 @@ async def _apply_confidence_adjustment(
 __all__ = [
     "CONFIDENCE_ADJUSTMENT_PER_VIOLATION",
     "filter_confirmed_violations",
-    "process_enforcement_feedback",
+    "HandlerEnforcementFeedback",
 ]

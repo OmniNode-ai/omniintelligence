@@ -432,7 +432,10 @@ def _run_evaluation(
     """
     try:
         from omniintelligence.nodes.node_scoring_reducer_compute.handlers.handler_scoring import (
-            evaluate_run,
+            HandlerScoring,
+        )
+        from omniintelligence.nodes.node_scoring_reducer_compute.models import (
+            ModelEvaluateRunRequest,
         )
     except ImportError:
         logger.warning(
@@ -441,7 +444,9 @@ def _run_evaluation(
         )
         return None
 
-    return evaluate_run(evidence=evidence_bundle, spec=objective_spec)
+    return HandlerScoring().handle(
+        ModelEvaluateRunRequest(evidence=evidence_bundle, spec=objective_spec)
+    )
 
 
 async def _emit_to_kafka(

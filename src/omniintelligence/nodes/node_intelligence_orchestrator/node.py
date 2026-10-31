@@ -26,8 +26,8 @@ Intent Reception (OMN-2034):
     a pure shell with no custom methods.
 
     Handlers:
-        - handle_receive_intent: Receive and log a single intent
-        - handle_receive_intents: Receive and log a batch of intents
+        - HandlerReceiveIntent: Receive and log a single intent
+        - HandlerReceiveIntents: Receive and log a batch of intents
 
     See: handlers/handler_receive_intent.py
 

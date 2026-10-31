@@ -14,7 +14,7 @@ from omniintelligence.constants import (
 from omniintelligence.nodes.node_dispatch_outcome_eval_effect.handlers.handler_dispatch_outcome import (
     PUBLISH_TOPIC,
     SUBSCRIBE_TOPIC,
-    handle_dispatch_outcome,
+    HandlerDispatchOutcome,
 )
 from omniintelligence.nodes.node_dispatch_outcome_eval_effect.models import (
     EnumUsageSource,
@@ -79,7 +79,7 @@ async def test_handler_routes_terminal_status_to_verdict(
     """Handler maps terminal dispatch statuses to verdicts."""
     event = _make_event(status)
 
-    result = await handle_dispatch_outcome(event)
+    result = await HandlerDispatchOutcome().handle(event)
 
     assert result.verdict == expected_verdict
     assert result.quality_score is None

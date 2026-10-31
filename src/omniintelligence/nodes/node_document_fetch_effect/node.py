@@ -50,26 +50,25 @@ class NodeDocumentFetchEffect(NodeEffect):
         - fetch_document: Fetch raw document content for downstream parsing
 
     Dependency Injection:
-        The ``handle_document_fetch`` handler accepts a ``ProtocolBlobStore``
+        The ``HandlerDocumentFetch`` handler constructor accepts a ``ProtocolBlobStore``
         instance for LINEAR documents. Resolved by the caller or RuntimeHostProcess.
 
     Example:
         ```python
         from omniintelligence.nodes.node_document_fetch_effect.handlers import (
-            handle_document_fetch,
+            HandlerDocumentFetch,
         )
         from omniintelligence.nodes.node_document_fetch_effect.models import (
             ModelDocumentFetchInput,
         )
 
-        result = await handle_document_fetch(
+        result = await HandlerDocumentFetch(blob_store=my_blob_store).handle(
             ModelDocumentFetchInput(
                 source_ref="/path/to/file.md",
                 crawler_type="git_repo",
                 repo_path="/path/to/repo",
                 crawl_scope="omninode/docs",
             ),
-            blob_store=my_blob_store,
         )
         ```
     """

@@ -5,8 +5,8 @@
 """Unit tests for the orchestrator intent reception handler.
 
 Tests verify that:
-    - handle_receive_intent correctly logs and returns a receipt for a single intent
-    - handle_receive_intents processes batches and returns receipts for each
+    - HandlerReceiveIntent.handle correctly logs and returns a receipt for a single intent
+    - HandlerReceiveIntents.handle processes batches and returns receipts for each
     - Empty intent batches return empty receipt lists
     - Correlation IDs are threaded through to receipts
     - Receipt fields match the input intent fields
@@ -27,8 +27,12 @@ from omnibase_core.models.reducer.payloads.model_extension_payloads import (
 from pydantic import ValidationError
 
 from omniintelligence.nodes.node_intelligence_orchestrator.handlers.handler_receive_intent import (
-    handle_receive_intent,
-    handle_receive_intents,
+    HandlerReceiveIntent,
+    HandlerReceiveIntents,
+)
+from omniintelligence.nodes.node_intelligence_orchestrator.models import (
+    ModelReceiveIntentRequest,
+    ModelReceiveIntentsRequest,
 )
 from omniintelligence.nodes.node_intelligence_orchestrator.models.model_intent_receipt import (
     ModelIntentReceipt,
@@ -94,7 +98,7 @@ def sample_intent_with_priority(
 
 
 # =============================================================================
-# Tests: handle_receive_intent (single intent)
+# Tests: HandlerReceiveIntent.handle (single intent)
 # =============================================================================
 
 
@@ -106,7 +110,9 @@ class TestHandleReceiveIntent:
         sample_intent: ModelIntent,
     ) -> None:
         """Intent is received and receipt confirms success."""
-        receipt = handle_receive_intent(sample_intent)
+        receipt = HandlerReceiveIntent().handle(
+            ModelReceiveIntentRequest(intent=sample_intent)
+        )
 
         assert receipt.received is True
         assert receipt.intent_id == sample_intent.intent_id
@@ -118,7 +124,9 @@ class TestHandleReceiveIntent:
         sample_intent: ModelIntent,
     ) -> None:
         """Receipt intent_id matches the input intent's intent_id."""
-        receipt = handle_receive_intent(sample_intent)
+        receipt = HandlerReceiveIntent().handle(
+            ModelReceiveIntentRequest(intent=sample_intent)
+        )
         assert receipt.intent_id == sample_intent.intent_id
 
     def test_receipt_preserves_intent_type(
@@ -126,7 +134,9 @@ class TestHandleReceiveIntent:
         sample_intent: ModelIntent,
     ) -> None:
         """Receipt intent_type matches the input intent's intent_type."""
-        receipt = handle_receive_intent(sample_intent)
+        receipt = HandlerReceiveIntent().handle(
+            ModelReceiveIntentRequest(intent=sample_intent)
+        )
         assert receipt.intent_type == sample_intent.intent_type
 
     def test_receipt_preserves_target(
@@ -135,7 +145,9 @@ class TestHandleReceiveIntent:
         sample_pattern_id: str,
     ) -> None:
         """Receipt target matches the input intent's target."""
-        receipt = handle_receive_intent(sample_intent)
+        receipt = HandlerReceiveIntent().handle(
+            ModelReceiveIntentRequest(intent=sample_intent)
+        )
         assert receipt.target == f"postgres://patterns/{sample_pattern_id}"
 
     def test_correlation_id_threaded_to_receipt(
@@ -144,9 +156,10 @@ class TestHandleReceiveIntent:
         sample_correlation_id: UUID,
     ) -> None:
         """Correlation ID is threaded through to the receipt."""
-        receipt = handle_receive_intent(
-            sample_intent,
-            correlation_id=sample_correlation_id,
+        receipt = HandlerReceiveIntent().handle(
+            ModelReceiveIntentRequest(
+                correlation_id=sample_correlation_id, intent=sample_intent
+            )
         )
         assert receipt.correlation_id == sample_correlation_id
 
@@ -155,7 +168,9 @@ class TestHandleReceiveIntent:
         sample_intent: ModelIntent,
     ) -> None:
         """Receipt has None correlation_id when not provided."""
-        receipt = handle_receive_intent(sample_intent)
+        receipt = HandlerReceiveIntent().handle(
+            ModelReceiveIntentRequest(intent=sample_intent)
+        )
         assert receipt.correlation_id is None
 
     def test_receipt_has_received_at_timestamp(
@@ -163,7 +178,9 @@ class TestHandleReceiveIntent:
         sample_intent: ModelIntent,
     ) -> None:
         """Receipt has a received_at timestamp."""
-        receipt = handle_receive_intent(sample_intent)
+        receipt = HandlerReceiveIntent().handle(
+            ModelReceiveIntentRequest(intent=sample_intent)
+        )
         assert receipt.received_at is not None
 
     def test_receipt_has_descriptive_message(
@@ -171,7 +188,9 @@ class TestHandleReceiveIntent:
         sample_intent: ModelIntent,
     ) -> None:
         """Receipt message describes the received intent."""
-        receipt = handle_receive_intent(sample_intent)
+        receipt = HandlerReceiveIntent().handle(
+            ModelReceiveIntentRequest(intent=sample_intent)
+        )
         assert "extension" in receipt.message
         assert "postgres://patterns/" in receipt.message
 
@@ -180,7 +199,9 @@ class TestHandleReceiveIntent:
         sample_intent: ModelIntent,
     ) -> None:
         """Receipt model is immutable (frozen)."""
-        receipt = handle_receive_intent(sample_intent)
+        receipt = HandlerReceiveIntent().handle(
+            ModelReceiveIntentRequest(intent=sample_intent)
+        )
         with pytest.raises(ValidationError):
             receipt.received = False  # type: ignore[misc]
 
@@ -192,9 +213,10 @@ class TestHandleReceiveIntent:
     ) -> None:
         """Handler logs intent reception with structured fields."""
         with caplog.at_level(logging.INFO):
-            handle_receive_intent(
-                sample_intent,
-                correlation_id=sample_correlation_id,
+            HandlerReceiveIntent().handle(
+                ModelReceiveIntentRequest(
+                    correlation_id=sample_correlation_id, intent=sample_intent
+                )
             )
 
         assert "Intent received from reducer" in caplog.text
@@ -204,13 +226,15 @@ class TestHandleReceiveIntent:
         sample_intent_with_priority: ModelIntent,
     ) -> None:
         """Handler processes high-priority intents correctly."""
-        receipt = handle_receive_intent(sample_intent_with_priority)
+        receipt = HandlerReceiveIntent().handle(
+            ModelReceiveIntentRequest(intent=sample_intent_with_priority)
+        )
         assert receipt.received is True
         assert receipt.intent_type == "extension"
 
 
 # =============================================================================
-# Tests: handle_receive_intents (batch)
+# Tests: HandlerReceiveIntents.handle (batch)
 # =============================================================================
 
 
@@ -221,15 +245,23 @@ class TestHandleReceiveIntents:
         self,
     ) -> None:
         """Empty intent tuple returns empty receipt list."""
-        receipts = handle_receive_intents(())
-        assert receipts == []
+        receipts = (
+            HandlerReceiveIntents()
+            .handle(ModelReceiveIntentsRequest(intents=()))
+            .receipts
+        )
+        assert receipts == ()
 
     def test_single_intent_batch(
         self,
         sample_intent: ModelIntent,
     ) -> None:
         """Single-intent batch returns one receipt."""
-        receipts = handle_receive_intents((sample_intent,))
+        receipts = (
+            HandlerReceiveIntents()
+            .handle(ModelReceiveIntentsRequest(intents=(sample_intent,)))
+            .receipts
+        )
         assert len(receipts) == 1
         assert receipts[0].received is True
 
@@ -247,7 +279,11 @@ class TestHandleReceiveIntents:
             for i in range(3)
         )
 
-        receipts = handle_receive_intents(intents)
+        receipts = (
+            HandlerReceiveIntents()
+            .handle(ModelReceiveIntentsRequest(intents=intents))
+            .receipts
+        )
         assert len(receipts) == 3
         assert all(r.received for r in receipts)
 
@@ -257,9 +293,14 @@ class TestHandleReceiveIntents:
         sample_correlation_id: UUID,
     ) -> None:
         """Correlation ID is threaded to all receipts in a batch."""
-        receipts = handle_receive_intents(
-            (sample_intent,),
-            correlation_id=sample_correlation_id,
+        receipts = (
+            HandlerReceiveIntents()
+            .handle(
+                ModelReceiveIntentsRequest(
+                    correlation_id=sample_correlation_id, intents=(sample_intent,)
+                )
+            )
+            .receipts
         )
         assert all(r.correlation_id == sample_correlation_id for r in receipts)
 
@@ -277,7 +318,11 @@ class TestHandleReceiveIntents:
             for i in range(3)
         )
 
-        receipts = handle_receive_intents(intents)
+        receipts = (
+            HandlerReceiveIntents()
+            .handle(ModelReceiveIntentsRequest(intents=intents))
+            .receipts
+        )
         intent_ids = [r.intent_id for r in receipts]
         assert len(set(intent_ids)) == 3
 
@@ -288,7 +333,9 @@ class TestHandleReceiveIntents:
     ) -> None:
         """Batch handler logs processing start and completion."""
         with caplog.at_level(logging.INFO):
-            handle_receive_intents((sample_intent,))
+            HandlerReceiveIntents().handle(
+                ModelReceiveIntentsRequest(intents=(sample_intent,))
+            )
 
         assert "Processing intent batch from reducer" in caplog.text
         assert "Intent batch processing complete" in caplog.text

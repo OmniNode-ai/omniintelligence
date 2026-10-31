@@ -19,6 +19,15 @@ from omniintelligence.nodes.node_intelligence_orchestrator.models.model_orchestr
     OrchestratorResultsDict,
     OutputDataDict,
 )
+from omniintelligence.nodes.node_intelligence_orchestrator.models.model_receive_intent_request import (
+    ModelReceiveIntentRequest,
+)
+from omniintelligence.nodes.node_intelligence_orchestrator.models.model_receive_intents_request import (
+    ModelReceiveIntentsRequest,
+)
+from omniintelligence.nodes.node_intelligence_orchestrator.models.model_receive_intents_response import (
+    ModelReceiveIntentsResponse,
+)
 
 __all__ = [
     "IntentMetadataDict",
@@ -26,6 +35,9 @@ __all__ = [
     "ModelIntentReceipt",
     "ModelOrchestratorInput",
     "ModelOrchestratorOutput",
+    "ModelReceiveIntentRequest",
+    "ModelReceiveIntentsRequest",
+    "ModelReceiveIntentsResponse",
     "OrchestratorContextDict",
     "OrchestratorIntentDict",
     "OrchestratorPayloadDict",

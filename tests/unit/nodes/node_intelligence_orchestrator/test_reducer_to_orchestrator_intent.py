@@ -6,9 +6,9 @@
 
 This test proves the intent channel works by:
     1. Creating a reducer input for a PATTERN_LIFECYCLE transition
-    2. Processing it through the reducer handler (handle_pattern_lifecycle_process)
+    2. Processing it through the reducer handler (HandlerPatternLifecycleProcess)
     3. Extracting the emitted ModelIntent from the reducer output
-    4. Passing it to the orchestrator handler (handle_receive_intent)
+    4. Passing it to the orchestrator handler (HandlerReceiveIntent.handle)
     5. Verifying the receipt confirms successful reception
 
 This is the core verification for OMN-2034: "Wire intelligence reducer
@@ -28,11 +28,15 @@ from omnibase_core.models.reducer.payloads.model_extension_payloads import (
 )
 
 from omniintelligence.nodes.node_intelligence_orchestrator.handlers.handler_receive_intent import (
-    handle_receive_intent,
-    handle_receive_intents,
+    HandlerReceiveIntent,
+    HandlerReceiveIntents,
+)
+from omniintelligence.nodes.node_intelligence_orchestrator.models import (
+    ModelReceiveIntentRequest,
+    ModelReceiveIntentsRequest,
 )
 from omniintelligence.nodes.node_intelligence_reducer.handlers.handler_process import (
-    handle_pattern_lifecycle_process,
+    HandlerPatternLifecycleProcess,
 )
 from omniintelligence.nodes.node_intelligence_reducer.models.model_pattern_lifecycle_reducer_input import (
     ModelPatternLifecycleReducerInput,
@@ -133,7 +137,7 @@ class TestReducerToOrchestratorIntentChannel:
         This is the primary acceptance test for OMN-2034.
         """
         # Step 1: Reducer processes the transition
-        reducer_output = handle_pattern_lifecycle_process(promote_direct_input)
+        reducer_output = HandlerPatternLifecycleProcess().handle(promote_direct_input)
 
         # Step 2: Verify reducer emitted intents
         assert len(reducer_output.intents) == 1, (
@@ -147,9 +151,10 @@ class TestReducerToOrchestratorIntentChannel:
         assert intent.target == f"postgres://patterns/{sample_pattern_id}"
 
         # Step 4: Orchestrator receives the intent
-        receipt = handle_receive_intent(
-            intent,
-            correlation_id=sample_correlation_id,
+        receipt = HandlerReceiveIntent().handle(
+            ModelReceiveIntentRequest(
+                correlation_id=sample_correlation_id, intent=intent
+            )
         )
 
         # Step 5: Verify receipt
@@ -166,15 +171,16 @@ class TestReducerToOrchestratorIntentChannel:
     ) -> None:
         """Reducer emits deprecate intent; orchestrator receives and logs it."""
         # Reducer processes the transition
-        reducer_output = handle_pattern_lifecycle_process(deprecate_input)
+        reducer_output = HandlerPatternLifecycleProcess().handle(deprecate_input)
         assert len(reducer_output.intents) == 1
 
         intent = reducer_output.intents[0]
 
         # Orchestrator receives
-        receipt = handle_receive_intent(
-            intent,
-            correlation_id=sample_correlation_id,
+        receipt = HandlerReceiveIntent().handle(
+            ModelReceiveIntentRequest(
+                correlation_id=sample_correlation_id, intent=intent
+            )
         )
         assert receipt.received is True
         assert receipt.intent_type == "extension"
@@ -204,17 +210,22 @@ class TestReducerToOrchestratorIntentChannel:
             request_id=sample_request_id,
         )
 
-        reducer_output = handle_pattern_lifecycle_process(invalid_input)
+        reducer_output = HandlerPatternLifecycleProcess().handle(invalid_input)
 
         # Failed transition emits no intents
         assert len(reducer_output.intents) == 0
 
         # Orchestrator receives empty batch
-        receipts = handle_receive_intents(
-            reducer_output.intents,
-            correlation_id=sample_correlation_id,
+        receipts = (
+            HandlerReceiveIntents()
+            .handle(
+                ModelReceiveIntentsRequest(
+                    correlation_id=sample_correlation_id, intents=reducer_output.intents
+                )
+            )
+            .receipts
         )
-        assert receipts == []
+        assert receipts == ()
 
     def test_batch_intents_from_multiple_transitions(
         self,
@@ -261,15 +272,20 @@ class TestReducerToOrchestratorIntentChannel:
         # Collect intents from both transitions
         all_intents: list[ModelIntent] = []
         for input_data in inputs:
-            output = handle_pattern_lifecycle_process(input_data)
+            output = HandlerPatternLifecycleProcess().handle(input_data)
             all_intents.extend(output.intents)
 
         assert len(all_intents) == 2
 
         # Orchestrator batch-processes
-        receipts = handle_receive_intents(
-            tuple(all_intents),
-            correlation_id=sample_correlation_id,
+        receipts = (
+            HandlerReceiveIntents()
+            .handle(
+                ModelReceiveIntentsRequest(
+                    correlation_id=sample_correlation_id, intents=tuple(all_intents)
+                )
+            )
+            .receipts
         )
         assert len(receipts) == 2
         assert all(r.received for r in receipts)
@@ -281,7 +297,7 @@ class TestReducerToOrchestratorIntentChannel:
         sample_pattern_id: str,
     ) -> None:
         """The intent payload carries pattern lifecycle data observable at orchestrator."""
-        reducer_output = handle_pattern_lifecycle_process(promote_direct_input)
+        reducer_output = HandlerPatternLifecycleProcess().handle(promote_direct_input)
         intent = reducer_output.intents[0]
 
         # Verify payload contains pattern lifecycle data
@@ -301,12 +317,13 @@ class TestReducerToOrchestratorIntentChannel:
         sample_correlation_id: UUID,
     ) -> None:
         """Intent data is observable: receipt captures type, target, and ID."""
-        reducer_output = handle_pattern_lifecycle_process(promote_direct_input)
+        reducer_output = HandlerPatternLifecycleProcess().handle(promote_direct_input)
         intent = reducer_output.intents[0]
 
-        receipt = handle_receive_intent(
-            intent,
-            correlation_id=sample_correlation_id,
+        receipt = HandlerReceiveIntent().handle(
+            ModelReceiveIntentRequest(
+                correlation_id=sample_correlation_id, intent=intent
+            )
         )
 
         # All key intent fields are observable in the receipt

@@ -27,6 +27,25 @@ output_model:
   name: "ModelPolicyStateOutput"
   module: "omniintelligence.nodes.node_policy_state_reducer.models"
   description: "Audit trail of the state mutation with old/new lifecycle states."
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    - operation: "compute_next_lifecycle_state"
+      handler:
+        module: "omniintelligence.nodes.node_policy_state_reducer.handlers.handler_lifecycle"
+        class: "HandlerComputeNextLifecycleState"
+        type: "sync"
+    - operation: "apply_reward_delta"
+      handler:
+        module: "omniintelligence.nodes.node_policy_state_reducer.handlers.handler_lifecycle"
+        class: "HandlerApplyRewardDelta"
+        type: "sync"
+    - operation: "should_blacklist"
+      handler:
+        module: "omniintelligence.nodes.node_policy_state_reducer.handlers.handler_lifecycle"
+        class: "HandlerShouldBlacklist"
+        type: "sync"
+
 operations:
   - name: "reduce"
     description: >-
@@ -44,6 +63,35 @@ operations:
       - blacklisted
       - alert_emitted
       - was_duplicate
+  - name: "compute_next_lifecycle_state"
+    description: "Compute the next lifecycle state from current metrics and thresholds"
+    input_fields:
+      - current_state
+      - reliability_0_1
+      - run_count
+      - positive_signal_ratio
+      - thresholds
+    output_fields:
+      - lifecycle_state
+  - name: "apply_reward_delta"
+    description: "Apply a pre-computed reward delta to reliability and run counts"
+    input_fields:
+      - current_reliability
+      - reward_delta
+      - run_count
+      - failure_count
+    output_fields:
+      - new_reliability
+      - new_run_count
+      - new_failure_count
+  - name: "should_blacklist"
+    description: "Determine whether reliability warrants a new blacklist action"
+    input_fields:
+      - reliability_0_1
+      - thresholds
+      - already_blacklisted
+    output_fields:
+      - should_blacklist
 event_sources:
   - topic: "onex.evt.omnimemory.reward-assigned.v1"
     description: "RewardAssignedEvent from Kafka"

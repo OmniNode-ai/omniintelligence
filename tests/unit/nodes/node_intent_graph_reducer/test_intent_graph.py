@@ -21,15 +21,27 @@ import pytest
 from omnibase_core.enums.intelligence.enum_intent_class import EnumIntentClass
 
 from omniintelligence.nodes.node_intent_graph_reducer.handlers.handler_intent_graph_update import (
-    get_node_success_rate,
-    get_top_transitions,
-    update_graph_on_classification,
-    update_graph_on_outcome,
+    HandlerGetNodeSuccessRate,
+    HandlerGetTopTransitions,
+    HandlerUpdateGraphOnClassification,
+    HandlerUpdateGraphOnOutcome,
+)
+from omniintelligence.nodes.node_intent_graph_reducer.models.model_get_node_success_rate_request import (
+    ModelGetNodeSuccessRateRequest,
+)
+from omniintelligence.nodes.node_intent_graph_reducer.models.model_get_top_transitions_request import (
+    ModelGetTopTransitionsRequest,
 )
 from omniintelligence.nodes.node_intent_graph_reducer.models.model_intent_graph_state import (
     IntentGraphEdgeState,
     IntentGraphNodeState,
     ModelIntentGraphState,
+)
+from omniintelligence.nodes.node_intent_graph_reducer.models.model_update_graph_on_classification_request import (
+    ModelUpdateGraphOnClassificationRequest,
+)
+from omniintelligence.nodes.node_intent_graph_reducer.models.model_update_graph_on_outcome_request import (
+    ModelUpdateGraphOnOutcomeRequest,
 )
 
 # =============================================================================
@@ -47,10 +59,10 @@ def empty_graph() -> ModelIntentGraphState:
 def single_classification_graph() -> ModelIntentGraphState:
     """Graph after one REFACTOR classification in session-1."""
     graph = ModelIntentGraphState()
-    update_graph_on_classification(
-        graph,
-        session_id="session-1",
-        intent_class=EnumIntentClass.REFACTOR,
+    HandlerUpdateGraphOnClassification().handle(
+        ModelUpdateGraphOnClassificationRequest(
+            graph=graph, session_id="session-1", intent_class=EnumIntentClass.REFACTOR
+        )
     )
     return graph
 
@@ -210,21 +222,24 @@ class TestUpdateGraphOnClassificationNodeUpsert:
         self, empty_graph: ModelIntentGraphState
     ) -> None:
         """First classification for a class creates a node."""
-        update_graph_on_classification(
-            empty_graph,
-            session_id="s1",
-            intent_class=EnumIntentClass.REFACTOR,
+        result = HandlerUpdateGraphOnClassification().handle(
+            ModelUpdateGraphOnClassificationRequest(
+                graph=empty_graph,
+                session_id="s1",
+                intent_class=EnumIntentClass.REFACTOR,
+            )
         )
+        assert result is empty_graph
         assert EnumIntentClass.REFACTOR in empty_graph.nodes
 
     def test_first_classification_sets_occurrence_count_to_one(
         self, empty_graph: ModelIntentGraphState
     ) -> None:
         """First classification sets occurrence_count to 1."""
-        update_graph_on_classification(
-            empty_graph,
-            session_id="s1",
-            intent_class=EnumIntentClass.FEATURE,
+        HandlerUpdateGraphOnClassification().handle(
+            ModelUpdateGraphOnClassificationRequest(
+                graph=empty_graph, session_id="s1", intent_class=EnumIntentClass.FEATURE
+            )
         )
         assert empty_graph.nodes[EnumIntentClass.FEATURE].occurrence_count == 1
 
@@ -233,26 +248,32 @@ class TestUpdateGraphOnClassificationNodeUpsert:
     ) -> None:
         """Repeated classification events increment occurrence_count."""
         for _ in range(3):
-            update_graph_on_classification(
-                empty_graph,
-                session_id="s1",
-                intent_class=EnumIntentClass.BUGFIX,
+            HandlerUpdateGraphOnClassification().handle(
+                ModelUpdateGraphOnClassificationRequest(
+                    graph=empty_graph,
+                    session_id="s1",
+                    intent_class=EnumIntentClass.BUGFIX,
+                )
             )
         assert empty_graph.nodes[EnumIntentClass.BUGFIX].occurrence_count == 3
 
     def test_cost_accumulates_on_node(self, empty_graph: ModelIntentGraphState) -> None:
         """cost_usd accumulates across classification events."""
-        update_graph_on_classification(
-            empty_graph,
-            session_id="s1",
-            intent_class=EnumIntentClass.ANALYSIS,
-            cost_usd=0.01,
+        HandlerUpdateGraphOnClassification().handle(
+            ModelUpdateGraphOnClassificationRequest(
+                graph=empty_graph,
+                session_id="s1",
+                intent_class=EnumIntentClass.ANALYSIS,
+                cost_usd=0.01,
+            )
         )
-        update_graph_on_classification(
-            empty_graph,
-            session_id="s2",
-            intent_class=EnumIntentClass.ANALYSIS,
-            cost_usd=0.02,
+        HandlerUpdateGraphOnClassification().handle(
+            ModelUpdateGraphOnClassificationRequest(
+                graph=empty_graph,
+                session_id="s2",
+                intent_class=EnumIntentClass.ANALYSIS,
+                cost_usd=0.02,
+            )
         )
         assert empty_graph.nodes[
             EnumIntentClass.ANALYSIS
@@ -262,11 +283,17 @@ class TestUpdateGraphOnClassificationNodeUpsert:
         self, empty_graph: ModelIntentGraphState
     ) -> None:
         """Each distinct intent class gets its own node."""
-        update_graph_on_classification(
-            empty_graph, session_id="s1", intent_class=EnumIntentClass.REFACTOR
+        HandlerUpdateGraphOnClassification().handle(
+            ModelUpdateGraphOnClassificationRequest(
+                graph=empty_graph,
+                session_id="s1",
+                intent_class=EnumIntentClass.REFACTOR,
+            )
         )
-        update_graph_on_classification(
-            empty_graph, session_id="s2", intent_class=EnumIntentClass.BUGFIX
+        HandlerUpdateGraphOnClassification().handle(
+            ModelUpdateGraphOnClassificationRequest(
+                graph=empty_graph, session_id="s2", intent_class=EnumIntentClass.BUGFIX
+            )
         )
         assert EnumIntentClass.REFACTOR in empty_graph.nodes
         assert EnumIntentClass.BUGFIX in empty_graph.nodes
@@ -276,8 +303,12 @@ class TestUpdateGraphOnClassificationNodeUpsert:
         self, empty_graph: ModelIntentGraphState
     ) -> None:
         """No transition edge is created on the first classification for a session."""
-        update_graph_on_classification(
-            empty_graph, session_id="s1", intent_class=EnumIntentClass.ANALYSIS
+        HandlerUpdateGraphOnClassification().handle(
+            ModelUpdateGraphOnClassificationRequest(
+                graph=empty_graph,
+                session_id="s1",
+                intent_class=EnumIntentClass.ANALYSIS,
+            )
         )
         assert len(empty_graph.edges) == 0
 
@@ -285,8 +316,12 @@ class TestUpdateGraphOnClassificationNodeUpsert:
         self, empty_graph: ModelIntentGraphState
     ) -> None:
         """Session last-intent tracking is updated after classification."""
-        update_graph_on_classification(
-            empty_graph, session_id="s1", intent_class=EnumIntentClass.SECURITY
+        HandlerUpdateGraphOnClassification().handle(
+            ModelUpdateGraphOnClassificationRequest(
+                graph=empty_graph,
+                session_id="s1",
+                intent_class=EnumIntentClass.SECURITY,
+            )
         )
         assert empty_graph.session_last_intent["s1"] == EnumIntentClass.SECURITY
 
@@ -306,11 +341,19 @@ class TestUpdateGraphOnClassificationTransitions:
         self, empty_graph: ModelIntentGraphState
     ) -> None:
         """Two sequential intents in the same session create a transition edge."""
-        update_graph_on_classification(
-            empty_graph, session_id="s1", intent_class=EnumIntentClass.ANALYSIS
+        HandlerUpdateGraphOnClassification().handle(
+            ModelUpdateGraphOnClassificationRequest(
+                graph=empty_graph,
+                session_id="s1",
+                intent_class=EnumIntentClass.ANALYSIS,
+            )
         )
-        update_graph_on_classification(
-            empty_graph, session_id="s1", intent_class=EnumIntentClass.REFACTOR
+        HandlerUpdateGraphOnClassification().handle(
+            ModelUpdateGraphOnClassificationRequest(
+                graph=empty_graph,
+                session_id="s1",
+                intent_class=EnumIntentClass.REFACTOR,
+            )
         )
         assert (EnumIntentClass.ANALYSIS, EnumIntentClass.REFACTOR) in empty_graph.edges
 
@@ -318,11 +361,15 @@ class TestUpdateGraphOnClassificationTransitions:
         self, empty_graph: ModelIntentGraphState
     ) -> None:
         """A newly created transition edge has transition_count == 1."""
-        update_graph_on_classification(
-            empty_graph, session_id="s1", intent_class=EnumIntentClass.BUGFIX
+        HandlerUpdateGraphOnClassification().handle(
+            ModelUpdateGraphOnClassificationRequest(
+                graph=empty_graph, session_id="s1", intent_class=EnumIntentClass.BUGFIX
+            )
         )
-        update_graph_on_classification(
-            empty_graph, session_id="s1", intent_class=EnumIntentClass.FEATURE
+        HandlerUpdateGraphOnClassification().handle(
+            ModelUpdateGraphOnClassificationRequest(
+                graph=empty_graph, session_id="s1", intent_class=EnumIntentClass.FEATURE
+            )
         )
         edge = empty_graph.edges[(EnumIntentClass.BUGFIX, EnumIntentClass.FEATURE)]
         assert edge.transition_count == 1
@@ -332,11 +379,19 @@ class TestUpdateGraphOnClassificationTransitions:
     ) -> None:
         """The same A→B transition observed twice increments count to 2."""
         for _ in range(2):
-            update_graph_on_classification(
-                empty_graph, session_id="s1", intent_class=EnumIntentClass.ANALYSIS
+            HandlerUpdateGraphOnClassification().handle(
+                ModelUpdateGraphOnClassificationRequest(
+                    graph=empty_graph,
+                    session_id="s1",
+                    intent_class=EnumIntentClass.ANALYSIS,
+                )
             )
-            update_graph_on_classification(
-                empty_graph, session_id="s1", intent_class=EnumIntentClass.REFACTOR
+            HandlerUpdateGraphOnClassification().handle(
+                ModelUpdateGraphOnClassificationRequest(
+                    graph=empty_graph,
+                    session_id="s1",
+                    intent_class=EnumIntentClass.REFACTOR,
+                )
             )
         edge = empty_graph.edges[(EnumIntentClass.ANALYSIS, EnumIntentClass.REFACTOR)]
         assert edge.transition_count == 2
@@ -346,18 +401,30 @@ class TestUpdateGraphOnClassificationTransitions:
     ) -> None:
         """Transitions in different sessions are independent."""
         # Session 1: ANALYSIS -> REFACTOR
-        update_graph_on_classification(
-            empty_graph, session_id="s1", intent_class=EnumIntentClass.ANALYSIS
+        HandlerUpdateGraphOnClassification().handle(
+            ModelUpdateGraphOnClassificationRequest(
+                graph=empty_graph,
+                session_id="s1",
+                intent_class=EnumIntentClass.ANALYSIS,
+            )
         )
-        update_graph_on_classification(
-            empty_graph, session_id="s1", intent_class=EnumIntentClass.REFACTOR
+        HandlerUpdateGraphOnClassification().handle(
+            ModelUpdateGraphOnClassificationRequest(
+                graph=empty_graph,
+                session_id="s1",
+                intent_class=EnumIntentClass.REFACTOR,
+            )
         )
         # Session 2: BUGFIX -> FEATURE (no cross-session transition)
-        update_graph_on_classification(
-            empty_graph, session_id="s2", intent_class=EnumIntentClass.BUGFIX
+        HandlerUpdateGraphOnClassification().handle(
+            ModelUpdateGraphOnClassificationRequest(
+                graph=empty_graph, session_id="s2", intent_class=EnumIntentClass.BUGFIX
+            )
         )
-        update_graph_on_classification(
-            empty_graph, session_id="s2", intent_class=EnumIntentClass.FEATURE
+        HandlerUpdateGraphOnClassification().handle(
+            ModelUpdateGraphOnClassificationRequest(
+                graph=empty_graph, session_id="s2", intent_class=EnumIntentClass.FEATURE
+            )
         )
         # Exactly 2 edges, no cross-session edge
         assert len(empty_graph.edges) == 2
@@ -368,11 +435,19 @@ class TestUpdateGraphOnClassificationTransitions:
         self, empty_graph: ModelIntentGraphState
     ) -> None:
         """Same intent class twice in one session does NOT create a self-loop edge."""
-        update_graph_on_classification(
-            empty_graph, session_id="s1", intent_class=EnumIntentClass.REFACTOR
+        HandlerUpdateGraphOnClassification().handle(
+            ModelUpdateGraphOnClassificationRequest(
+                graph=empty_graph,
+                session_id="s1",
+                intent_class=EnumIntentClass.REFACTOR,
+            )
         )
-        update_graph_on_classification(
-            empty_graph, session_id="s1", intent_class=EnumIntentClass.REFACTOR
+        HandlerUpdateGraphOnClassification().handle(
+            ModelUpdateGraphOnClassificationRequest(
+                graph=empty_graph,
+                session_id="s1",
+                intent_class=EnumIntentClass.REFACTOR,
+            )
         )
         # No edge because from == to; self-loops are not recorded
         assert (
@@ -389,8 +464,10 @@ class TestUpdateGraphOnClassificationTransitions:
             EnumIntentClass.REFACTOR,
             EnumIntentClass.FEATURE,
         ]:
-            update_graph_on_classification(
-                empty_graph, session_id="s1", intent_class=cls
+            HandlerUpdateGraphOnClassification().handle(
+                ModelUpdateGraphOnClassificationRequest(
+                    graph=empty_graph, session_id="s1", intent_class=cls
+                )
             )
         assert (EnumIntentClass.ANALYSIS, EnumIntentClass.REFACTOR) in empty_graph.edges
         assert (EnumIntentClass.REFACTOR, EnumIntentClass.FEATURE) in empty_graph.edges
@@ -405,8 +482,10 @@ class TestUpdateGraphOnClassificationTransitions:
             EnumIntentClass.REFACTOR,
             EnumIntentClass.BUGFIX,
         ]:
-            update_graph_on_classification(
-                empty_graph, session_id="s1", intent_class=cls
+            HandlerUpdateGraphOnClassification().handle(
+                ModelUpdateGraphOnClassificationRequest(
+                    graph=empty_graph, session_id="s1", intent_class=cls
+                )
             )
         assert empty_graph.session_last_intent["s1"] == EnumIntentClass.BUGFIX
 
@@ -425,26 +504,33 @@ class TestUpdateGraphOnOutcome:
         self, empty_graph: ModelIntentGraphState
     ) -> None:
         """Outcome event creates a node if none exists yet."""
-        update_graph_on_outcome(
-            empty_graph,
-            session_id="s1",
-            intent_class=EnumIntentClass.CONFIGURATION,
-            success=True,
+        result = HandlerUpdateGraphOnOutcome().handle(
+            ModelUpdateGraphOnOutcomeRequest(
+                graph=empty_graph,
+                session_id="s1",
+                intent_class=EnumIntentClass.CONFIGURATION,
+                success=True,
+            )
         )
+        assert result is empty_graph
         assert EnumIntentClass.CONFIGURATION in empty_graph.nodes
 
     def test_successful_outcome_increments_successes(
         self, empty_graph: ModelIntentGraphState
     ) -> None:
         """Successful outcome increments total_successes and total_outcomes."""
-        update_graph_on_classification(
-            empty_graph, session_id="s1", intent_class=EnumIntentClass.FEATURE
+        HandlerUpdateGraphOnClassification().handle(
+            ModelUpdateGraphOnClassificationRequest(
+                graph=empty_graph, session_id="s1", intent_class=EnumIntentClass.FEATURE
+            )
         )
-        update_graph_on_outcome(
-            empty_graph,
-            session_id="s1",
-            intent_class=EnumIntentClass.FEATURE,
-            success=True,
+        HandlerUpdateGraphOnOutcome().handle(
+            ModelUpdateGraphOnOutcomeRequest(
+                graph=empty_graph,
+                session_id="s1",
+                intent_class=EnumIntentClass.FEATURE,
+                success=True,
+            )
         )
         node = empty_graph.nodes[EnumIntentClass.FEATURE]
         assert node.total_successes == 1
@@ -454,14 +540,18 @@ class TestUpdateGraphOnOutcome:
         self, empty_graph: ModelIntentGraphState
     ) -> None:
         """Failed outcome increments total_outcomes but not total_successes."""
-        update_graph_on_classification(
-            empty_graph, session_id="s1", intent_class=EnumIntentClass.FEATURE
+        HandlerUpdateGraphOnClassification().handle(
+            ModelUpdateGraphOnClassificationRequest(
+                graph=empty_graph, session_id="s1", intent_class=EnumIntentClass.FEATURE
+            )
         )
-        update_graph_on_outcome(
-            empty_graph,
-            session_id="s1",
-            intent_class=EnumIntentClass.FEATURE,
-            success=False,
+        HandlerUpdateGraphOnOutcome().handle(
+            ModelUpdateGraphOnOutcomeRequest(
+                graph=empty_graph,
+                session_id="s1",
+                intent_class=EnumIntentClass.FEATURE,
+                success=False,
+            )
         )
         node = empty_graph.nodes[EnumIntentClass.FEATURE]
         assert node.total_successes == 0
@@ -471,15 +561,21 @@ class TestUpdateGraphOnOutcome:
         self, empty_graph: ModelIntentGraphState
     ) -> None:
         """Success rate reflects ratio of successes to total outcomes."""
-        update_graph_on_classification(
-            empty_graph, session_id="s1", intent_class=EnumIntentClass.ANALYSIS
-        )
-        for success in [True, True, False, True]:
-            update_graph_on_outcome(
-                empty_graph,
+        HandlerUpdateGraphOnClassification().handle(
+            ModelUpdateGraphOnClassificationRequest(
+                graph=empty_graph,
                 session_id="s1",
                 intent_class=EnumIntentClass.ANALYSIS,
-                success=success,
+            )
+        )
+        for success in [True, True, False, True]:
+            HandlerUpdateGraphOnOutcome().handle(
+                ModelUpdateGraphOnOutcomeRequest(
+                    graph=empty_graph,
+                    session_id="s1",
+                    intent_class=EnumIntentClass.ANALYSIS,
+                    success=success,
+                )
             )
         node = empty_graph.nodes[EnumIntentClass.ANALYSIS]
         assert node.total_successes == 3
@@ -490,17 +586,27 @@ class TestUpdateGraphOnOutcome:
         self, empty_graph: ModelIntentGraphState
     ) -> None:
         """Outcome event updates transition edge success rates."""
-        update_graph_on_classification(
-            empty_graph, session_id="s1", intent_class=EnumIntentClass.ANALYSIS
+        HandlerUpdateGraphOnClassification().handle(
+            ModelUpdateGraphOnClassificationRequest(
+                graph=empty_graph,
+                session_id="s1",
+                intent_class=EnumIntentClass.ANALYSIS,
+            )
         )
-        update_graph_on_classification(
-            empty_graph, session_id="s1", intent_class=EnumIntentClass.REFACTOR
+        HandlerUpdateGraphOnClassification().handle(
+            ModelUpdateGraphOnClassificationRequest(
+                graph=empty_graph,
+                session_id="s1",
+                intent_class=EnumIntentClass.REFACTOR,
+            )
         )
-        update_graph_on_outcome(
-            empty_graph,
-            session_id="s1",
-            intent_class=EnumIntentClass.REFACTOR,
-            success=True,
+        HandlerUpdateGraphOnOutcome().handle(
+            ModelUpdateGraphOnOutcomeRequest(
+                graph=empty_graph,
+                session_id="s1",
+                intent_class=EnumIntentClass.REFACTOR,
+                success=True,
+            )
         )
         edge = empty_graph.edges.get(
             (EnumIntentClass.ANALYSIS, EnumIntentClass.REFACTOR)
@@ -513,18 +619,26 @@ class TestUpdateGraphOnOutcome:
         self, empty_graph: ModelIntentGraphState
     ) -> None:
         """Outcome cost is accumulated on the transition edge."""
-        update_graph_on_classification(
-            empty_graph, session_id="s1", intent_class=EnumIntentClass.BUGFIX
+        HandlerUpdateGraphOnClassification().handle(
+            ModelUpdateGraphOnClassificationRequest(
+                graph=empty_graph, session_id="s1", intent_class=EnumIntentClass.BUGFIX
+            )
         )
-        update_graph_on_classification(
-            empty_graph, session_id="s1", intent_class=EnumIntentClass.REFACTOR
+        HandlerUpdateGraphOnClassification().handle(
+            ModelUpdateGraphOnClassificationRequest(
+                graph=empty_graph,
+                session_id="s1",
+                intent_class=EnumIntentClass.REFACTOR,
+            )
         )
-        update_graph_on_outcome(
-            empty_graph,
-            session_id="s1",
-            intent_class=EnumIntentClass.REFACTOR,
-            success=True,
-            cost_usd=0.05,
+        HandlerUpdateGraphOnOutcome().handle(
+            ModelUpdateGraphOnOutcomeRequest(
+                graph=empty_graph,
+                session_id="s1",
+                intent_class=EnumIntentClass.REFACTOR,
+                success=True,
+                cost_usd=0.05,
+            )
         )
         edge = empty_graph.edges[(EnumIntentClass.BUGFIX, EnumIntentClass.REFACTOR)]
         assert edge.total_cost_usd == pytest.approx(0.05)
@@ -535,11 +649,13 @@ class TestUpdateGraphOnOutcome:
         self, empty_graph: ModelIntentGraphState
     ) -> None:
         """Outcome with no prior session intent does not touch edges."""
-        update_graph_on_outcome(
-            empty_graph,
-            session_id="s1",
-            intent_class=EnumIntentClass.SECURITY,
-            success=True,
+        HandlerUpdateGraphOnOutcome().handle(
+            ModelUpdateGraphOnOutcomeRequest(
+                graph=empty_graph,
+                session_id="s1",
+                intent_class=EnumIntentClass.SECURITY,
+                success=True,
+            )
         )
         assert len(empty_graph.edges) == 0
 
@@ -559,7 +675,11 @@ class TestGetTopTransitions:
         self, empty_graph: ModelIntentGraphState
     ) -> None:
         """No transitions in empty graph."""
-        result = get_top_transitions(empty_graph)
+        result = (
+            HandlerGetTopTransitions()
+            .handle(ModelGetTopTransitionsRequest(graph=empty_graph))
+            .transitions
+        )
         assert result == []
 
     def test_returns_edges_sorted_by_count_descending(
@@ -568,20 +688,36 @@ class TestGetTopTransitions:
         """Edges are sorted by transition_count in descending order."""
         # ANALYSIS->REFACTOR: 3 times (use distinct session IDs to avoid back-edges)
         for i in range(3):
-            update_graph_on_classification(
-                empty_graph, session_id=f"sA-{i}", intent_class=EnumIntentClass.ANALYSIS
+            HandlerUpdateGraphOnClassification().handle(
+                ModelUpdateGraphOnClassificationRequest(
+                    graph=empty_graph,
+                    session_id=f"sA-{i}",
+                    intent_class=EnumIntentClass.ANALYSIS,
+                )
             )
-            update_graph_on_classification(
-                empty_graph, session_id=f"sA-{i}", intent_class=EnumIntentClass.REFACTOR
+            HandlerUpdateGraphOnClassification().handle(
+                ModelUpdateGraphOnClassificationRequest(
+                    graph=empty_graph,
+                    session_id=f"sA-{i}",
+                    intent_class=EnumIntentClass.REFACTOR,
+                )
             )
         # BUGFIX->FEATURE: 1 time
-        update_graph_on_classification(
-            empty_graph, session_id="sB", intent_class=EnumIntentClass.BUGFIX
+        HandlerUpdateGraphOnClassification().handle(
+            ModelUpdateGraphOnClassificationRequest(
+                graph=empty_graph, session_id="sB", intent_class=EnumIntentClass.BUGFIX
+            )
         )
-        update_graph_on_classification(
-            empty_graph, session_id="sB", intent_class=EnumIntentClass.FEATURE
+        HandlerUpdateGraphOnClassification().handle(
+            ModelUpdateGraphOnClassificationRequest(
+                graph=empty_graph, session_id="sB", intent_class=EnumIntentClass.FEATURE
+            )
         )
-        result = get_top_transitions(empty_graph)
+        result = (
+            HandlerGetTopTransitions()
+            .handle(ModelGetTopTransitionsRequest(graph=empty_graph))
+            .transitions
+        )
         assert result[0].transition_count == 3
         assert result[1].transition_count == 1
 
@@ -594,11 +730,17 @@ class TestGetTopTransitions:
             EnumIntentClass.FEATURE,
         ]
         for cls in classes:
-            update_graph_on_classification(
-                empty_graph, session_id="s1", intent_class=cls
+            HandlerUpdateGraphOnClassification().handle(
+                ModelUpdateGraphOnClassificationRequest(
+                    graph=empty_graph, session_id="s1", intent_class=cls
+                )
             )
         # 3 edges: ANALYSIS->REFACTOR, REFACTOR->BUGFIX, BUGFIX->FEATURE
-        result = get_top_transitions(empty_graph, top_n=2)
+        result = (
+            HandlerGetTopTransitions()
+            .handle(ModelGetTopTransitionsRequest(graph=empty_graph, top_n=2))
+            .transitions
+        )
         assert len(result) == 2
 
     def test_default_top_n_is_ten(self, empty_graph: ModelIntentGraphState) -> None:
@@ -607,10 +749,16 @@ class TestGetTopTransitions:
         session = "s1"
         classes = list(EnumIntentClass)[:8]  # up to 8 classes
         for i, cls in enumerate(classes):
-            update_graph_on_classification(
-                empty_graph, session_id=session, intent_class=cls
+            HandlerUpdateGraphOnClassification().handle(
+                ModelUpdateGraphOnClassificationRequest(
+                    graph=empty_graph, session_id=session, intent_class=cls
+                )
             )
-        result = get_top_transitions(empty_graph)
+        result = (
+            HandlerGetTopTransitions()
+            .handle(ModelGetTopTransitionsRequest(graph=empty_graph))
+            .transitions
+        )
         # 7 edges (8 classes, 7 transitions), all returned since < 10
         assert len(result) == 7
 
@@ -629,47 +777,93 @@ class TestGetNodeSuccessRate:
         self, empty_graph: ModelIntentGraphState
     ) -> None:
         """Returns 0.0 for unknown intent class."""
-        rate = get_node_success_rate(empty_graph, EnumIntentClass.REFACTOR)
+        rate = (
+            HandlerGetNodeSuccessRate()
+            .handle(
+                ModelGetNodeSuccessRateRequest(
+                    graph=empty_graph, intent_class=EnumIntentClass.REFACTOR
+                )
+            )
+            .success_rate
+        )
         assert rate == 0.0
 
     def test_no_outcomes_returns_zero(self, empty_graph: ModelIntentGraphState) -> None:
         """Returns 0.0 if node exists but has no outcomes."""
-        update_graph_on_classification(
-            empty_graph, session_id="s1", intent_class=EnumIntentClass.BUGFIX
+        HandlerUpdateGraphOnClassification().handle(
+            ModelUpdateGraphOnClassificationRequest(
+                graph=empty_graph, session_id="s1", intent_class=EnumIntentClass.BUGFIX
+            )
         )
-        rate = get_node_success_rate(empty_graph, EnumIntentClass.BUGFIX)
+        rate = (
+            HandlerGetNodeSuccessRate()
+            .handle(
+                ModelGetNodeSuccessRateRequest(
+                    graph=empty_graph, intent_class=EnumIntentClass.BUGFIX
+                )
+            )
+            .success_rate
+        )
         assert rate == 0.0
 
     def test_returns_correct_success_rate(
         self, empty_graph: ModelIntentGraphState
     ) -> None:
         """Returns correct success rate after outcomes."""
-        update_graph_on_classification(
-            empty_graph, session_id="s1", intent_class=EnumIntentClass.SECURITY
-        )
-        for success in [True, False]:
-            update_graph_on_outcome(
-                empty_graph,
+        HandlerUpdateGraphOnClassification().handle(
+            ModelUpdateGraphOnClassificationRequest(
+                graph=empty_graph,
                 session_id="s1",
                 intent_class=EnumIntentClass.SECURITY,
-                success=success,
             )
-        rate = get_node_success_rate(empty_graph, EnumIntentClass.SECURITY)
+        )
+        for success in [True, False]:
+            HandlerUpdateGraphOnOutcome().handle(
+                ModelUpdateGraphOnOutcomeRequest(
+                    graph=empty_graph,
+                    session_id="s1",
+                    intent_class=EnumIntentClass.SECURITY,
+                    success=success,
+                )
+            )
+        rate = (
+            HandlerGetNodeSuccessRate()
+            .handle(
+                ModelGetNodeSuccessRateRequest(
+                    graph=empty_graph, intent_class=EnumIntentClass.SECURITY
+                )
+            )
+            .success_rate
+        )
         assert rate == pytest.approx(0.5)
 
     def test_full_success_returns_one(self, empty_graph: ModelIntentGraphState) -> None:
         """Returns 1.0 when all outcomes are successes."""
-        update_graph_on_classification(
-            empty_graph, session_id="s1", intent_class=EnumIntentClass.DOCUMENTATION
-        )
-        for _ in range(3):
-            update_graph_on_outcome(
-                empty_graph,
+        HandlerUpdateGraphOnClassification().handle(
+            ModelUpdateGraphOnClassificationRequest(
+                graph=empty_graph,
                 session_id="s1",
                 intent_class=EnumIntentClass.DOCUMENTATION,
-                success=True,
             )
-        rate = get_node_success_rate(empty_graph, EnumIntentClass.DOCUMENTATION)
+        )
+        for _ in range(3):
+            HandlerUpdateGraphOnOutcome().handle(
+                ModelUpdateGraphOnOutcomeRequest(
+                    graph=empty_graph,
+                    session_id="s1",
+                    intent_class=EnumIntentClass.DOCUMENTATION,
+                    success=True,
+                )
+            )
+        rate = (
+            HandlerGetNodeSuccessRate()
+            .handle(
+                ModelGetNodeSuccessRateRequest(
+                    graph=empty_graph, intent_class=EnumIntentClass.DOCUMENTATION
+                )
+            )
+            .success_rate
+        )
         assert rate == pytest.approx(1.0)
 
 
@@ -696,11 +890,19 @@ class TestIntentGraphIntegrationScenario:
         """
         for i in range(3):
             session = f"session-{i}"
-            update_graph_on_classification(
-                empty_graph, session_id=session, intent_class=EnumIntentClass.BUGFIX
+            HandlerUpdateGraphOnClassification().handle(
+                ModelUpdateGraphOnClassificationRequest(
+                    graph=empty_graph,
+                    session_id=session,
+                    intent_class=EnumIntentClass.BUGFIX,
+                )
             )
-            update_graph_on_classification(
-                empty_graph, session_id=session, intent_class=EnumIntentClass.REFACTOR
+            HandlerUpdateGraphOnClassification().handle(
+                ModelUpdateGraphOnClassificationRequest(
+                    graph=empty_graph,
+                    session_id=session,
+                    intent_class=EnumIntentClass.REFACTOR,
+                )
             )
         assert empty_graph.nodes[EnumIntentClass.BUGFIX].occurrence_count == 3
         assert empty_graph.nodes[EnumIntentClass.REFACTOR].occurrence_count == 3
@@ -713,16 +915,30 @@ class TestIntentGraphIntegrationScenario:
         """Mixed outcomes across sessions produce correct aggregate success rates."""
         for i, success in enumerate([True, True, False]):
             session = f"session-{i}"
-            update_graph_on_classification(
-                empty_graph, session_id=session, intent_class=EnumIntentClass.FEATURE
+            HandlerUpdateGraphOnClassification().handle(
+                ModelUpdateGraphOnClassificationRequest(
+                    graph=empty_graph,
+                    session_id=session,
+                    intent_class=EnumIntentClass.FEATURE,
+                )
             )
-            update_graph_on_outcome(
-                empty_graph,
-                session_id=session,
-                intent_class=EnumIntentClass.FEATURE,
-                success=success,
+            HandlerUpdateGraphOnOutcome().handle(
+                ModelUpdateGraphOnOutcomeRequest(
+                    graph=empty_graph,
+                    session_id=session,
+                    intent_class=EnumIntentClass.FEATURE,
+                    success=success,
+                )
             )
-        rate = get_node_success_rate(empty_graph, EnumIntentClass.FEATURE)
+        rate = (
+            HandlerGetNodeSuccessRate()
+            .handle(
+                ModelGetNodeSuccessRateRequest(
+                    graph=empty_graph, intent_class=EnumIntentClass.FEATURE
+                )
+            )
+            .success_rate
+        )
         assert rate == pytest.approx(2 / 3)
 
     def test_top_transitions_reflects_common_workflow(
@@ -731,21 +947,41 @@ class TestIntentGraphIntegrationScenario:
         """Top transition is ANALYSIS->REFACTOR after 5 such sessions."""
         # ANALYSIS->REFACTOR: 5 times
         for i in range(5):
-            update_graph_on_classification(
-                empty_graph, session_id=f"ar-{i}", intent_class=EnumIntentClass.ANALYSIS
+            HandlerUpdateGraphOnClassification().handle(
+                ModelUpdateGraphOnClassificationRequest(
+                    graph=empty_graph,
+                    session_id=f"ar-{i}",
+                    intent_class=EnumIntentClass.ANALYSIS,
+                )
             )
-            update_graph_on_classification(
-                empty_graph, session_id=f"ar-{i}", intent_class=EnumIntentClass.REFACTOR
+            HandlerUpdateGraphOnClassification().handle(
+                ModelUpdateGraphOnClassificationRequest(
+                    graph=empty_graph,
+                    session_id=f"ar-{i}",
+                    intent_class=EnumIntentClass.REFACTOR,
+                )
             )
         # BUGFIX->FEATURE: 2 times
         for i in range(2):
-            update_graph_on_classification(
-                empty_graph, session_id=f"bf-{i}", intent_class=EnumIntentClass.BUGFIX
+            HandlerUpdateGraphOnClassification().handle(
+                ModelUpdateGraphOnClassificationRequest(
+                    graph=empty_graph,
+                    session_id=f"bf-{i}",
+                    intent_class=EnumIntentClass.BUGFIX,
+                )
             )
-            update_graph_on_classification(
-                empty_graph, session_id=f"bf-{i}", intent_class=EnumIntentClass.FEATURE
+            HandlerUpdateGraphOnClassification().handle(
+                ModelUpdateGraphOnClassificationRequest(
+                    graph=empty_graph,
+                    session_id=f"bf-{i}",
+                    intent_class=EnumIntentClass.FEATURE,
+                )
             )
-        top = get_top_transitions(empty_graph, top_n=1)
+        top = (
+            HandlerGetTopTransitions()
+            .handle(ModelGetTopTransitionsRequest(graph=empty_graph, top_n=1))
+            .transitions
+        )
         assert len(top) == 1
         assert top[0].from_intent_class == EnumIntentClass.ANALYSIS
         assert top[0].to_intent_class == EnumIntentClass.REFACTOR
@@ -756,8 +992,10 @@ class TestIntentGraphIntegrationScenario:
     ) -> None:
         """All 8 EnumIntentClass values can appear as graph nodes."""
         for i, cls in enumerate(EnumIntentClass):
-            update_graph_on_classification(
-                empty_graph, session_id=f"session-{i}", intent_class=cls
+            HandlerUpdateGraphOnClassification().handle(
+                ModelUpdateGraphOnClassificationRequest(
+                    graph=empty_graph, session_id=f"session-{i}", intent_class=cls
+                )
             )
         assert len(empty_graph.nodes) == 8
 
@@ -766,30 +1004,50 @@ class TestIntentGraphIntegrationScenario:
     ) -> None:
         """Transition avg_success_rate is the mean of per-outcome rates."""
         # Session 1: ANALYSIS -> REFACTOR, success
-        update_graph_on_classification(
-            empty_graph, session_id="s1", intent_class=EnumIntentClass.ANALYSIS
+        HandlerUpdateGraphOnClassification().handle(
+            ModelUpdateGraphOnClassificationRequest(
+                graph=empty_graph,
+                session_id="s1",
+                intent_class=EnumIntentClass.ANALYSIS,
+            )
         )
-        update_graph_on_classification(
-            empty_graph, session_id="s1", intent_class=EnumIntentClass.REFACTOR
+        HandlerUpdateGraphOnClassification().handle(
+            ModelUpdateGraphOnClassificationRequest(
+                graph=empty_graph,
+                session_id="s1",
+                intent_class=EnumIntentClass.REFACTOR,
+            )
         )
-        update_graph_on_outcome(
-            empty_graph,
-            session_id="s1",
-            intent_class=EnumIntentClass.REFACTOR,
-            success=True,
+        HandlerUpdateGraphOnOutcome().handle(
+            ModelUpdateGraphOnOutcomeRequest(
+                graph=empty_graph,
+                session_id="s1",
+                intent_class=EnumIntentClass.REFACTOR,
+                success=True,
+            )
         )
         # Session 2: ANALYSIS -> REFACTOR, failure
-        update_graph_on_classification(
-            empty_graph, session_id="s2", intent_class=EnumIntentClass.ANALYSIS
+        HandlerUpdateGraphOnClassification().handle(
+            ModelUpdateGraphOnClassificationRequest(
+                graph=empty_graph,
+                session_id="s2",
+                intent_class=EnumIntentClass.ANALYSIS,
+            )
         )
-        update_graph_on_classification(
-            empty_graph, session_id="s2", intent_class=EnumIntentClass.REFACTOR
+        HandlerUpdateGraphOnClassification().handle(
+            ModelUpdateGraphOnClassificationRequest(
+                graph=empty_graph,
+                session_id="s2",
+                intent_class=EnumIntentClass.REFACTOR,
+            )
         )
-        update_graph_on_outcome(
-            empty_graph,
-            session_id="s2",
-            intent_class=EnumIntentClass.REFACTOR,
-            success=False,
+        HandlerUpdateGraphOnOutcome().handle(
+            ModelUpdateGraphOnOutcomeRequest(
+                graph=empty_graph,
+                session_id="s2",
+                intent_class=EnumIntentClass.REFACTOR,
+                success=False,
+            )
         )
         edge = empty_graph.edges[(EnumIntentClass.ANALYSIS, EnumIntentClass.REFACTOR)]
         # 2 transitions, 1 success + 1 failure → avg 0.5

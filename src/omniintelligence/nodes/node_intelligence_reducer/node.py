@@ -41,7 +41,7 @@ from omnibase_core.models.reducer.model_reducer_output import ModelReducerOutput
 from omnibase_core.nodes.node_reducer import NodeReducer
 
 from omniintelligence.nodes.node_intelligence_reducer.handlers.handler_process import (
-    handle_pattern_lifecycle_process,
+    HandlerPatternLifecycleProcess,
 )
 from omniintelligence.nodes.node_intelligence_reducer.models.model_intelligence_state import (
     ModelIntelligenceState,
@@ -63,7 +63,7 @@ class NodeIntelligenceReducer(  # any-ok: dict invariance — callers pass deser
     4. Emitting typed intents for effect nodes
 
     FSM Type Routing:
-        - PATTERN_LIFECYCLE -> handle_pattern_lifecycle_process()
+        - PATTERN_LIFECYCLE -> HandlerPatternLifecycleProcess().handle()
         - INGESTION, PATTERN_LEARNING, QUALITY_ASSESSMENT -> base FSM
 
     The PATTERN_LIFECYCLE handler validates transitions against the FSM
@@ -91,7 +91,7 @@ class NodeIntelligenceReducer(  # any-ok: dict invariance — callers pass deser
         """
         # Route PATTERN_LIFECYCLE to handler
         if isinstance(input_data, ModelReducerInputPatternLifecycle):
-            return handle_pattern_lifecycle_process(input_data)
+            return HandlerPatternLifecycleProcess().handle(input_data)
 
         # All other FSM types use base class FSM execution
         return await super().process(input_data, projection_intents)

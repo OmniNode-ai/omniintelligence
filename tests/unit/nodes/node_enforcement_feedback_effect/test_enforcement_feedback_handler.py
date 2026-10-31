@@ -22,8 +22,8 @@ import pytest
 
 from omniintelligence.nodes.node_enforcement_feedback_effect.handlers.handler_enforcement_feedback import (
     CONFIDENCE_ADJUSTMENT_PER_VIOLATION,
+    HandlerEnforcementFeedback,
     filter_confirmed_violations,
-    process_enforcement_feedback,
 )
 from omniintelligence.nodes.node_enforcement_feedback_effect.models import (
     EnumEnforcementFeedbackStatus,
@@ -141,7 +141,7 @@ class TestProcessEnforcementFeedback:
             patterns_checked=5,
             violations_found=0,
         )
-        result = await process_enforcement_feedback(event=event, repository=repo)
+        result = await HandlerEnforcementFeedback(repository=repo).handle(event)
         assert result.status == EnumEnforcementFeedbackStatus.NO_VIOLATIONS
 
     @pytest.mark.asyncio
@@ -163,7 +163,7 @@ class TestProcessEnforcementFeedback:
                 ),
             ],
         )
-        result = await process_enforcement_feedback(event=event, repository=repo)
+        result = await HandlerEnforcementFeedback(repository=repo).handle(event)
         assert result.status == EnumEnforcementFeedbackStatus.SUCCESS
         assert result.eligible_violations == 1
         assert len(result.adjustments) == 1
@@ -189,7 +189,7 @@ class TestProcessEnforcementFeedback:
                 ),
             ],
         )
-        result = await process_enforcement_feedback(event=event, repository=repo)
+        result = await HandlerEnforcementFeedback(repository=repo).handle(event)
         assert result.status == EnumEnforcementFeedbackStatus.NO_ADJUSTMENTS
         assert repo.patterns[pid]["quality_score"] == 0.8
 

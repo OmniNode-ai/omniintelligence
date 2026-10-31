@@ -80,40 +80,43 @@ def _compute_quality_score(artifact_path: str) -> float | None:
     return float(scoring_result.quality_score)
 
 
-async def handle_dispatch_outcome(event: ModelInput) -> ModelOutput:
-    """Evaluate a dispatch worker completion event.
+class HandlerDispatchOutcome:
+    """Typed handler for dispatch outcome eval effect."""
 
-    The handler normalizes dispatch status to a verdict, carries source usage
-    fields forward, and invokes quality scoring when a dispatch artifact exists.
-    Database writes and downstream projection publishing are intentionally out
-    of scope here.
-    """
-    started_at = time.perf_counter()
-    evaluated_at = datetime.now(UTC)
-    quality_score = (
-        _compute_quality_score(event.artifact_path)
-        if event.artifact_path is not None
-        else None
-    )
-    eval_latency_ms = int((time.perf_counter() - started_at) * 1000)
+    async def handle(self, request: ModelInput) -> ModelOutput:
+        """Evaluate a dispatch worker completion request.
 
-    return ModelOutput(
-        verdict=_verdict_for_status(event.status),
-        quality_score=quality_score,
-        token_cost=event.token_cost,
-        dollars_cost=event.dollars_cost,
-        model_calls=len(event.model_calls),
-        usage_source=event.cost_provenance.usage_source.value,
-        estimation_method=event.cost_provenance.estimation_method,
-        source_payload_hash=_source_payload_hash(event),
-        published_event_id=None,
-        evaluated_at=evaluated_at,
-        eval_latency_ms=eval_latency_ms,
-    )
+        The handler normalizes dispatch status to a verdict, carries source usage
+        fields forward, and invokes quality scoring when a dispatch artifact exists.
+        Database writes and downstream projection publishing are intentionally out
+        of scope here.
+        """
+        started_at = time.perf_counter()
+        evaluated_at = datetime.now(UTC)
+        quality_score = (
+            _compute_quality_score(request.artifact_path)
+            if request.artifact_path is not None
+            else None
+        )
+        eval_latency_ms = int((time.perf_counter() - started_at) * 1000)
+
+        return ModelOutput(
+            verdict=_verdict_for_status(request.status),
+            quality_score=quality_score,
+            token_cost=request.token_cost,
+            dollars_cost=request.dollars_cost,
+            model_calls=len(request.model_calls),
+            usage_source=request.cost_provenance.usage_source.value,
+            estimation_method=request.cost_provenance.estimation_method,
+            source_payload_hash=_source_payload_hash(request),
+            published_event_id=None,
+            evaluated_at=evaluated_at,
+            eval_latency_ms=eval_latency_ms,
+        )
 
 
 __all__ = [
     "PUBLISH_TOPIC",
     "SUBSCRIBE_TOPIC",
-    "handle_dispatch_outcome",
+    "HandlerDispatchOutcome",
 ]

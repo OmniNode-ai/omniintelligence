@@ -14,12 +14,12 @@ from uuid import uuid4
 import pytest
 
 from omniintelligence.nodes.node_doc_retrieval_compute.handlers.handler_doc_retrieval import (
+    HandlerDocRetrieval,
     _compute_doc_token_budget,
     _compute_intent_weight,
     _compute_scope_boost,
     _compute_tier_multiplier,
     _is_allowed,
-    handle_doc_retrieval,
 )
 from omniintelligence.nodes.node_doc_retrieval_compute.models.model_doc_retrieval_input import (
     DocSourceConfig,
@@ -239,14 +239,14 @@ class TestIsAllowed:
 
 
 # ---------------------------------------------------------------------------
-# handle_doc_retrieval (integration)
+# HandlerDocRetrieval (integration)
 # ---------------------------------------------------------------------------
 
 
 class TestHandleDocRetrieval:
     @pytest.mark.asyncio
     async def test_empty_results(self) -> None:
-        result = await handle_doc_retrieval(_make_input([]))
+        result = await HandlerDocRetrieval().handle(_make_input([]))
         assert len(result.ranked_items) == 0
         assert result.tokens_used == 0
         assert result.items_considered == 0
@@ -264,7 +264,7 @@ class TestHandleDocRetrieval:
             crawl_scope="omninode/omniclaude",
             token_estimate=50,
         )
-        result = await handle_doc_retrieval(
+        result = await HandlerDocRetrieval().handle(
             _make_input([same_org, exact], query_scope="omninode/omniintelligence")
         )
         assert len(result.ranked_items) == 2
@@ -276,7 +276,7 @@ class TestHandleDocRetrieval:
         """SHARED item ranks above earned VALIDATED at same similarity."""
         shared = _make_result(tier="shared", similarity=0.80, token_estimate=50)
         validated = _make_result(tier="validated", similarity=0.80, token_estimate=50)
-        result = await handle_doc_retrieval(_make_input([validated, shared]))
+        result = await HandlerDocRetrieval().handle(_make_input([validated, shared]))
         assert result.ranked_items[0].tier_multiplier == 1.15  # SHARED first
 
     @pytest.mark.asyncio
@@ -287,7 +287,7 @@ class TestHandleDocRetrieval:
         small2 = _make_result(token_estimate=100, similarity=0.80)
         config = DocSourceConfig(doc_token_budget_fraction_default=0.10)
         # total_token_budget=4096, 10% = 409 tokens
-        result = await handle_doc_retrieval(
+        result = await HandlerDocRetrieval().handle(
             _make_input(
                 [big, small1, small2],
                 total_token_budget=4096,
@@ -303,7 +303,7 @@ class TestHandleDocRetrieval:
         """No more than max_doc_items are returned."""
         results = [_make_result(token_estimate=10, similarity=0.80) for _ in range(20)]
         config = DocSourceConfig(max_doc_items=5)
-        result = await handle_doc_retrieval(_make_input(results, config=config))
+        result = await HandlerDocRetrieval().handle(_make_input(results, config=config))
         assert len(result.ranked_items) <= 5
 
     @pytest.mark.asyncio
@@ -316,7 +316,7 @@ class TestHandleDocRetrieval:
         r2 = _make_result(
             similarity=0.80, content_fingerprint=fingerprint, token_estimate=50
         )
-        result = await handle_doc_retrieval(_make_input([r1, r2]))
+        result = await HandlerDocRetrieval().handle(_make_input([r1, r2]))
         # Only one item with this fingerprint
         fps = [item.content_fingerprint for item in result.ranked_items]
         assert fps.count(fingerprint) == 1
@@ -327,14 +327,16 @@ class TestHandleDocRetrieval:
         low = _make_result(similarity=0.50)
         high = _make_result(similarity=0.80)
         config = DocSourceConfig(doc_min_similarity=0.65)
-        result = await handle_doc_retrieval(_make_input([low, high], config=config))
+        result = await HandlerDocRetrieval().handle(
+            _make_input([low, high], config=config)
+        )
         assert all(item.similarity >= 0.65 for item in result.ranked_items)
         assert result.items_filtered >= 1
 
     @pytest.mark.asyncio
     async def test_compliance_intent_budget(self) -> None:
         """Compliance intent gets 40% budget fraction."""
-        result = await handle_doc_retrieval(
+        result = await HandlerDocRetrieval().handle(
             _make_input(
                 [_make_result(token_estimate=10)],
                 intent_category="compliance",
@@ -345,7 +347,7 @@ class TestHandleDocRetrieval:
 
     @pytest.mark.asyncio
     async def test_correlation_id_propagated(self) -> None:
-        result = await handle_doc_retrieval(
+        result = await HandlerDocRetrieval().handle(
             ModelDocRetrievalInput(
                 search_results=(),
                 query_scope="omninode/omniintelligence",
@@ -364,7 +366,7 @@ class TestHandleDocRetrieval:
             crawl_scope="omninode/omniintelligence",
             token_estimate=50,
         )
-        output = await handle_doc_retrieval(
+        output = await HandlerDocRetrieval().handle(
             _make_input(
                 [result_item],
                 query_scope="omninode/omniintelligence",
@@ -381,7 +383,7 @@ class TestHandleDocRetrieval:
         below = _make_result(similarity=0.40)  # below threshold
         quarantine_item = _make_result(tier="quarantine", similarity=0.80)  # wrong tier
         valid = _make_result(similarity=0.80, token_estimate=10)
-        result = await handle_doc_retrieval(
+        result = await HandlerDocRetrieval().handle(
             _make_input([below, quarantine_item, valid])
         )
         assert result.items_considered == 3
@@ -391,7 +393,7 @@ class TestHandleDocRetrieval:
     @pytest.mark.asyncio
     async def test_budget_fraction_used(self) -> None:
         result_item = _make_result(token_estimate=100, similarity=0.80)
-        output = await handle_doc_retrieval(
+        output = await HandlerDocRetrieval().handle(
             _make_input([result_item], total_token_budget=1000)
         )
         assert output.budget_fraction_used == pytest.approx(100 / 1000)

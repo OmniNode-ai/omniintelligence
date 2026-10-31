@@ -84,8 +84,8 @@ _HANDLER_SPECS: list[tuple[str, str, bool]] = [
     ),
     (
         "omniintelligence.nodes.node_intelligence_orchestrator.handlers.handler_receive_intent",
-        "handle_receive_intent",
-        False,
+        "HandlerReceiveIntent",
+        True,
     ),
     (
         "omniintelligence.nodes.node_ci_error_classifier_compute.handlers.handler_classifier",

@@ -46,7 +46,7 @@ handler_routing:
   handlers:
     - operation: "evaluate_dispatch_outcome"
       handler:
-        function: "handle_dispatch_outcome"
+        class: "HandlerDispatchOutcome"
         module: "omniintelligence.nodes.node_dispatch_outcome_eval_effect.handlers.handler_dispatch_outcome"
         type: "async"
       description: "Map dispatch worker completion status to an evaluation verdict."

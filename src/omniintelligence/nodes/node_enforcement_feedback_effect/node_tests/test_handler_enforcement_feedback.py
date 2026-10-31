@@ -32,7 +32,7 @@ import pytest
 
 from omniintelligence.nodes.node_enforcement_feedback_effect.handlers.handler_enforcement_feedback import (
     CONFIDENCE_ADJUSTMENT_PER_VIOLATION,
-    process_enforcement_feedback,
+    HandlerEnforcementFeedback,
 )
 from omniintelligence.nodes.node_enforcement_feedback_effect.models import (
     EnumEnforcementFeedbackStatus,
@@ -60,9 +60,8 @@ class TestNoViolations:
         sample_enforcement_event_no_violations: ModelEnforcementEvent,
     ) -> None:
         """Event with zero violations returns NO_VIOLATIONS status."""
-        result = await process_enforcement_feedback(
-            event=sample_enforcement_event_no_violations,
-            repository=mock_repository,
+        result = await HandlerEnforcementFeedback(repository=mock_repository).handle(
+            sample_enforcement_event_no_violations
         )
 
         assert result.status == EnumEnforcementFeedbackStatus.NO_VIOLATIONS
@@ -77,9 +76,8 @@ class TestNoViolations:
         sample_enforcement_event_no_violations: ModelEnforcementEvent,
     ) -> None:
         """Event with zero violations does not query the database."""
-        await process_enforcement_feedback(
-            event=sample_enforcement_event_no_violations,
-            repository=mock_repository,
+        await HandlerEnforcementFeedback(repository=mock_repository).handle(
+            sample_enforcement_event_no_violations
         )
 
         assert len(mock_repository.queries_executed) == 0
@@ -91,9 +89,8 @@ class TestNoViolations:
         sample_enforcement_event_no_violations: ModelEnforcementEvent,
     ) -> None:
         """Event metadata (correlation_id, session_id, etc.) is preserved in result."""
-        result = await process_enforcement_feedback(
-            event=sample_enforcement_event_no_violations,
-            repository=mock_repository,
+        result = await HandlerEnforcementFeedback(repository=mock_repository).handle(
+            sample_enforcement_event_no_violations
         )
 
         assert (
@@ -127,9 +124,8 @@ class TestUnconfirmedViolations:
         """Violation that was advised but NOT corrected does not adjust confidence."""
         mock_repository.add_pattern(sample_pattern_id_a, quality_score=0.8)
 
-        result = await process_enforcement_feedback(
-            event=sample_enforcement_event_unconfirmed,
-            repository=mock_repository,
+        result = await HandlerEnforcementFeedback(repository=mock_repository).handle(
+            sample_enforcement_event_unconfirmed
         )
 
         assert result.status == EnumEnforcementFeedbackStatus.NO_ADJUSTMENTS
@@ -164,9 +160,8 @@ class TestUnconfirmedViolations:
             ],
         )
 
-        result = await process_enforcement_feedback(
-            event=event,
-            repository=mock_repository,
+        result = await HandlerEnforcementFeedback(repository=mock_repository).handle(
+            event
         )
 
         assert result.status == EnumEnforcementFeedbackStatus.NO_ADJUSTMENTS
@@ -202,9 +197,8 @@ class TestUnconfirmedViolations:
             ],
         )
 
-        result = await process_enforcement_feedback(
-            event=event,
-            repository=mock_repository,
+        result = await HandlerEnforcementFeedback(repository=mock_repository).handle(
+            event
         )
 
         assert result.status == EnumEnforcementFeedbackStatus.NO_ADJUSTMENTS
@@ -230,9 +224,8 @@ class TestConfirmedViolations:
         """Confirmed violation applies -0.01 confidence adjustment."""
         mock_repository.add_pattern(sample_pattern_id_a, quality_score=0.8)
 
-        result = await process_enforcement_feedback(
-            event=sample_enforcement_event_confirmed,
-            repository=mock_repository,
+        result = await HandlerEnforcementFeedback(repository=mock_repository).handle(
+            sample_enforcement_event_confirmed
         )
 
         assert result.status == EnumEnforcementFeedbackStatus.SUCCESS
@@ -255,9 +248,8 @@ class TestConfirmedViolations:
         """Verify the exact adjustment value is -0.01."""
         mock_repository.add_pattern(sample_pattern_id_a, quality_score=1.0)
 
-        result = await process_enforcement_feedback(
-            event=sample_enforcement_event_confirmed,
-            repository=mock_repository,
+        result = await HandlerEnforcementFeedback(repository=mock_repository).handle(
+            sample_enforcement_event_confirmed
         )
 
         assert result.adjustments[0].adjustment == -0.01
@@ -275,9 +267,8 @@ class TestConfirmedViolations:
         """Adjustment includes a descriptive reason."""
         mock_repository.add_pattern(sample_pattern_id_a, quality_score=0.8)
 
-        result = await process_enforcement_feedback(
-            event=sample_enforcement_event_confirmed,
-            repository=mock_repository,
+        result = await HandlerEnforcementFeedback(repository=mock_repository).handle(
+            sample_enforcement_event_confirmed
         )
 
         reason = result.adjustments[0].reason
@@ -306,9 +297,8 @@ class TestMixedViolations:
         mock_repository.add_pattern(sample_pattern_id_a, quality_score=0.8)
         mock_repository.add_pattern(sample_pattern_id_b, quality_score=0.9)
 
-        result = await process_enforcement_feedback(
-            event=sample_enforcement_event_mixed,
-            repository=mock_repository,
+        result = await HandlerEnforcementFeedback(repository=mock_repository).handle(
+            sample_enforcement_event_mixed
         )
 
         assert result.status == EnumEnforcementFeedbackStatus.SUCCESS
@@ -356,9 +346,8 @@ class TestMixedViolations:
             ],
         )
 
-        result = await process_enforcement_feedback(
-            event=event,
-            repository=mock_repository,
+        result = await HandlerEnforcementFeedback(repository=mock_repository).handle(
+            event
         )
 
         assert result.status == EnumEnforcementFeedbackStatus.SUCCESS
@@ -416,10 +405,7 @@ class TestConservativeAdjustment:
                     ),
                 ],
             )
-            await process_enforcement_feedback(
-                event=event,
-                repository=mock_repository,
-            )
+            await HandlerEnforcementFeedback(repository=mock_repository).handle(event)
 
         assert mock_repository.patterns[pattern_id]["quality_score"] == pytest.approx(
             0.5
@@ -445,9 +431,8 @@ class TestQualityScoreClamping:
         """Quality score is clamped at 0.0 (never goes negative)."""
         mock_repository.add_pattern(sample_pattern_id_a, quality_score=0.005)
 
-        result = await process_enforcement_feedback(
-            event=sample_enforcement_event_confirmed,
-            repository=mock_repository,
+        result = await HandlerEnforcementFeedback(repository=mock_repository).handle(
+            sample_enforcement_event_confirmed
         )
 
         assert result.status == EnumEnforcementFeedbackStatus.SUCCESS
@@ -463,9 +448,8 @@ class TestQualityScoreClamping:
         """Quality score already at 0.0 stays at 0.0 after adjustment."""
         mock_repository.add_pattern(sample_pattern_id_a, quality_score=0.0)
 
-        result = await process_enforcement_feedback(
-            event=sample_enforcement_event_confirmed,
-            repository=mock_repository,
+        result = await HandlerEnforcementFeedback(repository=mock_repository).handle(
+            sample_enforcement_event_confirmed
         )
 
         assert result.status == EnumEnforcementFeedbackStatus.SUCCESS
@@ -490,9 +474,8 @@ class TestPatternNotFound:
         """Violation referencing a non-existent pattern is skipped silently."""
         # Don't add any pattern to the repository
 
-        result = await process_enforcement_feedback(
-            event=sample_enforcement_event_confirmed,
-            repository=mock_repository,
+        result = await HandlerEnforcementFeedback(repository=mock_repository).handle(
+            sample_enforcement_event_confirmed
         )
 
         # Should still succeed but with no adjustments (pattern not found)
@@ -534,9 +517,8 @@ class TestPatternNotFound:
             ],
         )
 
-        result = await process_enforcement_feedback(
-            event=event,
-            repository=mock_repository,
+        result = await HandlerEnforcementFeedback(repository=mock_repository).handle(
+            event
         )
 
         assert result.status == EnumEnforcementFeedbackStatus.SUCCESS
@@ -572,9 +554,8 @@ class TestErrorHandling:
         mock_repository.simulate_db_error = Exception("Connection refused")
 
         # Should NOT raise - errors are handled per-violation
-        result = await process_enforcement_feedback(
-            event=sample_enforcement_event_confirmed,
-            repository=mock_repository,
+        result = await HandlerEnforcementFeedback(repository=mock_repository).handle(
+            sample_enforcement_event_confirmed
         )
 
         # Status is PARTIAL_SUCCESS because the error is reported structurally
@@ -635,9 +616,8 @@ class TestErrorHandling:
             ],
         )
 
-        result = await process_enforcement_feedback(
-            event=event,
-            repository=mock_repository,
+        result = await HandlerEnforcementFeedback(repository=mock_repository).handle(
+            event
         )
 
         assert result.status == EnumEnforcementFeedbackStatus.PARTIAL_SUCCESS
@@ -777,9 +757,8 @@ class TestDuplicatePatternId:
             ],
         )
 
-        result = await process_enforcement_feedback(
-            event=event,
-            repository=mock_repository,
+        result = await HandlerEnforcementFeedback(repository=mock_repository).handle(
+            event
         )
 
         # Both violations are confirmed and produce adjustment records

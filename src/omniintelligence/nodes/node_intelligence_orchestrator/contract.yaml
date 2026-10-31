@@ -106,13 +106,13 @@ handler_routing:
   handlers:
     - operation: "receive_intent"
       handler:
-        function: "handle_receive_intent"
+        class: "HandlerReceiveIntent"
         module: "omniintelligence.nodes.node_intelligence_orchestrator.handlers.handler_receive_intent"
         type: "sync"
       description: "Receive and log a single intent from the reducer"
     - operation: "receive_intents"
       handler:
-        function: "handle_receive_intents"
+        class: "HandlerReceiveIntents"
         module: "omniintelligence.nodes.node_intelligence_orchestrator.handlers.handler_receive_intent"
         type: "sync"
       description: "Receive and log a batch of intents from reducer output"

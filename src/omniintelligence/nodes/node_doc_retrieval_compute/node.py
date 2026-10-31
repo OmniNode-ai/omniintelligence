@@ -10,7 +10,7 @@ produces a ranked, budget-enforced list ready for context assembly.
 This node follows the ONEX declarative pattern:
     - DECLARATIVE compute node driven by contract.yaml
     - Pure computation: no I/O, no Qdrant calls, no side effects
-    - Delegates entirely to handle_doc_retrieval
+    - Delegates entirely to HandlerDocRetrieval
 
 Responsibilities:
     - Filter results below doc_min_similarity threshold
@@ -61,7 +61,7 @@ class NodeDocRetrievalCompute(
     Example:
         ```python
         from omniintelligence.nodes.node_doc_retrieval_compute.handlers import (
-            handle_doc_retrieval,
+            HandlerDocRetrieval,
         )
         from omniintelligence.nodes.node_doc_retrieval_compute.models import (
             DocSourceConfig,
@@ -69,7 +69,7 @@ class NodeDocRetrievalCompute(
             ModelDocSearchResult,
         )
 
-        result = await handle_doc_retrieval(
+        result = await HandlerDocRetrieval().handle(
             ModelDocRetrievalInput(
                 search_results=search_results,
                 query_scope="omninode/omniintelligence",

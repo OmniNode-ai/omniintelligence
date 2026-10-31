@@ -17,6 +17,13 @@ requirements:
       - id: "AC1"
         statement: |-
           AC1: the unit tests of the six converted handlers call the handler classes and pass -- falsifier: uv run pytest tests/unit/nodes/node_ci_error_classifier_compute tests/unit/nodes/node_semantic_analysis_compute tests/unit/nodes/node_success_criteria_matcher_compute tests/unit/nodes/node_execution_trace_parser_compute tests/unit/nodes/node_pattern_matching_compute tests/unit/nodes/node_code_entity_bridge_compute -q
+  - id: "req-handler-classes-effect-reducer"
+    statement: |-
+      Ten effect, reducer and compute nodes (dispatch_outcome_eval, doc_retrieval, doc_promotion, document_fetch, intelligence_reducer, intelligence_orchestrator, enforcement_feedback, scoring_reducer, policy_state_reducer, intent_graph_reducer) bind handler classes with handle(request) in their contracts; no module-level handler function remains in their handler modules.
+    acceptance:
+      - id: "AC1"
+        statement: |-
+          AC1: the unit tests of the ten converted nodes and the dispatch bridges call the handler classes and pass -- falsifier: uv run pytest tests/unit/nodes/node_dispatch_outcome_eval_effect tests/unit/nodes/node_intelligence_orchestrator tests/unit/nodes/node_enforcement_feedback_effect tests/unit/nodes/node_intent_graph_reducer tests/unit/runtime/test_dispatch_handler_orchestrator.py -q
 evidence_requirements:
   - kind: "tests"
     description: "Handler-class unit tests for the six nodes pass."
@@ -34,4 +41,14 @@ dod_evidence:
       - check_type: "test_passes"
         check_value: "uv run pytest tests/unit/nodes/node_ci_error_classifier_compute tests/unit/nodes/node_semantic_analysis_compute
           -q"
+    binds_ac: ["AC1"]
+  - id: "dod-omn21536-ac1-effect-reducer-handler-classes"
+    description: "The ten converted handler classes are exercised by their unit tests, and the handler_shape
+      validator reports no module_function_handler finding for them."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/nodes/node_dispatch_outcome_eval_effect tests/unit/nodes/node_intelligence_orchestrator
+          tests/unit/nodes/node_enforcement_feedback_effect tests/unit/nodes/node_intent_graph_reducer
+          tests/unit/runtime/test_dispatch_handler_orchestrator.py -q"
     binds_ac: ["AC1"]

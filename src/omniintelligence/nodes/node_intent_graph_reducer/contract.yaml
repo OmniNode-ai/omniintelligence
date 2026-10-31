@@ -37,6 +37,30 @@ output_model:
   module: "omniintelligence.nodes.node_intent_graph_reducer.models.model_intent_graph_state"
   description: "Updated intent graph state after applying the incoming event."
 
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    - operation: "update_on_classification"
+      handler:
+        module: "omniintelligence.nodes.node_intent_graph_reducer.handlers.handler_intent_graph_update"
+        class: "HandlerUpdateGraphOnClassification"
+        type: "sync"
+    - operation: "update_on_outcome"
+      handler:
+        module: "omniintelligence.nodes.node_intent_graph_reducer.handlers.handler_intent_graph_update"
+        class: "HandlerUpdateGraphOnOutcome"
+        type: "sync"
+    - operation: "get_top_transitions"
+      handler:
+        module: "omniintelligence.nodes.node_intent_graph_reducer.handlers.handler_intent_graph_update"
+        class: "HandlerGetTopTransitions"
+        type: "sync"
+    - operation: "get_node_success_rate"
+      handler:
+        module: "omniintelligence.nodes.node_intent_graph_reducer.handlers.handler_intent_graph_update"
+        class: "HandlerGetNodeSuccessRate"
+        type: "sync"
+
 operations:
   - name: "update_on_classification"
     description: "Update graph when a new intent classification event is received"

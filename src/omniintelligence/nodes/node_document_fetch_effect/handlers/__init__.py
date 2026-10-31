@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from omniintelligence.nodes.node_document_fetch_effect.handlers.handler_document_fetch import (
-    handle_document_fetch,
+    HandlerDocumentFetch,
 )
 from omniintelligence.nodes.node_document_fetch_effect.handlers.protocol_blob_store import (
     ProtocolBlobStore,
@@ -15,5 +15,5 @@ from omniintelligence.nodes.node_document_fetch_effect.handlers.protocol_blob_st
 
 __all__ = [
     "ProtocolBlobStore",
-    "handle_document_fetch",
+    "HandlerDocumentFetch",
 ]

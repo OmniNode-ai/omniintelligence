@@ -73,7 +73,9 @@ async def test_skips_quality_scoring_compute_without_artifact(
         fail_if_called,
     )
 
-    result = await handler_dispatch_outcome.handle_dispatch_outcome(_make_event())
+    result = await handler_dispatch_outcome.HandlerDispatchOutcome().handle(
+        _make_event()
+    )
 
     assert result.quality_score is None
 
@@ -98,7 +100,7 @@ async def test_skips_quality_scoring_compute_for_unsupported_artifact(
         fail_if_called,
     )
 
-    result = await handler_dispatch_outcome.handle_dispatch_outcome(
+    result = await handler_dispatch_outcome.HandlerDispatchOutcome().handle(
         _make_event(str(artifact))
     )
 
@@ -124,7 +126,7 @@ async def test_skips_quality_scoring_compute_when_artifact_missing(
         fail_if_called,
     )
 
-    result = await handler_dispatch_outcome.handle_dispatch_outcome(
+    result = await handler_dispatch_outcome.HandlerDispatchOutcome().handle(
         _make_event(str(artifact))
     )
 
@@ -151,7 +153,7 @@ async def test_skips_quality_score_when_compute_raises_runtime_error(
         fail_with_runtime_error,
     )
 
-    result = await handler_dispatch_outcome.handle_dispatch_outcome(
+    result = await handler_dispatch_outcome.HandlerDispatchOutcome().handle(
         _make_event(str(artifact))
     )
 

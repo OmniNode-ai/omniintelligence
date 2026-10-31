@@ -78,7 +78,7 @@ async def test_invokes_quality_scoring_compute_for_artifact(
         fake_handle_quality_scoring_compute,
     )
 
-    result = await handler_dispatch_outcome.handle_dispatch_outcome(
+    result = await handler_dispatch_outcome.HandlerDispatchOutcome().handle(
         _make_event(str(artifact))
     )
 

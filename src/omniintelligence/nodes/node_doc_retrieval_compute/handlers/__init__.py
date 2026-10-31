@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from omniintelligence.nodes.node_doc_retrieval_compute.handlers.handler_doc_retrieval import (
-    handle_doc_retrieval,
+    HandlerDocRetrieval,
 )
 
-__all__ = ["handle_doc_retrieval"]
+__all__ = ["HandlerDocRetrieval"]

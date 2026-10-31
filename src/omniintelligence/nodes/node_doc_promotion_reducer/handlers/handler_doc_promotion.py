@@ -289,71 +289,75 @@ def _evaluate_candidate(
 # =============================================================================
 
 
-async def handle_doc_promotion(
-    input_data: ModelDocPromotionInput,
-    *,
-    threshold_sets: dict[EnumContextItemSourceType, ModelPromotionThresholdSet]
-    | None = None,
-) -> ModelDocPromotionOutput:
-    """Evaluate promotion gates for a batch of ContextItem candidates.
+class HandlerDocPromotion:
+    """Typed handler for doc promotion reducer."""
 
-    Selects the threshold set for each candidate based on source_type.
-    Evaluates demotion, Q→V, and V→S gates in priority order.
-    Returns decisions without persisting — caller handles persistence.
+    def __init__(
+        self,
+        threshold_sets: dict[EnumContextItemSourceType, ModelPromotionThresholdSet]
+        | None = None,
+    ) -> None:
+        """Use injected thresholds or the canonical promotion thresholds."""
+        self._threshold_sets = (
+            threshold_sets if threshold_sets is not None else THRESHOLD_SETS
+        )
 
-    Args:
-        input_data:     Batch of candidates with recent attribution signals.
-        threshold_sets: Optional override for canonical THRESHOLD_SETS.
-                        Defaults to the canonical sets from model_promotion_threshold_set.
+    async def handle(self, request: ModelDocPromotionInput) -> ModelDocPromotionOutput:
+        """Evaluate promotion gates for a batch of ContextItem candidates.
 
-    Returns:
-        ModelDocPromotionOutput with per-candidate decisions and aggregate counts.
-    """
-    effective_thresholds = (
-        threshold_sets if threshold_sets is not None else THRESHOLD_SETS
-    )
+        Selects the threshold set for each candidate based on source_type.
+        Evaluates demotion, Q→V, and V→S gates in priority order.
+        Returns decisions without persisting — caller handles persistence.
 
-    decisions: list[ModelPromotionDecision] = []
-    items_promoted = 0
-    items_demoted = 0
-    items_unchanged = 0
+        Args:
+            request:     Batch of candidates with recent attribution signals.
 
-    for candidate in input_data.candidates:
-        thresholds = effective_thresholds.get(candidate.source_type)
-        if thresholds is None:
-            # Unknown source type — skip without a decision
-            logger.warning(
-                "No threshold set for source_type=%s (item_id=%s). Skipping.",
-                candidate.source_type,
-                candidate.item_id,
-            )
-            continue
+        Returns:
+            ModelDocPromotionOutput with per-candidate decisions and aggregate counts.
+        """
+        effective_thresholds = self._threshold_sets
 
-        decision = _evaluate_candidate(candidate, thresholds)
-        decisions.append(decision)
-        if decision.promoted:
-            items_promoted += 1
-        elif decision.demoted:
-            items_demoted += 1
-        else:
-            items_unchanged += 1
+        decisions: list[ModelPromotionDecision] = []
+        items_promoted = 0
+        items_demoted = 0
+        items_unchanged = 0
 
-    logger.info(
-        "DocPromotion: promoted=%d demoted=%d unchanged=%d dry_run=%s",
-        items_promoted,
-        items_demoted,
-        items_unchanged,
-        input_data.dry_run,
-    )
+        for candidate in request.candidates:
+            thresholds = effective_thresholds.get(candidate.source_type)
+            if thresholds is None:
+                # Unknown source type — skip without a decision
+                logger.warning(
+                    "No threshold set for source_type=%s (item_id=%s). Skipping.",
+                    candidate.source_type,
+                    candidate.item_id,
+                )
+                continue
 
-    return ModelDocPromotionOutput(
-        decisions=tuple(decisions),
-        items_promoted=items_promoted,
-        items_demoted=items_demoted,
-        items_unchanged=items_unchanged,
-        dry_run=input_data.dry_run,
-        correlation_id=input_data.correlation_id,
-    )
+            decision = _evaluate_candidate(candidate, thresholds)
+            decisions.append(decision)
+            if decision.promoted:
+                items_promoted += 1
+            elif decision.demoted:
+                items_demoted += 1
+            else:
+                items_unchanged += 1
+
+        logger.info(
+            "DocPromotion: promoted=%d demoted=%d unchanged=%d dry_run=%s",
+            items_promoted,
+            items_demoted,
+            items_unchanged,
+            request.dry_run,
+        )
+
+        return ModelDocPromotionOutput(
+            decisions=tuple(decisions),
+            items_promoted=items_promoted,
+            items_demoted=items_demoted,
+            items_unchanged=items_unchanged,
+            dry_run=request.dry_run,
+            correlation_id=request.correlation_id,
+        )
 
 
-__all__ = ["handle_doc_promotion"]
+__all__ = ["HandlerDocPromotion"]

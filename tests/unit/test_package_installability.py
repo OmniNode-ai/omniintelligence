@@ -185,7 +185,7 @@ HANDLER_ENTRY_POINTS = [
     ),
     (
         "omniintelligence.nodes.node_enforcement_feedback_effect.handlers",
-        "process_enforcement_feedback",
+        "HandlerEnforcementFeedback",
     ),
     # --- Orchestrator (with handler routing) ---
     (

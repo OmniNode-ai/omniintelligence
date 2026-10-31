@@ -7,7 +7,7 @@
 Validates:
     - Bridge handler is registered in the dispatch engine
     - Route resolves for intent.received events
-    - handle_receive_intent is called with correct ModelIntent
+    - HandlerReceiveIntent.handle is called with correct ModelIntent
     - Sync-to-async bridge works correctly
 """
 
@@ -42,7 +42,7 @@ class TestIntelligenceOrchestratorDispatchHandler:
 
     @pytest.mark.asyncio
     async def test_handler_processes_valid_intent_payload(self) -> None:
-        """Handler constructs ModelIntent from payload and calls handle_receive_intent."""
+        """Handler constructs ModelIntent from payload and calls HandlerReceiveIntent.handle."""
         import json
 
         from omnibase_core.models.reducer.model_intent import ModelIntent

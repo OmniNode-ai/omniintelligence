@@ -33,8 +33,8 @@ from uuid import uuid4
 import pytest
 
 from omniintelligence.nodes.node_doc_promotion_reducer.handlers.handler_doc_promotion import (
+    HandlerDocPromotion,
     _accumulate_signals,
-    handle_doc_promotion,
 )
 from omniintelligence.nodes.node_doc_promotion_reducer.models.enum_attribution_signal_type import (
     DOC_MIN_SIMILARITY,
@@ -122,7 +122,7 @@ class TestQuarantineToValidated:
             current_tier=EnumPromotionTier.QUARANTINE,
             scored_runs=5,
         )
-        result = await handle_doc_promotion(_make_input([candidate]))
+        result = await HandlerDocPromotion().handle(_make_input([candidate]))
         assert result.decisions[0].new_tier == EnumPromotionTier.VALIDATED
         assert result.decisions[0].promoted is True
 
@@ -133,7 +133,7 @@ class TestQuarantineToValidated:
             current_tier=EnumPromotionTier.QUARANTINE,
             scored_runs=4,
         )
-        result = await handle_doc_promotion(_make_input([candidate]))
+        result = await HandlerDocPromotion().handle(_make_input([candidate]))
         assert result.decisions[0].new_tier == EnumPromotionTier.QUARANTINE
         assert result.decisions[0].promoted is False
 
@@ -145,7 +145,7 @@ class TestQuarantineToValidated:
             current_tier=EnumPromotionTier.QUARANTINE,
             scored_runs=10,
         )
-        result = await handle_doc_promotion(_make_input([candidate]))
+        result = await HandlerDocPromotion().handle(_make_input([candidate]))
         assert result.decisions[0].new_tier == EnumPromotionTier.VALIDATED
         assert result.decisions[0].promoted is True
 
@@ -160,7 +160,7 @@ class TestQuarantineToValidated:
             current_tier=EnumPromotionTier.QUARANTINE,
             scored_runs=100,
         )
-        result = await handle_doc_promotion(_make_input([candidate]))
+        result = await HandlerDocPromotion().handle(_make_input([candidate]))
         # quarantine_to_validated_runs is None -> no Q->V gate -> stays QUARANTINE
         assert result.decisions[0].new_tier == EnumPromotionTier.QUARANTINE
         assert result.decisions[0].promoted is False
@@ -182,7 +182,7 @@ class TestValidatedToShared:
             used_rate=0.10,
             positive_signals=5,
         )
-        result = await handle_doc_promotion(_make_input([candidate]))
+        result = await HandlerDocPromotion().handle(_make_input([candidate]))
         assert result.decisions[0].new_tier == EnumPromotionTier.SHARED
         assert result.decisions[0].promoted is True
         assert result.decisions[0].blocked_by is None
@@ -196,7 +196,7 @@ class TestValidatedToShared:
             used_rate=0.15,
             positive_signals=5,
         )
-        result = await handle_doc_promotion(_make_input([candidate]))
+        result = await HandlerDocPromotion().handle(_make_input([candidate]))
         assert result.decisions[0].new_tier == EnumPromotionTier.VALIDATED
         assert result.decisions[0].blocked_by is not None
         assert "scored_runs" in result.decisions[0].blocked_by
@@ -210,7 +210,7 @@ class TestValidatedToShared:
             used_rate=0.05,  # below 0.10
             positive_signals=5,
         )
-        result = await handle_doc_promotion(_make_input([candidate]))
+        result = await HandlerDocPromotion().handle(_make_input([candidate]))
         assert result.decisions[0].blocked_by is not None
         assert "used_rate" in result.decisions[0].blocked_by
 
@@ -224,7 +224,7 @@ class TestValidatedToShared:
             used_rate=0.20,
             positive_signals=4,  # floor is 5
         )
-        result = await handle_doc_promotion(_make_input([candidate]))
+        result = await HandlerDocPromotion().handle(_make_input([candidate]))
         assert result.decisions[0].new_tier == EnumPromotionTier.VALIDATED
         assert result.decisions[0].blocked_by is not None
         assert "positive_signals" in result.decisions[0].blocked_by
@@ -243,7 +243,7 @@ class TestValidatedToShared:
             positive_signals=4,  # 1 short of floor
             recent_signals=(rule_signal,),  # adds 1 -> total 5
         )
-        result = await handle_doc_promotion(_make_input([candidate]))
+        result = await HandlerDocPromotion().handle(_make_input([candidate]))
         assert result.decisions[0].new_tier == EnumPromotionTier.SHARED
         assert result.decisions[0].promoted is True
 
@@ -257,7 +257,7 @@ class TestValidatedToShared:
             used_rate=0.25,
             positive_signals=0,  # floor is 0 for MEMORY_HOOK
         )
-        result = await handle_doc_promotion(_make_input([candidate]))
+        result = await HandlerDocPromotion().handle(_make_input([candidate]))
         assert result.decisions[0].new_tier == EnumPromotionTier.SHARED
         assert result.decisions[0].promoted is True
 
@@ -271,7 +271,7 @@ class TestValidatedToShared:
             used_rate=0.15,
             positive_signals=5,
         )
-        result = await handle_doc_promotion(_make_input([candidate]))
+        result = await HandlerDocPromotion().handle(_make_input([candidate]))
         assert result.decisions[0].new_tier == EnumPromotionTier.SHARED
         assert result.decisions[0].promoted is True
 
@@ -291,7 +291,7 @@ class TestDemotion:
             scored_runs=10,
             hurt_rate=0.50,  # >= 0.40 threshold
         )
-        result = await handle_doc_promotion(_make_input([candidate]))
+        result = await HandlerDocPromotion().handle(_make_input([candidate]))
         assert result.decisions[0].new_tier == EnumPromotionTier.QUARANTINE
         assert result.decisions[0].demoted is True
         assert result.items_demoted == 1
@@ -312,7 +312,7 @@ class TestDemotion:
             hurt_rate=0.0,
             recent_signals=(violated_signal,),
         )
-        result = await handle_doc_promotion(_make_input([candidate]))
+        result = await HandlerDocPromotion().handle(_make_input([candidate]))
         assert result.decisions[0].demoted is True
 
     @pytest.mark.asyncio
@@ -327,7 +327,7 @@ class TestDemotion:
             positive_signals=10,
             hurt_rate=0.45,  # >= 0.40 threshold → demote
         )
-        result = await handle_doc_promotion(_make_input([candidate]))
+        result = await HandlerDocPromotion().handle(_make_input([candidate]))
         assert result.decisions[0].new_tier == EnumPromotionTier.QUARANTINE
         assert result.decisions[0].demoted is True
 
@@ -339,7 +339,7 @@ class TestDemotion:
             current_tier=EnumPromotionTier.QUARANTINE,
             hurt_rate=0.90,  # would trigger demotion if VALIDATED
         )
-        result = await handle_doc_promotion(_make_input([candidate]))
+        result = await HandlerDocPromotion().handle(_make_input([candidate]))
         # No demotion from QUARANTINE
         assert result.decisions[0].demoted is False
 
@@ -360,7 +360,7 @@ class TestBlacklisted:
             used_rate=1.0,
             positive_signals=100,
         )
-        result = await handle_doc_promotion(_make_input([candidate]))
+        result = await HandlerDocPromotion().handle(_make_input([candidate]))
         assert result.decisions[0].new_tier == EnumPromotionTier.BLACKLISTED
         assert result.decisions[0].promoted is False
         assert result.decisions[0].demoted is False
@@ -434,7 +434,7 @@ class TestAttributionSignals:
 class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_empty_candidates(self) -> None:
-        result = await handle_doc_promotion(_make_input([]))
+        result = await HandlerDocPromotion().handle(_make_input([]))
         assert result.items_promoted == 0
         assert result.items_demoted == 0
         assert result.items_unchanged == 0
@@ -447,7 +447,9 @@ class TestEdgeCases:
             current_tier=EnumPromotionTier.QUARANTINE,
             scored_runs=5,
         )
-        result = await handle_doc_promotion(_make_input([candidate], dry_run=True))
+        result = await HandlerDocPromotion().handle(
+            _make_input([candidate], dry_run=True)
+        )
         assert result.dry_run is True
         # Decision still computed
         assert result.decisions[0].new_tier == EnumPromotionTier.VALIDATED
@@ -459,7 +461,7 @@ class TestEdgeCases:
             source_type=EnumContextItemSourceType.REPO_DERIVED,
             current_tier=EnumPromotionTier.QUARANTINE,
         )
-        result = await handle_doc_promotion(
+        result = await HandlerDocPromotion().handle(
             _make_input([candidate], correlation_id="my-corr-id")
         )
         assert result.correlation_id == "my-corr-id"
@@ -482,7 +484,9 @@ class TestEdgeCases:
             current_tier=EnumPromotionTier.VALIDATED,
             hurt_rate=0.60,  # >= 0.45 threshold
         )
-        result = await handle_doc_promotion(_make_input([promoted, unchanged, demoted]))
+        result = await HandlerDocPromotion().handle(
+            _make_input([promoted, unchanged, demoted])
+        )
         assert result.items_promoted == 1
         assert result.items_demoted == 1
         assert result.items_unchanged == 1
@@ -497,6 +501,6 @@ class TestEdgeCases:
             used_rate=1.0,
             positive_signals=100,
         )
-        result = await handle_doc_promotion(_make_input([candidate]))
+        result = await HandlerDocPromotion().handle(_make_input([candidate]))
         assert result.decisions[0].new_tier == EnumPromotionTier.SHARED
         assert result.decisions[0].promoted is False

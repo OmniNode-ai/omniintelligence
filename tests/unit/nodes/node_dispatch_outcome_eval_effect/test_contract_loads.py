@@ -48,7 +48,7 @@ def test_contract_declares_dispatch_topics_and_handler() -> None:
     ]
     handler = contract["handler_routing"]["handlers"][0]["handler"]
     assert handler == {
-        "function": "handle_dispatch_outcome",
+        "class": "HandlerDispatchOutcome",
         "module": "omniintelligence.nodes.node_dispatch_outcome_eval_effect.handlers.handler_dispatch_outcome",
         "type": "async",
     }

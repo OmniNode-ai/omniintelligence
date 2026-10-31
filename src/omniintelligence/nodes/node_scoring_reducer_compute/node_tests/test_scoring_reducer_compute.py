@@ -18,7 +18,10 @@ from __future__ import annotations
 import pytest
 
 from omniintelligence.nodes.node_scoring_reducer_compute.handlers.handler_scoring import (
-    evaluate_run,
+    HandlerScoring,
+)
+from omniintelligence.nodes.node_scoring_reducer_compute.models import (
+    ModelEvaluateRunRequest,
 )
 from omniintelligence.nodes.node_scoring_reducer_compute.models.enum_gate_type import (
     EnumGateType,
@@ -137,7 +140,9 @@ class TestGateFailPath:
         spec = _make_spec(
             gates=[_threshold_gate("g1", "test_result", 0.5)],
         )
-        result = evaluate_run(bundle, spec)
+        result = HandlerScoring().handle(
+            ModelEvaluateRunRequest(evidence=bundle, spec=spec)
+        )
 
         assert result.passed is False
         assert result.score_vector == ModelScoreVector.zero()
@@ -159,7 +164,9 @@ class TestGateFailPath:
                 _threshold_gate("g2", "lint_result", 0.5),
             ],
         )
-        result = evaluate_run(bundle, spec)
+        result = HandlerScoring().handle(
+            ModelEvaluateRunRequest(evidence=bundle, spec=spec)
+        )
 
         assert result.passed is False
         assert "g1" in result.failures
@@ -180,7 +187,9 @@ class TestGateFailPath:
                 _shaped_term("t1", "coverage_report", "maximize", "correctness")
             ],
         )
-        result = evaluate_run(bundle, spec)
+        result = HandlerScoring().handle(
+            ModelEvaluateRunRequest(evidence=bundle, spec=spec)
+        )
 
         assert result.passed is False
         assert result.score_vector == ModelScoreVector.zero()
@@ -191,7 +200,9 @@ class TestGateFailPath:
         spec = _make_spec(
             gates=[_threshold_gate("g1", "test_result", 0.0)],
         )
-        result = evaluate_run(bundle, spec)
+        result = HandlerScoring().handle(
+            ModelEvaluateRunRequest(evidence=bundle, spec=spec)
+        )
 
         assert result.passed is False
         assert "g1" in result.failures
@@ -213,7 +224,9 @@ class TestGatePassPath:
         spec = _make_spec(
             gates=[_threshold_gate("g1", "test_result", 0.5)],
         )
-        result = evaluate_run(bundle, spec)
+        result = HandlerScoring().handle(
+            ModelEvaluateRunRequest(evidence=bundle, spec=spec)
+        )
 
         assert result.passed is True
         assert result.score_vector == ModelScoreVector.zero()
@@ -223,7 +236,9 @@ class TestGatePassPath:
         """Spec with no gates and no terms → trivially passes."""
         bundle = _make_bundle("run-011", [])
         spec = _make_spec()
-        result = evaluate_run(bundle, spec)
+        result = HandlerScoring().handle(
+            ModelEvaluateRunRequest(evidence=bundle, spec=spec)
+        )
 
         assert result.passed is True
         assert result.score_vector == ModelScoreVector.zero()
@@ -237,7 +252,9 @@ class TestGatePassPath:
         spec = _make_spec(
             gates=[_threshold_gate("g1", "test_result", 0.5)],
         )
-        result = evaluate_run(bundle, spec)
+        result = HandlerScoring().handle(
+            ModelEvaluateRunRequest(evidence=bundle, spec=spec)
+        )
         assert result.passed is True
 
     def test_threshold_gate_just_below_fails(self) -> None:
@@ -249,7 +266,9 @@ class TestGatePassPath:
         spec = _make_spec(
             gates=[_threshold_gate("g1", "test_result", 0.5)],
         )
-        result = evaluate_run(bundle, spec)
+        result = HandlerScoring().handle(
+            ModelEvaluateRunRequest(evidence=bundle, spec=spec)
+        )
         assert result.passed is False
 
 
@@ -275,7 +294,9 @@ class TestShapedRewardTerms:
                 _shaped_term("t1", "coverage_report", "maximize", "correctness")
             ],
         )
-        result = evaluate_run(bundle, spec)
+        result = HandlerScoring().handle(
+            ModelEvaluateRunRequest(evidence=bundle, spec=spec)
+        )
 
         assert result.passed is True
         assert abs(result.score_vector.correctness - 0.8) < 1e-6
@@ -293,7 +314,9 @@ class TestShapedRewardTerms:
             gates=[_threshold_gate("g1", "test_result", 0.5)],
             shaped_terms=[_shaped_term("t1", "cost_measurement", "minimize", "cost")],
         )
-        result = evaluate_run(bundle, spec)
+        result = HandlerScoring().handle(
+            ModelEvaluateRunRequest(evidence=bundle, spec=spec)
+        )
 
         assert result.passed is True
         assert abs(result.score_vector.cost - 0.7) < 1e-6
@@ -320,7 +343,9 @@ class TestShapedRewardTerms:
                 ),
             ],
         )
-        result = evaluate_run(bundle, spec)
+        result = HandlerScoring().handle(
+            ModelEvaluateRunRequest(evidence=bundle, spec=spec)
+        )
 
         # 0.4 * 0.6 + 0.6 * 0.8 = 0.24 + 0.48 = 0.72
         assert result.passed is True
@@ -341,7 +366,9 @@ class TestShapedRewardTerms:
                 _shaped_term("t1", "coverage_report", "maximize", "correctness")
             ],
         )
-        result = evaluate_run(bundle, spec)
+        result = HandlerScoring().handle(
+            ModelEvaluateRunRequest(evidence=bundle, spec=spec)
+        )
 
         assert result.passed is True
         assert "i2" in result.attribution_refs
@@ -358,7 +385,9 @@ class TestShapedRewardTerms:
                 _shaped_term("t1", "coverage_report", "maximize", "correctness")
             ],
         )
-        result = evaluate_run(bundle, spec)
+        result = HandlerScoring().handle(
+            ModelEvaluateRunRequest(evidence=bundle, spec=spec)
+        )
 
         assert result.passed is True
         assert result.score_vector.correctness == 0.0
@@ -381,7 +410,9 @@ class TestShapedRewardTerms:
                 _shaped_term("t2", "benchmark_result", "minimize", "latency"),
             ],
         )
-        result = evaluate_run(bundle, spec)
+        result = HandlerScoring().handle(
+            ModelEvaluateRunRequest(evidence=bundle, spec=spec)
+        )
 
         assert result.passed is True
         assert abs(result.score_vector.safety - 0.9) < 1e-6
@@ -410,8 +441,12 @@ class TestReplayInvariant:
             ],
         )
 
-        result1 = evaluate_run(bundle, spec)
-        result2 = evaluate_run(bundle, spec)
+        result1 = HandlerScoring().handle(
+            ModelEvaluateRunRequest(evidence=bundle, spec=spec)
+        )
+        result2 = HandlerScoring().handle(
+            ModelEvaluateRunRequest(evidence=bundle, spec=spec)
+        )
 
         assert result1 == result2
         assert result1.score_vector == result2.score_vector
@@ -427,8 +462,12 @@ class TestReplayInvariant:
             gates=[_threshold_gate("g1", "test_result", 0.5)],
         )
 
-        result1 = evaluate_run(bundle, spec)
-        result2 = evaluate_run(bundle, spec)
+        result1 = HandlerScoring().handle(
+            ModelEvaluateRunRequest(evidence=bundle, spec=spec)
+        )
+        result2 = HandlerScoring().handle(
+            ModelEvaluateRunRequest(evidence=bundle, spec=spec)
+        )
 
         assert result1 == result2
         assert result1.failures == result2.failures
@@ -470,7 +509,9 @@ class TestGatesDominateMatrix:
                 _shaped_term("t1", "coverage_report", "maximize", "correctness")
             ],
         )
-        result = evaluate_run(bundle, spec)
+        result = HandlerScoring().handle(
+            ModelEvaluateRunRequest(evidence=bundle, spec=spec)
+        )
         assert result.passed is should_pass
         if not should_pass:
             assert result.score_vector == ModelScoreVector.zero()
