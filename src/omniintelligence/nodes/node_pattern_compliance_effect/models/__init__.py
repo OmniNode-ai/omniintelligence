@@ -12,6 +12,18 @@ from omniintelligence.nodes.node_pattern_compliance_effect.models.model_applicab
 from omniintelligence.nodes.node_pattern_compliance_effect.models.model_compliance_metadata import (
     ModelComplianceMetadata,
 )
+from omniintelligence.nodes.node_pattern_compliance_effect.models.model_compliance_parse_request import (
+    ModelComplianceParseRequest,
+)
+from omniintelligence.nodes.node_pattern_compliance_effect.models.model_compliance_parse_result import (
+    ModelComplianceParseResult,
+)
+from omniintelligence.nodes.node_pattern_compliance_effect.models.model_compliance_parsed_violation import (
+    ModelComplianceParsedViolation,
+)
+from omniintelligence.nodes.node_pattern_compliance_effect.models.model_compliance_prompt_request import (
+    ModelCompliancePromptRequest,
+)
 from omniintelligence.nodes.node_pattern_compliance_effect.models.model_compliance_request import (
     ModelComplianceRequest,
 )
@@ -21,8 +33,16 @@ from omniintelligence.nodes.node_pattern_compliance_effect.models.model_complian
 from omniintelligence.nodes.node_pattern_compliance_effect.models.model_compliance_violation import (
     ModelComplianceViolation,
 )
+from omniintelligence.nodes.node_pattern_compliance_effect.models.model_evaluate_compliance_request import (
+    ModelEvaluateComplianceRequest,
+)
 
 __all__ = [
+    "ModelComplianceParsedViolation",
+    "ModelEvaluateComplianceRequest",
+    "ModelComplianceParseResult",
+    "ModelComplianceParseRequest",
+    "ModelCompliancePromptRequest",
     "ModelApplicablePattern",
     "ModelComplianceMetadata",
     "ModelComplianceRequest",

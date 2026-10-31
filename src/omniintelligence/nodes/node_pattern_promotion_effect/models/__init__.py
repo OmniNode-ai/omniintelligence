@@ -14,6 +14,9 @@ from omniintelligence.models.domain import ModelGateSnapshot
 from omniintelligence.nodes.node_pattern_promotion_effect.models.model_pattern_promoted_event import (
     ModelPatternPromotedEvent,
 )
+from omniintelligence.nodes.node_pattern_promotion_effect.models.model_promote_pattern_request import (
+    ModelPromotePatternRequest,
+)
 from omniintelligence.nodes.node_pattern_promotion_effect.models.model_promotion_check_result import (
     ModelPromotionCheckResult,
 )
@@ -29,6 +32,7 @@ __all__ = [
     "ModelGateSnapshot",
     "ModelPatternPromotedEvent",
     # Request and result models
+    "ModelPromotePatternRequest",
     "ModelPromotionCheckRequest",
     "ModelPromotionCheckResult",
     "ModelPromotionResult",

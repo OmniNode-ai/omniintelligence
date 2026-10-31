@@ -26,12 +26,14 @@ from omniintelligence.nodes.node_pattern_compliance_effect.handlers.exceptions i
 )
 from omniintelligence.nodes.node_pattern_compliance_effect.handlers.handler_compliance import (
     COMPLIANCE_PROMPT_VERSION,
+    HandlerComplianceParsing,
     build_compliance_prompt,
     parse_llm_response,
 )
 from omniintelligence.nodes.node_pattern_compliance_effect.handlers.handler_compute import (
     DEFAULT_MODEL,
     DLQ_TOPIC,
+    HandlerEvaluateCompliance,
     handle_evaluate_compliance,
 )
 from omniintelligence.nodes.node_pattern_compliance_effect.handlers.protocols import (
@@ -48,6 +50,8 @@ __all__ = [
     "ComplianceLlmResponseDict",
     "ComplianceValidationError",
     "ComplianceViolationDict",
+    "HandlerComplianceParsing",
+    "HandlerEvaluateCompliance",
     "ProtocolKafkaPublisher",
     "ProtocolLlmClient",
     "build_compliance_prompt",

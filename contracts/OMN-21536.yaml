@@ -57,6 +57,20 @@ requirements:
         statement: 'AC6: the handler-shape validator reports no finding in the node and none of the eleven
           handler modules, and still reports a module of bare functions -- falsifier: the test_handle_request_shape_omn21536.py
           tests fail'
+  - id: "req-handler-shape-slice-4"
+    statement: "The handler modules of the ci failure tracker, execution trace parser, pattern compliance
+      and pattern promotion nodes hold typed handler classes that delegate to the unchanged module functions."
+    acceptance:
+      - id: "AC7"
+        statement: "AC7: ValidatorHandlerShape reports no finding on the handler modules of the four nodes
+          -- falsifier: the validator run over those modules exits non-zero"
+      - id: "AC8"
+        statement: "AC8: each new handler class returns what the preserved module function returns on
+          the parity cases -- falsifier: a parity test fails"
+      - id: "AC9"
+        statement: "AC9: the ci failure tracker, pattern compliance and pattern promotion nodes are absent
+          from the NON_CANONICAL baseline and each carries an adequacy receipt and a hand-flip proof --
+          falsifier: the canonical handler-shape ratchet reports an unproven flip"
 evidence_requirements:
   - kind: tests
     description: Handler-class unit tests for the six nodes pass.
@@ -126,3 +140,34 @@ dod_evidence:
           -q -n 0 --no-cov
     binds_ac:
       - AC6
+  - id: "dod-omn21536-ac2-validator"
+    description: "The handler-shape validator reports nothing on the handler modules of the four nodes."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: "uv run --frozen python -m omnibase_core.nodes.node_validation_report_write_effect.runtime_validator_run
+          omnibase_core.validation.validator_handler_shape:ValidatorHandlerShape src/omniintelligence/nodes/node_ci_failure_tracker_effect/handlers/handler_streak.py
+          src/omniintelligence/nodes/node_ci_failure_tracker_effect/handlers/handler_trigger_record.py
+          src/omniintelligence/nodes/node_execution_trace_parser_compute/handlers/handler_event_extraction.py
+          src/omniintelligence/nodes/node_execution_trace_parser_compute/handlers/handler_trace_parsing.py
+          src/omniintelligence/nodes/node_pattern_compliance_effect/handlers/handler_compliance.py src/omniintelligence/nodes/node_pattern_compliance_effect/handlers/handler_compute.py
+          src/omniintelligence/nodes/node_pattern_promotion_effect/handlers/handler_metrics.py src/omniintelligence/nodes/node_pattern_promotion_effect/handlers/handler_promotion.py"
+    binds_ac: ["AC7"]
+  - id: "dod-omn21536-ac3-parity"
+    description: "The parity tests of the four handler-class groups pass."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/nodes/node_ci_failure_tracker_effect/test_handler_class_shape.py
+          tests/unit/nodes/node_execution_trace_parser_compute/test_handler_class_shape.py tests/unit/nodes/node_pattern_compliance_effect/test_handler_class_shape.py
+          tests/unit/nodes/node_pattern_promotion_effect/test_handler_class_shape.py -q -n 0 --no-cov"
+    binds_ac: ["AC8"]
+  - id: "dod-omn21536-ac4-baseline"
+    description: "None of the three flipped nodes is listed in the NON_CANONICAL baseline."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: "uv run --frozen python -c 'from scripts.ci.canonical_handler_shape_baseline import
+          NON_CANONICAL as n; ids = [\"ci_failure_tracker_effect\", \"pattern_compliance_effect\", \"pattern_promotion_effect\"];
+          assert not [i for i in ids if \"omniintelligence.nodes.node_\" + i in n]'"
+    binds_ac: ["AC9"]

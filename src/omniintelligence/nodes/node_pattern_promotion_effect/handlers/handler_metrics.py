@@ -277,6 +277,15 @@ def _record(result: ModelPromotionCheckResult) -> None:
         _GAUGES["last_promoted"].set(result.patterns_succeeded)  # type: ignore[attr-defined]
 
 
+class HandlerPromotionMetrics:
+    """Typed dispatch for best-effort promotion metrics recording."""
+
+    def handle(self, request: ModelPromotionCheckResult) -> None:
+        """Record the completed check using the preserved metrics function."""
+        return record_promotion_check_metrics(request)
+
+
 __all__ = [
+    "HandlerPromotionMetrics",
     "record_promotion_check_metrics",
 ]

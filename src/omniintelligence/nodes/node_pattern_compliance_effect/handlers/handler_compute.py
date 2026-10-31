@@ -59,6 +59,9 @@ from omniintelligence.nodes.node_pattern_compliance_effect.models.model_complian
     ModelComplianceResult,
     ModelComplianceViolation,
 )
+from omniintelligence.nodes.node_pattern_compliance_effect.models.model_evaluate_compliance_request import (
+    ModelEvaluateComplianceRequest,
+)
 from omniintelligence.protocols import ProtocolKafkaPublisher
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
@@ -535,4 +538,31 @@ async def _route_to_dlq(
         )
 
 
+class HandlerEvaluateCompliance:
+    """Inject dependencies for the preserved compliance evaluation function."""
+
+    def __init__(
+        self,
+        llm_client: ProtocolLlmClient | None,
+        model: str = DEFAULT_MODEL,
+        kafka_producer: ProtocolKafkaPublisher | None = None,
+    ) -> None:
+        self._llm_client = llm_client
+        self._model = model
+        self._kafka_producer = kafka_producer
+
+    async def handle(
+        self, request: ModelEvaluateComplianceRequest
+    ) -> ModelComplianceResult:
+        """Evaluate compliance, preserving explicit correlation ID overrides."""
+        return await handle_evaluate_compliance(
+            request.input_data,
+            llm_client=self._llm_client,
+            model=self._model,
+            correlation_id=request.correlation_id,
+            kafka_producer=self._kafka_producer,
+        )
+
+
 __all__ = ["DLQ_TOPIC", "handle_evaluate_compliance"]
+__all__ += ["HandlerEvaluateCompliance"]

@@ -86,8 +86,8 @@ handler_routing:
     # Check and promote - batch operation for all provisional patterns
     - operation: "check_and_promote"
       handler:
-        function: "check_and_promote_patterns"
         module: "omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_promotion"
+        class: "HandlerPromotion"
         type: "async"
       description: "Check all provisional patterns and promote eligible ones"
       actions:
@@ -106,6 +106,16 @@ handler_routing:
       actions:
         - "build gate snapshot from pattern data"
         - "emit lifecycle event to Kafka"
+
+    # Prometheus metrics for a completed promotion check
+    - operation: "record_promotion_metrics"
+      handler:
+        module: "omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_metrics"
+        class: "HandlerPromotionMetrics"
+        type: "sync"
+      description: "Record counters and gauges for a completed promotion check"
+      actions:
+        - "emit promotion check metrics"
 
     # Pure criteria check - no I/O
     - operation: "check_criteria"

@@ -88,6 +88,8 @@ from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_metri
     record_promotion_check_metrics,
 )
 from omniintelligence.nodes.node_pattern_promotion_effect.models import (
+    ModelPromotePatternRequest,
+    ModelPromotionCheckRequest,
     ModelPromotionCheckResult,
     ModelPromotionResult,
 )
@@ -662,7 +664,46 @@ async def _emit_lifecycle_event(
     )
 
 
+class HandlerPromotion:
+    """Typed dispatch for the preserved promotion functions."""
+
+    def __init__(
+        self,
+        repository: ProtocolPatternRepository,
+        producer: ProtocolKafkaPublisher | None = None,
+    ) -> None:
+        """Bind the repository and optional publisher for promotion requests."""
+        self._repository = repository
+        self._producer = producer
+
+    async def handle(
+        self, request: ModelPromotionCheckRequest
+    ) -> ModelPromotionCheckResult:
+        """Check promotion gates using the request thresholds and trace context."""
+        return await check_and_promote_patterns(
+            self._repository,
+            self._producer,
+            dry_run=request.dry_run,
+            min_injection_count=request.min_injection_count,
+            min_success_rate=request.min_success_rate,
+            max_failure_streak=request.max_failure_streak,
+            correlation_id=request.correlation_id,
+        )
+
+    async def promote(
+        self, request: ModelPromotePatternRequest
+    ) -> ModelPromotionResult:
+        """Dispatch a single promotion with the bound optional publisher."""
+        return await promote_pattern(
+            self._producer,
+            request.pattern_id,
+            request.pattern_data,
+            request.correlation_id,
+        )
+
+
 __all__ = [
+    "HandlerPromotion",
     "MAX_FAILURE_STREAK",
     "MIN_INJECTION_COUNT",
     "MIN_SUCCESS_RATE",

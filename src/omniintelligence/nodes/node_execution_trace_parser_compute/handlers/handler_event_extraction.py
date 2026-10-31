@@ -12,6 +12,7 @@ Correlation ID: Threaded through all functions for end-to-end tracing.
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
 
 from omniintelligence.nodes.node_execution_trace_parser_compute.handlers.handler_trace_parsing import (
     generate_event_id,
@@ -22,6 +23,12 @@ from omniintelligence.nodes.node_execution_trace_parser_compute.handlers.protoco
     ErrorEventDict,
     SpanNodeDict,
 )
+
+if TYPE_CHECKING:
+    from omniintelligence.nodes.node_execution_trace_parser_compute.models import (
+        ModelEventExtractionRequest,
+        ModelEventExtractionResponse,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -314,7 +321,28 @@ def extract_all_errors(
     return errors
 
 
+class HandlerEventExtraction:
+    """Dispatch a typed request to the preserved error extraction functions."""
+
+    def handle(
+        self, request: ModelEventExtractionRequest
+    ) -> ModelEventExtractionResponse:
+        """Extract errors with the caller's correlation context."""
+        from omniintelligence.nodes.node_execution_trace_parser_compute.models import (
+            ModelEventExtractionResponse,
+        )
+
+        return ModelEventExtractionResponse(
+            error_events=extract_all_errors(
+                request.span,
+                request.correlated_logs,
+                correlation_id=request.correlation_id,
+            )
+        )
+
+
 __all__ = [
+    "HandlerEventExtraction",
     "detect_log_errors",
     "detect_span_errors",
     "detect_timeout_errors",

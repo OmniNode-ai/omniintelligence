@@ -54,12 +54,14 @@ from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_auto_
     meets_provisional_to_validated_criteria,
 )
 from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_metrics import (
+    HandlerPromotionMetrics,
     record_promotion_check_metrics,
 )
 from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_promotion import (
     MAX_FAILURE_STREAK,
     MIN_INJECTION_COUNT,
     MIN_SUCCESS_RATE,
+    HandlerPromotion,
     build_gate_snapshot,
     calculate_success_rate,
     check_and_promote_patterns,
@@ -70,6 +72,8 @@ from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_promo
 __all__: list[str] = [
     "AutoPromoteCheckResult",
     "AutoPromoteResult",
+    "HandlerPromotion",
+    "HandlerPromotionMetrics",
     "MAX_FAILURE_STREAK",
     "MIN_INJECTION_COUNT",
     "MIN_SUCCESS_RATE",

@@ -47,6 +47,16 @@ handler_routing:
         class: "HandlerTraceParsingCompute"
         module: "omniintelligence.nodes.node_execution_trace_parser_compute.handlers.handler_compute"
         type: "sync"
+    - operation: "extract_errors"
+      handler:
+        module: "omniintelligence.nodes.node_execution_trace_parser_compute.handlers.handler_event_extraction"
+        class: "HandlerEventExtraction"
+        type: "sync"
+    - operation: "build_span_tree"
+      handler:
+        module: "omniintelligence.nodes.node_execution_trace_parser_compute.handlers.handler_trace_parsing"
+        class: "HandlerTraceParsing"
+        type: "sync"
 # Protocol Dependencies (Future)
 # ==============================
 # Status: Backlog - Phase 3 (v0.4.0)

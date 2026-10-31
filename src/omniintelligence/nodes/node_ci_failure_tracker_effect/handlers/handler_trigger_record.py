@@ -22,6 +22,10 @@ import logging
 from typing import Any
 
 from omniintelligence.debug_intel.protocols import ProtocolDebugStore
+from omniintelligence.nodes.node_ci_failure_tracker_effect.models import (
+    ModelTriggerRecordRequest,
+    ModelTriggerRecordResponse,
+)
 from omniintelligence.protocols import ProtocolKafkaPublisher
 
 logger = logging.getLogger(__name__)
@@ -146,4 +150,34 @@ async def _emit_ci_debug_escalation(
         )
 
 
+class HandlerTriggerRecord:
+    """Typed entry point for the preserved trigger record function."""
+
+    def __init__(
+        self,
+        store: ProtocolDebugStore,
+        kafka_producer: ProtocolKafkaPublisher | None = None,
+    ) -> None:
+        self._store = store
+        self._kafka_producer = kafka_producer
+
+    async def handle(
+        self, request: ModelTriggerRecordRequest
+    ) -> ModelTriggerRecordResponse:
+        """Record a failure and return any trigger created at the threshold."""
+        trigger = await handle_trigger_record(
+            repo=request.repo,
+            branch=request.branch,
+            sha=request.sha,
+            failure_fingerprint=request.failure_fingerprint,
+            error_classification=request.error_classification,
+            store=self._store,
+            streak_threshold=request.streak_threshold,
+            kafka_producer=self._kafka_producer,
+            correlation_id=request.correlation_id,
+        )
+        return ModelTriggerRecordResponse(trigger=trigger)
+
+
 __all__ = ["handle_trigger_record"]
+__all__ += ["HandlerTriggerRecord"]

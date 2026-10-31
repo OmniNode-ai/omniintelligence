@@ -27,6 +27,20 @@ output_model:
   module: "omniintelligence.nodes.node_ci_failure_tracker_effect.models.model_events"
   description: "Payload emitted when a debug trigger record is created."
 
+handler_routing:
+  routing_strategy: "single_handler"
+  handlers:
+    - operation: "increment_streak"
+      handler:
+        module: "omniintelligence.nodes.node_ci_failure_tracker_effect.handlers.handler_streak"
+        class: "HandlerStreak"
+        type: "async"
+    - operation: "record_ci_failure_trigger"
+      handler:
+        module: "omniintelligence.nodes.node_ci_failure_tracker_effect.handlers.handler_trigger_record"
+        class: "HandlerTriggerRecord"
+        type: "async"
+
 event_bus:
   subscribe_topics:
     - "onex.cmd.omniintelligence.ci-failure-detected.v1"
