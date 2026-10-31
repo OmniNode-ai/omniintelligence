@@ -34,6 +34,21 @@ _CONTRACT = Path(__file__).resolve().parents[4] / (
     "src/omniintelligence/nodes/node_pattern_extraction_compute/contract.yaml"
 )
 
+
+_VOLATILE = frozenset({"pattern_id", "insight_id"})
+
+
+def _masked(value: Any) -> Any:
+    """The value with the ids a run generates (random UUIDs) removed, for comparison."""
+    if isinstance(value, BaseModel):
+        value = value.model_dump(mode="json")
+    if isinstance(value, dict):
+        return {k: _masked(v) for k, v in value.items() if k not in _VOLATILE}
+    if isinstance(value, (list, tuple)):
+        return [_masked(v) for v in value]
+    return value
+
+
 # operation -> (bound class, module function the class delegates to, fixture name)
 _OPERATIONS: dict[str, tuple[str, str, str]] = {
     "extract_patterns": (
@@ -114,8 +129,8 @@ def test_bound_class_returns_what_the_module_function_returns(
         handled = bound().handle(typed_request)
         direct = function(typed_request)
         assert handled.success == direct.success
-        assert handled.new_insights == direct.new_insights
-        assert handled.updated_insights == direct.updated_insights
+        assert _masked(handled.new_insights) == _masked(direct.new_insights)
+        assert _masked(handled.updated_insights) == _masked(direct.updated_insights)
         assert handled.new_insights, "positive control: the fixture yields insights"
     else:
         typed_request = request_type(
@@ -123,5 +138,5 @@ def test_bound_class_returns_what_the_module_function_returns(
         )
         handled = bound().handle(typed_request)
         direct = function(sessions, min_occurrences=1, min_confidence=0.1)
-        assert handled == direct
+        assert _masked(handled) == _masked(direct)
         assert handled, "positive control: the fixture yields patterns"

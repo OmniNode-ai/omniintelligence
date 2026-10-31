@@ -13,6 +13,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from importlib import resources
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
@@ -24,7 +25,7 @@ from omnibase_core.models.intelligence.model_pattern_extraction_input import (
 )
 from omnibase_core.validation.checker_handler_shape import check_handler_shape
 from omnibase_core.validation.validator_handler_shape import module_facts
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers import (
     extract_architecture_patterns,
@@ -103,6 +104,21 @@ from omniintelligence.nodes.node_pattern_extraction_compute.models.model_session
 )
 
 pytestmark = pytest.mark.unit
+
+
+_VOLATILE = frozenset({"pattern_id", "insight_id"})
+
+
+def _masked(value: Any) -> Any:
+    """The value with the ids a run generates (random UUIDs) removed, for comparison."""
+    if isinstance(value, BaseModel):
+        value = value.model_dump(mode="json")
+    if isinstance(value, dict):
+        return {k: _masked(v) for k, v in value.items() if k not in _VOLATILE}
+    if isinstance(value, (list, tuple)):
+        return [_masked(v) for v in value]
+    return value
+
 
 _NODE_DIR = Path(__file__).resolve().parents[4] / (
     "src/omniintelligence/nodes/node_pattern_extraction_compute"
@@ -183,7 +199,7 @@ class TestSessionExtractors:
         request = ModelSessionPatternRequest(
             sessions=sessions, min_occurrences=1, min_confidence=0.1
         )
-        assert HandlerArchitecturePatterns().handle(request) == (
+        assert _masked(HandlerArchitecturePatterns().handle(request)) == _masked(
             extract_architecture_patterns(
                 sessions, min_occurrences=1, min_confidence=0.1
             )
@@ -195,8 +211,10 @@ class TestSessionExtractors:
         request = ModelSessionPatternRequest(
             sessions=sessions_with_errors, min_occurrences=1, min_confidence=0.1
         )
-        assert HandlerErrorPatterns().handle(request) == extract_error_patterns(
-            sessions_with_errors, min_occurrences=1, min_confidence=0.1
+        assert _masked(HandlerErrorPatterns().handle(request)) == _masked(
+            extract_error_patterns(
+                sessions_with_errors, min_occurrences=1, min_confidence=0.1
+            )
         )
 
     def test_tool(
@@ -205,8 +223,10 @@ class TestSessionExtractors:
         request = ModelSessionPatternRequest(
             sessions=sessions_with_diverse_tools, min_occurrences=1, min_confidence=0.1
         )
-        assert HandlerToolPatterns().handle(request) == extract_tool_patterns(
-            sessions_with_diverse_tools, min_occurrences=1, min_confidence=0.1
+        assert _masked(HandlerToolPatterns().handle(request)) == _masked(
+            extract_tool_patterns(
+                sessions_with_diverse_tools, min_occurrences=1, min_confidence=0.1
+            )
         )
 
     def test_file_with_explicit_thresholds(
@@ -219,15 +239,15 @@ class TestSessionExtractors:
             multiple_sessions, min_occurrences=2, min_confidence=0.3
         )
         assert expected
-        assert HandlerFilePatterns().handle(request) == expected
+        assert _masked(HandlerFilePatterns().handle(request)) == _masked(expected)
 
     def test_file_request_keeps_the_function_default_threshold(
         self, multiple_sessions: tuple[ModelSessionSnapshot, ...]
     ) -> None:
         request = ModelFilePatternRequest(sessions=multiple_sessions)
         assert request.min_occurrences == 5
-        assert HandlerFilePatterns().handle(request) == extract_file_access_patterns(
-            multiple_sessions
+        assert _masked(HandlerFilePatterns().handle(request)) == _masked(
+            extract_file_access_patterns(multiple_sessions)
         )
 
     def test_session_request_defaults(self) -> None:
@@ -252,7 +272,7 @@ class TestExtractAll:
         request = ModelPatternExtractionInput(session_snapshots=multiple_sessions)
         handled = HandlerExtractAllPatterns().handle(request)
         direct = extract_all_patterns(request)
-        assert handled.new_insights == direct.new_insights
+        assert _masked(handled.new_insights) == _masked(direct.new_insights)
         assert handled.success == direct.success
 
 
