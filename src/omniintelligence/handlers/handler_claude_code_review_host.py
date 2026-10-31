@@ -8,12 +8,10 @@ import os
 from pathlib import Path
 
 from omniintelligence.nodes.node_claude_code_review_effect.handlers.handler_claude_code_review import (
-    CLAUDE_ENV_KEYS,
-)
-from omniintelligence.nodes.node_claude_code_review_effect.handlers.handler_claude_code_review import (
-    handle as handle_review,
+    HandlerClaudeCodeReview,
 )
 from omniintelligence.nodes.node_claude_code_review_effect.models.model_claude_code_review import (
+    CLAUDE_ENV_KEYS,
     ModelClaudeCodeReviewRequest,
     ModelClaudeCodeReviewResult,
 )
@@ -33,7 +31,9 @@ class HandlerClaudeCodeReviewHost:
             if candidate.is_file() and os.access(candidate, os.X_OK):
                 python = str(candidate)
         environment = {k: v for k, v in os.environ.items() if k in CLAUDE_ENV_KEYS}
-        return await handle_review(request, pool_python=python, environment=environment)
+        return await HandlerClaudeCodeReview(
+            pool_python=python, environment=environment
+        ).handle(request)
 
 
 async def handle(request: ModelClaudeCodeReviewRequest) -> ModelClaudeCodeReviewResult:

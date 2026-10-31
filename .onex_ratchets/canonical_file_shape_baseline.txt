@@ -101,7 +101,6 @@ src/omniintelligence/constants.py
 src/omniintelligence/debug_intel/__init__.py
 src/omniintelligence/debug_intel/adapter_debug_store.py
 src/omniintelligence/debug_intel/protocols.py
-src/omniintelligence/debug_intel/topics.py
 src/omniintelligence/decision_store/__init__.py
 src/omniintelligence/decision_store/__main__.py
 src/omniintelligence/decision_store/consumer.py

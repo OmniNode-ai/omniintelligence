@@ -1,0 +1,35 @@
+{
+  "base_ref": "fa990e381",
+  "canonical_handler_module": "omniintelligence.nodes.node_git_repo_crawler_effect.handlers.handler_git_repo_crawl",
+  "legacy_handler_module": "omniintelligence.nodes.node_git_repo_crawler_effect.handlers.handler_git_repo_crawl",
+  "node_id": "omniintelligence.nodes.node_git_repo_crawler_effect",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:09cd9da793dc3112908f96eae4fb44a5085b48ae9ff5955a6dc769e7781595a4",
+      "sha256:0deb7f6b030662541e677107d08bffe8271e59991463c53fce16fdf79f218fdd",
+      "sha256:627d2326df1585a3664c1f0b070d453bc09dd522411d54cde42fba6316bd6757",
+      "sha256:53c5825c75f4397a7b8d6f6ab3b64c1486582f03d7fc34466126b5ec117efeb2",
+      "sha256:0ce03d151113ce05524ccfbb933e6d4002a88c2e0488830a5a970b44f9ab7aa6",
+      "sha256:3ae6ab8014c015a7dcbcb8c1f2eaacc32dc717f8d9323d55b446516f0c0a706d"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "src/omniintelligence/nodes/node_git_repo_crawler_effect/node_tests/test_canonical_parity.py::test_canonical_handle_matches_preserved_function[changed_file]",
+      "src/omniintelligence/nodes/node_git_repo_crawler_effect/node_tests/test_canonical_parity.py::test_canonical_handle_matches_preserved_function[first_crawl]",
+      "src/omniintelligence/nodes/node_git_repo_crawler_effect/node_tests/test_canonical_parity.py::test_canonical_handle_matches_preserved_function[not_a_git_repo]",
+      "src/omniintelligence/nodes/node_git_repo_crawler_effect/node_tests/test_canonical_parity.py::test_canonical_handle_matches_preserved_function[removed_file]",
+      "src/omniintelligence/nodes/node_git_repo_crawler_effect/node_tests/test_canonical_parity.py::test_canonical_handle_matches_preserved_function[stale_stored_head]",
+      "src/omniintelligence/nodes/node_git_repo_crawler_effect/node_tests/test_canonical_parity.py::test_canonical_handle_matches_preserved_function[unchanged_head]",
+      "src/omniintelligence/nodes/node_git_repo_crawler_effect/node_tests/test_canonical_parity.py::test_canonical_handle_matches_preserved_function[unreadable_tracked_file]"
+    ]
+  },
+  "preserved_symbols": [
+    "_run_git",
+    "_get_head_sha",
+    "_get_changed_md_files",
+    "_get_all_md_files",
+    "_get_file_commit_sha",
+    "_sha256_of_file"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

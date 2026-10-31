@@ -79,19 +79,8 @@ class IntentTopic(UtilStrValueHelper, str, Enum):
     )
     """Pattern lifecycle state change applied (OMN-1805)."""
 
-    PATTERN_LEARNED = "onex.evt.omniintelligence.pattern-learned.v1"
-    """Pattern learning pipeline completed (OMN-8605)."""
-
     PATTERN_STORED = "onex.evt.omniintelligence.pattern-stored.v1"
     """Pattern persisted to storage (OMN-5611, OMN-8605)."""
-
-    PATTERN_PROMOTED = "onex.evt.omniintelligence.pattern-promoted.v1"
-    """Pattern promoted to validated status (OMN-2424, OMN-8605)."""
-
-    DEBUG_TRIGGER_RECORD_CREATED = (
-        "onex.evt.omniintelligence.debug-trigger-record-created.v1"
-    )
-    """Debug trigger record created (OMN-6597, OMN-8605)."""
 
     PATTERN_DISCOVERED = "onex.evt.pattern.discovered.v1"
     """Pattern discovered from external producer (OMN-8605)."""
@@ -139,17 +128,6 @@ class IntelligenceCommandTopic(UtilStrValueHelper, str, Enum):
     CLAUDE_HOOK_EVENT = "onex.cmd.omniintelligence.claude-hook-event.v1"
     """Claude Code hook event command."""
 
-    CURSOR_HOOK_EVENT = "onex.cmd.omniintelligence.cursor-hook-event.v1"
-    """Cursor IDE hook event command (peer of CLAUDE_HOOK_EVENT)."""
-
-    SESSION_OUTCOME = "onex.cmd.omniintelligence.session-outcome.v1"
-    """Session outcome command."""
-
-    PATTERN_LIFECYCLE_TRANSITION = (
-        "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"
-    )
-    """Pattern lifecycle transition command."""
-
     TOOL_CONTENT = "onex.cmd.omniintelligence.tool-content.v1"
     """Tool content command."""
 
@@ -162,23 +140,8 @@ class IntelligenceCommandTopic(UtilStrValueHelper, str, Enum):
     INTENT_RECEIVED = "onex.cmd.omniintelligence.intent-received.v1"
     """Intelligence orchestrator intent reception (OMN-6590)."""
 
-    PATTERN_LIFECYCLE_PROCESS = "onex.cmd.omniintelligence.pattern-lifecycle-process.v1"
-    """Intelligence reducer process handler (OMN-6594)."""
-
-    CI_FAILURE_DETECTED = "onex.cmd.omniintelligence.ci-failure-detected.v1"
-    """CI failure fingerprint compute (OMN-6598)."""
-
-    CI_FAILURE_TRACK = "onex.cmd.omniintelligence.ci-failure-track.v1"
-    """CI failure tracker effect (OMN-6598)."""
-
-    CI_RECOVERY_DETECTED = "onex.cmd.omniintelligence.ci-recovery-detected.v1"
-    """CI recovery handler (OMN-6598)."""
-
     DECISION_RECORDED = "onex.cmd.omniintelligence.decision-recorded.v1"
     """Decision recorded command (OMN-6595)."""
-
-    CI_FAILURE_DETECTED_TRACK = "onex.cmd.omniintelligence.ci-failure-detected-track.v1"
-    """CI failure detected tracking command (OMN-6597)."""
 
     BLOOM_EVAL_RUN = "onex.cmd.omniintelligence.bloom-eval-run.v1"
     """Bloom eval orchestrator run command (OMN-6979)."""
@@ -188,9 +151,6 @@ class IntelligenceCommandTopic(UtilStrValueHelper, str, Enum):
 
     QUALITY_ASSESSMENT = "onex.cmd.omniintelligence.quality-assessment.v1"
     """Quality assessment orchestrator sub-command (OMN-6979)."""
-
-    PROTOCOL_EXECUTE = "onex.cmd.omniintelligence.protocol-execute.v1"
-    """Protocol execution command (OMN-6979)."""
 
     CRAWL_TICK = "onex.cmd.omnimemory.crawl-tick.v1"
     """Crawl scheduler tick command (cross-domain, produced for omnimemory)."""

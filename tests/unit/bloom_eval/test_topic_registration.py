@@ -3,8 +3,8 @@
 """Unit tests for bloom eval Kafka topic registration.
 
 Verifies that:
-- TOPIC_BLOOM_EVAL_RUN_V1 is declared in node_bloom_eval_orchestrator/contract.yaml
-  subscribe_topics (OMN-4028).
+- the bloom-eval-run command topic is declared in
+  node_bloom_eval_orchestrator/contract.yaml subscribe_topics (OMN-4028).
 - TOPIC_BLOOM_EVAL_COMPLETED_V1 is declared in node_bloom_eval_orchestrator/contract.yaml
   publish_topics (OMN-4028).
 """
@@ -16,10 +16,8 @@ import importlib.resources
 import pytest
 import yaml
 
-from omniintelligence.constants import (
-    TOPIC_BLOOM_EVAL_COMPLETED_V1,
-    TOPIC_BLOOM_EVAL_RUN_V1,
-)
+from omniintelligence.constants import TOPIC_BLOOM_EVAL_COMPLETED_V1
+from omniintelligence.models.topics import read_contract_topic
 
 
 def _load_bloom_eval_contract() -> dict[object, object]:
@@ -36,13 +34,16 @@ def _load_bloom_eval_contract() -> dict[object, object]:
 
 @pytest.mark.unit
 def test_bloom_eval_subscribe_topic_in_contract() -> None:
-    """TOPIC_BLOOM_EVAL_RUN_V1 must appear in subscribe_topics of the contract."""
+    """The bloom-eval-run command topic must appear in subscribe_topics of the contract."""
     contract = _load_bloom_eval_contract()
     event_bus = contract.get("event_bus", {})
     assert isinstance(event_bus, dict), "event_bus section must be a mapping"
     subscribe_topics: list[str] = event_bus.get("subscribe_topics", [])
-    assert TOPIC_BLOOM_EVAL_RUN_V1 in subscribe_topics, (
-        f"Expected {TOPIC_BLOOM_EVAL_RUN_V1!r} in subscribe_topics, "
+    bloom_eval_run_topic = read_contract_topic(
+        "node_bloom_eval_orchestrator", "cmd", "bloom-eval-run"
+    )
+    assert bloom_eval_run_topic in subscribe_topics, (
+        f"Expected {bloom_eval_run_topic!r} in subscribe_topics, "
         f"got: {subscribe_topics!r}"
     )
 

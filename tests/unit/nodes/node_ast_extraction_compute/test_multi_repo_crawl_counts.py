@@ -21,11 +21,14 @@ from omniintelligence.nodes.node_ast_extraction_compute.handlers import (
     extract_entities_from_source,
 )
 from omniintelligence.nodes.node_code_crawler_effect.handlers.handler_crawl_files import (
-    crawl_files,
+    HandlerCrawlFiles,
 )
 from omniintelligence.nodes.node_code_crawler_effect.models.model_crawl_config import (
     ModelCrawlConfig,
     ModelRepoCrawlConfig,
+)
+from omniintelligence.nodes.node_code_crawler_effect.models.model_crawl_files_request import (
+    ModelCrawlFilesRequest,
 )
 
 _TARGET_REPOS = [
@@ -93,7 +96,9 @@ class TestMultiRepoCrawlCounts:
         config = ModelCrawlConfig(repos=repos)
         counts: dict[str, int] = defaultdict(int)
 
-        for event in crawl_files(config, crawl_id="omn-7203-acceptance"):
+        for event in HandlerCrawlFiles().handle(
+            ModelCrawlFilesRequest(config=config, crawl_id="omn-7203-acceptance")
+        ):
             repo_config = next(
                 (r for r in config.repos if r.name == event.repo_name), None
             )

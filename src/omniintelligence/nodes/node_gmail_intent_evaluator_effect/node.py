@@ -47,7 +47,7 @@ class NodeGmailIntentEvaluatorEffect(NodeEffect):
     Example:
         ```python
         from omniintelligence.nodes.node_gmail_intent_evaluator_effect.handlers import (
-            handle_gmail_intent_evaluate,
+            HandlerGmailIntentEvaluate,
         )
         from omniintelligence.nodes.node_gmail_intent_evaluator_effect.models import (
             ModelGmailIntentEvaluatorConfig,
@@ -62,7 +62,7 @@ class NodeGmailIntentEvaluatorEffect(NodeEffect):
             sender="sender@example.com",
             received_at="2026-02-25T00:00:00Z",
         )
-        result = await handle_gmail_intent_evaluate(config)
+        result = await HandlerGmailIntentEvaluate().handle(config)
         ```
     """
 

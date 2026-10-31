@@ -30,10 +30,6 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from omniintelligence.constants import (
-    TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1,
-    TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
-)
 from omniintelligence.runtime.enum_handler_type import EnumHandlerType
 from omniintelligence.runtime.enum_log_level import EnumLogLevel
 from omniintelligence.runtime.model_event_bus_config import ModelEventBusConfig
@@ -42,6 +38,8 @@ from omniintelligence.runtime.model_runtime_profile_config import (
     ModelRuntimeProfileConfig,
 )
 from omniintelligence.runtime.model_topic_config import ModelTopicConfig
+
+_DEFAULT_TOPICS = ModelTopicConfig()
 
 
 class ModelIntelligenceRuntimeConfig(BaseModel):
@@ -135,8 +133,8 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
                         "bootstrap_servers": "kafka-broker:9092",
                         "consumer_group": "omniintelligence",
                         "topics": {
-                            "commands": TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1,
-                            "events": TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
+                            "commands": _DEFAULT_TOPICS.commands,
+                            "events": _DEFAULT_TOPICS.events,
                         },
                     },
                     "handlers": [
@@ -393,8 +391,6 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
                 # by consumers that configure their own event bus independently.
                 consumer_group="omniintelligence-dev",
                 topics=ModelTopicConfig(
-                    commands=TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1,
-                    events=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
                     dlq="onex.dlq.omniintelligence.v1",  # onex-topic-allow: pending contract auto-wiring
                 ),
             ),
@@ -436,8 +432,6 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
                 # by consumers that configure their own event bus independently.
                 consumer_group="omniintelligence-prod",
                 topics=ModelTopicConfig(
-                    commands=TOPIC_SUFFIX_CLAUDE_HOOK_EVENT_V1,
-                    events=TOPIC_SUFFIX_INTENT_CLASSIFIED_V1,
                     dlq="onex.dlq.omniintelligence.v1",  # onex-topic-allow: pending contract auto-wiring
                 ),
             ),

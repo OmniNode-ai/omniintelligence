@@ -14,13 +14,13 @@ import asyncio
 import logging
 from uuid import uuid4
 
-from omniintelligence.constants import TOPIC_PROMOTION_CHECK_CMD_V1
+from omniintelligence.models.topics import read_contract_topic
 from omniintelligence.protocols import ProtocolKafkaPublisher
 
 logger = logging.getLogger(__name__)
 
-PROMOTION_CHECK_TOPIC = (
-    TOPIC_PROMOTION_CHECK_CMD_V1  # onex-topic-allow: re-exported alias
+PROMOTION_CHECK_TOPIC = read_contract_topic(
+    "node_pattern_promotion_effect", "cmd", "promotion-check-requested"
 )
 DEFAULT_INTERVAL_SECONDS: float = 300.0  # 5 minutes
 

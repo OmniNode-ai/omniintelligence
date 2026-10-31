@@ -1,0 +1,30 @@
+{
+  "base_ref": "fa990e381",
+  "canonical_handler_module": "omniintelligence.nodes.node_code_crawler_effect.handlers.handler_crawl_files",
+  "legacy_handler_module": "omniintelligence.nodes.node_code_crawler_effect.handlers.handler_crawl_files",
+  "node_id": "omniintelligence.nodes.node_code_crawler_effect",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:bd09c11756cc0ae50f880087c89ace9918ab6ae94b215bac051159e2b7c3da50",
+      "sha256:14c4c7e49b055c7de16c56b5e26bd20fbfdd8456cb40ef6d5715e61e595acdb6",
+      "sha256:cb9ae293ec71aa95079382c06f73b60dba70777af515bcd0c64b5b62724847a5",
+      "sha256:d6f2e5a00759e8efe9e784bbacea8624d44de32b64cfa86fb8e2a0b8512a9b3b",
+      "sha256:401432522956a08faf7bc8b8e99b921bcd757b7b5c8a0da25cd3bdfc6ecc17a1"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_code_crawler_effect/test_canonical_parity.py::test_canonical_handle_matches_preserved_walk[disabled_repo]",
+      "tests/unit/nodes/node_code_crawler_effect/test_canonical_parity.py::test_canonical_handle_matches_preserved_walk[generated_crawl_id]",
+      "tests/unit/nodes/node_code_crawler_effect/test_canonical_parity.py::test_canonical_handle_matches_preserved_walk[include_exclude]",
+      "tests/unit/nodes/node_code_crawler_effect/test_canonical_parity.py::test_canonical_handle_matches_preserved_walk[missing_path]",
+      "tests/unit/nodes/node_code_crawler_effect/test_canonical_parity.py::test_canonical_handle_matches_preserved_walk[repo_filter]",
+      "tests/unit/nodes/node_code_crawler_effect/test_canonical_parity.py::test_canonical_handle_matches_preserved_walk[two_repos]"
+    ]
+  },
+  "preserved_symbols": [
+    "_crawl_repo",
+    "_matches_any_exclude",
+    "_compute_file_hash"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

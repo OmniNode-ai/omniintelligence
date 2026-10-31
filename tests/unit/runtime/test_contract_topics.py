@@ -18,8 +18,14 @@ Related:
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
+from omniintelligence.models.topics import (
+    ModelContractTopicReader,
+    read_contract_topic,
+)
 from omniintelligence.runtime.contract_topics import (
     canonical_topic_to_dispatch_alias,
     collect_publish_topics_for_dispatch,
@@ -509,3 +515,66 @@ class TestRuntimeTopicSubscription:
         from omniintelligence.runtime.plugin import INTELLIGENCE_SUBSCRIBE_TOPICS
 
         assert EXPECTED_PATTERN_DISCOVERED in INTELLIGENCE_SUBSCRIBE_TOPICS
+
+
+# =============================================================================
+# read_contract_topic (OMN-21623)
+# =============================================================================
+
+CLAUDE_HOOK_PACKAGE = "node_claude_hook_event_effect"
+
+
+@pytest.mark.unit
+class TestReadContractTopic:
+    """read_contract_topic resolves one topic from a node contract's event_bus."""
+
+    def test_reads_subscribe_topic(self) -> None:
+        assert (
+            read_contract_topic(
+                CLAUDE_HOOK_PACKAGE, kind="cmd", event_name="claude-hook-event"
+            )
+            == EXPECTED_CLAUDE_HOOK
+        )
+
+    def test_reads_publish_topic(self) -> None:
+        assert (
+            read_contract_topic(
+                CLAUDE_HOOK_PACKAGE, kind="evt", event_name="intent-classified"
+            )
+            == "onex.evt.omniintelligence.intent-classified.v1"
+        )
+
+    def test_event_name_does_not_match_a_longer_event_name(self) -> None:
+        with pytest.raises(LookupError):
+            read_contract_topic("node_routing_feedback_effect", "evt", "routing")
+
+    def test_missing_event_raises(self) -> None:
+        with pytest.raises(LookupError, match="declares 0 topics"):
+            read_contract_topic(
+                CLAUDE_HOOK_PACKAGE, kind="cmd", event_name="no-such-event"
+            )
+
+    def test_kind_must_match(self) -> None:
+        with pytest.raises(LookupError):
+            read_contract_topic(
+                CLAUDE_HOOK_PACKAGE, kind="evt", event_name="claude-hook-event"
+            )
+
+    def test_two_distinct_topics_for_one_event_raise(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        root = tmp_path / "pkg_ambiguous_nodes"
+        (root / "node_ambiguous").mkdir(parents=True)
+        (root / "__init__.py").write_text("")
+        (root / "node_ambiguous" / "contract.yaml").write_text(
+            "event_bus:\n"
+            "  subscribe_topics:\n"
+            "    - onex.cmd.alpha.thing-happened.v1\n"
+            "  publish_topics:\n"
+            "    - onex.cmd.beta.thing-happened.v2\n"
+        )
+        monkeypatch.syspath_prepend(str(tmp_path))
+        reader = ModelContractTopicReader(nodes_package="pkg_ambiguous_nodes")
+
+        with pytest.raises(LookupError, match="declares 2 topics"):
+            reader.read("node_ambiguous", "cmd", "thing-happened")

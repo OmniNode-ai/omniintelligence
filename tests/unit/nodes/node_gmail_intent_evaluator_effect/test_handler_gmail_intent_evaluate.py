@@ -30,7 +30,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from omniintelligence.nodes.node_gmail_intent_evaluator_effect.handlers.handler_gmail_intent_evaluate import (
-    handle_gmail_intent_evaluate,
+    HandlerGmailIntentEvaluate,
 )
 from omniintelligence.nodes.node_gmail_intent_evaluator_effect.models.model_gmail_intent_evaluation_result import (
     ModelGmailIntentEvaluationResult,
@@ -198,11 +198,9 @@ class TestVerdictSurface:
             )
             mock_repo_factory.return_value = None
 
-            result = await handle_gmail_intent_evaluate(
-                config,
-                slack_notifier=slack,
-                _slack_rate_check=_rate_allow,
-            )
+            result = await HandlerGmailIntentEvaluate(
+                slack_notifier=slack, slack_rate_check=_rate_allow
+            ).handle(config)
 
         assert result.verdict == "SURFACE"
         assert result.slack_sent is True
@@ -243,11 +241,9 @@ class TestVerdictSurface:
             )
             mock_repo_factory.return_value = None
 
-            result = await handle_gmail_intent_evaluate(
-                config,
-                slack_notifier=slack,
-                _slack_rate_check=_rate_allow,
-            )
+            result = await HandlerGmailIntentEvaluate(
+                slack_notifier=slack, slack_rate_check=_rate_allow
+            ).handle(config)
 
         assert result.verdict == "SURFACE"
         event_types = [e.get("event_type") for e in result.pending_events]
@@ -287,7 +283,7 @@ class TestVerdictSurface:
             )
             mock_repo_factory.return_value = None
 
-            result = await handle_gmail_intent_evaluate(config)
+            result = await HandlerGmailIntentEvaluate().handle(config)
 
         assert result.verdict == "SKIP"
         event_types = [e.get("event_type") for e in result.pending_events]
@@ -330,7 +326,9 @@ class TestVerdictSkip:
             )
             mock_repo_factory.return_value = None
 
-            result = await handle_gmail_intent_evaluate(config, slack_notifier=slack)
+            result = await HandlerGmailIntentEvaluate(slack_notifier=slack).handle(
+                config
+            )
 
         assert result.verdict == "SKIP"
         assert result.slack_sent is False
@@ -369,7 +367,7 @@ class TestVerdictSkip:
             )
             mock_repo_factory.return_value = None
 
-            result = await handle_gmail_intent_evaluate(config)
+            result = await HandlerGmailIntentEvaluate().handle(config)
 
         event_types = [e.get("event_type") for e in result.pending_events]
         assert "onex.evt.omniintelligence.gmail-intent-evaluated.v1" in event_types
@@ -412,7 +410,9 @@ class TestVerdictWatchlist:
             )
             mock_repo_factory.return_value = None
 
-            result = await handle_gmail_intent_evaluate(config, slack_notifier=slack)
+            result = await HandlerGmailIntentEvaluate(slack_notifier=slack).handle(
+                config
+            )
 
         assert result.verdict == "WATCHLIST"
         assert result.slack_sent is False
@@ -451,7 +451,7 @@ class TestVerdictWatchlist:
             )
             mock_repo_factory.return_value = None
 
-            result = await handle_gmail_intent_evaluate(config)
+            result = await HandlerGmailIntentEvaluate().handle(config)
 
         event_types = [e.get("event_type") for e in result.pending_events]
         assert "onex.evt.omniintelligence.gmail-intent-evaluated.v1" in event_types
@@ -501,7 +501,7 @@ class TestUrlSelection:
             )
             mock_repo_factory.return_value = None
 
-            result = await handle_gmail_intent_evaluate(config)
+            result = await HandlerGmailIntentEvaluate().handle(config)
 
         assert result.selected_url == "https://github.com/example/repo"
 
@@ -540,7 +540,7 @@ class TestUrlSelection:
             )
             mock_repo_factory.return_value = None
 
-            result = await handle_gmail_intent_evaluate(config)
+            result = await HandlerGmailIntentEvaluate().handle(config)
 
         assert result.selected_url is None
 
@@ -577,7 +577,7 @@ class TestUrlSelection:
             )
             mock_repo_factory.return_value = None
 
-            result = await handle_gmail_intent_evaluate(config)
+            result = await HandlerGmailIntentEvaluate().handle(config)
 
         assert result.selected_url is None
         # fetch should not be called when there's no URL
@@ -618,11 +618,9 @@ class TestUrlSelection:
             )
             mock_repo_factory.return_value = None
 
-            result = await handle_gmail_intent_evaluate(
-                config,
-                slack_notifier=_FakeSlackNotifier(),
-                _slack_rate_check=_rate_allow,
-            )
+            result = await HandlerGmailIntentEvaluate(
+                slack_notifier=_FakeSlackNotifier(), slack_rate_check=_rate_allow
+            ).handle(config)
 
         assert result.selected_url == "https://arxiv.org/abs/2401.12345"
 
@@ -669,7 +667,7 @@ class TestContentFetching:
             mock_repo_factory.return_value = None
 
             # Should not raise
-            result = await handle_gmail_intent_evaluate(config)
+            result = await HandlerGmailIntentEvaluate().handle(config)
 
         assert result.url_fetch_status == "FAILED"
         assert result.verdict == "WATCHLIST"
@@ -707,7 +705,7 @@ class TestContentFetching:
             )
             mock_repo_factory.return_value = None
 
-            result = await handle_gmail_intent_evaluate(config)
+            result = await HandlerGmailIntentEvaluate().handle(config)
 
         assert result.url_fetch_status == "OK"
 
@@ -757,7 +755,7 @@ class TestOmnimemory:
             )
             mock_repo_factory.return_value = None
 
-            result = await handle_gmail_intent_evaluate(config)
+            result = await HandlerGmailIntentEvaluate().handle(config)
 
         # Memory hits should be present in result
         assert len(result.memory_hits) == 1
@@ -797,11 +795,9 @@ class TestOmnimemory:
             )
             mock_repo_factory.return_value = None
 
-            result = await handle_gmail_intent_evaluate(
-                config,
-                slack_notifier=_FakeSlackNotifier(),
-                _slack_rate_check=_rate_allow,
-            )
+            result = await HandlerGmailIntentEvaluate(
+                slack_notifier=_FakeSlackNotifier(), slack_rate_check=_rate_allow
+            ).handle(config)
 
         assert result.memory_hits == []
         assert any("omnimemory" in e for e in result.errors)
@@ -842,7 +838,7 @@ class TestOmnimemory:
             )
             mock_repo_factory.return_value = None
 
-            result = await handle_gmail_intent_evaluate(config)
+            result = await HandlerGmailIntentEvaluate().handle(config)
 
         evaluated_events = [
             e
@@ -895,7 +891,7 @@ class TestLlmParsing:
             )
             mock_repo_factory.return_value = None
 
-            result = await handle_gmail_intent_evaluate(config)
+            result = await HandlerGmailIntentEvaluate().handle(config)
 
         assert result.llm_parse_status == "OK"
 
@@ -933,7 +929,7 @@ class TestLlmParsing:
             )
             mock_repo_factory.return_value = None
 
-            result = await handle_gmail_intent_evaluate(config)
+            result = await HandlerGmailIntentEvaluate().handle(config)
 
         assert result.llm_parse_status == "RECOVERED"
         assert result.verdict == "WATCHLIST"
@@ -962,7 +958,7 @@ class TestLlmParsing:
             mock_llm.return_value = ({}, "FAILED", ["parse failed"])
             mock_repo_factory.return_value = None
 
-            result = await handle_gmail_intent_evaluate(config)
+            result = await HandlerGmailIntentEvaluate().handle(config)
 
         assert result.llm_parse_status == "FAILED"
         assert result.verdict == "WATCHLIST"
@@ -1002,7 +998,7 @@ class TestLlmParsing:
             )
             mock_repo_factory.return_value = None
 
-            result = await handle_gmail_intent_evaluate(config)
+            result = await HandlerGmailIntentEvaluate().handle(config)
 
         assert result.verdict == "WATCHLIST"
         assert result.initial_plan is None
@@ -1033,7 +1029,7 @@ class TestLlmParsing:
             mock_llm.return_value = ({}, "FAILED", ["JSON parse error: invalid syntax"])
             mock_repo_factory.return_value = None
 
-            result = await handle_gmail_intent_evaluate(config)
+            result = await HandlerGmailIntentEvaluate().handle(config)
 
         assert any("parse" in e.lower() or "json" in e.lower() for e in result.errors)
 
@@ -1077,22 +1073,20 @@ class TestIdempotency:
             )
 
             # First call — processes fully
-            first_result = await handle_gmail_intent_evaluate(
-                config,
+            first_result = await HandlerGmailIntentEvaluate(
                 repository=repo,
                 slack_notifier=_FakeSlackNotifier(),
-                _slack_rate_check=_rate_allow,
-            )
+                slack_rate_check=_rate_allow,
+            ).handle(config)
             assert first_result.verdict == "SURFACE"
             first_llm_call_count = mock_llm.call_count
 
             # Second call — should hit idempotency check and return early
-            second_result = await handle_gmail_intent_evaluate(
-                config,
+            second_result = await HandlerGmailIntentEvaluate(
                 repository=repo,
                 slack_notifier=_FakeSlackNotifier(),
-                _slack_rate_check=_rate_allow,
-            )
+                slack_rate_check=_rate_allow,
+            ).handle(config)
 
         # LLM should not be called again on second invocation
         assert mock_llm.call_count == first_llm_call_count
@@ -1132,7 +1126,9 @@ class TestIdempotency:
             )
 
             # Should not raise
-            result = await handle_gmail_intent_evaluate(config, repository=error_repo)
+            result = await HandlerGmailIntentEvaluate(repository=error_repo).handle(
+                config
+            )
 
         # Handler completes in degraded mode
         assert result.verdict == "WATCHLIST"
@@ -1174,7 +1170,7 @@ class TestIdempotency:
             )
             mock_repo_factory.return_value = None
 
-            result = await handle_gmail_intent_evaluate(config)
+            result = await HandlerGmailIntentEvaluate().handle(config)
 
         assert result.evaluation_id == expected_id
 
@@ -1209,10 +1205,10 @@ class TestIdempotency:
             )
 
             # First call — processes fully
-            await handle_gmail_intent_evaluate(config, repository=repo)
+            await HandlerGmailIntentEvaluate(repository=repo).handle(config)
 
             # Second call — idempotent return
-            second = await handle_gmail_intent_evaluate(config, repository=repo)
+            second = await HandlerGmailIntentEvaluate(repository=repo).handle(config)
 
         assert second.url_fetch_status == "SKIPPED"
 
@@ -1262,10 +1258,9 @@ class TestSlackPosting:
             mock_repo_factory.return_value = None
 
             # No slack_notifier injected, no SLACK_BOT_TOKEN → local mode
-            result = await handle_gmail_intent_evaluate(
-                config,
-                _slack_rate_check=_rate_allow,
-            )
+            result = await HandlerGmailIntentEvaluate(
+                slack_rate_check=_rate_allow
+            ).handle(config)
 
         assert result.slack_sent is False
         assert result.verdict == "SURFACE"
@@ -1305,11 +1300,9 @@ class TestSlackPosting:
             mock_repo_factory.return_value = None
 
             # Inject rate-deny to simulate limit exceeded
-            result = await handle_gmail_intent_evaluate(
-                config,
-                slack_notifier=slack,
-                _slack_rate_check=_rate_deny,
-            )
+            result = await HandlerGmailIntentEvaluate(
+                slack_notifier=slack, slack_rate_check=_rate_deny
+            ).handle(config)
 
         assert result.verdict == "SURFACE"
         assert result.rate_limited is True
@@ -1350,11 +1343,9 @@ class TestSlackPosting:
             )
             mock_repo_factory.return_value = None
 
-            result = await handle_gmail_intent_evaluate(
-                config,
-                slack_notifier=slack,
-                _slack_rate_check=_rate_allow,
-            )
+            result = await HandlerGmailIntentEvaluate(
+                slack_notifier=slack, slack_rate_check=_rate_allow
+            ).handle(config)
 
         assert result.verdict == "SURFACE"
         assert result.slack_sent is False
@@ -1394,11 +1385,9 @@ class TestSlackPosting:
             )
             mock_repo_factory.return_value = None
 
-            result = await handle_gmail_intent_evaluate(
-                config,
-                slack_notifier=slack,
-                _slack_rate_check=_rate_allow,
-            )
+            result = await HandlerGmailIntentEvaluate(
+                slack_notifier=slack, slack_rate_check=_rate_allow
+            ).handle(config)
 
         assert result.verdict == "WATCHLIST"
         assert slack.call_count == 0
@@ -1438,7 +1427,7 @@ class TestFallbacks:
             mock_repo_factory.return_value = None
 
             # Should NOT raise
-            result = await handle_gmail_intent_evaluate(config)
+            result = await HandlerGmailIntentEvaluate().handle(config)
 
         assert result.verdict == "WATCHLIST"
         assert result.llm_parse_status == "FAILED"
@@ -1476,11 +1465,9 @@ class TestFallbacks:
             )
             mock_repo_factory.return_value = None
 
-            result = await handle_gmail_intent_evaluate(
-                config,
-                slack_notifier=_FakeSlackNotifier(),
-                _slack_rate_check=_rate_allow,
-            )
+            result = await HandlerGmailIntentEvaluate(
+                slack_notifier=_FakeSlackNotifier(), slack_rate_check=_rate_allow
+            ).handle(config)
 
         assert result.verdict == "SURFACE"
         assert result.memory_hits == []
@@ -1509,7 +1496,7 @@ class TestFallbacks:
             mock_llm.return_value = ({}, "FAILED", ["timeout"])
             mock_repo_factory.return_value = None
 
-            result = await handle_gmail_intent_evaluate(config)
+            result = await HandlerGmailIntentEvaluate().handle(config)
 
         assert result.verdict == "WATCHLIST"
         assert result.url_fetch_status == "FAILED"
@@ -1559,7 +1546,7 @@ class TestResultModelIntegrity:
             )
             mock_repo_factory.return_value = None
 
-            result = await handle_gmail_intent_evaluate(config)
+            result = await HandlerGmailIntentEvaluate().handle(config)
 
         assert isinstance(result, ModelGmailIntentEvaluationResult)
 
@@ -1596,7 +1583,7 @@ class TestResultModelIntegrity:
             )
             mock_repo_factory.return_value = None
 
-            result = await handle_gmail_intent_evaluate(config)
+            result = await HandlerGmailIntentEvaluate().handle(config)
 
         assert isinstance(result.evaluation_id, str)
         assert len(result.evaluation_id) == 64  # sha256 hex = 64 chars
@@ -1634,7 +1621,7 @@ class TestResultModelIntegrity:
             )
             mock_repo_factory.return_value = None
 
-            result = await handle_gmail_intent_evaluate(config)
+            result = await HandlerGmailIntentEvaluate().handle(config)
 
         assert isinstance(result.pending_events, list)
         assert len(result.pending_events) >= 1  # at least evaluated event
@@ -1672,11 +1659,9 @@ class TestResultModelIntegrity:
             )
             mock_repo_factory.return_value = None
 
-            result = await handle_gmail_intent_evaluate(
-                config,
-                slack_notifier=_FakeSlackNotifier(),
-                _slack_rate_check=_rate_allow,
-            )
+            result = await HandlerGmailIntentEvaluate(
+                slack_notifier=_FakeSlackNotifier(), slack_rate_check=_rate_allow
+            ).handle(config)
 
         assert 0.0 <= result.relevance_score <= 1.0
 
@@ -1713,6 +1698,6 @@ class TestResultModelIntegrity:
             )
             mock_repo_factory.return_value = None
 
-            result = await handle_gmail_intent_evaluate(config)
+            result = await HandlerGmailIntentEvaluate().handle(config)
 
         assert isinstance(result.errors, list)

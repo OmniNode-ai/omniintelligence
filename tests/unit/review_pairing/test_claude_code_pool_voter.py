@@ -61,13 +61,22 @@ async def test_contract_bound_handler_injects_host_configuration(
         correlation_id=request_model.correlation_id, success=True, response="[]"
     )
     invoke = AsyncMock(return_value=response)
-    monkeypatch.setattr(handler, "handle_review", invoke)
+    constructed: list[dict[str, object]] = []
+
+    class RecordingReview:
+        def __init__(self, **kwargs: object) -> None:
+            constructed.append(kwargs)
+
+        handle = invoke
+
+    monkeypatch.setattr(handler, "HandlerClaudeCodeReview", RecordingReview)
 
     assert await bound_handler().handle(request_model) is response
     invoke.assert_awaited_once()
     assert invoke.await_args.args == (request_model,)
-    assert invoke.await_args.kwargs["pool_python"] == "/fake/contract-pool-python"
-    environment = invoke.await_args.kwargs["environment"]
+    assert len(constructed) == 1
+    assert constructed[0]["pool_python"] == "/fake/contract-pool-python"
+    environment = constructed[0]["environment"]
     assert environment["PATH"] == "/fake/claude-bin"
     assert "ANTHROPIC_API_KEY" not in environment
 

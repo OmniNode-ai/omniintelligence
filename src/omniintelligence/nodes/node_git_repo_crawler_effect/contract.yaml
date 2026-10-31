@@ -69,14 +69,14 @@ output_models:
 handler_routing:
   routing_strategy: "operation_match"
   entry_point:
-    function: "handle_git_repo_crawl"
+    class: "HandlerGitRepoCrawl"
     module: "omniintelligence.nodes.node_git_repo_crawler_effect.handlers.handler_git_repo_crawl"
     type: "async"
     description: "Main entry point: git HEAD fast-path + file-level diffing"
   handlers:
     - operation: "crawl_repo"
       handler:
-        function: "handle_git_repo_crawl"
+        class: "HandlerGitRepoCrawl"
         module: "omniintelligence.nodes.node_git_repo_crawler_effect.handlers.handler_git_repo_crawl"
         type: "async"
       description: "Detect .md file changes and emit document lifecycle events"
@@ -90,7 +90,7 @@ handler_routing:
         - "update omnimemory_crawl_state"
 
   default_handler:
-    function: "handle_git_repo_crawl"
+    class: "HandlerGitRepoCrawl"
     module: "omniintelligence.nodes.node_git_repo_crawler_effect.handlers.handler_git_repo_crawl"
     type: "async"
     description: "Default to crawl_repo operation"

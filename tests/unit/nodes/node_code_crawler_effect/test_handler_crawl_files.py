@@ -9,11 +9,14 @@ from pathlib import Path
 import pytest
 
 from omniintelligence.nodes.node_code_crawler_effect.handlers.handler_crawl_files import (
-    crawl_files,
+    HandlerCrawlFiles,
 )
 from omniintelligence.nodes.node_code_crawler_effect.models.model_crawl_config import (
     ModelCrawlConfig,
     ModelRepoCrawlConfig,
+)
+from omniintelligence.nodes.node_code_crawler_effect.models.model_crawl_files_request import (
+    ModelCrawlFilesRequest,
 )
 
 
@@ -48,7 +51,11 @@ class TestCrawlFiles:
                 ]
             )
 
-            events = list(crawl_files(config, crawl_id="test_crawl"))
+            events = list(
+                HandlerCrawlFiles().handle(
+                    ModelCrawlFilesRequest(config=config, crawl_id="test_crawl")
+                )
+            )
 
             # Should find 3 .py files, not the .txt or __pycache__
             assert len(events) == 3
@@ -76,7 +83,7 @@ class TestCrawlFiles:
                 ),
             ]
         )
-        events = list(crawl_files(config))
+        events = list(HandlerCrawlFiles().handle(ModelCrawlFilesRequest(config=config)))
         assert len(events) == 0
 
     def test_repo_filter(self) -> None:
@@ -99,5 +106,9 @@ class TestCrawlFiles:
                 ]
             )
 
-            events = list(crawl_files(config, repo_filter="repo_a"))
+            events = list(
+                HandlerCrawlFiles().handle(
+                    ModelCrawlFilesRequest(config=config, repo_filter="repo_a")
+                )
+            )
             assert all(e.repo_name == "repo_a" for e in events)

@@ -35,10 +35,6 @@ from omnibase_core.protocols.handler.protocol_handler_context import (
     ProtocolHandlerContext,
 )
 
-from omniintelligence.constants import (
-    TOPIC_CODE_CRAWL_REQUESTED_V1,
-    TOPIC_CODE_FILE_DISCOVERED_V1,
-)
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
 logger = logging.getLogger(__name__)
@@ -195,7 +191,5 @@ def create_code_crawl_dispatch_handler(
 # =============================================================================
 
 __all__ = [
-    "TOPIC_CODE_CRAWL_REQUESTED_V1",
-    "TOPIC_CODE_FILE_DISCOVERED_V1",
     "create_code_crawl_dispatch_handler",
 ]
