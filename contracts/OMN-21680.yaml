@@ -53,19 +53,23 @@ emergency_bypass:
   follow_up_ticket_id: ''
 dod_evidence:
   - id: dod-omn21680-ac1-checker-rerun
-    description: The checker re-run over the slice paths reports no literal_path, literal_port, literal_ip,
-      literal_host or inmemory_outside_injection finding.
+    description: The checker scans every slice path and reports no literal_path, literal_port, literal_ip,
+      literal_host or inmemory_outside_injection finding; missing files, imports and parse errors fail.
     source: manual
     checks:
       - check_type: command
         check_value: >-
-          ! uv run python -m omnibase_core.nodes.node_validation_report_write_effect.runtime_validator_run
-          omnibase_core.validation.validator_contracts_and_di:ValidatorContractsAndDi src/omniintelligence/decision_store/__main__.py
+          env PYTHONDONTWRITEBYTECODE=1 uv run python -c 'import sys; from pathlib import Path; from omnibase_core.validation.validator_contracts_and_di
+          import ValidatorContractsAndDi; paths = [Path(p) for p in sys.argv[1:]]; assert paths and all(p.is_file()
+          for p in paths), "missing slice path"; result = ValidatorContractsAndDi().validate(paths); assert
+          result.metadata is not None and result.metadata.files_processed == len(paths), "incomplete scan";
+          findings = [i for i in result.issues if i.rule_name in {"literal_path", "literal_port", "literal_ip",
+          "literal_host", "inmemory_outside_injection", "unparseable_file"}]; print(result.summary); [print(i)
+          for i in findings]; sys.exit(bool(findings))' src/omniintelligence/decision_store/__main__.py
           src/omniintelligence/runtime/stub_launcher.py src/omniintelligence/runtime/model_intelligence_runtime_config.py
           src/omniintelligence/runtime/plugin.py src/omniintelligence/nodes/node_context_item_writer_effect/node_tests/test_handler_context_item_writer.py
           src/omniintelligence/nodes/node_watchdog_effect/node_tests/test_governance_invariants.py src/omniintelligence/nodes/node_document_fetch_effect/node_tests/conftest.py
           src/omniintelligence/nodes/node_git_repo_crawler_effect/node_tests/conftest.py src/omniintelligence/nodes/node_linear_crawler_effect/node_tests/conftest.py
-          2>&1 | grep -E ': (literal_path|literal_port|literal_ip|literal_host|inmemory_outside_injection):'
         cwd: ${OMNI_HOME}/omniintelligence
     binds_ac:
       - AC1
