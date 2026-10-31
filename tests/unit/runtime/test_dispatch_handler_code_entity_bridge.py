@@ -26,7 +26,7 @@ from omnibase_core.protocols.handler.protocol_handler_context import (
     ProtocolHandlerContext,
 )
 
-from omniintelligence.constants import TOPIC_CODE_ENTITIES_EXTRACTED_V1
+from omniintelligence.models.topics import read_contract_topic
 from omniintelligence.runtime.contract_topics import canonical_topic_to_dispatch_alias
 from omniintelligence.runtime.dispatch_handler_code_entity_bridge import (
     create_code_entity_bridge_dispatch_handler,
@@ -207,7 +207,11 @@ def test_bridge_route_uses_canonical_extracted_dispatch_alias() -> None:
         pattern_upsert_store=upsert_store,
     )
 
-    expected_alias = canonical_topic_to_dispatch_alias(TOPIC_CODE_ENTITIES_EXTRACTED_V1)
+    expected_alias = canonical_topic_to_dispatch_alias(
+        read_contract_topic(
+            "node_code_entity_bridge_compute", "evt", "code-entities-extracted"
+        )
+    )
 
     bridge_route = None
     for route in engine._routes.values():  # type: ignore[attr-defined]

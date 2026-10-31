@@ -32,7 +32,6 @@ from omnibase_core.protocols.handler.protocol_handler_context import (
     ProtocolHandlerContext,
 )
 
-from omniintelligence.constants import TOPIC_CODE_ENTITY_PATTERNS_DERIVED_V1
 from omniintelligence.nodes.node_code_entity_bridge_compute.models.model_input import (
     ModelCodeEntityBridgeInput,
 )
@@ -243,6 +242,5 @@ async def _upsert_patterns(
 
 __all__ = [
     "DISPATCH_ALIAS_CODE_ENTITY_BRIDGE",
-    "TOPIC_CODE_ENTITY_PATTERNS_DERIVED_V1",
     "create_code_entity_bridge_dispatch_handler",
 ]

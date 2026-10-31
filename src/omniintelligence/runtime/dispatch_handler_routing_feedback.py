@@ -15,7 +15,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from omniintelligence.constants import TOPIC_OMNICLAUDE_ROUTING_FEEDBACK_V1
+from omniintelligence.models.topics import read_contract_topic
 from omniintelligence.runtime.contract_topics import canonical_topic_to_dispatch_alias
 
 if TYPE_CHECKING:
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 DISPATCH_ALIAS_ROUTING_FEEDBACK = canonical_topic_to_dispatch_alias(
-    TOPIC_OMNICLAUDE_ROUTING_FEEDBACK_V1
+    read_contract_topic("node_routing_feedback_effect", "evt", "routing-feedback")
 )
 """Dispatch-compatible alias for routing-feedback canonical topic.
 

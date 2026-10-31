@@ -19,7 +19,12 @@ summary: >-
   sit in adapters/adapter_settings.yaml, read through ModelAdapterSettings; a file missing a field, or
   naming an unknown one, fails to load. Model ids and endpoint URLs in the same files are left in place:
   the hardcoded-model-config and url-authority gates send them to the config-store overlay. The checker
-  work is the umbrella's own and is merged; this change is the omniintelligence burn-down.
+  work is the umbrella's own and is merged; this change is the omniintelligence burn-down. A third slice
+  removes 32 of the 124 literal_topic findings (the scan of src and scripts goes from 297 findings to
+  265, nothing new): 14 topic constants leave constants.py, 12 members leave topics.py, the dead debug_intel/topics.py
+  goes, and dispatch_handlers.py, the routing-feedback dispatch handler, the promotion scheduler and the
+  runtime topic config read their topics through read_contract_topic, which resolves one topic from the
+  node's contract.yaml event_bus section.
 is_seam_ticket: false
 interface_change: false
 interfaces_touched: []
@@ -40,6 +45,16 @@ requirements:
         statement: 'AC2: adapter_settings.yaml declares the timeout budgets, each adapter default reads
           the contract value, and a file without one field fails to load -- falsifier: `uv run pytest
           tests/unit/adapters/test_adapter_settings_contract_omn21623.py -q` passes'
+  - id: req-omn21623-topics-from-contracts
+    statement: Topics the runtime needs are read from the owning node's contract.yaml event_bus section
+      through read_contract_topic, and a topic with no match or more than one distinct match fails the
+      lookup instead of returning a guess.
+    acceptance:
+      - id: AC3
+        statement: 'AC3: read_contract_topic returns the one topic a contract declares for a kind and
+          event name and raises LookupError for none or two, and the dispatch route aliases it feeds still
+          match the contracts'' subscribe topics -- falsifier: `uv run pytest tests/unit/runtime/test_contract_topics.py
+          tests/unit/test_dispatch_parity.py -q -n 0` passes'
 evidence_requirements:
   - kind: tests
     description: Contract tests for the required budget fields, codex_fallback_dirs and the module constants
@@ -50,6 +65,11 @@ evidence_requirements:
       the existing client and Gmail intent unit tests.
     command: uv run pytest tests/unit/adapters tests/unit/clients tests/unit/nodes/node_gmail_intent_evaluator_effect
       -q -n 0
+  - kind: tests
+    description: Lookup tests for read_contract_topic, the dispatch parity test over the contract-read
+      aliases, and the unit tests of the changed runtime, bloom eval and topic sync modules.
+    command: uv run pytest tests/unit/runtime tests/unit/test_dispatch_parity.py tests/unit/test_contract_topic_sync.py
+      tests/unit/bloom_eval -q -n 0
 emergency_bypass:
   enabled: false
   justification: ''
@@ -93,3 +113,20 @@ dod_evidence:
         cwd: ${OMNI_HOME}/omniintelligence
     binds_ac:
       - AC2
+  - id: dod-omn21623-ac3-topics-from-contracts
+    description: The lookup and parity tests pass, and the topic constants the slice moved are gone from
+      constants.py and topics.py.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/runtime/test_contract_topics.py tests/unit/test_dispatch_parity.py
+          -q -n 0
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: command
+        check_value: >-
+          grep -q 'class ModelContractTopicReader' src/omniintelligence/models/topics/model_contract_topic_reader.py
+          && ! grep -nE '^(TOPIC_SUFFIX_TOOL_CONTENT_V1|TOPIC_CODE_FILE_DISCOVERED_V1|TOPIC_CODE_ENTITIES_EXTRACTED_V1)'
+          src/omniintelligence/constants.py
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC3

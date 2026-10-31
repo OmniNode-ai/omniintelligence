@@ -39,10 +39,6 @@ from omnibase_core.protocols.handler.protocol_handler_context import (
     ProtocolHandlerContext,
 )
 
-from omniintelligence.constants import (
-    TOPIC_CODE_ENTITIES_EXTRACTED_V1,
-    TOPIC_CODE_FILE_DISCOVERED_V1,
-)
 from omniintelligence.nodes.node_ast_extraction_compute.models.model_code_entity import (
     ModelCodeEntity,
 )
@@ -344,7 +340,5 @@ def _load_repo_paths() -> dict[str, str]:
 # =============================================================================
 
 __all__ = [
-    "TOPIC_CODE_ENTITIES_EXTRACTED_V1",
-    "TOPIC_CODE_FILE_DISCOVERED_V1",
     "create_code_extract_dispatch_handler",
 ]
