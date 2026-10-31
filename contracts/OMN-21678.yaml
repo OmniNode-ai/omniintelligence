@@ -70,3 +70,14 @@ dod_evidence:
     binds_ac:
       - AC1
       - AC2
+  - id: dod-omn21678-ac3-lab-regression-proof
+    description: Re-run the slice's settings and consumer tests, including the AST checks over all seven
+      consumer paths, to provide executable regression proof alongside the lab test and scan results recorded
+      in the PR body.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/models/test_llm_routing_settings_omn21678.py -q -n 0
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC3
