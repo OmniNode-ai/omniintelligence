@@ -35,6 +35,7 @@ from uuid import UUID
 import pytest
 
 from omniintelligence.constants import TOPIC_ROUTING_FEEDBACK_PROCESSED
+from omniintelligence.models.topics import read_contract_event
 from omniintelligence.nodes.node_routing_feedback_effect.handlers.handler_routing_feedback import (
     DLQ_TOPIC,
     process_routing_feedback,
@@ -47,6 +48,10 @@ from omniintelligence.nodes.node_routing_feedback_effect.models import (
 from omniintelligence.protocols import ProtocolKafkaPublisher, ProtocolPatternRepository
 
 from .conftest import MockKafkaPublisher, MockRoutingFeedbackRepository
+
+_FEEDBACK_PROCESSED_TOPIC = read_contract_event(
+    "node_routing_feedback_effect", "routing-feedback-processed"
+)
 
 # =============================================================================
 # Test Class: Happy Path
@@ -798,10 +803,7 @@ class TestTopicNames:
 
     def test_processed_topic_name(self) -> None:
         """TOPIC_ROUTING_FEEDBACK_PROCESSED has the correct canonical name."""
-        assert (
-            TOPIC_ROUTING_FEEDBACK_PROCESSED
-            == "onex.evt.omniintelligence.routing-feedback-processed.v1"  # onex-topic-test-fixture
-        )
+        assert TOPIC_ROUTING_FEEDBACK_PROCESSED == _FEEDBACK_PROCESSED_TOPIC
 
 
 # =============================================================================

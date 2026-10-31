@@ -30,6 +30,7 @@ from uuid import UUID, uuid4
 import pytest
 
 from omniintelligence.enums import EnumPatternLifecycleStatus
+from omniintelligence.models.topics import read_contract_event
 from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition import (
     apply_transition,
 )
@@ -47,6 +48,10 @@ from .conftest import (
     MockIdempotencyStore,
     MockKafkaPublisher,
     MockPatternRepository,
+)
+
+_TRANSITIONED_TOPIC = read_contract_event(
+    "node_pattern_lifecycle_effect", "pattern-lifecycle-transitioned"
 )
 
 # =============================================================================
@@ -997,7 +1002,7 @@ class TestKafkaEvents:
             to_status=EnumPatternLifecycleStatus.VALIDATED,
             trigger="promote",
             transition_at=sample_transition_at,
-            publish_topic="onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1",  # onex-topic-test-fixture
+            publish_topic=_TRANSITIONED_TOPIC,
         )
 
         # Assert
@@ -1038,7 +1043,7 @@ class TestKafkaEvents:
             to_status=EnumPatternLifecycleStatus.VALIDATED,
             trigger="promote",
             transition_at=sample_transition_at,
-            publish_topic="onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1",  # onex-topic-test-fixture
+            publish_topic=_TRANSITIONED_TOPIC,
         )
 
         # Assert
@@ -1095,7 +1100,7 @@ class TestKafkaEvents:
         mock_repository.add_pattern(
             sample_pattern_id, status="provisional", evidence_tier="measured"
         )
-        publish_topic = "onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1"  # onex-topic-test-fixture
+        publish_topic = _TRANSITIONED_TOPIC
 
         # Act
         await apply_transition(

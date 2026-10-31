@@ -28,6 +28,7 @@ import pytest
 from pydantic import ValidationError
 
 from omniintelligence.constants import TOPIC_LLM_ROUTING_DECISION_PROCESSED
+from omniintelligence.models.topics import read_contract_event
 from omniintelligence.nodes.node_llm_routing_decision_effect.handlers.handler_llm_routing_decision import (
     DLQ_TOPIC,
     process_llm_routing_decision,
@@ -39,6 +40,10 @@ from omniintelligence.nodes.node_llm_routing_decision_effect.models import (
 )
 
 from .conftest import MockKafkaPublisher, MockLlmRoutingDecisionRepository
+
+_DECISION_PROCESSED_TOPIC = read_contract_event(
+    "node_llm_routing_decision_effect", "llm-routing-decision-processed"
+)
 
 # =============================================================================
 # Test Class: Happy Path
@@ -342,10 +347,7 @@ class TestTopicNames:
 
     def test_processed_topic_value(self) -> None:
         """TOPIC_LLM_ROUTING_DECISION_PROCESSED has the correct topic name."""
-        assert (
-            TOPIC_LLM_ROUTING_DECISION_PROCESSED
-            == "onex.evt.omniintelligence.llm-routing-decision-processed.v1"  # onex-topic-test-fixture
-        )
+        assert TOPIC_LLM_ROUTING_DECISION_PROCESSED == _DECISION_PROCESSED_TOPIC
 
     def test_dlq_topic_derived_from_processed_topic(self) -> None:
         """DLQ_TOPIC is derived from the processed topic."""

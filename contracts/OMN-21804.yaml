@@ -1,0 +1,87 @@
+---
+schema_version: 1.0.0
+ticket_id: OMN-21804
+title: omniintelligence contracts_and_di literal_topic burn-down, slice rf1550-c6 -- topics are read from
+  node contracts
+summary: >-
+  The read-only contracts_and_di scan of omniintelligence src/ (omnibase_core as locked, validator ValidatorContractsAndDi)
+  reported 60 literal_topic findings on dev at 9e010740 and 36 after this change (24 fewer); the other
+  rules did not move (handler_hand_construction 67, literal_url 31, literal_path 12, literal_model_name
+  9) and nothing new appeared. Six node test modules read their publish topic from the owning node contract
+  through the contract topic reader, the review pairing topic enum reads its five values from review_pairing/contract.yaml
+  (which now also declares calibration-run-completed as a publish topic), and the additional code-analysis
+  subscribe topic is read from the intelligence orchestrator contract. The remaining 36 are constants.py
+  (32), three topics.py literals no node contract declares, and the utilization-scoring subscribe topic.
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: req-omn21804-topics-from-contract
+    statement: Every topic of the touched modules is read from the owning node contract and the modules
+      hold no such literal.
+    acceptance:
+      - id: AC1
+        statement: 'AC1: the contracts_and_di count for literal_topic over the slice paths drops to zero
+          and the repo total drops by the slice size, with no baseline entry or suppression added -- falsifier:
+          onex run of runtime_validator_run with the contracts_and_di reference over omniintelligence
+          src before and after, counts compared per rule'
+      - id: AC2
+        statement: 'AC2: every topic comes from the owning node contract or overlay and is injected, none
+          hard-coded in the touched code -- falsifier: uv run pytest tests/unit -q over the touched modules
+          plus the checker re-run on the slice paths'
+      - id: AC3
+        statement: 'AC3: the slice lands as one PR titled with this ticket id and carries lab proof of
+          the tests and the checker re-run -- falsifier: uv run pytest tests/unit -q on the lab through
+          lab-run at the PR head, receipt path in the PR body'
+evidence_requirements:
+  - kind: tests
+    description: Topic enum, contract topic and dispatch parity tests plus the six touched node test modules.
+    command: uv run pytest tests/unit/review_pairing/test_topics.py tests/unit/review_pairing/test_calibration_topics.py
+      tests/unit/runtime/test_contract_topics.py tests/unit/test_dispatch_parity.py -q -n 0
+emergency_bypass:
+  enabled: false
+  justification: ''
+  follow_up_ticket_id: ''
+dod_evidence:
+  - id: dod-omn21804-ac1-checker-rerun
+    description: The checker scans the slice paths and reports no literal_topic finding; missing files
+      and parse errors fail.
+    source: manual
+    checks:
+      - check_type: command
+        check_value: >-
+          env PYTHONDONTWRITEBYTECODE=1 uv run python -c 'import sys; from pathlib import Path; from omnibase_core.validation.validator_contracts_and_di
+          import ValidatorContractsAndDi; paths = [Path(p) for p in sys.argv[1:]]; assert paths and all(p.is_file()
+          for p in paths), "missing slice path"; result = ValidatorContractsAndDi().validate(paths); assert
+          result.metadata is not None and result.metadata.files_processed == len(paths), "incomplete scan";
+          findings = [i for i in result.issues if i.rule_name in {"literal_topic", "unparseable_file"}];
+          print(result.summary); [print(i) for i in findings]; sys.exit(bool(findings))' src/omniintelligence/review_pairing/topics.py
+          src/omniintelligence/nodes/node_compliance_evaluate_effect/node_tests/test_handler_compliance_evaluate.py
+          src/omniintelligence/nodes/node_llm_routing_decision_effect/node_tests/test_handler_llm_routing_decision.py
+          src/omniintelligence/nodes/node_pattern_demotion_effect/node_tests/test_demotion.py src/omniintelligence/nodes/node_pattern_lifecycle_effect/node_tests/test_handler_transition.py
+          src/omniintelligence/nodes/node_pattern_projection_effect/node_tests/test_handler_projection.py
+          src/omniintelligence/nodes/node_routing_feedback_effect/node_tests/test_handler_routing_feedback.py
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC1
+  - id: dod-omn21804-ac2-topics-from-contract
+    description: The topic enum, contract topic and dispatch parity tests pass with the topics read from
+      contracts.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/review_pairing/test_topics.py tests/unit/review_pairing/test_calibration_topics.py
+          tests/unit/runtime/test_contract_topics.py tests/unit/test_dispatch_parity.py -q -n 0
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC2
+  - id: dod-omn21804-ac3-lab-proof
+    description: Unit suite run on the lab at the PR head.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/review_pairing/test_topics.py tests/unit/runtime/test_contract_topics.py
+          -q -n 0
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC3

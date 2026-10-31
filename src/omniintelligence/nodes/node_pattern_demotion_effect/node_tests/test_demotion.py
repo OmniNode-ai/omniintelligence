@@ -39,6 +39,7 @@ from uuid import UUID, uuid4
 import pydantic
 import pytest
 
+from omniintelligence.models.topics import read_contract_command
 from omniintelligence.nodes.node_pattern_demotion_effect.handlers.handler_demotion import (
     DEFAULT_COOLDOWN_HOURS,
     MAX_SUCCESS_RATE_FOR_DEMOTION,
@@ -63,6 +64,10 @@ from omniintelligence.nodes.node_pattern_demotion_effect.models import (
     ModelEffectiveThresholds,
 )
 from omniintelligence.protocols import ProtocolKafkaPublisher, ProtocolPatternRepository
+
+_LIFECYCLE_TRANSITION_TOPIC = read_contract_command(
+    "node_pattern_lifecycle_effect", "pattern-lifecycle-transition"
+)
 
 # =============================================================================
 # Mock asyncpg.Record Implementation
@@ -1476,10 +1481,7 @@ class TestEventPayloadVerification:
         )
 
         topic, _key, _value = mock_producer.published_events[0]
-        assert (
-            topic
-            == "onex.cmd.omniintelligence.pattern-lifecycle-transition.v1"  # onex-topic-test-fixture
-        )
+        assert topic == _LIFECYCLE_TRANSITION_TOPIC
 
     @pytest.mark.asyncio
     async def test_event_key_is_pattern_id(
