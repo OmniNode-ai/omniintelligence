@@ -76,36 +76,53 @@ from omniintelligence.nodes.node_pattern_extraction_compute.handlers.exceptions 
     PatternExtractionValidationError,
 )
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_architecture_patterns import (
+    HandlerArchitecturePatterns,
     extract_architecture_patterns,
 )
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_converters import (
+    HandlerConverters,
+    ModelPatternConversionRequest,
+    ModelPatternConversionResponse,
     convert_architecture_patterns,
     convert_error_patterns,
     convert_file_patterns,
     convert_tool_patterns,
 )
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_core_models import (
+    HandlerPatternExtractionCore,
     handle_pattern_extraction_core,
 )
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_error_patterns import (
+    HandlerErrorPatterns,
     extract_error_patterns,
 )
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_extract_all_patterns import (
+    HandlerExtractAllPatterns,
     extract_all_patterns,
 )
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_file_patterns import (
+    HandlerFilePatterns,
     extract_file_access_patterns,
 )
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_identity import (
+    HandlerInsightIdentity,
     insight_identity_key,
 )
+from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_match_pattern import (
+    HandlerMatchPattern,
+)
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_merge import (
+    HandlerMergeInsights,
     merge_insights,
+)
+from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_store_node_families import (
+    HandlerStoreNodeFamilies,
 )
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_tool_failure_patterns import (
     extract_tool_failure_patterns,
 )
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_tool_patterns import (
+    HandlerToolPatterns,
     extract_tool_patterns,
 )
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers.protocols import (
@@ -125,7 +142,20 @@ __all__ = [
     "ArchitecturePatternResult",
     "ErrorPatternResult",
     "FileAccessPatternResult",
+    "HandlerArchitecturePatterns",
+    "HandlerConverters",
+    "HandlerErrorPatterns",
+    "HandlerExtractAllPatterns",
+    "HandlerFilePatterns",
+    "HandlerInsightIdentity",
+    "HandlerMatchPattern",
+    "HandlerMergeInsights",
+    "HandlerPatternExtractionCore",
+    "HandlerStoreNodeFamilies",
+    "HandlerToolPatterns",
     "InsightDict",
+    "ModelPatternConversionRequest",
+    "ModelPatternConversionResponse",
     "PatternExtractionComputeError",
     "PatternExtractionError",
     "PatternExtractionMetadata",

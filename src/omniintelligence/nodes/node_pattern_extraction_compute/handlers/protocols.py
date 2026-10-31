@@ -42,7 +42,14 @@ Usage:
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal, TypedDict
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from omniintelligence.nodes.node_pattern_extraction_compute.models import (
+    ModelCodebaseInsight,
+)
 
 # =============================================================================
 # File Access Pattern Result TypedDict
@@ -485,12 +492,55 @@ def create_error_result(
     )
 
 
+class ModelPatternConversionRequest(BaseModel):
+    """Request for converting extracted patterns to insights."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
+
+    file_patterns: list[FileAccessPatternResult] = Field(
+        default_factory=list, description="File patterns to convert"
+    )
+    error_patterns: list[ErrorPatternResult] = Field(
+        default_factory=list, description="Error patterns to convert"
+    )
+    architecture_patterns: list[ArchitecturePatternResult] = Field(
+        default_factory=list, description="Architecture patterns to convert"
+    )
+    tool_patterns: list[ToolPatternResult] = Field(
+        default_factory=list, description="Tool patterns to convert"
+    )
+    reference_time: datetime = Field(
+        description="Reference time for insight timestamps"
+    )
+
+
+class ModelPatternConversionResponse(BaseModel):
+    """Converted insights grouped by pattern type."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
+
+    file_insights: tuple[ModelCodebaseInsight, ...] = Field(
+        default=(), description="Converted file insights"
+    )
+    error_insights: tuple[ModelCodebaseInsight, ...] = Field(
+        default=(), description="Converted error insights"
+    )
+    architecture_insights: tuple[ModelCodebaseInsight, ...] = Field(
+        default=(), description="Converted architecture insights"
+    )
+    tool_insights: tuple[ModelCodebaseInsight, ...] = Field(
+        default=(), description="Converted tool insights"
+    )
+
+
 __all__ = [
     "ArchitecturePatternResult",
     "ContextFeatures",
     "ErrorPatternResult",
     "FileAccessPatternResult",
     "InsightDict",
+    "ModelPatternConversionRequest",
+    "ModelPatternConversionResponse",
     "PatternExtractionMetadata",
     "PatternExtractionMetrics",
     "PatternExtractionResult",

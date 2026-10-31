@@ -7,21 +7,7 @@ Pure converter functions that transform raw pattern
 extraction results into ModelCodebaseInsight objects. Converters are wired
 declaratively in the node's extractor registry.
 
-Converter Pattern:
-    Each converter is a pure function that:
-    - Accepts a list of typed pattern results and a reference time
-    - Transforms results into ModelCodebaseInsight objects
-    - Has no side effects (pure computation)
-
-Usage:
-    from omniintelligence.nodes.node_pattern_extraction_compute.handlers import (
-        convert_file_patterns,
-        convert_error_patterns,
-        convert_architecture_patterns,
-        convert_tool_patterns,
-    )
-
-    insights = convert_file_patterns(results, reference_time)
+Each converter accepts typed results and a reference time without side effects.
 """
 
 from __future__ import annotations
@@ -32,6 +18,8 @@ from omniintelligence.nodes.node_pattern_extraction_compute.handlers.protocols i
     ArchitecturePatternResult,
     ErrorPatternResult,
     FileAccessPatternResult,
+    ModelPatternConversionRequest,
+    ModelPatternConversionResponse,
     ToolPatternResult,
 )
 from omniintelligence.nodes.node_pattern_extraction_compute.models import (
@@ -96,15 +84,7 @@ def convert_error_patterns(
     results: list[ErrorPatternResult],
     reference_time: datetime,
 ) -> list[ModelCodebaseInsight]:
-    """Convert error pattern results to insights.
-
-    Args:
-        results: Error pattern results from extractor.
-        reference_time: Reference time for insight timestamps.
-
-    Returns:
-        List of ModelCodebaseInsight objects.
-    """
+    """Convert error pattern results to insights."""
     return [
         ModelCodebaseInsight(
             insight_id=r["pattern_id"],
@@ -125,15 +105,7 @@ def convert_architecture_patterns(
     results: list[ArchitecturePatternResult],
     reference_time: datetime,
 ) -> list[ModelCodebaseInsight]:
-    """Convert architecture pattern results to insights.
-
-    Args:
-        results: Architecture pattern results from extractor.
-        reference_time: Reference time for insight timestamps.
-
-    Returns:
-        List of ModelCodebaseInsight objects.
-    """
+    """Convert architecture pattern results to insights."""
     return [
         ModelCodebaseInsight(
             insight_id=r["pattern_id"],
@@ -159,12 +131,6 @@ def convert_tool_patterns(
 
     Builds description from tool sequence, success rate, and context.
 
-    Args:
-        results: Tool pattern results from extractor.
-        reference_time: Reference time for insight timestamps.
-
-    Returns:
-        List of ModelCodebaseInsight objects.
     """
     insights = []
     for r in results:
@@ -190,7 +156,34 @@ def convert_tool_patterns(
     return insights
 
 
+class HandlerConverters:
+    """Convert extracted patterns into grouped insights."""
+
+    def handle(
+        self, request: ModelPatternConversionRequest
+    ) -> ModelPatternConversionResponse:
+        return ModelPatternConversionResponse(
+            file_insights=tuple(
+                convert_file_patterns(request.file_patterns, request.reference_time)
+            ),
+            error_insights=tuple(
+                convert_error_patterns(request.error_patterns, request.reference_time)
+            ),
+            architecture_insights=tuple(
+                convert_architecture_patterns(
+                    request.architecture_patterns, request.reference_time
+                )
+            ),
+            tool_insights=tuple(
+                convert_tool_patterns(request.tool_patterns, request.reference_time)
+            ),
+        )
+
+
 __all__ = [
+    "HandlerConverters",
+    "ModelPatternConversionRequest",
+    "ModelPatternConversionResponse",
     "convert_architecture_patterns",
     "convert_error_patterns",
     "convert_file_patterns",

@@ -3,18 +3,9 @@
 
 """Handler for full pattern extraction workflow.
 
-Main pattern extraction logic as a pure function.
-It coordinates all extractor functions and handles the complete workflow:
-- Input validation
-- Reference time resolution
-- Running all extractors based on config flags
-- Converting results to insights
-- Deduplication and merging with existing insights
-- Metrics and metadata construction
-- Error handling
-
-This follows the ONEX declarative pattern where the node is a thin shell
-and all business logic lives in handler functions.
+Main pattern extraction logic as a pure function; the workflow steps are listed
+on ``extract_all_patterns``. ``HandlerExtractAllPatterns`` is the contract-bound
+entry that takes the typed request.
 
 Ticket: OMN-1402
 
@@ -404,4 +395,13 @@ def _deduplicate_and_merge(
     return limited_new, updated_insights
 
 
-__all__ = ["extract_all_patterns"]
+class HandlerExtractAllPatterns:
+    """Extract all patterns from a typed request."""
+
+    def handle(
+        self, request: ModelPatternExtractionInput
+    ) -> ModelPatternExtractionOutput:
+        return extract_all_patterns(request)
+
+
+__all__ = ["HandlerExtractAllPatterns", "extract_all_patterns"]

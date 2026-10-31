@@ -27,11 +27,6 @@ def node_family_to_pattern_row(family: NodeFamily) -> dict[str, Any]:
     - +0.1 per additional role (multi-role = more complete pattern)
     - Cap at 0.95
 
-    Args:
-        family: The node family to convert.
-
-    Returns:
-        Dict with keys matching learned_patterns columns.
     """
     roles_sorted = sorted(family.roles)
     sig = f"{family.source_repo}:{family.directory_name}:{','.join(roles_sorted)}"
@@ -79,3 +74,10 @@ def node_family_to_pattern_row(family: NodeFamily) -> dict[str, Any]:
         "compiled_token_count": len(snippet.split()),
         "compiled_at": now,
     }
+
+
+class HandlerStoreNodeFamilies:
+    """Convert a node family to a pattern row."""
+
+    def handle(self, request: NodeFamily) -> dict[str, Any]:
+        return node_family_to_pattern_row(request)

@@ -41,6 +41,9 @@ from omniintelligence.nodes.node_pattern_extraction_compute.handlers.protocols i
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers.utils import (
     get_extension,
 )
+from omniintelligence.nodes.node_pattern_extraction_compute.models.model_session_pattern_request import (
+    ModelSessionPatternRequest,
+)
 
 # Confidence calculation significance factors
 # These control how occurrence counts translate to confidence scores.
@@ -94,17 +97,6 @@ def extract_tool_patterns(
         List of detected tool patterns, ordered by pattern type:
         sequences first, then preferences, then success rates.
 
-    Examples:
-        >>> sessions = [
-        ...     MockSession(
-        ...         tools_used=("Read", "Edit", "Bash"),
-        ...         files_accessed=("api.py",),
-        ...         outcome="success",
-        ...     ),
-        ... ]
-        >>> patterns = extract_tool_patterns(sessions)
-        >>> for p in patterns:
-        ...     print(f"{p.pattern_type}: {p.tools} ({p.confidence:.2f})")
     """
     results: list[ToolPatternResult] = []
 
@@ -329,4 +321,13 @@ def _get_session_context(files_accessed: tuple[str, ...] | list[str]) -> str:
     return "general"
 
 
-__all__ = ["extract_tool_patterns"]
+class HandlerToolPatterns:
+    """Extract tool patterns from a typed request."""
+
+    def handle(self, request: ModelSessionPatternRequest) -> list[ToolPatternResult]:
+        return extract_tool_patterns(
+            request.sessions, **request.model_dump(exclude={"sessions"})
+        )
+
+
+__all__ = ["HandlerToolPatterns", "extract_tool_patterns"]

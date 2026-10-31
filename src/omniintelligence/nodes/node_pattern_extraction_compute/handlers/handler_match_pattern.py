@@ -1,16 +1,15 @@
 # SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
 
-"""Pattern role matching against AST-extracted entities.
-
-Given a pattern role definition (base_class signature) and a list of
-extracted code entities, find entities whose bases match the role.
-"""
+"""Pattern role matching against AST-extracted entities."""
 
 from __future__ import annotations
 
 from omniintelligence.nodes.node_ast_extraction_compute.models.model_code_entity import (
     ModelCodeEntity,
+)
+from omniintelligence.nodes.node_pattern_extraction_compute.models.model_match_pattern_request import (
+    ModelMatchPatternRequest,
 )
 from omniintelligence.nodes.node_pattern_extraction_compute.models.model_pattern_definition import (
     ModelPatternRole,
@@ -26,12 +25,6 @@ def match_pattern_role(
     Matches entities where any base class name (stripped of generic params)
     equals the role's base_class.
 
-    Args:
-        role: Pattern role to match against.
-        entities: Extracted code entities to search.
-
-    Returns:
-        List of entities matching the role (may be empty).
     """
     matches: list[ModelCodeEntity] = []
     for entity in entities:
@@ -43,3 +36,10 @@ def match_pattern_role(
                 matches.append(entity)
                 break
     return matches
+
+
+class HandlerMatchPattern:
+    """Match code entities to a requested pattern role."""
+
+    def handle(self, request: ModelMatchPatternRequest) -> list[ModelCodeEntity]:
+        return match_pattern_role(request.role, list(request.entities))

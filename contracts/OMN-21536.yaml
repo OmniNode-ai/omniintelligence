@@ -1,57 +1,128 @@
 ---
-schema_version: "1.0.0"
-ticket_id: "OMN-21536"
-title: "Six single-request compute handlers become handler classes with handle(request)"
-summary: "The six compute nodes whose handler is one function of one typed request (ci_error_classifier,
+schema_version: 1.0.0
+ticket_id: OMN-21536
+title: 'handler-shape burn-down in omniintelligence: single-request compute handlers and node_pattern_extraction_compute
+  become handler classes with handle(request)'
+summary: 'The six compute nodes whose handler is one function of one typed request (ci_error_classifier,
   semantic_analysis, success_criteria_matcher, execution_trace_parser, pattern_matching, code_entity_bridge)
   now bind a handler class with handle(self, request) in their contracts, and the old function names are
-  removed."
+  removed. Eleven handler modules of node_pattern_extraction_compute held only module functions, several
+  of them with three to six positional arguments, and core''s handler-shape validator reported each as
+  module_function_handler. Each module now also holds a handler class whose handle takes one typed request,
+  and the contract binds the five extraction operations to those classes (class: in place of function:).
+  The module functions are unchanged; the classes call them. Five request models are new (ModelSessionPatternRequest,
+  ModelFilePatternRequest, ModelCoreExtractionRequest, ModelMatchPatternRequest, ModelMergeInsightsRequest)
+  and the converters take a request and response model pair. The node leaves the canonical handler-shape
+  baseline with an adequacy receipt and a hand-flip proof, five handler files leave the canonical-file-shape
+  burn-down baseline, and no baselined file grew. The canon-shape-ratchet job now checks out full history
+  so a hand-flip proof can resolve its base_ref. This slice does not finish the ticket: the validator
+  still reports the module-function handlers of the other nodes.'
 is_seam_ticket: false
 interface_change: false
 interfaces_touched: []
 requirements:
-  - id: "req-handler-classes"
-    statement: |-
-      Each of the six compute nodes delegates to a handler class exposing handle(request); no module-level handler function remains.
+  - id: req-handler-classes
+    statement: Each of the six compute nodes delegates to a handler class exposing handle(request); no
+      module-level handler function remains.
     acceptance:
-      - id: "AC1"
-        statement: |-
-          AC1: the unit tests of the six converted handlers call the handler classes and pass -- falsifier: uv run pytest tests/unit/nodes/node_ci_error_classifier_compute tests/unit/nodes/node_semantic_analysis_compute tests/unit/nodes/node_success_criteria_matcher_compute tests/unit/nodes/node_execution_trace_parser_compute tests/unit/nodes/node_pattern_matching_compute tests/unit/nodes/node_code_entity_bridge_compute -q
-  - id: "req-pattern-handler-classes"
-    statement: |-
-      Each handler module of node_pattern_learning_compute and node_pattern_assembler_orchestrator holds a handler class exposing handle(request) with a typed request model, and no bare public handler function remains.
+      - id: AC1
+        statement: 'AC1: the unit tests of the six converted handlers call the handler classes and pass
+          -- falsifier: uv run pytest tests/unit/nodes/node_ci_error_classifier_compute tests/unit/nodes/node_semantic_analysis_compute
+          tests/unit/nodes/node_success_criteria_matcher_compute tests/unit/nodes/node_execution_trace_parser_compute
+          tests/unit/nodes/node_pattern_matching_compute tests/unit/nodes/node_code_entity_bridge_compute
+          -q'
+  - id: req-pattern-handler-classes
+    statement: Each handler module of node_pattern_learning_compute and node_pattern_assembler_orchestrator
+      holds a handler class exposing handle(request) with a typed request model, and no bare public handler
+      function remains.
     acceptance:
-      - id: "AC2"
-        statement: |-
-          AC2: the unit tests of the pattern learning and pattern assembler nodes call the handler classes and pass, and the canonical-dispatch parity tests of the two contract-bound handlers pass -- falsifier: uv run pytest tests/unit/nodes/node_pattern_learning_compute tests/unit/nodes/node_pattern_assembler_orchestrator tests/unit/test_node_purity.py -q
+      - id: AC2
+        statement: 'AC2: the unit tests of the pattern learning and pattern assembler nodes call the handler
+          classes and pass, and the canonical-dispatch parity tests of the two contract-bound handlers
+          pass -- falsifier: uv run pytest tests/unit/nodes/node_pattern_learning_compute tests/unit/nodes/node_pattern_assembler_orchestrator
+          tests/unit/test_node_purity.py -q'
+  - id: req-omn21536-oi-pattern-extraction-handle-request
+    statement: The five extraction operations of node_pattern_extraction_compute bind a handler class
+      with a typed handle(request), and each class returns what the module function it replaces returns.
+    acceptance:
+      - id: AC4
+        statement: 'AC4: node_pattern_extraction_compute is absent from the canonical handler-shape baseline
+          and carries an adequacy receipt and a hand-flip proof that the ratchet verifies -- falsifier:
+          the Canonical Handler-Shape Ratchet job exits non-zero, or the node id is still in scripts/ci/canonical_handler_shape_baseline.py'
+      - id: AC5
+        statement: 'AC5: the class bound in each of the five operations takes one typed request and returns,
+          for the recorded fixtures, what the module function returns, and the contract names no function
+          -- falsifier: the pytest command of the evidence below exits non-zero'
+      - id: AC6
+        statement: 'AC6: the handler-shape validator reports no finding in the node and none of the eleven
+          handler modules, and still reports a module of bare functions -- falsifier: the test_handle_request_shape_omn21536.py
+          tests fail'
 evidence_requirements:
-  - kind: "tests"
-    description: "Handler-class unit tests for the six nodes pass."
-    command: "uv run pytest tests/unit/nodes/node_ci_error_classifier_compute tests/unit/nodes/node_semantic_analysis_compute
-      -q"
-  - kind: "tests"
-    description: "Handler-class unit tests of the pattern learning and pattern assembler nodes pass."
-    command: "uv run pytest tests/unit/nodes/node_pattern_learning_compute tests/unit/nodes/node_pattern_assembler_orchestrator
-      -q"
+  - kind: tests
+    description: Handler-class unit tests for the six nodes pass.
+    command: uv run pytest tests/unit/nodes/node_ci_error_classifier_compute tests/unit/nodes/node_semantic_analysis_compute
+      -q
+  - kind: tests
+    description: Handler-class unit tests of the pattern learning and pattern assembler nodes pass.
+    command: uv run pytest tests/unit/nodes/node_pattern_learning_compute tests/unit/nodes/node_pattern_assembler_orchestrator
+      -q
+  - kind: tests
+    description: Contract binding, output equality with the module functions, and the handler-shape check
+      of each of the eleven modules, run on a lab host at the pushed head.
+    command: uv run pytest tests/unit/nodes/node_pattern_extraction_compute -q -n 0 --no-cov
 emergency_bypass:
   enabled: false
-  justification: ""
-  follow_up_ticket_id: ""
+  justification: ''
+  follow_up_ticket_id: ''
 dod_evidence:
-  - id: "dod-omn21536-ac1-handler-classes"
-    description: "The converted handler classes are exercised by their unit tests."
-    source: "manual"
+  - id: dod-omn21536-ac1-handler-classes
+    description: The converted handler classes are exercised by their unit tests.
+    source: manual
     checks:
-      - check_type: "test_passes"
-        check_value: "uv run pytest tests/unit/nodes/node_ci_error_classifier_compute tests/unit/nodes/node_semantic_analysis_compute
-          -q"
-    binds_ac: ["AC1"]
-  - id: "dod-omn21536-ac2-pattern-handler-classes"
-    description: "The converted pattern learning and pattern assembler handler classes are exercised by
-      the unit tests of the two nodes."
-    source: "manual"
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/nodes/node_ci_error_classifier_compute tests/unit/nodes/node_semantic_analysis_compute
+          -q
+    binds_ac:
+      - AC1
+  - id: dod-omn21536-ac2-pattern-handler-classes
+    description: The converted pattern learning and pattern assembler handler classes are exercised by
+      the unit tests of the two nodes.
+    source: manual
     checks:
-      - check_type: "test_passes"
-        check_value: "uv run pytest tests/unit/nodes/node_pattern_learning_compute tests/unit/nodes/node_pattern_assembler_orchestrator
-          -q"
-    binds_ac: ["AC2"]
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/nodes/node_pattern_learning_compute tests/unit/nodes/node_pattern_assembler_orchestrator
+          -q
+    binds_ac:
+      - AC2
+  - id: dod-omn21536-oi-pe-ac1-baseline-and-receipts
+    description: The node id is not in the baseline, and the node has an adequacy receipt and a hand-flip
+      proof whose parity block passes.
+    source: manual
+    checks:
+      - check_type: command
+        check_value: uv run --frozen python -c 'import json; from pathlib import Path; n="node_pattern_extraction_compute";
+          assert "omniintelligence.nodes."+n not in Path("scripts/ci/canonical_handler_shape_baseline.py").read_text();
+          d=Path("scripts/ci/adequacy_receipts"); assert json.loads((d/("omniintelligence.nodes."+n+".handflip.json")).read_text())["parity"]["status"]=="pass"
+          and (d/("omniintelligence.nodes."+n+".json")).exists()'
+    binds_ac:
+      - AC4
+  - id: dod-omn21536-oi-pe-ac2-bound-class-output
+    description: The contract-bound class of each of the five operations returns what the module function
+      returns, and no operation binds a function.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/nodes/node_pattern_extraction_compute/test_contract_bound_handlers_omn21536.py
+          -q -n 0 --no-cov
+    binds_ac:
+      - AC5
+  - id: dod-omn21536-oi-pe-ac3-handler-shape
+    description: Each of the eleven handler modules passes the handler-shape rules, and the same check
+      flags a module of bare functions.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/nodes/node_pattern_extraction_compute/test_handle_request_shape_omn21536.py
+          -q -n 0 --no-cov
+    binds_ac:
+      - AC6

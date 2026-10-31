@@ -1,0 +1,35 @@
+{
+  "base_ref": "dbd04de5b3fe",
+  "canonical_handler_module": "omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_extract_all_patterns",
+  "legacy_handler_module": "omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_extract_all_patterns",
+  "node_id": "omniintelligence.nodes.node_pattern_extraction_compute",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:39b2a03e9ad807121ed3ea99b8e3732630d118453d0fbbeb4548f12a80d76a78",
+      "sha256:15eb53e26b767ab52ac748d75bd36a2975ab567ea659b31a41cb4fcb491388a4",
+      "sha256:00d39b58f42f0b0a46f589dbae294eb9fa2334487c06a31a29a0125aaad097c8",
+      "sha256:9c47cb88ccf64f746c7231841e5bb0189cc64567de4a8557fd3fa5c12a660b05",
+      "sha256:cfbb0524e3f4556bf7634af11713f8b74d3edadc2a495fd096237104c487e761"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_pattern_extraction_compute/test_contract_bound_handlers_omn21536.py::test_contract_binds_a_class_with_one_typed_request[extract_architecture_patterns]",
+      "tests/unit/nodes/node_pattern_extraction_compute/test_contract_bound_handlers_omn21536.py::test_contract_binds_a_class_with_one_typed_request[extract_error_patterns]",
+      "tests/unit/nodes/node_pattern_extraction_compute/test_contract_bound_handlers_omn21536.py::test_contract_binds_a_class_with_one_typed_request[extract_file_patterns]",
+      "tests/unit/nodes/node_pattern_extraction_compute/test_contract_bound_handlers_omn21536.py::test_contract_binds_a_class_with_one_typed_request[extract_patterns]",
+      "tests/unit/nodes/node_pattern_extraction_compute/test_contract_bound_handlers_omn21536.py::test_contract_binds_a_class_with_one_typed_request[extract_tool_patterns]",
+      "tests/unit/nodes/node_pattern_extraction_compute/test_contract_bound_handlers_omn21536.py::test_bound_class_returns_what_the_module_function_returns[extract_architecture_patterns]",
+      "tests/unit/nodes/node_pattern_extraction_compute/test_contract_bound_handlers_omn21536.py::test_bound_class_returns_what_the_module_function_returns[extract_error_patterns]",
+      "tests/unit/nodes/node_pattern_extraction_compute/test_contract_bound_handlers_omn21536.py::test_bound_class_returns_what_the_module_function_returns[extract_file_patterns]",
+      "tests/unit/nodes/node_pattern_extraction_compute/test_contract_bound_handlers_omn21536.py::test_bound_class_returns_what_the_module_function_returns[extract_patterns]",
+      "tests/unit/nodes/node_pattern_extraction_compute/test_contract_bound_handlers_omn21536.py::test_bound_class_returns_what_the_module_function_returns[extract_tool_patterns]"
+    ]
+  },
+  "preserved_symbols": [
+    "extract_all_patterns",
+    "_resolve_reference_time",
+    "_run_extractors",
+    "_deduplicate_and_merge"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}
