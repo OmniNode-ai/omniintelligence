@@ -64,3 +64,15 @@ dod_evidence:
     binds_ac:
       - AC1
       - AC2
+  - id: dod-omn21677-ac3-topic-registry-lab-proof
+    description: Replay the focused topic-registry tests cited as lab proof for this slice, including
+      the golden topic values, the remaining-literal check, and the contract-reader and registry consumers.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/test_topics_from_contracts_omn21677.py tests/unit/test_intent_topics.py
+          tests/unit/test_omnidash_topic_registry.py tests/unit/runtime/test_contract_topics.py -q -n
+          0
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC3
