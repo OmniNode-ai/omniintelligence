@@ -1,0 +1,23 @@
+{
+  "branch_coverage_pct": 30.53,
+  "candidate_count": 5,
+  "coverage_target": 80.0,
+  "handler_module": "omniintelligence.nodes.node_pattern_matching_compute.handlers.handler_compute",
+  "handler_module_sha256": "sha256:66575bddb1572d5cc2543a274e2aa2af022b0511cbc4478644318b2ea8bc998c",
+  "meets_target": false,
+  "node_id": "omniintelligence.nodes.node_pattern_matching_compute",
+  "receipt_schema": "adequacy_receipt.v1",
+  "recorded_at": "2026-10-31T08:05:32.527554+00:00",
+  "recorder_schema": "adequacy_receipt.v1",
+  "selected_count": 3,
+  "selected_input_hashes": [
+    "sha256:26ec576cb7098de04408d33f431b807639089ff624a9d8983012b6aa292faba8",
+    "sha256:be644ac637e4a960c542b52b4ec10edad1e6b9e2bfa2c8901977ba37d79d348b",
+    "sha256:21a8338e7d438900e76ef6d77937989dd85ff41cc788048deb67adf7d6fdf480"
+  ],
+  "uncovered_waiver": {
+    "reason": "The parity corpus covers an empty library, a successful match, category filtering, an unmatched pattern and whitespace-code validation. Coverage begins after module import, excluding imports and definitions. Injected compute exceptions, logging/timing failures and nested fallback output construction are outside this input corpus.",
+    "uncovered_branch_count": 0
+  },
+  "volatile_mask": []
+}

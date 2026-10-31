@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 from omnibase_core.nodes.node_compute import NodeCompute
 
 from omniintelligence.nodes.node_execution_trace_parser_compute.handlers import (
-    handle_trace_parsing_compute,
+    HandlerTraceParsingCompute,
 )
 from omniintelligence.nodes.node_execution_trace_parser_compute.models import (
     ModelTraceParsingInput,
@@ -58,7 +58,7 @@ class NodeExecutionTraceParserCompute(
         Returns:
             ModelTraceParsingOutput with parsed events, errors, and timing.
         """
-        return handle_trace_parsing_compute(input_data)
+        return HandlerTraceParsingCompute().handle(input_data)
 
 
 __all__ = ["NodeExecutionTraceParserCompute"]

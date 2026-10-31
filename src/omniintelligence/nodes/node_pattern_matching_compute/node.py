@@ -22,7 +22,7 @@ from __future__ import annotations
 from omnibase_core.nodes.node_compute import NodeCompute
 
 from omniintelligence.nodes.node_pattern_matching_compute.handlers import (
-    handle_pattern_matching_compute,
+    HandlerPatternMatchingCompute,
 )
 from omniintelligence.nodes.node_pattern_matching_compute.models import (
     ModelPatternMatchingInput,
@@ -53,7 +53,7 @@ class NodePatternMatchingCompute(
         self, input_data: ModelPatternMatchingInput
     ) -> ModelPatternMatchingOutput:
         """Match code against patterns by delegating to handler function."""
-        return handle_pattern_matching_compute(input_data)
+        return HandlerPatternMatchingCompute().handle(input_data)
 
 
 __all__ = ["NodePatternMatchingCompute"]

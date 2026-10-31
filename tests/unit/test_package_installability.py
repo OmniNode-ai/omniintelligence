@@ -136,19 +136,19 @@ HANDLER_ENTRY_POINTS = [
     ),
     (
         "omniintelligence.nodes.node_pattern_matching_compute.handlers",
-        "handle_pattern_matching_compute",
+        "HandlerPatternMatchingCompute",
     ),
     (
         "omniintelligence.nodes.node_semantic_analysis_compute.handlers",
-        "handle_semantic_analysis_compute",
+        "HandlerSemanticAnalysisCompute",
     ),
     (
         "omniintelligence.nodes.node_execution_trace_parser_compute.handlers",
-        "handle_trace_parsing_compute",
+        "HandlerTraceParsingCompute",
     ),
     (
         "omniintelligence.nodes.node_success_criteria_matcher_compute.handlers",
-        "handle_success_criteria_compute",
+        "HandlerSuccessCriteriaCompute",
     ),
     # --- Effect nodes ---
     (

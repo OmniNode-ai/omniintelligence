@@ -11,7 +11,7 @@ from __future__ import annotations
 import pytest
 
 from omniintelligence.nodes.node_pattern_matching_compute.handlers import (
-    handle_pattern_matching_compute,
+    handler_compute as canonical_handler,
 )
 from omniintelligence.nodes.node_pattern_matching_compute.models import (
     ModelPatternContext,
@@ -22,7 +22,7 @@ from omniintelligence.nodes.node_pattern_matching_compute.models import (
 
 @pytest.mark.unit
 class TestHandlePatternMatchingCompute:
-    """Tests for handle_pattern_matching_compute function."""
+    """Tests for HandlerPatternMatchingCompute handler."""
 
     def test_successful_matching_with_patterns(self) -> None:
         """Should return successful result with matched patterns."""
@@ -53,7 +53,7 @@ class TestHandlePatternMatchingCompute:
             ),
         )
 
-        result = handle_pattern_matching_compute(input_data)
+        result = canonical_handler.HandlerPatternMatchingCompute().handle(input_data)
 
         assert result.success is True
         assert result.metadata is not None
@@ -70,7 +70,7 @@ class TestHandlePatternMatchingCompute:
             operation="match",
         )
 
-        result = handle_pattern_matching_compute(input_data)
+        result = canonical_handler.HandlerPatternMatchingCompute().handle(input_data)
 
         assert result.success is True
         assert result.patterns_matched == []
@@ -94,7 +94,7 @@ class TestHandlePatternMatchingCompute:
             context=ModelPatternContext(min_confidence=0.0),
         )
 
-        result = handle_pattern_matching_compute(input_data)
+        result = canonical_handler.HandlerPatternMatchingCompute().handle(input_data)
 
         assert result.success is True
         assert len(result.matches) > 0
@@ -121,7 +121,7 @@ class TestHandlePatternMatchingCompute:
             context=ModelPatternContext(min_confidence=0.0),
         )
 
-        result = handle_pattern_matching_compute(input_data)
+        result = canonical_handler.HandlerPatternMatchingCompute().handle(input_data)
 
         assert result.success is True
         # Both simple and rich representations should be populated
@@ -155,7 +155,7 @@ class TestHandlePatternMatchingCompute:
             ),
         )
 
-        result = handle_pattern_matching_compute(input_data)
+        result = canonical_handler.HandlerPatternMatchingCompute().handle(input_data)
 
         assert result.metadata is not None
         assert result.metadata.patterns_analyzed is not None
@@ -181,7 +181,7 @@ class TestHandlePatternMatchingCompute:
         )
 
         # Handler should return structured error, not raise
-        result = handle_pattern_matching_compute(input_data)
+        result = canonical_handler.HandlerPatternMatchingCompute().handle(input_data)
         assert result.success is False
         assert result.metadata is not None
         assert result.metadata.status == "validation_error"
@@ -206,7 +206,7 @@ class TestHandlePatternMatchingCompute:
             context=ModelPatternContext(min_confidence=0.5),
         )
 
-        result = handle_pattern_matching_compute(input_data)
+        result = canonical_handler.HandlerPatternMatchingCompute().handle(input_data)
 
         assert result.success is True
         if result.matches:
@@ -239,7 +239,7 @@ class TestHandlePatternMatchingCompute:
             ),
         )
 
-        result = handle_pattern_matching_compute(input_data)
+        result = canonical_handler.HandlerPatternMatchingCompute().handle(input_data)
 
         assert result.success is True
         # Only anti_pattern should be analyzed
@@ -260,7 +260,7 @@ class TestHandlePatternMatchingCompute:
             ),
         )
 
-        result = handle_pattern_matching_compute(input_data)
+        result = canonical_handler.HandlerPatternMatchingCompute().handle(input_data)
 
         assert result.metadata is not None
         assert result.metadata.correlation_id == str(correlation_id)
@@ -272,9 +272,119 @@ class TestHandlePatternMatchingCompute:
             patterns=[],
         )
 
-        result = handle_pattern_matching_compute(input_data)
+        result = canonical_handler.HandlerPatternMatchingCompute().handle(input_data)
 
         assert result.metadata is not None
         assert result.metadata.timestamp_utc is not None
         # Should be ISO 8601 format
         assert "T" in result.metadata.timestamp_utc
+
+
+# Shared with the coverage receipt recorder; no random input defaults.
+CANONICAL_PARITY_CASES = [
+    {
+        "case": "empty_library",
+        "input": {"code_snippet": "worker pattern", "patterns": []},
+    },
+    {
+        "case": "matched",
+        "input": {
+            "code_snippet": "worker pattern",
+            "patterns": [
+                {
+                    "pattern_id": "p1",
+                    "signature": "worker pattern",
+                    "domain": "test",
+                    "keywords": ["worker", "pattern"],
+                    "category": "worker",
+                }
+            ],
+            "context": {
+                "min_confidence": 0.0,
+                "correlation_id": "11111111-1111-1111-1111-111111111111",
+            },
+        },
+    },
+    {
+        "case": "filtered",
+        "input": {
+            "code_snippet": "worker pattern",
+            "patterns": [
+                {
+                    "pattern_id": "p1",
+                    "signature": "worker pattern",
+                    "domain": "test",
+                    "keywords": ["worker", "pattern"],
+                    "category": "worker",
+                }
+            ],
+            "context": {"pattern_categories": ["other"], "min_confidence": 0.0},
+        },
+    },
+    {
+        "case": "no_match",
+        "input": {
+            "code_snippet": "unrelated",
+            "patterns": [
+                {
+                    "pattern_id": "p1",
+                    "signature": "worker pattern",
+                    "domain": "test",
+                    "keywords": ["worker", "pattern"],
+                    "category": "worker",
+                }
+            ],
+            "context": {"min_confidence": 1.0},
+        },
+    },
+    {
+        "case": "validation_error",
+        "input": {
+            "code_snippet": " \n ",
+            "patterns": [
+                {
+                    "pattern_id": "p1",
+                    "signature": "worker pattern",
+                    "domain": "test",
+                    "keywords": ["worker", "pattern"],
+                    "category": "worker",
+                }
+            ],
+            "context": {},
+        },
+    },
+]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("payload", CANONICAL_PARITY_CASES, ids=lambda p: p["case"])
+def test_canonical_dispatch_matches_preserved_core(payload, monkeypatch):
+    """Compare canonical dispatch with the git-preserved core on branch cases.
+
+    Resolve the class inside the test so the legacy tree collects successfully
+    and fails this assertion, rather than failing import/collection.
+    """
+    handler_class = getattr(canonical_handler, "HandlerPatternMatchingCompute", None)
+    assert handler_class is not None, "canonical handle(request) class is required"
+    from omniintelligence.nodes.node_pattern_matching_compute.models import (
+        ModelPatternMatchingInput,
+    )
+
+    request = ModelPatternMatchingInput.model_validate(payload["input"])
+    # Only nondeterministic clocks/IDs are controlled; the algorithm runs normally.
+    from uuid import UUID
+
+    monkeypatch.setattr("time.perf_counter", lambda: 100.0)
+    monkeypatch.setattr(
+        "uuid.uuid4", lambda: UUID("22222222-2222-2222-2222-222222222222")
+    )
+    from datetime import UTC, datetime
+
+    class FixedDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 1, 1, tzinfo=UTC).astimezone(tz)
+
+    monkeypatch.setattr(canonical_handler, "datetime", FixedDatetime)
+    expected = canonical_handler._execute_matching(request, 100.0)
+    assert handler_class().handle(request) == expected

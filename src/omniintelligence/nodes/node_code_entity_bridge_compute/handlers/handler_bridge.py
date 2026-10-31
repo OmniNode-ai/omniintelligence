@@ -50,70 +50,73 @@ _SUPPORTED_ENTITY_TYPES: frozenset[str] = frozenset(
 )
 
 
-def handle_code_entity_bridge(
-    input_data: ModelCodeEntityBridgeInput,
-) -> ModelCodeEntityBridgeOutput:
-    """Derive learned_patterns from a batch of code_entities.
+class HandlerCodeEntityBridge:
+    """Typed entry point for the code entity bridge derivation."""
 
-    Args:
-        input_data: Bridge input containing entities and derivation config.
+    def handle(
+        self, request: ModelCodeEntityBridgeInput
+    ) -> ModelCodeEntityBridgeOutput:
+        """Derive learned_patterns from a batch of code_entities.
 
-    Returns:
-        ModelCodeEntityBridgeOutput with derived patterns and counters.
-    """
-    start = time.perf_counter()
+        Args:
+            request: Bridge input containing entities and derivation config.
 
-    derived: list[ModelDerivedPattern] = []
-    skipped = 0
-    errors = 0
+        Returns:
+            ModelCodeEntityBridgeOutput with derived patterns and counters.
+        """
+        start = time.perf_counter()
 
-    for entity in input_data.entities:
-        if entity.entity_type not in _SUPPORTED_ENTITY_TYPES:
-            skipped += 1
-            continue
+        derived: list[ModelDerivedPattern] = []
+        skipped = 0
+        errors = 0
 
-        if entity.confidence < input_data.min_confidence:
-            skipped += 1
-            logger.debug(
-                "Skipping entity %s (confidence=%.2f < min=%.2f, correlation_id=%s)",
-                entity.qualified_name,
-                entity.confidence,
-                input_data.min_confidence,
-                input_data.correlation_id,
-            )
-            continue
+        for entity in request.entities:
+            if entity.entity_type not in _SUPPORTED_ENTITY_TYPES:
+                skipped += 1
+                continue
 
-        try:
-            pattern = _derive_pattern(entity, input_data)
-            derived.append(pattern)
-        except Exception:
-            errors += 1
-            logger.exception(
-                "Failed to derive pattern for entity %s (correlation_id=%s)",
-                entity.qualified_name,
-                input_data.correlation_id,
-            )
+            if entity.confidence < request.min_confidence:
+                skipped += 1
+                logger.debug(
+                    "Skipping entity %s (confidence=%.2f < min=%.2f, correlation_id=%s)",
+                    entity.qualified_name,
+                    entity.confidence,
+                    request.min_confidence,
+                    request.correlation_id,
+                )
+                continue
 
-    duration_ms = (time.perf_counter() - start) * 1000.0
+            try:
+                pattern = _derive_pattern(entity, request)
+                derived.append(pattern)
+            except Exception:
+                errors += 1
+                logger.exception(
+                    "Failed to derive pattern for entity %s (correlation_id=%s)",
+                    entity.qualified_name,
+                    request.correlation_id,
+                )
 
-    logger.info(
-        "Bridge complete: derived=%d skipped=%d errors=%d repo=%s duration_ms=%.1f correlation_id=%s",
-        len(derived),
-        skipped,
-        errors,
-        input_data.source_repo,
-        duration_ms,
-        input_data.correlation_id,
-    )
+        duration_ms = (time.perf_counter() - start) * 1000.0
 
-    return ModelCodeEntityBridgeOutput(
-        correlation_id=input_data.correlation_id,
-        source_repo=input_data.source_repo,
-        derived_patterns=derived,
-        skipped_count=skipped,
-        error_count=errors,
-        duration_ms=duration_ms,
-    )
+        logger.info(
+            "Bridge complete: derived=%d skipped=%d errors=%d repo=%s duration_ms=%.1f correlation_id=%s",
+            len(derived),
+            skipped,
+            errors,
+            request.source_repo,
+            duration_ms,
+            request.correlation_id,
+        )
+
+        return ModelCodeEntityBridgeOutput(
+            correlation_id=request.correlation_id,
+            source_repo=request.source_repo,
+            derived_patterns=derived,
+            skipped_count=skipped,
+            error_count=errors,
+            duration_ms=duration_ms,
+        )
 
 
 # =============================================================================
@@ -241,4 +244,4 @@ def _build_snippet(entity: ModelCodeEntity) -> str | None:
     return "\n".join(lines)
 
 
-__all__ = ["handle_code_entity_bridge"]
+__all__ = ["HandlerCodeEntityBridge"]

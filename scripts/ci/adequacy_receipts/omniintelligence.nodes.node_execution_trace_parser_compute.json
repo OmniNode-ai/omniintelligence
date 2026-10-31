@@ -1,0 +1,23 @@
+{
+  "branch_coverage_pct": 48.94,
+  "candidate_count": 4,
+  "coverage_target": 80.0,
+  "handler_module": "omniintelligence.nodes.node_execution_trace_parser_compute.handlers.handler_compute",
+  "handler_module_sha256": "sha256:ae0da833c0c47c5c1ab2f3a295e892c146c237d2d0cd8b5cca653c12ddc22985",
+  "meets_target": false,
+  "node_id": "omniintelligence.nodes.node_execution_trace_parser_compute",
+  "receipt_schema": "adequacy_receipt.v1",
+  "recorded_at": "2026-10-31T08:02:42.709977+00:00",
+  "recorder_schema": "adequacy_receipt.v1",
+  "selected_count": 3,
+  "selected_input_hashes": [
+    "sha256:2e702aee0d4dbbcc27c9896ffdedff4c3173cfc4b024177cfc4a326a870ad597",
+    "sha256:3c2ea7b99aa807cdced6d4f636e3a89b8126f29e5415e5d3814f1ac506b3d616",
+    "sha256:faca6ef982d9be442d9d6abbd4727c914763f83133185d1dad80a093efd4bacc"
+  ],
+  "uncovered_waiver": {
+    "reason": "The parity corpus covers valid timed traces, error extraction, disabled event/error extraction and missing-span validation failure. Coverage begins after module import, excluding imports and definitions. Defensive compute exceptions, logging/timing failures and nested fallback output construction are not exercised by these valid typed inputs.",
+    "uncovered_branch_count": 0
+  },
+  "volatile_mask": []
+}

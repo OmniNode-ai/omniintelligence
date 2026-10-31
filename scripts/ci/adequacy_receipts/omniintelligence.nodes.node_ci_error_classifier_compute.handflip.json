@@ -1,0 +1,28 @@
+{
+  "base_ref": "30cfb4452",
+  "canonical_handler_module": "omniintelligence.nodes.node_ci_error_classifier_compute.handlers.handler_classifier",
+  "legacy_handler_module": "omniintelligence.nodes.node_ci_error_classifier_compute.handlers.handler_classifier",
+  "node_id": "omniintelligence.nodes.node_ci_error_classifier_compute",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:7f9c5048fa6d76ff84cd0b0a44f251df29fc495d04bacb4be6d566481f351630",
+      "sha256:85546cf60b8fd87f98c2bf0f60d2944f1b37dbaa27d548f6ad619c174e99403c",
+      "sha256:59d9e6a96b9a1f775f3d33c108a38dc096e3ae75a79eb9f5c0054264b2b5d3c5"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_ci_error_classifier_compute/handlers/test_handler_classifier.py::test_canonical_dispatch_matches_preserved_core[normalized]",
+      "tests/unit/nodes/node_ci_error_classifier_compute/handlers/test_handler_classifier.py::test_canonical_dispatch_matches_preserved_core[plain_unknown]",
+      "tests/unit/nodes/node_ci_error_classifier_compute/handlers/test_handler_classifier.py::test_canonical_dispatch_matches_preserved_core[json_array]",
+      "tests/unit/nodes/node_ci_error_classifier_compute/handlers/test_handler_classifier.py::test_canonical_dispatch_matches_preserved_core[invalid_confidence]",
+      "tests/unit/nodes/node_ci_error_classifier_compute/handlers/test_handler_classifier.py::test_canonical_dispatch_matches_preserved_core[negative_confidence]",
+      "tests/unit/nodes/node_ci_error_classifier_compute/handlers/test_handler_classifier.py::test_canonical_dispatch_matches_preserved_core[empty_object]"
+    ]
+  },
+  "preserved_symbols": [
+    "_coerce_to_list",
+    "_parse_llm_response",
+    "_parse_failure_output"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

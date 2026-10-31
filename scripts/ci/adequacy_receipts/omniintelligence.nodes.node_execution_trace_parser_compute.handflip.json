@@ -1,0 +1,30 @@
+{
+  "base_ref": "30cfb4452",
+  "canonical_handler_module": "omniintelligence.nodes.node_execution_trace_parser_compute.handlers.handler_compute",
+  "legacy_handler_module": "omniintelligence.nodes.node_execution_trace_parser_compute.handlers.handler_compute",
+  "node_id": "omniintelligence.nodes.node_execution_trace_parser_compute",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:2e702aee0d4dbbcc27c9896ffdedff4c3173cfc4b024177cfc4a326a870ad597",
+      "sha256:3c2ea7b99aa807cdced6d4f636e3a89b8126f29e5415e5d3814f1ac506b3d616",
+      "sha256:faca6ef982d9be442d9d6abbd4727c914763f83133185d1dad80a093efd4bacc"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_execution_trace_parser_compute/handlers/test_handler_compute.py::test_canonical_dispatch_matches_preserved_core[basic]",
+      "tests/unit/nodes/node_execution_trace_parser_compute/handlers/test_handler_compute.py::test_canonical_dispatch_matches_preserved_core[error]",
+      "tests/unit/nodes/node_execution_trace_parser_compute/handlers/test_handler_compute.py::test_canonical_dispatch_matches_preserved_core[extraction_disabled]",
+      "tests/unit/nodes/node_execution_trace_parser_compute/handlers/test_handler_compute.py::test_canonical_dispatch_matches_preserved_core[missing_span]"
+    ]
+  },
+  "preserved_symbols": [
+    "_execute_parsing",
+    "_build_output",
+    "_elapsed_time_ms",
+    "_safe_elapsed_time_ms",
+    "_create_validation_error_output",
+    "_create_compute_error_output",
+    "_create_safe_error_output"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

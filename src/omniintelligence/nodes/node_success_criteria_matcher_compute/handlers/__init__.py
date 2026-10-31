@@ -73,7 +73,7 @@ from omniintelligence.nodes.node_success_criteria_matcher_compute.handlers.excep
     CriteriaMatchingValidationError,
 )
 from omniintelligence.nodes.node_success_criteria_matcher_compute.handlers.handler_compute import (
-    handle_success_criteria_compute,
+    HandlerSuccessCriteriaCompute,
 )
 from omniintelligence.nodes.node_success_criteria_matcher_compute.handlers.handler_criteria_matching import (
     apply_operator,
@@ -107,7 +107,7 @@ __all__ = [
     "apply_operator",
     "get_type_name",
     "handle_match_criteria",
-    "handle_success_criteria_compute",
+    "HandlerSuccessCriteriaCompute",
     "match_criteria",
     "resolve_field_path",
 ]

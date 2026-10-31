@@ -29,7 +29,7 @@ handler_routing:
   handlers:
     - operation: "classify_ci_error"
       handler:
-        function: "handle_classify_ci_error"
+        class: "HandlerCiErrorClassifier"
         module: "omniintelligence.nodes.node_ci_error_classifier_compute.handlers.handler_classifier"
         type: "sync"
 

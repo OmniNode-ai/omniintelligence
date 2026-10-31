@@ -9,7 +9,9 @@ import pytest
 
 from omniintelligence.nodes.node_execution_trace_parser_compute.handlers import (
     PARSER_VERSION,
-    handle_trace_parsing_compute,
+)
+from omniintelligence.nodes.node_execution_trace_parser_compute.handlers import (
+    handler_compute as canonical_handler,
 )
 from omniintelligence.nodes.node_execution_trace_parser_compute.models import (
     ModelTraceData,
@@ -21,7 +23,7 @@ pytestmark = pytest.mark.unit
 
 
 class TestHandleTraceParsingCompute:
-    """Tests for handle_trace_parsing_compute orchestrator."""
+    """Tests for HandlerTraceParsingCompute orchestrator."""
 
     def test_parse_basic_trace(self) -> None:
         """Parse a basic trace and verify output structure."""
@@ -42,7 +44,7 @@ class TestHandleTraceParsingCompute:
             extract_timing=True,
         )
 
-        result = handle_trace_parsing_compute(input_data)
+        result = canonical_handler.HandlerTraceParsingCompute().handle(input_data)
 
         assert result.success is True
         assert result.metadata is not None
@@ -61,7 +63,7 @@ class TestHandleTraceParsingCompute:
             extract_timing=True,
         )
 
-        result = handle_trace_parsing_compute(input_data)
+        result = canonical_handler.HandlerTraceParsingCompute().handle(input_data)
 
         assert result.success is True
         assert len(result.parsed_events) == 2
@@ -80,7 +82,7 @@ class TestHandleTraceParsingCompute:
             extract_timing=False,
         )
 
-        result = handle_trace_parsing_compute(input_data)
+        result = canonical_handler.HandlerTraceParsingCompute().handle(input_data)
 
         assert result.success is True
         assert len(result.parsed_events) == 0
@@ -96,7 +98,7 @@ class TestHandleTraceParsingCompute:
             extract_errors=True,
         )
 
-        result = handle_trace_parsing_compute(input_data)
+        result = canonical_handler.HandlerTraceParsingCompute().handle(input_data)
 
         assert result.success is True
         assert len(result.error_events) >= 1
@@ -112,7 +114,7 @@ class TestHandleTraceParsingCompute:
             extract_errors=False,
         )
 
-        result = handle_trace_parsing_compute(input_data)
+        result = canonical_handler.HandlerTraceParsingCompute().handle(input_data)
 
         assert result.success is True
         assert len(result.error_events) == 0
@@ -129,7 +131,7 @@ class TestHandleTraceParsingCompute:
             ),
         )
 
-        result = handle_trace_parsing_compute(input_data)
+        result = canonical_handler.HandlerTraceParsingCompute().handle(input_data)
 
         assert result.success is True
         assert result.timing_data.total_duration_ms == 500.0
@@ -149,7 +151,7 @@ class TestHandleTraceParsingCompute:
             extract_timing=True,
         )
 
-        result = handle_trace_parsing_compute(input_data)
+        result = canonical_handler.HandlerTraceParsingCompute().handle(input_data)
 
         assert result.success is True
         assert result.metadata is not None
@@ -165,7 +167,7 @@ class TestHandleTraceParsingCompute:
             ),
         )
 
-        result = handle_trace_parsing_compute(input_data)
+        result = canonical_handler.HandlerTraceParsingCompute().handle(input_data)
 
         assert result.success is False
         assert result.metadata is not None
@@ -181,7 +183,7 @@ class TestHandleTraceParsingCompute:
             ),
         )
 
-        result = handle_trace_parsing_compute(input_data)
+        result = canonical_handler.HandlerTraceParsingCompute().handle(input_data)
 
         # Even on error, output should be valid
         assert result.success is False
@@ -219,7 +221,7 @@ class TestHandleTraceParsingComputeWithLogs:
             extract_errors=True,
         )
 
-        result = handle_trace_parsing_compute(input_data)
+        result = canonical_handler.HandlerTraceParsingCompute().handle(input_data)
 
         assert result.success is True
         # Should detect log-level error
@@ -240,7 +242,7 @@ class TestHandleTraceParsingComputeWithLogs:
             extract_errors=True,
         )
 
-        result = handle_trace_parsing_compute(input_data)
+        result = canonical_handler.HandlerTraceParsingCompute().handle(input_data)
 
         assert result.success is True
         assert len(result.error_events) >= 1
@@ -251,3 +253,85 @@ class TestHandleTraceParsingComputeWithLogs:
         assert span_error is not None
         assert span_error.error_message == "Connection timeout"
         assert span_error.stack_trace == "Traceback..."
+
+
+# Shared with the coverage receipt recorder; no random input defaults.
+CANONICAL_PARITY_CASES = [
+    {
+        "case": "basic",
+        "input": {
+            "trace_data": {
+                "span_id": "span-1",
+                "trace_id": "trace-1",
+                "operation_name": "work",
+                "start_time": "2026-01-01T00:00:00Z",
+                "end_time": "2026-01-01T00:00:01Z",
+                "duration_ms": 1000.0,
+            },
+            "correlation_id": "11111111-1111-1111-1111-111111111111",
+        },
+    },
+    {
+        "case": "error",
+        "input": {
+            "trace_data": {
+                "span_id": "span-1",
+                "trace_id": "trace-1",
+                "operation_name": "work",
+                "start_time": "2026-01-01T00:00:00Z",
+                "end_time": "2026-01-01T00:00:01Z",
+                "duration_ms": 1000.0,
+                "status": "error",
+            },
+            "extract_errors": True,
+        },
+    },
+    {
+        "case": "extraction_disabled",
+        "input": {
+            "trace_data": {
+                "span_id": "span-1",
+                "trace_id": "trace-1",
+                "operation_name": "work",
+                "start_time": "2026-01-01T00:00:00Z",
+                "end_time": "2026-01-01T00:00:01Z",
+                "duration_ms": 1000.0,
+                "status": "error",
+            },
+            "extract_errors": False,
+            "extract_timing": False,
+        },
+    },
+    {
+        "case": "missing_span",
+        "input": {"trace_data": {"trace_id": "trace-1"}, "trace_format": "json"},
+    },
+]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("payload", CANONICAL_PARITY_CASES, ids=lambda p: p["case"])
+def test_canonical_dispatch_matches_preserved_core(payload, monkeypatch):
+    """Compare canonical dispatch with the git-preserved core on branch cases.
+
+    Resolve the class inside the test so the legacy tree collects successfully
+    and fails this assertion, rather than failing import/collection.
+    """
+    handler_class = getattr(canonical_handler, "HandlerTraceParsingCompute", None)
+    assert handler_class is not None, "canonical handle(request) class is required"
+    from omniintelligence.nodes.node_execution_trace_parser_compute.models import (
+        ModelTraceParsingInput,
+    )
+
+    request = ModelTraceParsingInput.model_validate(payload["input"])
+    # Only nondeterministic clocks/IDs are controlled; the algorithm runs normally.
+    from uuid import UUID
+
+    monkeypatch.setattr("time.perf_counter", lambda: 100.0)
+    monkeypatch.setattr(
+        "uuid.uuid4", lambda: UUID("22222222-2222-2222-2222-222222222222")
+    )
+    expected = canonical_handler._execute_parsing(
+        request, 100.0, request.correlation_id
+    )
+    assert handler_class().handle(request) == expected

@@ -1,0 +1,23 @@
+{
+  "branch_coverage_pct": 73.33,
+  "candidate_count": 6,
+  "coverage_target": 80.0,
+  "handler_module": "omniintelligence.nodes.node_ci_error_classifier_compute.handlers.handler_classifier",
+  "handler_module_sha256": "sha256:211987631ed422c0293691c55ae9c48d9f799297f6499e9849d156a1362531bd",
+  "meets_target": false,
+  "node_id": "omniintelligence.nodes.node_ci_error_classifier_compute",
+  "receipt_schema": "adequacy_receipt.v1",
+  "recorded_at": "2026-10-31T08:02:42.277920+00:00",
+  "recorder_schema": "adequacy_receipt.v1",
+  "selected_count": 3,
+  "selected_input_hashes": [
+    "sha256:7f9c5048fa6d76ff84cd0b0a44f251df29fc495d04bacb4be6d566481f351630",
+    "sha256:85546cf60b8fd87f98c2bf0f60d2944f1b37dbaa27d548f6ad619c174e99403c",
+    "sha256:59d9e6a96b9a1f775f3d33c108a38dc096e3ae75a79eb9f5c0054264b2b5d3c5"
+  ],
+  "uncovered_waiver": {
+    "reason": "The parity corpus covers JSON objects, non-object JSON and plain-text fallback, valid/unknown taxonomy, confidence clamping and invalid confidence, and scalar/list/null coercion. Coverage begins after module import, excluding imports and definitions. This corpus does not exhaust every malformed JSON or numeric representation.",
+    "uncovered_branch_count": 0
+  },
+  "volatile_mask": []
+}

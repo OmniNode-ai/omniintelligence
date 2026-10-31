@@ -31,7 +31,7 @@ from uuid import UUID, uuid4
 import pytest
 
 from omniintelligence.nodes.node_pattern_matching_compute.handlers.handler_compute import (
-    handle_pattern_matching_compute,
+    HandlerPatternMatchingCompute,
 )
 from omniintelligence.nodes.node_pattern_matching_compute.models.model_pattern_matching_input import (
     ModelPatternContext,
@@ -192,7 +192,7 @@ async def orchestrate_pattern_matching(
     )
 
     # Step 3: Call compute handler
-    return handle_pattern_matching_compute(input_data)
+    return HandlerPatternMatchingCompute().handle(input_data)
 
 
 # =============================================================================

@@ -19,7 +19,7 @@ from omniintelligence.nodes.node_execution_trace_parser_compute.handlers.excepti
     TraceParsingValidationError,
 )
 from omniintelligence.nodes.node_execution_trace_parser_compute.handlers.handler_compute import (
-    handle_trace_parsing_compute,
+    HandlerTraceParsingCompute,
 )
 from omniintelligence.nodes.node_execution_trace_parser_compute.handlers.handler_event_extraction import (
     detect_log_errors,
@@ -52,6 +52,7 @@ from omniintelligence.nodes.node_execution_trace_parser_compute.handlers.protoco
 __all__ = [
     "PARSER_VERSION",
     "ErrorEventDict",
+    "HandlerTraceParsingCompute",
     "ParsedEventDict",
     "SpanNodeDict",
     "TimingDataDict",
@@ -70,7 +71,6 @@ __all__ = [
     "extract_all_errors",
     "extract_span_events",
     "generate_event_id",
-    "handle_trace_parsing_compute",
     "is_error_log_level",
     "is_error_status",
     "parse_timestamp",

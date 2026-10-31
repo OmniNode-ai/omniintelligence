@@ -18,7 +18,7 @@ to this handler, following the ONEX declarative pattern.
 
 Example:
     from omniintelligence.nodes.node_pattern_matching_compute.handlers import (
-        handle_pattern_matching_compute,
+        HandlerPatternMatchingCompute,
     )
     from omniintelligence.nodes.node_pattern_matching_compute.models import (
         ModelPatternMatchingInput,
@@ -29,7 +29,7 @@ Example:
         code_snippet="class Foo: pass",
         patterns=[...],
     )
-    output: ModelPatternMatchingOutput = handle_pattern_matching_compute(input_data)
+    output: ModelPatternMatchingOutput = HandlerPatternMatchingCompute().handle(input_data)
 """
 
 from __future__ import annotations
@@ -70,12 +70,10 @@ STATUS_VALIDATION_ERROR: Final[str] = "validation_error"
 STATUS_COMPUTE_ERROR: Final[str] = "compute_error"
 
 
-def handle_pattern_matching_compute(
-    input_data: ModelPatternMatchingInput,
-) -> ModelPatternMatchingOutput:
+class HandlerPatternMatchingCompute:
     """Handle pattern matching compute operation.
 
-    This function orchestrates the pattern matching workflow:
+    This class orchestrates the pattern matching workflow:
     1. Converts input models to handler-compatible format
     2. Calls the pure matching function
     3. Converts results to output models
@@ -85,68 +83,72 @@ def handle_pattern_matching_compute(
         - PatternMatchingValidationError: Returns output with validation_error status
         - PatternMatchingComputeError: Returns output with compute_error status
         - All errors are caught and returned as structured output (no exceptions raised)
-
-    Args:
-        input_data: Typed input model containing code snippet and patterns.
-
-    Returns:
-        ModelPatternMatchingOutput with matches, scores, and metadata.
-        Always returns a valid output, even on errors.
     """
-    start_time = time.perf_counter()
 
-    try:
-        return _execute_matching(input_data, start_time)
+    def handle(self, request: ModelPatternMatchingInput) -> ModelPatternMatchingOutput:
+        """Handle pattern matching compute operation.
 
-    except PatternMatchingValidationError as e:
-        processing_time = (time.perf_counter() - start_time) * 1000
-        return _create_validation_error_output(str(e), processing_time)
+        Args:
+            request: Typed input model containing code snippet and patterns.
 
-    except PatternMatchingComputeError as e:
-        processing_time = (time.perf_counter() - start_time) * 1000
-        return _create_compute_error_output(str(e), processing_time)
+        Returns:
+            ModelPatternMatchingOutput with matches, scores, and metadata.
+            Always returns a valid output, even on errors.
+        """
+        start_time = time.perf_counter()
 
-    except Exception as e:
-        # Catch-all for any unhandled exceptions.
-        # This block MUST NOT raise - use nested try/except for all operations.
-        processing_time = _safe_elapsed_time_ms(start_time)
-
-        # Extract correlation_id safely for logging
-        correlation_id: str | None = None
-        with contextlib.suppress(Exception):
-            if hasattr(input_data, "context") and hasattr(
-                input_data.context, "correlation_id"
-            ):
-                correlation_id = (
-                    str(input_data.context.correlation_id)
-                    if input_data.context.correlation_id
-                    else None
-                )
-
-        # Safe logging - failures here must not propagate
         try:
-            logger.exception(
-                "Unhandled exception in pattern matching compute. "
-                "operation=%s, patterns_count=%d, processing_time_ms=%.2f",
-                getattr(input_data, "operation", "<unknown>"),
-                len(getattr(input_data, "patterns", [])),
-                processing_time,
-                extra={"correlation_id": correlation_id},
-            )
-        except Exception:
-            # If logging itself fails, try minimal logging
+            return _execute_matching(request, start_time)
+
+        except PatternMatchingValidationError as e:
+            processing_time = (time.perf_counter() - start_time) * 1000
+            return _create_validation_error_output(str(e), processing_time)
+
+        except PatternMatchingComputeError as e:
+            processing_time = (time.perf_counter() - start_time) * 1000
+            return _create_compute_error_output(str(e), processing_time)
+
+        except Exception as e:
+            # Catch-all for any unhandled exceptions.
+            # This block MUST NOT raise - use nested try/except for all operations.
+            processing_time = _safe_elapsed_time_ms(start_time)
+
+            # Extract correlation_id safely for logging
+            correlation_id: str | None = None
             with contextlib.suppress(Exception):
-                logger.error(
-                    "Pattern matching compute failed: %s",
-                    e,
+                if hasattr(request, "context") and hasattr(
+                    request.context, "correlation_id"
+                ):
+                    correlation_id = (
+                        str(request.context.correlation_id)
+                        if request.context.correlation_id
+                        else None
+                    )
+
+            # Safe logging - failures here must not propagate
+            try:
+                logger.exception(
+                    "Unhandled exception in pattern matching compute. "
+                    "operation=%s, patterns_count=%d, processing_time_ms=%.2f",
+                    getattr(request, "operation", "<unknown>"),
+                    len(getattr(request, "patterns", [])),
+                    processing_time,
                     extra={"correlation_id": correlation_id},
                 )
+            except Exception:
+                # If logging itself fails, try minimal logging
+                with contextlib.suppress(Exception):
+                    logger.error(
+                        "Pattern matching compute failed: %s",
+                        e,
+                        extra={"correlation_id": correlation_id},
+                    )
 
-        # Safe error response creation
-        return _create_safe_error_output(
-            f"Unhandled error: {e}",
-            processing_time,
-        )
+            # Safe error response creation
+            return _create_safe_error_output(
+                f"Unhandled error: {e}",
+                processing_time,
+            )
 
 
 def _execute_matching(
@@ -401,4 +403,4 @@ def _create_safe_error_output(
             )
 
 
-__all__ = ["handle_pattern_matching_compute"]
+__all__ = ["HandlerPatternMatchingCompute"]

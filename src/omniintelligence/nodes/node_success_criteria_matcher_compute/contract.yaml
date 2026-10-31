@@ -47,8 +47,8 @@ handler_routing:
   handlers:
     - operation: "match_criteria"
       handler:
-        function: "handle_success_criteria_compute"
-        module: "omniintelligence.nodes.node_success_criteria_matcher_compute.handlers"
+        class: "HandlerSuccessCriteriaCompute"
+        module: "omniintelligence.nodes.node_success_criteria_matcher_compute.handlers.handler_compute"
         type: "sync"
 dependencies: []
 # Future protocol dependency (uncomment when protocols module exists):
