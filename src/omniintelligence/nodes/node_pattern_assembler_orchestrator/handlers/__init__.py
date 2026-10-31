@@ -28,32 +28,32 @@ from omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers.excepti
     WorkflowTimeoutError,
 )
 from omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers.handler_orchestrate import (
-    handle_pattern_assembly_orchestrate,
+    HandlerPatternAssemblyOrchestrate,
 )
 from omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers.handler_pattern_assembly import (
-    assemble_pattern,
+    HandlerPatternAssembly,
 )
 from omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers.handler_workflow_coordination import (
     STEP_ASSEMBLE_PATTERN,
     STEP_CLASSIFY_INTENT,
     STEP_MATCH_CRITERIA,
     STEP_PARSE_TRACES,
-    build_assembly_context,
-    execute_workflow_async,
+    HandlerAssemblyContext,
+    HandlerWorkflowCoordination,
 )
 
 __all__ = [
     # Main entry point
-    "handle_pattern_assembly_orchestrate",
+    "HandlerPatternAssemblyOrchestrate",
     # Workflow coordination
-    "execute_workflow_async",
-    "build_assembly_context",
+    "HandlerWorkflowCoordination",
+    "HandlerAssemblyContext",
     "STEP_PARSE_TRACES",
     "STEP_CLASSIFY_INTENT",
     "STEP_MATCH_CRITERIA",
     "STEP_ASSEMBLE_PATTERN",
     # Pattern assembly
-    "assemble_pattern",
+    "HandlerPatternAssembly",
     # Exceptions
     "CriteriaMatchingError",
     "DependencyResolutionError",

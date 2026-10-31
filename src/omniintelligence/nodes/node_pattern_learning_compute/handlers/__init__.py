@@ -44,19 +44,19 @@ from omniintelligence.nodes.node_pattern_learning_compute.handlers.exceptions im
     PatternLearningValidationError,
 )
 from omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_confidence_scoring import (
-    compute_cluster_scores,
+    HandlerConfidenceScoring,
 )
 from omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_deduplication import (
-    deduplicate_patterns,
-    generate_pattern_signature,
+    HandlerDeduplication,
+    HandlerPatternSignature,
 )
 from omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_feature_extraction import (
-    extract_features,
-    extract_features_batch,
+    HandlerFeatureExtraction,
+    HandlerFeatureExtractionItem,
 )
 from omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_pattern_clustering import (
-    cluster_patterns,
-    compute_similarity,
+    HandlerPatternClustering,
+    HandlerSimilarity,
 )
 from omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_pattern_learning import (
     HANDLER_ID_PATTERN_LEARNING,
@@ -120,13 +120,13 @@ __all__ = [
     "UnionFind",
     "aggregate_patterns",
     "assert_json_safe",
-    "cluster_patterns",
-    "compute_cluster_scores",
-    "compute_similarity",
-    "deduplicate_patterns",
-    "extract_features",
-    "extract_features_batch",
-    "generate_pattern_signature",
+    "HandlerPatternClustering",
+    "HandlerConfidenceScoring",
+    "HandlerSimilarity",
+    "HandlerDeduplication",
+    "HandlerFeatureExtractionItem",
+    "HandlerFeatureExtraction",
+    "HandlerPatternSignature",
     "jaccard_similarity",
     "normalize_identifier",
     "normalize_identifiers",

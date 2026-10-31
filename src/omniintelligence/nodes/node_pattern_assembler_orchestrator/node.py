@@ -20,9 +20,10 @@ from typing import TYPE_CHECKING, Any
 from omnibase_core.nodes.node_orchestrator import NodeOrchestrator
 
 from omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers import (
-    handle_pattern_assembly_orchestrate,
+    HandlerPatternAssemblyOrchestrate,
 )
 from omniintelligence.nodes.node_pattern_assembler_orchestrator.models import (
+    ModelPatternAssemblyOrchestrateRequest,
     ModelPatternAssemblyOutput,
 )
 
@@ -63,8 +64,10 @@ class NodePatternAssemblerOrchestrator(NodeOrchestrator):
             Output dictionary from ModelPatternAssemblyOutput.
         """
         # Handler guarantees structured output (never raises); model_dump() is safe.
-        result: ModelPatternAssemblyOutput = await handle_pattern_assembly_orchestrate(
-            input_data
+        result: ModelPatternAssemblyOutput = (
+            await HandlerPatternAssemblyOrchestrate().handle(
+                ModelPatternAssemblyOrchestrateRequest(input_data=input_data)
+            )
         )
         return result.model_dump(mode="json")
 

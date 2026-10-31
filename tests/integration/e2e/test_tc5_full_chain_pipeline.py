@@ -43,6 +43,9 @@ from uuid import UUID, uuid4
 
 import pytest
 
+from omniintelligence.nodes.node_pattern_learning_compute.models import (
+    ModelPatternLearningRequest,
+)
 from tests.integration.conftest import requires_postgres
 from tests.integration.e2e.conftest import (
     E2E_DOMAIN,
@@ -140,7 +143,9 @@ class TestTC5FullChainPipeline:
         training_data = sample_successful_session_data()
         assert len(training_data) == 5, "Expected 5 training data items"
 
-        result = pattern_learning_handler.handle(training_data=training_data)
+        result = pattern_learning_handler.handle(
+            ModelPatternLearningRequest(training_data=training_data)
+        )
 
         assert result["success"] is True, (
             f"Pattern learning should succeed for valid training data. "

@@ -1,0 +1,33 @@
+{
+  "base_ref": "dbd04de5b",
+  "canonical_handler_module": "omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_pattern_learning",
+  "legacy_handler_module": "omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_pattern_learning",
+  "node_id": "omniintelligence.nodes.node_pattern_learning_compute",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:a1d21be0663e7c8c7cd6b1d44d8117e916c3da14ee5131219c99ac81f85a0c0e",
+      "sha256:6ecd267e24a6ce3aab718c047f94f4731b69f3d480462840fd628ab205246ac8",
+      "sha256:550b1aa75b795e5834cf295fc81f1e294335d6ebc7c289696074ac3a5e413a7f"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_pattern_learning_compute/handlers/test_handler_pattern_learning.py::test_canonical_dispatch_matches_preserved_core[normal_success]",
+      "tests/unit/nodes/node_pattern_learning_compute/handlers/test_handler_pattern_learning.py::test_canonical_dispatch_matches_preserved_core[empty_input]",
+      "tests/unit/nodes/node_pattern_learning_compute/handlers/test_handler_pattern_learning.py::test_canonical_dispatch_matches_preserved_core[candidate_patterns]"
+    ]
+  },
+  "preserved_symbols": [
+    "HandlerPatternLearning.__init__",
+    "HandlerPatternLearning.handler_type",
+    "HandlerPatternLearning.handler_category",
+    "HandlerPatternLearning.initialize",
+    "HandlerPatternLearning.shutdown",
+    "aggregate_patterns",
+    "split_by_promotion_threshold",
+    "compute_learning_metrics",
+    "_validate_training_data",
+    "_create_empty_result",
+    "_derive_category"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

@@ -911,6 +911,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          # OMN-21536: a hand-flip proof names its base_ref and the gate re-reads the
+          # legacy handler module from git at that ref; a depth-1 checkout holds only the
+          # merge commit, so every base_ref was unresolvable and no flip could prove.
+          fetch-depth: 0
 
       - name: Checkout omnibase_core validator source
         uses: actions/checkout@v7

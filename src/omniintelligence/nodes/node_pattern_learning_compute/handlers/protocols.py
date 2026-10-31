@@ -27,7 +27,7 @@ Usage:
         PatternClusterDict,
     )
 
-    def extract_features(code: str) -> ExtractedFeaturesDict:
+    def _extract_features(code: str) -> ExtractedFeaturesDict:
         return {
             "keywords": ("def", "class", "import"),
             "pattern_indicators": ("NodeCompute", "frozen"),

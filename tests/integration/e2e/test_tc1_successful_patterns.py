@@ -24,6 +24,9 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from omniintelligence.nodes.node_pattern_learning_compute.models import (
+    ModelPatternLearningRequest,
+)
 from tests.integration.e2e.fixtures import sample_successful_session_data
 
 if TYPE_CHECKING:
@@ -76,7 +79,9 @@ class TestTC1SuccessfulPatternExtraction:
         assert len(training_data) == 5, "Expected 5 training data items"
 
         # Act: Run pattern learning pipeline
-        result = pattern_learning_handler.handle(training_data=training_data)
+        result = pattern_learning_handler.handle(
+            ModelPatternLearningRequest(training_data=training_data)
+        )
 
         # Assert: Pipeline succeeded
         assert result["success"] is True, (
@@ -118,7 +123,9 @@ class TestTC1SuccessfulPatternExtraction:
         training_data = sample_successful_session_data()
 
         # Act
-        result = pattern_learning_handler.handle(training_data=training_data)
+        result = pattern_learning_handler.handle(
+            ModelPatternLearningRequest(training_data=training_data)
+        )
 
         # Assert: Pipeline succeeded
         assert result["success"] is True
@@ -174,7 +181,9 @@ class TestTC1SuccessfulPatternExtraction:
         training_data = sample_successful_session_data()
 
         # Act
-        result = pattern_learning_handler.handle(training_data=training_data)
+        result = pattern_learning_handler.handle(
+            ModelPatternLearningRequest(training_data=training_data)
+        )
 
         # Assert: Pipeline succeeded
         assert result["success"] is True
@@ -255,8 +264,10 @@ class TestTC1SuccessfulPatternExtraction:
 
         # Act: Use lower threshold to ensure some patterns are promoted
         result = pattern_learning_handler.handle(
-            training_data=training_data,
-            promotion_threshold=0.5,  # Lower threshold to promote more patterns
+            ModelPatternLearningRequest(
+                training_data=training_data,
+                promotion_threshold=0.5,  # Lower threshold to promote more patterns
+            )
         )
 
         # Assert: Pipeline succeeded
@@ -288,8 +299,10 @@ class TestTC1SuccessfulPatternExtraction:
 
         # Act: Use very high threshold to ensure patterns are candidates
         result = pattern_learning_handler.handle(
-            training_data=training_data,
-            promotion_threshold=0.99,  # Very high threshold
+            ModelPatternLearningRequest(
+                training_data=training_data,
+                promotion_threshold=0.99,  # Very high threshold
+            )
         )
 
         # Assert: Pipeline succeeded
@@ -324,7 +337,9 @@ class TestTC1SuccessfulPatternExtraction:
         training_data = sample_successful_session_data()
 
         # Act
-        result = pattern_learning_handler.handle(training_data=training_data)
+        result = pattern_learning_handler.handle(
+            ModelPatternLearningRequest(training_data=training_data)
+        )
 
         # Assert: Pipeline succeeded
         assert result["success"] is True
@@ -379,7 +394,9 @@ class TestTC1MetricsVerification:
         expected_count = len(training_data)
 
         # Act
-        result = pattern_learning_handler.handle(training_data=training_data)
+        result = pattern_learning_handler.handle(
+            ModelPatternLearningRequest(training_data=training_data)
+        )
 
         # Assert
         assert result["success"] is True
@@ -401,7 +418,9 @@ class TestTC1MetricsVerification:
         training_data = sample_successful_session_data()
 
         # Act
-        result = pattern_learning_handler.handle(training_data=training_data)
+        result = pattern_learning_handler.handle(
+            ModelPatternLearningRequest(training_data=training_data)
+        )
 
         # Assert
         assert result["success"] is True
@@ -422,7 +441,9 @@ class TestTC1MetricsVerification:
         training_data = sample_successful_session_data()
 
         # Act
-        result = pattern_learning_handler.handle(training_data=training_data)
+        result = pattern_learning_handler.handle(
+            ModelPatternLearningRequest(training_data=training_data)
+        )
 
         # Assert
         assert result["success"] is True
@@ -457,7 +478,9 @@ class TestTC1EdgeCases:
         assert len(training_data) == 1
 
         # Act
-        result = pattern_learning_handler.handle(training_data=training_data)
+        result = pattern_learning_handler.handle(
+            ModelPatternLearningRequest(training_data=training_data)
+        )
 
         # Assert: Should succeed even with single item
         assert result["success"] is True
@@ -479,14 +502,18 @@ class TestTC1EdgeCases:
 
         # Act with low threshold
         result_low = pattern_learning_handler.handle(
-            training_data=training_data,
-            promotion_threshold=0.3,
+            ModelPatternLearningRequest(
+                training_data=training_data,
+                promotion_threshold=0.3,
+            )
         )
 
         # Act with high threshold
         result_high = pattern_learning_handler.handle(
-            training_data=training_data,
-            promotion_threshold=0.9,
+            ModelPatternLearningRequest(
+                training_data=training_data,
+                promotion_threshold=0.9,
+            )
         )
 
         # Assert: Both should succeed

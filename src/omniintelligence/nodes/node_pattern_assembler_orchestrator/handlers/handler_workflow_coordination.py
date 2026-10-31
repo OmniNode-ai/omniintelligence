@@ -36,6 +36,12 @@ from omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers.protoco
     TraceParsingResultDict,
     WorkflowResultDict,
 )
+from omniintelligence.nodes.node_pattern_assembler_orchestrator.models.model_assembly_context_request import (
+    ModelAssemblyContextRequest,
+)
+from omniintelligence.nodes.node_pattern_assembler_orchestrator.models.model_workflow_coordination_request import (
+    ModelWorkflowCoordinationRequest,
+)
 
 if TYPE_CHECKING:
     from omniintelligence.nodes.node_pattern_assembler_orchestrator.models import (
@@ -51,54 +57,7 @@ STEP_MATCH_CRITERIA = "match_criteria"
 STEP_ASSEMBLE_PATTERN = "assemble_pattern"
 
 
-def execute_workflow(
-    input_data: ModelPatternAssemblyInput,
-    trace_parser_node: ProtocolComputeNode | None = None,
-    intent_classifier_node: ProtocolComputeNode | None = None,
-    criteria_matcher_node: ProtocolComputeNode | None = None,
-) -> WorkflowResultDict:
-    """Execute the complete workflow synchronously.
-
-    This is a synchronous wrapper that coordinates all steps.
-    For async execution, use execute_workflow_async.
-
-    Args:
-        input_data: The orchestrator input data.
-        trace_parser_node: Optional trace parser compute node.
-        intent_classifier_node: Optional intent classifier compute node.
-        criteria_matcher_node: Optional criteria matcher compute node.
-
-    Returns:
-        WorkflowResultDict with results from all steps.
-
-    Raises:
-        RuntimeError: If called from within a running event loop.
-            Use execute_workflow_async() in async contexts instead.
-    """
-    import asyncio
-
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = None
-
-    if loop is not None:
-        raise RuntimeError(
-            "execute_workflow() cannot be called from within a running event loop. "
-            "Use execute_workflow_async() instead for async contexts."
-        )
-
-    return asyncio.run(
-        execute_workflow_async(
-            input_data,
-            trace_parser_node,
-            intent_classifier_node,
-            criteria_matcher_node,
-        )
-    )
-
-
-async def execute_workflow_async(
+async def _execute_workflow_async(
     input_data: ModelPatternAssemblyInput,
     trace_parser_node: ProtocolComputeNode | None = None,
     intent_classifier_node: ProtocolComputeNode | None = None,
@@ -572,7 +531,7 @@ async def _execute_criteria_matching(
     )
 
 
-def build_assembly_context(
+def _build_assembly_context(
     input_data: ModelPatternAssemblyInput,
     workflow_result: WorkflowResultDict,
 ) -> AssemblyContextDict:
@@ -688,12 +647,34 @@ def _create_failed_workflow_result(
     )
 
 
+class HandlerWorkflowCoordination:
+    """Typed entry point for _execute_workflow_async."""
+
+    async def handle(
+        self, request: ModelWorkflowCoordinationRequest
+    ) -> WorkflowResultDict:
+        """Delegate to the preserved computation."""
+        return await _execute_workflow_async(
+            request.input_data,
+            request.trace_parser_node,
+            request.intent_classifier_node,
+            request.criteria_matcher_node,
+        )
+
+
+class HandlerAssemblyContext:
+    """Typed entry point for _build_assembly_context."""
+
+    def handle(self, request: ModelAssemblyContextRequest) -> AssemblyContextDict:
+        """Delegate to the preserved computation."""
+        return _build_assembly_context(request.input_data, request.workflow_result)
+
+
 __all__ = [
     "STEP_ASSEMBLE_PATTERN",
     "STEP_CLASSIFY_INTENT",
     "STEP_MATCH_CRITERIA",
     "STEP_PARSE_TRACES",
-    "build_assembly_context",
-    "execute_workflow",
-    "execute_workflow_async",
+    "HandlerAssemblyContext",
+    "HandlerWorkflowCoordination",
 ]

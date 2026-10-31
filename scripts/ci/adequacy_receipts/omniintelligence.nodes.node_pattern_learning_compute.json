@@ -1,0 +1,23 @@
+{
+  "branch_coverage_pct": 65.38,
+  "candidate_count": 3,
+  "coverage_target": 80.0,
+  "handler_module": "omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_pattern_learning",
+  "handler_module_sha256": "sha256:0538e6fb418f6ec2e6b2f141d22f0399df6cf5ebe0b29398f590235d8224d98d",
+  "meets_target": false,
+  "node_id": "omniintelligence.nodes.node_pattern_learning_compute",
+  "receipt_schema": "adequacy_receipt.v1",
+  "recorded_at": "2026-10-31T08:48:38.403722+00:00",
+  "recorder_schema": "adequacy_receipt.v1",
+  "selected_count": 3,
+  "selected_input_hashes": [
+    "sha256:a1d21be0663e7c8c7cd6b1d44d8117e916c3da14ee5131219c99ac81f85a0c0e",
+    "sha256:6ecd267e24a6ce3aab718c047f94f4731b69f3d480462840fd628ab205246ac8",
+    "sha256:550b1aa75b795e5834cf295fc81f1e294335d6ebc7c289696074ac3a5e413a7f"
+  ],
+  "uncovered_waiver": {
+    "reason": "The parity corpus drives the typed entry point through a success, an empty-input and one more case. Branches not taken are the preserved core's error-handling paths, which the existing unit tests of the module cover and the verbatim-preservation check keeps byte-identical.",
+    "uncovered_branch_count": 9
+  },
+  "volatile_mask": []
+}

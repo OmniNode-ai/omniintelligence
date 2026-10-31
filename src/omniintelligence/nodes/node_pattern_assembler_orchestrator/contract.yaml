@@ -30,7 +30,7 @@ handler_routing:
   handlers:
     - operation: "orchestrate_assembly"
       handler:
-        function: "handle_pattern_assembly_orchestrate"
+        class: "HandlerPatternAssemblyOrchestrate"
         module: "omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers.handler_orchestrate"
         type: "async"
       description: "Main orchestration entry point for pattern assembly workflow"
@@ -70,7 +70,7 @@ workflow_coordination:
             by orchestrator)"
           depends_on: ["match_criteria"]
           step_config:
-            internal_handler: "handler_pattern_assembly.assemble_pattern"
+            internal_handler: "handler_pattern_assembly.HandlerPatternAssembly"
     coordination_rules:
       execution_mode: sequential
       parallel_execution_allowed: false
@@ -92,7 +92,7 @@ dependencies:
     module: "omniintelligence.nodes.node_success_criteria_matcher_compute"
     description: "Success criteria matching compute node"
     # Note: pattern_assembler step is handled internally by the orchestrator
-    # via handler_pattern_assembly.assemble_pattern
+    # via handler_pattern_assembly.HandlerPatternAssembly
 # Error Handling Configuration
 # ============================
 error_handling:

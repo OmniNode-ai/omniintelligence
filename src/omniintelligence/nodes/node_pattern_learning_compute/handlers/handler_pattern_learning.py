@@ -50,7 +50,7 @@ Usage (class-based - recommended):
         },
     })
 
-Usage (function-based - backward compatibility):
+Usage (function-based):
     from omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_pattern_learning import (
         aggregate_patterns,
         split_by_promotion_threshold,
@@ -96,21 +96,21 @@ from omnibase_infra.enums import (
     EnumHandlerTypeCategory,
 )
 
+from omniintelligence.nodes.node_pattern_learning_compute.handlers.confidence_scoring_core import (
+    _compute_cluster_scores,
+)
+from omniintelligence.nodes.node_pattern_learning_compute.handlers.deduplication_core import (
+    _deduplicate_patterns,
+    _generate_pattern_signature,
+)
 from omniintelligence.nodes.node_pattern_learning_compute.handlers.exceptions import (
     PatternLearningValidationError,
 )
-from omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_confidence_scoring import (
-    compute_cluster_scores,
+from omniintelligence.nodes.node_pattern_learning_compute.handlers.feature_extraction_core import (
+    _extract_features_batch,
 )
-from omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_deduplication import (
-    deduplicate_patterns,
-    generate_pattern_signature,
-)
-from omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_feature_extraction import (
-    extract_features_batch,
-)
-from omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_pattern_clustering import (
-    cluster_patterns,
+from omniintelligence.nodes.node_pattern_learning_compute.handlers.pattern_clustering_core import (
+    _cluster_patterns,
 )
 from omniintelligence.nodes.node_pattern_learning_compute.handlers.presets import (
     DEFAULT_DEDUPLICATION_THRESHOLD,
@@ -127,6 +127,7 @@ from omniintelligence.nodes.node_pattern_learning_compute.handlers.protocols imp
 )
 from omniintelligence.nodes.node_pattern_learning_compute.models import (
     LearningParametersDict,
+    ModelPatternLearningRequest,
     TrainingDataItemDict,
 )
 
@@ -255,13 +256,7 @@ class HandlerPatternLearning:
         self._initialized = False
         logger.info("HandlerPatternLearning shutdown complete")
 
-    def handle(
-        self,
-        training_data: Sequence[TrainingDataItemDict],
-        parameters: LearningParametersDict | None = None,
-        similarity_weights: SimilarityWeightsDict | None = None,
-        promotion_threshold: float = DEFAULT_PROMOTION_THRESHOLD,
-    ) -> PatternLearningResult:
+    def handle(self, request: ModelPatternLearningRequest) -> PatternLearningResult:
         """Execute the pattern learning pipeline.
 
         This is the primary execution method that orchestrates the full pipeline.
@@ -269,16 +264,8 @@ class HandlerPatternLearning:
         function but in the class-based handler pattern.
 
         Args:
-            training_data: Sequence of training items containing code snippets
-                and metadata. Must not be empty.
-            parameters: Optional learning parameters. Not used for thresholds
-                (those are explicit args) but available for future extensions.
-            similarity_weights: Optional custom similarity weights. If None,
-                uses DEFAULT_SIMILARITY_WEIGHTS.
-            promotion_threshold: Confidence threshold for promotion. Patterns
-                with confidence >= threshold become learned_patterns with
-                lifecycle_state=VALIDATED. Below threshold become candidates
-                with lifecycle_state=CANDIDATE. Defaults to 0.70.
+            request: Training data, optional learning parameters and similarity
+                weights, and the explicit promotion threshold.
 
         Returns:
             PatternLearningResult containing:
@@ -294,10 +281,10 @@ class HandlerPatternLearning:
                 contains invalid items.
         """
         return _execute_pipeline(
-            training_data=training_data,
-            parameters=parameters,
-            similarity_weights=similarity_weights,
-            promotion_threshold=promotion_threshold,
+            training_data=request.training_data,
+            parameters=request.parameters,
+            similarity_weights=request.similarity_weights,
+            promotion_threshold=request.promotion_threshold,
         )
 
     def execute(
@@ -350,10 +337,12 @@ class HandlerPatternLearning:
         )
 
         return self.handle(
-            training_data=training_data,
-            parameters=parameters,
-            similarity_weights=similarity_weights,
-            promotion_threshold=promotion_threshold,
+            ModelPatternLearningRequest(
+                training_data=training_data,
+                parameters=parameters,
+                similarity_weights=similarity_weights,
+                promotion_threshold=promotion_threshold,
+            )
         )
 
 
@@ -402,10 +391,10 @@ def _execute_pipeline(
 
     # Step 2: Extract features from training data
     training_list = list(training_data)  # Ensure list for handlers
-    features_list = extract_features_batch(training_list)
+    features_list = _extract_features_batch(training_list)
 
     # Step 3: Cluster similar patterns
-    clusters = cluster_patterns(
+    clusters = _cluster_patterns(
         features_list=features_list,
         weights=similarity_weights,
     )
@@ -425,14 +414,14 @@ def _execute_pipeline(
     # Step 4: Score each cluster for confidence
     confidence_scores: dict[str, PatternScoreComponentsDict] = {}
     for cluster in clusters:
-        scores = compute_cluster_scores(cluster)
+        scores = _compute_cluster_scores(cluster)
         confidence_scores[cluster["cluster_id"]] = scores
 
     # Step 5: Deduplicate overlapping patterns
     confidence_map = {
         cid: scores["confidence"] for cid, scores in confidence_scores.items()
     }
-    dedup_result = deduplicate_patterns(
+    dedup_result = _deduplicate_patterns(
         clusters=clusters,
         confidence_scores=confidence_map,
         weights=similarity_weights,
@@ -880,7 +869,7 @@ def _cluster_to_learned_pattern(
     )
 
     # Generate signature
-    signature_result = generate_pattern_signature(cluster)
+    signature_result = _generate_pattern_signature(cluster)
 
     # Check for signature generation failure - this is an invariant violation
     # if it occurs at this point (cluster was already validated through pipeline)

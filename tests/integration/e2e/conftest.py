@@ -1008,7 +1008,7 @@ def pattern_learning_handler() -> Any:
 
     Example:
         >>> def test_pattern_learning(pattern_learning_handler):
-        ...     result = pattern_learning_handler.handle(training_data)
+        ...     result = pattern_learning_handler.handle(ModelPatternLearningRequest(training_data=training_data))
         ...     assert result.success
     """
     from omniintelligence.nodes.node_pattern_learning_compute.handlers import (
@@ -1245,7 +1245,7 @@ def create_e2e_training_data() -> Any:
     Example:
         >>> def test_learning(create_e2e_training_data, pattern_learning_handler):
         ...     data = create_e2e_training_data(count=5)
-        ...     result = pattern_learning_handler.handle(data)
+        ...     result = pattern_learning_handler.handle(ModelPatternLearningRequest(training_data=data))
     """
 
     def _factory(
