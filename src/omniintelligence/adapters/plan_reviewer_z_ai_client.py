@@ -8,7 +8,7 @@ Calls the Z.AI OpenAI-compatible chat completions endpoint using
 the OpenAI chat completions spec, so this client can be swapped with other
 plan-reviewer clients without any handler changes.
 
-Default endpoint: https://api.z.ai/api/paas/v4/chat/completions
+Default endpoint: ``zai_chat_url`` in ``adapter_settings.yaml``.
 
 Environment:
     Z_AI_API_KEY: Z.AI platform API key.
@@ -22,13 +22,7 @@ Example::
         ModelPlanReviewerZAIConfig,
     )
 
-    config = ModelPlanReviewerZAIConfig(
-        api_key=os.environ["Z_AI_API_KEY"],
-        chat_url=os.environ.get(
-            "Z_AI_API_URL",
-            "https://api.z.ai/api/paas/v4/chat/completions",
-        ),
-    )
+    config = ModelPlanReviewerZAIConfig(api_key=os.environ["Z_AI_API_KEY"])
     async with PlanReviewerZAIClient(config) as client:
         reply = await client.chat(
             messages=[{"role": "user", "content": "Review this plan."}]
@@ -73,7 +67,7 @@ class ModelPlanReviewerZAIConfig(BaseModel):
     Attributes:
         api_key: Z.AI API key (``Z_AI_API_KEY``).
         chat_url: Full URL for the chat completions endpoint.
-            Defaults to ``https://api.z.ai/api/paas/v4/chat/completions``.
+            Defaults to ``zai_chat_url`` in ``adapter_settings.yaml``.
         model: GLM model name.
         timeout_seconds: HTTP request timeout in seconds.
         max_tokens: Maximum tokens in the model reply.
