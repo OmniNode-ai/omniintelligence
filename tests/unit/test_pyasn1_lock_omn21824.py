@@ -45,3 +45,14 @@ def test_installed_pyasn1_round_trips_ber_and_der() -> None:
             )
             assert int(decoded) == value
             assert rest == b""
+
+
+def test_lock_pyasn1_artifacts_are_consistent_with_0_6_5() -> None:
+    """Every pyasn1 artifact in the lock carries a hash and names version 0.6.5."""
+    packages = tomllib.loads((_ROOT / "uv.lock").read_text())["package"]
+    (package,) = [p for p in packages if p["name"] == "pyasn1"]
+    assert package["version"] == "0.6.5"
+    assert package["sdist"]["hash"].startswith("sha256:")
+    assert all(w["hash"].startswith("sha256:") for w in package["wheels"])
+    assert "0.6.5" in package["sdist"]["url"]
+    assert all("0.6.5" in w["url"] for w in package["wheels"])
