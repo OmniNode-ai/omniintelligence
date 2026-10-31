@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from uuid import NAMESPACE_URL, UUID, uuid5
 
+from omniintelligence.models.handler_binding import bind_contract_handler
 from omniintelligence.nodes.node_review_record_compute.models import (
     ModelReviewRecordBatch,
     ModelReviewRecorded,
@@ -100,7 +101,9 @@ class HandlerReviewRecord:
 
 def handle(request: ModelReviewRecordRequest) -> ModelReviewRecordBatch:
     """The contract's routed entry point; see ``HandlerReviewRecord``."""
-    return HandlerReviewRecord().handle(request)
+    return bind_contract_handler("record_review_run", HandlerReviewRecord).handle(
+        request
+    )
 
 
 __all__ = ["HandlerReviewRecord", "handle", "review_id_for"]

@@ -8,7 +8,7 @@ from __future__ import annotations
 import pytest
 
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_group_node_families import (
-    NodeFamily,
+    ModelNodeFamily,
 )
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_scan_role_occurrences import (
     RoleOccurrence,
@@ -31,7 +31,7 @@ class TestNodeFamilyToPatternRow:
             source_repo="omniintelligence",
             bases=["NodeEffect"],
         )
-        family = NodeFamily(
+        family = ModelNodeFamily(
             directory_name="node_pattern_storage_effect",
             directory_path="src/omniintelligence/nodes/node_pattern_storage_effect",
             source_repo="omniintelligence",
@@ -68,7 +68,7 @@ class TestNodeFamilyToPatternRow:
             source_repo="r",
             bases=["NodeCompute"],
         )
-        family = NodeFamily(
+        family = ModelNodeFamily(
             directory_name="node_x",
             directory_path="src/nodes/node_x",
             source_repo="r",

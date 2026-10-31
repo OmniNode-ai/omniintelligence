@@ -1,9 +1,9 @@
 # SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
 
-"""Group RoleOccurrence results into NodeFamily instances by parent directory.
+"""Group RoleOccurrence results into ModelNodeFamily instances by parent directory.
 
-A NodeFamily represents a group of role occurrences sharing the same parent
+A ModelNodeFamily represents a group of role occurrences sharing the same parent
 ``node_*`` directory — the smallest architectural unit in the ONEX node system.
 """
 
@@ -22,7 +22,7 @@ _NODE_DIR_RE = re.compile(r"node_[a-z0-9_]+")
 
 
 @dataclass(frozen=True)
-class NodeFamily:
+class ModelNodeFamily:
     """A group of role occurrences sharing the same parent ``node_*`` directory."""
 
     directory_name: str
@@ -50,27 +50,27 @@ def _extract_directory_path(file_path: str, dir_name: str) -> str:
     return file_path[: idx + len(dir_name)]
 
 
-def group_into_node_families(occurrences: list[RoleOccurrence]) -> list[NodeFamily]:
-    """Group role occurrences into :class:`NodeFamily` instances by parent ``node_*`` directory.
+def group_into_node_families(occs: list[RoleOccurrence]) -> list[ModelNodeFamily]:
+    """Group role occurrences into :class:`ModelNodeFamily` instances by parent ``node_*`` directory.
 
     Occurrences whose ``file_path`` does not contain a ``node_*`` directory are
     silently dropped.
     """
     buckets: dict[tuple[str, str], list[RoleOccurrence]] = defaultdict(list)
 
-    for occ in occurrences:
+    for occ in occs:
         dir_name = _extract_node_directory(occ.file_path)
         if dir_name is None:
             continue
         key = (dir_name, occ.source_repo)
         buckets[key].append(occ)
 
-    families: list[NodeFamily] = []
+    families: list[ModelNodeFamily] = []
     for (dir_name, source_repo), bucket in sorted(buckets.items()):
         dir_path = _extract_directory_path(bucket[0].file_path, dir_name)
         roles = frozenset(occ.matched_role for occ in bucket)
         families.append(
-            NodeFamily(
+            ModelNodeFamily(
                 directory_name=dir_name,
                 directory_path=dir_path,
                 source_repo=source_repo,

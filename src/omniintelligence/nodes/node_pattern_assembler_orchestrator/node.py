@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any
 
 from omnibase_core.nodes.node_orchestrator import NodeOrchestrator
 
+from omniintelligence.models.handler_binding import bind_contract_handler
 from omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers import (
     HandlerPatternAssemblyOrchestrate,
 )
@@ -64,11 +65,9 @@ class NodePatternAssemblerOrchestrator(NodeOrchestrator):
             Output dictionary from ModelPatternAssemblyOutput.
         """
         # Handler guarantees structured output (never raises); model_dump() is safe.
-        result: ModelPatternAssemblyOutput = (
-            await HandlerPatternAssemblyOrchestrate().handle(
-                ModelPatternAssemblyOrchestrateRequest(input_data=input_data)
-            )
-        )
+        result: ModelPatternAssemblyOutput = await bind_contract_handler(
+            "orchestrate_assembly", HandlerPatternAssemblyOrchestrate
+        ).handle(ModelPatternAssemblyOrchestrateRequest(input_data=input_data))
         return result.model_dump(mode="json")
 
 

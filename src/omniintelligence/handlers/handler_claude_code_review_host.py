@@ -7,6 +7,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from omniintelligence.models.handler_binding import bind_contract_handler
 from omniintelligence.nodes.node_claude_code_review_effect.handlers.handler_claude_code_review import (
     HandlerClaudeCodeReview,
 )
@@ -31,11 +32,16 @@ class HandlerClaudeCodeReviewHost:
             if candidate.is_file() and os.access(candidate, os.X_OK):
                 python = str(candidate)
         environment = {k: v for k, v in os.environ.items() if k in CLAUDE_ENV_KEYS}
-        return await HandlerClaudeCodeReview(
-            pool_python=python, environment=environment
+        return await bind_contract_handler(
+            "review_with_host_configuration",
+            HandlerClaudeCodeReview,
+            pool_python=python,
+            environment=environment,
         ).handle(request)
 
 
 async def handle(request: ModelClaudeCodeReviewRequest) -> ModelClaudeCodeReviewResult:
     """Invoke the contract-bound host handler from the CLI and bus adapters."""
-    return await HandlerClaudeCodeReviewHost().handle(request)
+    return await bind_contract_handler(
+        "review", HandlerClaudeCodeReviewHost, node="node_claude_code_review_effect"
+    ).handle(request)

@@ -13,6 +13,7 @@ Pure: the findings, the key and the clock are inputs.
 
 from __future__ import annotations
 
+from omniintelligence.models.handler_binding import bind_contract_handler
 from omniintelligence.nodes.node_review_receipt_issue_compute.models.model_issue_receipt_request import (
     ModelIssueReceiptRequest,
 )
@@ -66,7 +67,9 @@ class HandlerReviewReceiptIssue:
 
 def handle(request: ModelIssueReceiptRequest) -> ModelIssuedReceipt:
     """The contract's routed entry point; see ``HandlerReviewReceiptIssue``."""
-    return HandlerReviewReceiptIssue().handle(request)
+    return bind_contract_handler("issue_receipt", HandlerReviewReceiptIssue).handle(
+        request
+    )
 
 
 __all__ = ["HandlerReviewReceiptIssue", "handle"]

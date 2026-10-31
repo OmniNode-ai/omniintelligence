@@ -56,6 +56,14 @@ handler_routing:
     type: "async"
     description: "Main entry point that translates Cursor events and delegates to the shared pipeline"
   handlers:
+    # Handler class the registry factory binds with its injected dependencies
+    - operation: "handle_hook_event"
+      handler:
+        class: "HandlerCursorHookEvent"
+        module: "omniintelligence.nodes.node_cursor_hook_event_effect.handlers.handler_cursor_event"
+        type: "async"
+      description: "Handler instance built through the registry with explicit dependencies"
+
     # beforeSubmitPrompt - Intent Classification (Cursor equivalent of UserPromptSubmit)
     - event_type: "beforeSubmitPrompt"
       handler:

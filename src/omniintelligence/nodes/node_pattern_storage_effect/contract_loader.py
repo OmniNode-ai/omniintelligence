@@ -53,10 +53,10 @@ from omniintelligence.nodes.node_pattern_storage_effect.model_event_bus_config i
     EventBusConfig,
 )
 from omniintelligence.nodes.node_pattern_storage_effect.model_handler_config import (
-    HandlerConfig,
+    ModelHandlerConfig,
 )
 from omniintelligence.nodes.node_pattern_storage_effect.model_handler_routing import (
-    HandlerRouting,
+    ModelHandlerRouting,
 )
 from omniintelligence.nodes.node_pattern_storage_effect.model_operation_handler import (
     OperationHandler,
@@ -65,8 +65,8 @@ from omniintelligence.nodes.node_pattern_storage_effect.model_operation_handler 
 __all__ = [
     "ContractLoader",
     "EventBusConfig",
-    "HandlerConfig",
-    "HandlerRouting",
+    "ModelHandlerConfig",
+    "ModelHandlerRouting",
     "OperationHandler",
 ]
 
@@ -201,11 +201,11 @@ class ContractLoader:
         return result
 
     @property
-    def handler_routing(self) -> HandlerRouting:
+    def handler_routing(self) -> ModelHandlerRouting:
         """Get handler routing configuration.
 
         Returns:
-            HandlerRouting model with routing configuration.
+            ModelHandlerRouting model with routing configuration.
         """
         routing_data = self._contract.get("handler_routing", {})
 
@@ -216,7 +216,7 @@ class ContractLoader:
             handlers.append(
                 OperationHandler(
                     operation=h.get("operation", ""),
-                    handler=HandlerConfig(**h.get("handler", {})),
+                    handler=ModelHandlerConfig(**h.get("handler", {})),
                     description=h.get("description"),
                     actions=h.get("actions", []),
                 )
@@ -225,14 +225,14 @@ class ContractLoader:
         # Build entry_point if present
         entry_point = None
         if "entry_point" in routing_data:
-            entry_point = HandlerConfig(**routing_data["entry_point"])
+            entry_point = ModelHandlerConfig(**routing_data["entry_point"])
 
         # Build default_handler if present
         default_handler = None
         if "default_handler" in routing_data:
-            default_handler = HandlerConfig(**routing_data["default_handler"])
+            default_handler = ModelHandlerConfig(**routing_data["default_handler"])
 
-        return HandlerRouting(
+        return ModelHandlerRouting(
             routing_strategy=routing_data.get("routing_strategy", "operation_match"),
             entry_point=entry_point,
             handlers=handlers,
@@ -250,7 +250,7 @@ class ContractLoader:
         return EventBusConfig(**event_bus_data)
 
     def _import_function(
-        self, config: HandlerConfig
+        self, config: ModelHandlerConfig
     ) -> Callable[..., Any]:  # any-ok: dynamically imported handlers
         """Import a function from module path.
 
@@ -296,7 +296,7 @@ class ContractLoader:
         routing = self.handler_routing
 
         # Find handler config for operation
-        handler_config: HandlerConfig | None = None
+        handler_config: ModelHandlerConfig | None = None
         for handler in routing.handlers:
             if handler.operation == operation:
                 handler_config = handler.handler
@@ -501,8 +501,8 @@ def clear_loader_cache() -> None:
 __all__ = [
     "ContractLoader",
     "EventBusConfig",
-    "HandlerConfig",
-    "HandlerRouting",
+    "ModelHandlerConfig",
+    "ModelHandlerRouting",
     "OperationHandler",
     "clear_loader_cache",
     "get_contract_loader",
@@ -510,7 +510,7 @@ __all__ = [
 
 # Rebuild models to resolve forward references from __future__ annotations
 # This is required for Pydantic 2.x when using PEP 563 deferred annotations
-HandlerConfig.model_rebuild()
+ModelHandlerConfig.model_rebuild()
 OperationHandler.model_rebuild()
-HandlerRouting.model_rebuild()
+ModelHandlerRouting.model_rebuild()
 EventBusConfig.model_rebuild()

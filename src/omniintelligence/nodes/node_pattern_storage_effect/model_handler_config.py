@@ -2,14 +2,14 @@
 # SPDX-License-Identifier: MIT
 
 # Copyright (c) 2025 OmniNode Team
-"""HandlerConfig - handler configuration from contract."""
+"""ModelHandlerConfig - handler configuration from contract."""
 
 from __future__ import annotations
 
 from pydantic import BaseModel
 
 
-class HandlerConfig(BaseModel):
+class ModelHandlerConfig(BaseModel):
     """Handler configuration from contract.
 
     Attributes:

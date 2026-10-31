@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from omnibase_core.nodes.node_compute import NodeCompute
 
+from omniintelligence.models.handler_binding import bind_contract_handler
 from omniintelligence.nodes.node_ci_fingerprint_compute.handlers.handler_fingerprint import (
     HandlerCiFingerprint,
 )
@@ -34,7 +35,9 @@ class NodeCiFingerprintCompute(
         self, input_data: ModelCiFingerprintInput
     ) -> ModelCiFingerprintOutput:
         """Compute error fingerprint by delegating to handler function."""
-        return HandlerCiFingerprint().handle(input_data)
+        return bind_contract_handler(
+            "compute_fingerprint", HandlerCiFingerprint
+        ).handle(input_data)
 
 
 __all__ = ["NodeCiFingerprintCompute"]

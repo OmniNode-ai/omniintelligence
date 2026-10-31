@@ -73,6 +73,14 @@ handler_routing:
     type: "async"
     description: "Main entry point that routes events to appropriate handler functions"
   handlers:
+    # Handler class the registry factory binds with its injected dependencies
+    - operation: "handle_hook_event"
+      handler:
+        class: "HandlerClaudeHookEvent"
+        module: "omniintelligence.nodes.node_claude_hook_event_effect.handlers.handler_claude_event"
+        type: "async"
+      description: "Handler instance built through the registry with explicit dependencies"
+
     # UserPromptSubmit - Intent Classification
     - event_type: "UserPromptSubmit"
       handler:

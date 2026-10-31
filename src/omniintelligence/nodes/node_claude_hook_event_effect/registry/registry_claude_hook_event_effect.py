@@ -129,12 +129,15 @@ class RegistryClaudeHookEventEffect:
             ... )
         """
         # Import here to avoid circular imports
+        from omniintelligence.models.handler_binding import bind_contract_handler
         from omniintelligence.nodes.node_claude_hook_event_effect.handlers.handler_claude_event import (
             HandlerClaudeHookEvent,
         )
 
         # Create handler with explicit constructor injection
-        return HandlerClaudeHookEvent(
+        return bind_contract_handler(
+            "handle_hook_event",
+            HandlerClaudeHookEvent,
             kafka_publisher=kafka_publisher,
             intent_classifier=intent_classifier,
             publish_topic=publish_topic,

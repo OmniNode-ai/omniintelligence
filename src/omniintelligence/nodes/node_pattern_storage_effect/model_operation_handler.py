@@ -9,7 +9,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 from omniintelligence.nodes.node_pattern_storage_effect.model_handler_config import (
-    HandlerConfig,
+    ModelHandlerConfig,
 )
 
 
@@ -24,6 +24,6 @@ class OperationHandler(BaseModel):
     """
 
     operation: str
-    handler: HandlerConfig
+    handler: ModelHandlerConfig
     description: str | None = None
     actions: list[str] = Field(default_factory=list)

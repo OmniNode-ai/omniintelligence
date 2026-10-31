@@ -21,7 +21,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_group_node_families import (
-    NodeFamily,
+    ModelNodeFamily,
     group_into_node_families,
 )
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_scan_role_occurrences import (
@@ -86,17 +86,17 @@ def _resolve_omni_home() -> Path:
     sys.exit(1)
 
 
-def scan_all_repos(omni_home: Path) -> dict[str, list[NodeFamily]]:
+def scan_all_repos(workspace: Path) -> dict[str, list[ModelNodeFamily]]:
     """Scan all repos and return families grouped by repo."""
-    results: dict[str, list[NodeFamily]] = {}
+    results: dict[str, list[ModelNodeFamily]] = {}
 
     for repo_name, nodes_rel_path in REPOS:
-        nodes_dir = omni_home / repo_name / nodes_rel_path
+        nodes_dir = workspace / repo_name / nodes_rel_path
         if not nodes_dir.is_dir():
             print(f"  SKIP {repo_name}: {nodes_dir} not found")  # noqa: T201
             continue
 
-        repo_root = omni_home / repo_name
+        repo_root = workspace / repo_name
         occurrences = scan_directory_for_role_occurrences(
             nodes_dir,
             FOUR_NODE_PATTERN,
@@ -109,7 +109,7 @@ def scan_all_repos(omni_home: Path) -> dict[str, list[NodeFamily]]:
     return results
 
 
-def print_report(results: dict[str, list[NodeFamily]]) -> None:
+def print_report(results: dict[str, list[ModelNodeFamily]]) -> None:
     """Print a formatted report of node families across repos."""
     total_families = sum(len(fams) for fams in results.values())
     total_occurrences = sum(

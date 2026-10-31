@@ -59,7 +59,7 @@ from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_fil
     HandlerFilePatterns,
 )
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_group_node_families import (
-    NodeFamily,
+    ModelNodeFamily,
 )
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_identity import (
     HandlerInsightIdentity,
@@ -142,6 +142,7 @@ _BOUND_CLASSES = {
     "extract_error_patterns": "HandlerErrorPatterns",
     "extract_architecture_patterns": "HandlerArchitecturePatterns",
     "extract_tool_patterns": "HandlerToolPatterns",
+    "extract_core_patterns": "HandlerPatternExtractionCore",
 }
 
 
@@ -342,7 +343,7 @@ class TestStoreNodeFamilies:
             source_repo="omniintelligence",
             bases=["NodeEffect"],
         )
-        family = NodeFamily(
+        family = ModelNodeFamily(
             directory_name="node_pattern_storage_effect",
             directory_path="src/omniintelligence/nodes/node_pattern_storage_effect",
             source_repo="omniintelligence",

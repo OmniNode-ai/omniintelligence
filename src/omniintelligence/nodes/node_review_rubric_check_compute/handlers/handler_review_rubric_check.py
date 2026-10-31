@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+from omniintelligence.models.handler_binding import bind_contract_handler
 from omniintelligence.nodes.node_review_rubric_check_compute.handlers.handler_review_rubric_loader import (
     load_review_rubric,
 )
@@ -50,7 +51,9 @@ class HandlerReviewRubricCheck:
 
 def handle(request: ModelReviewRubricCheckRequest) -> ModelReviewRubricCheckResult:
     """The contract's routed entry point for checking a review rubric."""
-    return HandlerReviewRubricCheck().handle(request)
+    return bind_contract_handler(
+        "check_review_rubric", HandlerReviewRubricCheck
+    ).handle(request)
 
 
 __all__ = ["HandlerReviewRubricCheck", "handle"]

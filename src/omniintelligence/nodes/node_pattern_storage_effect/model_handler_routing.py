@@ -2,21 +2,21 @@
 # SPDX-License-Identifier: MIT
 
 # Copyright (c) 2025 OmniNode Team
-"""HandlerRouting - handler routing configuration from contract."""
+"""ModelHandlerRouting - handler routing configuration from contract."""
 
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
 from omniintelligence.nodes.node_pattern_storage_effect.model_handler_config import (
-    HandlerConfig,
+    ModelHandlerConfig,
 )
 from omniintelligence.nodes.node_pattern_storage_effect.model_operation_handler import (
     OperationHandler,
 )
 
 
-class HandlerRouting(BaseModel):
+class ModelHandlerRouting(BaseModel):
     """Handler routing configuration from contract.
 
     Attributes:
@@ -27,6 +27,6 @@ class HandlerRouting(BaseModel):
     """
 
     routing_strategy: str = "operation_match"
-    entry_point: HandlerConfig | None = None
+    entry_point: ModelHandlerConfig | None = None
     handlers: list[OperationHandler] = Field(default_factory=list)
-    default_handler: HandlerConfig | None = None
+    default_handler: ModelHandlerConfig | None = None

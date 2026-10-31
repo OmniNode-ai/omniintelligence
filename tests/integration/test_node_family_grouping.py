@@ -3,7 +3,7 @@
 
 """Integration tests for node family grouping against real codebase data.
 
-Scans the actual omniintelligence/nodes/ directory and groups into NodeFamily
+Scans the actual omniintelligence/nodes/ directory and groups into ModelNodeFamily
 instances to validate the grouping pipeline works on real code.
 """
 

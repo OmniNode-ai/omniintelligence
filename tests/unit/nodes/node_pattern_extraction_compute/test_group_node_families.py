@@ -1,14 +1,14 @@
 # SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
 
-"""Tests for NodeFamily grouping logic."""
+"""Tests for ModelNodeFamily grouping logic."""
 
 from __future__ import annotations
 
 import pytest
 
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_group_node_families import (
-    NodeFamily,
+    ModelNodeFamily,
     group_into_node_families,
 )
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_scan_role_occurrences import (
@@ -68,7 +68,7 @@ class TestGroupIntoNodeFamilies:
 
         assert len(families) == 1
         family = families[0]
-        assert isinstance(family, NodeFamily)
+        assert isinstance(family, ModelNodeFamily)
         assert family.roles == frozenset({"effect"})
         assert family.directory_name == "node_pattern_storage_effect"
         assert len(family.occurrences) == 1

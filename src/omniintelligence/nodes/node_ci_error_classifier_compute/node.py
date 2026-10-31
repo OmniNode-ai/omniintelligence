@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from omnibase_core.nodes.node_compute import NodeCompute
 
+from omniintelligence.models.handler_binding import bind_contract_handler
 from omniintelligence.nodes.node_ci_error_classifier_compute.handlers.handler_classifier import (
     HandlerCiErrorClassifier,
 )
@@ -36,7 +37,9 @@ class NodeCiErrorClassifierCompute(
         self, input_data: ModelCiErrorClassifierInput
     ) -> ModelCiErrorClassifierOutput:
         """Normalize a raw LLM classification response via handler function."""
-        return HandlerCiErrorClassifier().handle(input_data)
+        return bind_contract_handler(
+            "classify_ci_error", HandlerCiErrorClassifier
+        ).handle(input_data)
 
 
 __all__ = ["NodeCiErrorClassifierCompute"]

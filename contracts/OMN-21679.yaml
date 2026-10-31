@@ -1,0 +1,87 @@
+---
+schema_version: 1.0.0
+ticket_id: OMN-21679
+title: omniintelligence contracts_and_di handler_hand_construction burn-down, slice rf1120-c2 -- handlers
+  are bound through the node contract that declares them
+summary: >-
+  The read-only contracts_and_di scan of omniintelligence src/ (omnibase_core f5cb99be1, validator ValidatorContractsAndDi)
+  reported 51 handler_hand_construction findings on dev 67914815 and reports 10 after this change, with
+  every other rule's count unchanged. Handlers and nodes no longer name a handler class they build by
+  hand: the node's contract.yaml handler_routing names the module and class for an operation, and ModelContractHandlerBinding
+  (read through bind_contract_handler) resolves that class, checks it against the type the caller expects
+  and returns the instance with its injected dependencies. Nine node shells, five handler entry points,
+  the two hook registries, the Claude Code review host, the CI fingerprint dispatch handler and the git
+  repo crawler tests bind this way; four contract files gain an operation entry for the binding and four
+  gain a class key on an existing entry. HandlerConfig, HandlerRouting and NodeFamily are data models
+  and take the Model prefix the repository naming rules already require, which also removes four entries
+  from the burn-down baseline. The two bloom eval nodes, the Gmail Slack notifier, two review_pairing
+  sites, the code entity bridge dispatch handler and four node-conformance tests still build their dependency
+  by hand and are listed in the pull request. No baseline entry and no suppression is added.
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: req-omn21679-handlers-from-contracts
+    statement: Handlers the slice built by hand are resolved through the contract that declares them,
+      and the count of handler_hand_construction findings over the slice paths is zero.
+    acceptance:
+      - id: AC1
+        statement: 'AC1: the contracts_and_di count for handler_hand_construction over the slice paths
+          drops to zero and the repo total drops by the slice size, with no baseline entry or suppression
+          added -- falsifier: onex run of runtime_validator_run with the contracts_and_di reference over
+          omniintelligence src before and after, counts compared per rule'
+      - id: AC2
+        statement: 'AC2: every moved value is read from a node contract or overlay through an injected
+          setting and no literal of it remains in the touched code -- falsifier: uv run pytest tests/unit
+          -q over the touched modules plus the checker re-run on the slice paths'
+      - id: AC3
+        statement: 'AC3: the slice lands as one PR titled with this ticket id and carries lab proof of
+          the tests and the checker re-run -- falsifier: uv run pytest tests/unit -q on the lab through
+          lab-run at the PR head, receipt path in the PR body'
+evidence_requirements:
+  - kind: tests
+    description: Binding tests for the contract handler resolver, the dispatch bridge tests and the unit
+      tests of the touched nodes, handlers and registries.
+    command: uv run pytest tests/unit -q
+emergency_bypass:
+  enabled: false
+  justification: ''
+  follow_up_ticket_id: ''
+dod_evidence:
+  - id: dod-omn21679-ac1-no-hand-built-handler
+    description: The slice's node shells and entry points hold no hand-built handler, and each one binds
+      through bind_contract_handler.
+    source: manual
+    checks:
+      - check_type: command
+        check_value: >-
+          grep -q 'bind_contract_handler' src/omniintelligence/nodes/node_ci_fingerprint_compute/node.py
+          && ! grep -nE '\bHandler[A-Za-z]+\(\)' src/omniintelligence/nodes/node_ci_fingerprint_compute/node.py
+          src/omniintelligence/nodes/node_ci_error_classifier_compute/node.py src/omniintelligence/nodes/node_code_entity_bridge_compute/node.py
+          src/omniintelligence/nodes/node_execution_trace_parser_compute/node.py src/omniintelligence/nodes/node_pattern_extraction_compute/node.py
+          src/omniintelligence/nodes/node_pattern_matching_compute/node.py src/omniintelligence/nodes/node_semantic_analysis_compute/node.py
+          src/omniintelligence/nodes/node_success_criteria_matcher_compute/node.py src/omniintelligence/nodes/node_pattern_assembler_orchestrator/node.py
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC1
+  - id: dod-omn21679-ac2-contract-binding
+    description: The binding tests pass, so each bound operation names its class in the node contract
+      and the resolver refuses an operation or class the contract does not declare.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/models/handler_binding tests/unit/runtime/test_dispatch_handler_reducer_ci.py
+          tests/unit/runtime/test_dispatch_handler_code_entity_bridge.py tests/unit/review_pairing/test_claude_code_pool_voter.py
+          -q -n 0
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC2
+  - id: dod-omn21679-ac3-unit-suite
+    description: The unit suite passes at the pull request head.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit -q -n 0
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC3

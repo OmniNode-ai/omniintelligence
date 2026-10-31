@@ -68,25 +68,23 @@ class TestCiFingerprintDispatchHandler:
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """Handler instantiates NodeCiFingerprintCompute and calls compute()."""
+        """Handler binds HandlerCiFingerprint through the node contract and calls handle()."""
+        from omniintelligence.nodes.node_ci_fingerprint_compute.handlers.handler_fingerprint import (
+            HandlerCiFingerprint,
+        )
         from omniintelligence.nodes.node_ci_fingerprint_compute.models.model_output import (
             ModelCiFingerprintOutput,
         )
 
         captured: dict[str, Any] = {}
 
-        class StubFingerprintNode:
-            def __init__(self, container: object) -> None:
-                captured["container"] = container
+        def stub_handle(
+            self: HandlerCiFingerprint, request: Any
+        ) -> ModelCiFingerprintOutput:
+            captured["input_data"] = request
+            return ModelCiFingerprintOutput(fingerprint="f" * 64)
 
-            async def compute(self, input_data: Any) -> ModelCiFingerprintOutput:
-                captured["input_data"] = input_data
-                return ModelCiFingerprintOutput(fingerprint="f" * 64)
-
-        monkeypatch.setattr(
-            "omniintelligence.nodes.node_ci_fingerprint_compute.node.NodeCiFingerprintCompute",
-            StubFingerprintNode,
-        )
+        monkeypatch.setattr(HandlerCiFingerprint, "handle", stub_handle)
         handler = create_ci_fingerprint_dispatch_handler()
 
         envelope = MagicMock()
@@ -101,7 +99,6 @@ class TestCiFingerprintDispatchHandler:
 
         parsed = json.loads(result)
         assert parsed["fingerprint"] == "f" * 64
-        assert captured["container"] is not None
         assert captured["input_data"].failure_output == "AssertionError: bad"
         assert captured["input_data"].failing_tests == ["test_bad"]
 

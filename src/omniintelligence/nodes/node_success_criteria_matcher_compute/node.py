@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from omnibase_core.nodes.node_compute import NodeCompute
 
+from omniintelligence.models.handler_binding import bind_contract_handler
 from omniintelligence.nodes.node_success_criteria_matcher_compute.handlers import (
     HandlerSuccessCriteriaCompute,
 )
@@ -41,7 +42,9 @@ class NodeSuccessCriteriaMatcherCompute(
         self, input_data: ModelSuccessCriteriaInput
     ) -> ModelSuccessCriteriaOutput:
         """Match criteria by delegating to handler function."""
-        return HandlerSuccessCriteriaCompute().handle(input_data)
+        return bind_contract_handler(
+            "match_criteria", HandlerSuccessCriteriaCompute
+        ).handle(input_data)
 
 
 __all__ = ["NodeSuccessCriteriaMatcherCompute"]

@@ -49,6 +49,7 @@ from typing import Final
 
 from pydantic import ValidationError
 
+from omniintelligence.models.handler_binding import bind_contract_handler
 from omniintelligence.nodes.node_review_receipt_substitute_compute.models.model_pull_request_review_view import (
     ModelPullRequestReviewView,
 )
@@ -327,7 +328,9 @@ class HandlerReviewReceiptSubstitute:
 
 def handle(request: ModelSubstituteVoteRequest) -> ModelSubstituteDecision:
     """The contract's routed entry point; see ``HandlerReviewReceiptSubstitute``."""
-    return HandlerReviewReceiptSubstitute().handle(request)
+    return bind_contract_handler(
+        "decide_substitute_votes", HandlerReviewReceiptSubstitute
+    ).handle(request)
 
 
 def apply_substitutes(

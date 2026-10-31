@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from typing import ClassVar
 
+from omniintelligence.models.handler_binding import bind_contract_handler
 from omniintelligence.nodes.node_code_entity_bridge_compute.handlers import (
     HandlerCodeEntityBridge,
 )
@@ -36,7 +37,9 @@ class NodeCodeEntityBridgeCompute:
         self, input_data: ModelCodeEntityBridgeInput
     ) -> ModelCodeEntityBridgeOutput:
         """Derive learned patterns from code entities by delegating to handler."""
-        return HandlerCodeEntityBridge().handle(input_data)
+        return bind_contract_handler("derive_patterns", HandlerCodeEntityBridge).handle(
+            input_data
+        )
 
 
 __all__ = ["NodeCodeEntityBridgeCompute"]

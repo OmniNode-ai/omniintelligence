@@ -18,8 +18,12 @@ import yaml
 from omniintelligence.handlers import (
     handler_claude_code_review_host as handler,
 )
+from omniintelligence.nodes.node_claude_code_review_effect.handlers import (
+    handler_claude_code_review as effect_handler,
+)
 from omniintelligence.nodes.node_claude_code_review_effect.handlers.handler_claude_code_review import (
     POOL_MODULE,
+    HandlerClaudeCodeReview,
 )
 from omniintelligence.nodes.node_claude_code_review_effect.models.model_claude_code_review import (
     ModelClaudeCodeReviewRequest,
@@ -63,13 +67,13 @@ async def test_contract_bound_handler_injects_host_configuration(
     invoke = AsyncMock(return_value=response)
     constructed: list[dict[str, object]] = []
 
-    class RecordingReview:
+    class RecordingReview(HandlerClaudeCodeReview):
         def __init__(self, **kwargs: object) -> None:
             constructed.append(kwargs)
 
         handle = invoke
 
-    monkeypatch.setattr(handler, "HandlerClaudeCodeReview", RecordingReview)
+    monkeypatch.setattr(effect_handler, "HandlerClaudeCodeReview", RecordingReview)
 
     assert await bound_handler().handle(request_model) is response
     invoke.assert_awaited_once()

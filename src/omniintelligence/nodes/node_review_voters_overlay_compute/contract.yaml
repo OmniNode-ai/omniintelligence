@@ -67,6 +67,7 @@ handler_routing:
   handlers:
     - operation: "resolve_review_voters"
       handler:
+        class: "HandlerReviewVotersOverlay"
         function: "handle"
         module: "omniintelligence.nodes.node_review_voters_overlay_compute.handlers.handler_review_voters_overlay"
         type: "sync"

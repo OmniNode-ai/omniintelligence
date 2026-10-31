@@ -58,6 +58,7 @@ handler_routing:
   handlers:
     - operation: "issue_receipt"
       handler:
+        class: "HandlerReviewReceiptIssue"
         function: "handle"
         module: "omniintelligence.nodes.node_review_receipt_issue_compute.handlers.handler_issue_receipt"
         type: "sync"

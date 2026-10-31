@@ -67,6 +67,7 @@ handler_routing:
   handlers:
     - operation: "decide_substitute_votes"
       handler:
+        class: "HandlerReviewReceiptSubstitute"
         function: "handle"
         module: "omniintelligence.nodes.node_review_receipt_substitute_compute.handlers.handler_review_receipt_substitute"
         type: "sync"

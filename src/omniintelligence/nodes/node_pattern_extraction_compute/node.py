@@ -27,6 +27,7 @@ from omnibase_core.models.intelligence.model_pattern_extraction_output import (
 )
 from omnibase_core.nodes.node_compute import NodeCompute
 
+from omniintelligence.models.handler_binding import bind_contract_handler
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers import (
     HandlerExtractAllPatterns,
     HandlerPatternExtractionCore,
@@ -59,7 +60,9 @@ class NodePatternExtractionCompute(
         self, input_data: ModelPatternExtractionInput
     ) -> ModelPatternExtractionOutput:
         """Extract patterns using local models by delegating to handler."""
-        return HandlerExtractAllPatterns().handle(input_data)
+        return bind_contract_handler(
+            "extract_patterns", HandlerExtractAllPatterns
+        ).handle(input_data)
 
     async def compute_core(self, input_data: CorePatternInput) -> CorePatternOutput:
         """Extract patterns using core models by delegating to handler.
@@ -85,9 +88,9 @@ class NodePatternExtractionCompute(
         Returns:
             Core output with patterns_by_kind structure.
         """
-        return HandlerPatternExtractionCore().handle(
-            ModelCoreExtractionRequest(input_data=input_data)
-        )
+        return bind_contract_handler(
+            "extract_core_patterns", HandlerPatternExtractionCore
+        ).handle(ModelCoreExtractionRequest(input_data=input_data))
 
 
 __all__ = ["NodePatternExtractionCompute"]

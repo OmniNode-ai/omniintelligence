@@ -35,7 +35,7 @@ OMNI_HOME = _omni_home()
 
 # Import after path resolution so sys.path tricks in the script aren't needed
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_group_node_families import (
-    NodeFamily,
+    ModelNodeFamily,
 )
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_scan_role_occurrences import (
     RoleOccurrence,
@@ -207,7 +207,7 @@ class TestSeedPatternsDryRun:
             source_repo="omniintelligence",
             bases=["NodeEffect"],
         )
-        family = NodeFamily(
+        family = ModelNodeFamily(
             directory_name="node_pattern_storage_effect",
             directory_path="src/omniintelligence/nodes/node_pattern_storage_effect",
             source_repo="omniintelligence",

@@ -34,6 +34,7 @@ from typing import Any
 import yaml
 from pydantic import ValidationError
 
+from omniintelligence.models.handler_binding import bind_contract_handler
 from omniintelligence.nodes.node_review_voters_overlay_compute.models.model_bifrost_backend_view import (
     BIFROST_LANE_OVERLAY_SCHEMA_VERSION,
     ModelBifrostBackendView,
@@ -385,7 +386,9 @@ class HandlerReviewVotersOverlay:
 
 def handle(request: ModelReviewVotersOverlayRequest) -> ModelReviewVoterRoster:
     """The contract's routed entry point; see ``HandlerReviewVotersOverlay``."""
-    return HandlerReviewVotersOverlay().handle(request)
+    return bind_contract_handler(
+        "resolve_review_voters", HandlerReviewVotersOverlay
+    ).handle(request)
 
 
 def probe_target_lines(roster: ModelReviewVoterRoster) -> list[str]:

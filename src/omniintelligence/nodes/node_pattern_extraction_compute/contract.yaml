@@ -173,6 +173,11 @@ handler_routing:
         class: "HandlerToolPatterns"
         module: "omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_tool_patterns"
         type: "sync"
+    - operation: "extract_core_patterns"
+      handler:
+        class: "HandlerPatternExtractionCore"
+        module: "omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_core_models"
+        type: "sync"
 dependencies: []
 # Future dependency (when protocol is implemented):
 # - name: "pattern_extractor"

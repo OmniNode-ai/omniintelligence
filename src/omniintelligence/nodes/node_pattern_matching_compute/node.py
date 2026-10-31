@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from omnibase_core.nodes.node_compute import NodeCompute
 
+from omniintelligence.models.handler_binding import bind_contract_handler
 from omniintelligence.nodes.node_pattern_matching_compute.handlers import (
     HandlerPatternMatchingCompute,
 )
@@ -53,7 +54,9 @@ class NodePatternMatchingCompute(
         self, input_data: ModelPatternMatchingInput
     ) -> ModelPatternMatchingOutput:
         """Match code against patterns by delegating to handler function."""
-        return HandlerPatternMatchingCompute().handle(input_data)
+        return bind_contract_handler("match", HandlerPatternMatchingCompute).handle(
+            input_data
+        )
 
 
 __all__ = ["NodePatternMatchingCompute"]

@@ -1,9 +1,9 @@
 # SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
 
-"""Convert NodeFamily instances to learned_patterns row dicts.
+"""Convert ModelNodeFamily instances to learned_patterns row dicts.
 
-Bridges the pattern extraction output (NodeFamily) to the learned_patterns
+Bridges the pattern extraction output (ModelNodeFamily) to the learned_patterns
 table format for storage via AdapterPatternStore.
 """
 
@@ -15,12 +15,12 @@ from datetime import datetime, timezone
 from typing import Any
 
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_group_node_families import (
-    NodeFamily,
+    ModelNodeFamily,
 )
 
 
-def node_family_to_pattern_row(family: NodeFamily) -> dict[str, Any]:
-    """Convert a NodeFamily to a dict compatible with learned_patterns INSERT.
+def node_family_to_pattern_row(family: ModelNodeFamily) -> dict[str, Any]:
+    """Convert a ModelNodeFamily to a dict compatible with learned_patterns INSERT.
 
     Confidence scoring:
     - Base: 0.6 (AST-verified existence)
@@ -79,5 +79,5 @@ def node_family_to_pattern_row(family: NodeFamily) -> dict[str, Any]:
 class HandlerStoreNodeFamilies:
     """Convert a node family to a pattern row."""
 
-    def handle(self, request: NodeFamily) -> dict[str, Any]:
+    def handle(self, request: ModelNodeFamily) -> dict[str, Any]:
         return node_family_to_pattern_row(request)

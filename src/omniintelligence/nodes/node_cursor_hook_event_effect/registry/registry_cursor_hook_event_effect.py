@@ -65,11 +65,14 @@ class RegistryCursorHookEventEffect:
         Returns:
             Configured HandlerCursorHookEvent instance.
         """
+        from omniintelligence.models.handler_binding import bind_contract_handler
         from omniintelligence.nodes.node_cursor_hook_event_effect.handlers.handler_cursor_event import (
             HandlerCursorHookEvent,
         )
 
-        return HandlerCursorHookEvent(
+        return bind_contract_handler(
+            "handle_hook_event",
+            HandlerCursorHookEvent,
             kafka_publisher=kafka_publisher,
             intent_classifier=intent_classifier,
             publish_topic=publish_topic,
