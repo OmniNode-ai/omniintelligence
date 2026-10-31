@@ -1,0 +1,108 @@
+---
+schema_version: 1.0.0
+ticket_id: OMN-21680
+title: omniintelligence contracts_and_di burn-down, slice rf1120-c3 -- bind address and listener ports
+  move into a contract file, in-memory stand-ins leave runtime code and test conftests
+summary: >-
+  The read-only contracts_and_di scan of omniintelligence src/ (omnibase_core dev, validator ValidatorContractsAndDi)
+  reported 277 findings before this change and 263 after it. This slice removes 14 of them: five literal_port,
+  two literal_ip, one literal_host, two literal_path and four inmemory_outside_injection. The bind address
+  and the four listener ports (runtime health, runtime metrics, stub launcher health, decision_store health)
+  now sit in runtime/runtime_bindings.yaml, read through ModelRuntimeBindings; a file missing a field,
+  naming an unknown one or holding a port outside 1..65535 fails to load. The runtime config, the stub
+  launcher and the decision_store entrypoint read them from there; their environment overrides stay. PluginIntelligence.wire_dispatchers
+  no longer builds an in-memory idempotency store as a fallback and returns a failed result when the store
+  is absent. The three node test conftests that built an in-memory store by hand resolve it from a container
+  module in the node's node_tests, the binding site the checker allows. The two test path literals use
+  tmp_path and a HOME set to it. The 12 literal_path findings in node_crawl_scheduler_effect/node_tests/test_governance_invariants.py
+  stay because pushed branch omn-21536-handler-classes-effect-slice rewrites that file.
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: req-omn21680-slice
+    statement: The slice's bind address, listener ports, path literals and in-memory stand-ins leave the
+      touched code and are read from a contract file or a binding module.
+    acceptance:
+      - id: AC1
+        statement: 'AC1: the contracts_and_di count for literal_path over the slice paths drops to zero
+          and the repo total drops by the slice size, with no baseline entry or suppression added -- falsifier:
+          onex run of runtime_validator_run with the contracts_and_di reference over omniintelligence
+          src before and after, counts compared per rule'
+      - id: AC2
+        statement: 'AC2: every moved value is read from a node contract or overlay through an injected
+          setting and no literal of it remains in the touched code -- falsifier: uv run pytest -q over
+          the touched test files plus the checker re-run on the slice paths'
+      - id: AC3
+        statement: 'AC3: the slice lands as one PR titled with this ticket id and carries lab proof of
+          the tests and the checker re-run -- falsifier: uv run pytest -q over the slice test files on
+          the lab at the PR head, receipt path in the PR body'
+evidence_requirements:
+  - kind: tests
+    description: Contract tests for the required bindings fields, the stub launcher that reads them, the
+      wire_dispatchers tests and the node tests that use the in-memory stores.
+    command: env PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/unit/runtime/test_runtime_bindings_contract_omn21680.py
+      tests/unit/runtime/test_stub_launcher.py tests/unit/runtime/test_plugin_dispatch.py src/omniintelligence/nodes/node_document_fetch_effect/node_tests/test_handler_document_fetch.py
+      src/omniintelligence/nodes/node_git_repo_crawler_effect/node_tests/test_handler_git_repo_crawl.py
+      src/omniintelligence/nodes/node_git_repo_crawler_effect/node_tests/test_canonical_parity.py src/omniintelligence/nodes/node_linear_crawler_effect/node_tests/test_handler_linear_crawl.py
+      src/omniintelligence/nodes/node_context_item_writer_effect/node_tests/test_handler_context_item_writer.py
+      src/omniintelligence/nodes/node_watchdog_effect/node_tests/test_governance_invariants.py -q
+emergency_bypass:
+  enabled: false
+  justification: ''
+  follow_up_ticket_id: ''
+dod_evidence:
+  - id: dod-omn21680-ac1-checker-rerun
+    description: The checker scans every slice path and reports no literal_path, literal_port, literal_ip,
+      literal_host or inmemory_outside_injection finding; missing files, imports and parse errors fail.
+    source: manual
+    checks:
+      - check_type: command
+        check_value: >-
+          env PYTHONDONTWRITEBYTECODE=1 uv run python -c 'import sys; from pathlib import Path; from omnibase_core.validation.validator_contracts_and_di
+          import ValidatorContractsAndDi; paths = [Path(p) for p in sys.argv[1:]]; assert paths and all(p.is_file()
+          for p in paths), "missing slice path"; result = ValidatorContractsAndDi().validate(paths); assert
+          result.metadata is not None and result.metadata.files_processed == len(paths), "incomplete scan";
+          findings = [i for i in result.issues if i.rule_name in {"literal_path", "literal_port", "literal_ip",
+          "literal_host", "inmemory_outside_injection", "unparseable_file"}]; print(result.summary); [print(i)
+          for i in findings]; sys.exit(bool(findings))' src/omniintelligence/decision_store/__main__.py
+          src/omniintelligence/runtime/stub_launcher.py src/omniintelligence/runtime/model_intelligence_runtime_config.py
+          src/omniintelligence/runtime/plugin.py src/omniintelligence/nodes/node_context_item_writer_effect/node_tests/test_handler_context_item_writer.py
+          src/omniintelligence/nodes/node_watchdog_effect/node_tests/test_governance_invariants.py src/omniintelligence/nodes/node_document_fetch_effect/node_tests/conftest.py
+          src/omniintelligence/nodes/node_git_repo_crawler_effect/node_tests/conftest.py src/omniintelligence/nodes/node_linear_crawler_effect/node_tests/conftest.py
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC1
+  - id: dod-omn21680-ac2-values-from-contract
+    description: The bindings contract tests pass, and no bind address or port literal remains in the
+      modules the contract covers.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: env PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/unit/runtime/test_runtime_bindings_contract_omn21680.py
+          tests/unit/runtime/test_stub_launcher.py tests/unit/runtime/test_plugin_dispatch.py -q
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: command
+        check_value: >-
+          grep -q '^bind_host:' src/omniintelligence/runtime/runtime_bindings.yaml && ! grep -nE '(0\.0\.0\.0|8000|8080|8091|9090)'
+          src/omniintelligence/runtime/stub_launcher.py src/omniintelligence/runtime/model_intelligence_runtime_config.py
+          src/omniintelligence/decision_store/__main__.py
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC2
+  - id: dod-omn21680-ac3-unit-suite
+    description: The slice's bindings contract, injected crawler stores and temporary paths pass their
+      focused tests at the PR head. Stub launcher and dispatcher wiring are checked separately under AC2.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: env PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/unit/runtime/test_runtime_bindings_contract_omn21680.py
+          src/omniintelligence/nodes/node_document_fetch_effect/node_tests/test_handler_document_fetch.py
+          src/omniintelligence/nodes/node_git_repo_crawler_effect/node_tests/test_handler_git_repo_crawl.py
+          src/omniintelligence/nodes/node_git_repo_crawler_effect/node_tests/test_canonical_parity.py
+          src/omniintelligence/nodes/node_linear_crawler_effect/node_tests/test_handler_linear_crawl.py
+          src/omniintelligence/nodes/node_context_item_writer_effect/node_tests/test_handler_context_item_writer.py
+          src/omniintelligence/nodes/node_watchdog_effect/node_tests/test_governance_invariants.py -q
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC3

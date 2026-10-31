@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
@@ -523,10 +524,13 @@ class TestModelWatchdogConfig:
         with pytest.raises(ValueError, match="absolute"):
             ModelWatchdogConfig(watched_paths=("relative/path",))
 
-    def test_tilde_path_is_expanded(self) -> None:
+    def test_tilde_path_is_expanded(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Paths starting with ~ must be expanded to absolute paths."""
-        config = ModelWatchdogConfig(watched_paths=("~/.claude",))
-        assert all(p.startswith("/") for p in config.watched_paths)
+        monkeypatch.setenv("HOME", str(tmp_path))
+        config = ModelWatchdogConfig(watched_paths=("~",))
+        assert config.watched_paths == (str(tmp_path),)
 
     def test_is_ignored_swp_suffix(self, tmp_path: Any) -> None:
         """is_ignored() must return True for .swp files."""

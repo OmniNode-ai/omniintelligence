@@ -16,9 +16,9 @@ Environment Variables:
     DECISION_STORE_KAFKA_GROUP_ID: Consumer group ID
         (default: decision-store-consumer).
     DECISION_STORE_HEALTH_CHECK_PORT: Health check HTTP port
-        (default: 8091).
+        (default: decision_store_health_port in runtime/runtime_bindings.yaml).
     DECISION_STORE_HEALTH_CHECK_HOST: Health check bind host
-        (default: 0.0.0.0).
+        (default: bind_host in runtime/runtime_bindings.yaml).
 
 Related:
     - OMN-6608: Add health endpoint to decision_store consumer
@@ -45,10 +45,9 @@ async def _run() -> None:
     from aiohttp import web
 
     from omniintelligence.decision_store.consumer import DecisionRecordConsumer
-    from omniintelligence.decision_store.repository import (
-        DecisionRecordRepository,
-    )
+    from omniintelligence.decision_store.repository import DecisionRecordRepository
     from omniintelligence.decision_store.topics import DecisionTopics
+    from omniintelligence.models.runtime_bindings import runtime_bindings
 
     # --- Configuration from environment ---
     db_url = os.environ.get(
@@ -69,12 +68,12 @@ async def _run() -> None:
     )
     health_port = int(
         os.environ.get(
-            "DECISION_STORE_HEALTH_CHECK_PORT", "8091"
+            "DECISION_STORE_HEALTH_CHECK_PORT",
+            str(runtime_bindings().decision_store_health_port),
         )  # ONEX_FLAG_EXEMPT: config
     )
     health_host = os.environ.get(  # ONEX_FLAG_EXEMPT: config
-        "DECISION_STORE_HEALTH_CHECK_HOST",
-        "0.0.0.0",  # noqa: S104 — Docker bind
+        "DECISION_STORE_HEALTH_CHECK_HOST", runtime_bindings().bind_host
     )
 
     # --- Shutdown coordination ---

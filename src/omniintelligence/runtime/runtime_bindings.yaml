@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# Bind address and listener ports of the runtime's own HTTP endpoints (OMN-21680).
+#
+# Code holds none of these values: the runtime config, the stub launcher and the
+# decision_store entrypoint read them from here through ModelRuntimeBindings, and
+# a file that omits a field, or names one the model does not know, fails to load
+# rather than falling back to a value in code. An operator who needs a different
+# value sets the matching environment variable (HEALTH_PORT,
+# DECISION_STORE_HEALTH_CHECK_PORT, DECISION_STORE_HEALTH_CHECK_HOST or the
+# ModelIntelligenceRuntimeConfig environment keys); this file is the default when
+# none is set.
+
+# Interface the health listeners bind so container probes (Kubernetes/Docker) can
+# reach them. Internal network only; the endpoints carry no authentication.
+bind_host: 0.0.0.0
+
+# ModelIntelligenceRuntimeConfig: health check and metrics endpoints.
+runtime_health_port: 8080
+runtime_metrics_port: 9090
+
+# runtime.stub_launcher: health check endpoint of a stub node container.
+stub_health_port: 8000
+
+# decision_store.__main__: health check endpoint of the decision store consumer.
+decision_store_health_port: 8091

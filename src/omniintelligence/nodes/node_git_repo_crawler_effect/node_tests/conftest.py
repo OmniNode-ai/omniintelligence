@@ -5,7 +5,7 @@
 """Shared fixtures for node_git_repo_crawler_effect tests.
 
 Provides:
-  - InMemoryCrawlStateStore: in-memory ProtocolCrawlStateStore implementation
+  - crawl_state: the default in-memory ProtocolCrawlStateStore, resolved from node_tests/container
   - GitFixture: helper that creates a real git repo on disk using subprocess
   - Pytest fixtures wrapping the above
 
@@ -22,52 +22,10 @@ from pathlib import Path
 
 import pytest
 
-from omniintelligence.nodes.node_git_repo_crawler_effect.handlers.protocol_crawl_state import (
-    ModelCrawlStateEntry,
-    ProtocolCrawlStateStore,
+from omniintelligence.nodes.node_git_repo_crawler_effect.node_tests.container.container_crawl_state_store import (
+    InMemoryCrawlStateStore,
+    default_crawl_state_store,
 )
-
-# ---------------------------------------------------------------------------
-# In-memory crawl state store
-# ---------------------------------------------------------------------------
-
-
-class InMemoryCrawlStateStore:
-    """Thread-safe in-memory implementation of ProtocolCrawlStateStore.
-
-    Used exclusively in tests. No external dependencies required.
-    """
-
-    def __init__(self) -> None:
-        self._entries: dict[tuple[str, str], ModelCrawlStateEntry] = {}
-        self._head_shas: dict[str, str] = {}
-        assert isinstance(self, ProtocolCrawlStateStore)
-
-    async def get_head_sha(self, repo_path: str) -> str | None:
-        return self._head_shas.get(repo_path)
-
-    async def get_all_entries(self, repo_path: str) -> list[ModelCrawlStateEntry]:
-        return [entry for (rp, _fp), entry in self._entries.items() if rp == repo_path]
-
-    async def get_entry(
-        self, repo_path: str, file_path: str
-    ) -> ModelCrawlStateEntry | None:
-        return self._entries.get((repo_path, file_path))
-
-    async def upsert_entry(self, entry: ModelCrawlStateEntry) -> None:
-        self._entries[(entry.repo_path, entry.file_path)] = entry
-
-    async def delete_entry(self, repo_path: str, file_path: str) -> None:
-        self._entries.pop((repo_path, file_path), None)
-
-    async def update_head_sha(self, repo_path: str, head_sha: str) -> None:
-        self._head_shas[repo_path] = head_sha
-
-    # --- Helpers for test assertions ---
-
-    def entry_count(self, repo_path: str) -> int:
-        return sum(1 for (rp, _) in self._entries if rp == repo_path)
-
 
 # ---------------------------------------------------------------------------
 # Minimal git repo fixture helper
@@ -160,7 +118,7 @@ class GitFixture:
 @pytest.fixture
 def crawl_state() -> InMemoryCrawlStateStore:
     """Fresh in-memory crawl state store."""
-    return InMemoryCrawlStateStore()
+    return default_crawl_state_store()
 
 
 @pytest.fixture

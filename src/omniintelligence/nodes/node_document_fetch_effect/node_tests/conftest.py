@@ -5,7 +5,7 @@
 """Shared fixtures for node_document_fetch_effect tests.
 
 Provides:
-  - InMemoryBlobStore: in-memory ProtocolBlobStore implementation
+  - blob_store: the default in-memory ProtocolBlobStore, resolved from node_tests/container
   - GitRepoFixture: minimal git repo for testing GIT_REPO fetch path
 
 Ticket: OMN-2389
@@ -20,26 +20,10 @@ from pathlib import Path
 
 import pytest
 
-from omniintelligence.nodes.node_document_fetch_effect.handlers.protocol_blob_store import (
-    ProtocolBlobStore,
+from omniintelligence.nodes.node_document_fetch_effect.node_tests.container.container_blob_store import (
+    InMemoryBlobStore,
+    default_blob_store,
 )
-
-
-class InMemoryBlobStore:
-    """In-memory blob store for testing the LINEAR fetch path."""
-
-    def __init__(self) -> None:
-        self._blobs: dict[str, str] = {}
-        assert isinstance(self, ProtocolBlobStore)
-
-    def put(self, source_ref: str, content: str) -> None:
-        """Store content by source_ref."""
-        self._blobs[source_ref] = content
-
-    async def get(self, source_ref: str) -> str:
-        if source_ref not in self._blobs:
-            raise KeyError(f"Blob not found: {source_ref}")
-        return self._blobs[source_ref]
 
 
 class GitRepoFixture:
@@ -109,7 +93,7 @@ class GitRepoFixture:
 @pytest.fixture
 def blob_store() -> InMemoryBlobStore:
     """Fresh in-memory blob store."""
-    return InMemoryBlobStore()
+    return default_blob_store()
 
 
 @pytest.fixture

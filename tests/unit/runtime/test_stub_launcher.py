@@ -17,6 +17,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from omniintelligence.models.runtime_bindings import runtime_bindings
 from omniintelligence.runtime.stub_launcher import (
     _get_log_level,
     _run_health_server,
@@ -160,7 +161,7 @@ class TestRunStubServiceName:
 
 class TestHealthPortFallback:
     def test_invalid_health_port_uses_default(self) -> None:
-        """Invalid HEALTH_PORT should fall back to 8000."""
+        """Invalid HEALTH_PORT should fall back to the contract stub_health_port."""
         captured_ports: list[int] = []
 
         def capture(_name: str, **kwargs: object) -> MagicMock:
@@ -179,7 +180,7 @@ class TestHealthPortFallback:
                 await run_stub("orchestrator")
 
         asyncio.run(_run())
-        assert captured_ports[0] == 8000
+        assert captured_ports[0] == runtime_bindings().stub_health_port
 
     def test_valid_health_port_is_used(self) -> None:
         """Valid HEALTH_PORT should be passed through."""

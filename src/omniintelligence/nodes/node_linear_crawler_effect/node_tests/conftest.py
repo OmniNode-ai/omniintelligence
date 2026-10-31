@@ -5,7 +5,7 @@
 """Shared fixtures for node_linear_crawler_effect tests.
 
 Provides:
-  - InMemoryLinearStateStore: in-memory ProtocolLinearStateStore implementation
+  - linear_state: the default in-memory ProtocolLinearStateStore, resolved from node_tests/container
   - MockLinearClient: configurable mock implementing ProtocolLinearClient
 
 Ticket: OMN-2388
@@ -18,49 +18,12 @@ import pytest
 from omniintelligence.nodes.node_linear_crawler_effect.handlers.protocol_linear_state import (
     ModelLinearItemContent,
     ModelLinearItemSummary,
-    ModelLinearStateEntry,
     ProtocolLinearClient,
-    ProtocolLinearStateStore,
 )
-
-# ---------------------------------------------------------------------------
-# In-memory state store
-# ---------------------------------------------------------------------------
-
-
-class InMemoryLinearStateStore:
-    """Thread-safe in-memory implementation of ProtocolLinearStateStore.
-
-    Used exclusively in tests. No external dependencies required.
-    """
-
-    def __init__(self) -> None:
-        self._entries: dict[tuple[str, str], ModelLinearStateEntry] = {}
-        assert isinstance(self, ProtocolLinearStateStore)
-
-    async def get_all_entries(self, crawl_scope: str) -> list[ModelLinearStateEntry]:
-        return [
-            entry
-            for (scope, _ref), entry in self._entries.items()
-            if scope == crawl_scope
-        ]
-
-    async def get_entry(
-        self, crawl_scope: str, source_ref: str
-    ) -> ModelLinearStateEntry | None:
-        return self._entries.get((crawl_scope, source_ref))
-
-    async def upsert_entry(self, entry: ModelLinearStateEntry) -> None:
-        self._entries[(entry.crawl_scope, entry.source_ref)] = entry
-
-    async def delete_entry(self, crawl_scope: str, source_ref: str) -> None:
-        self._entries.pop((crawl_scope, source_ref), None)
-
-    # --- Test helpers ---
-
-    def entry_count(self, crawl_scope: str) -> int:
-        return sum(1 for (scope, _) in self._entries if scope == crawl_scope)
-
+from omniintelligence.nodes.node_linear_crawler_effect.node_tests.container.container_linear_state_store import (
+    InMemoryLinearStateStore,
+    default_linear_state_store,
+)
 
 # ---------------------------------------------------------------------------
 # Mock Linear client
@@ -184,7 +147,7 @@ class MockLinearClient:
 @pytest.fixture
 def linear_state() -> InMemoryLinearStateStore:
     """Fresh in-memory Linear state store."""
-    return InMemoryLinearStateStore()
+    return default_linear_state_store()
 
 
 @pytest.fixture
