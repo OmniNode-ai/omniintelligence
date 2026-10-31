@@ -990,11 +990,16 @@ class PluginIntelligence:
                 "kernel bootstrap sequence violated"
             )
 
-        if self._pool is None or self._pattern_runtime is None:
+        if (
+            self._pool is None
+            or self._pattern_runtime is None
+            or self._idempotency_store is None
+        ):
             return ModelDomainPluginResult.failed(
                 plugin_id=self.plugin_id,
                 error_message=(
-                    "Cannot wire dispatchers: PostgreSQL pool or runtime not initialized"
+                    "Cannot wire dispatchers: PostgreSQL pool, runtime or "
+                    "idempotency store not initialized"
                 ),
             )
 
@@ -1012,24 +1017,7 @@ class PluginIntelligence:
             debug_store = await create_debug_store_adapter(self._pool)
 
             # Create idempotency adapter from infra store
-            if self._idempotency_store is not None:
-                idempotency_store = AdapterIdempotencyStoreInfra(
-                    self._idempotency_store
-                )
-            else:
-                # Fallback: should not happen if initialize() succeeded
-                logger.warning(
-                    "Idempotency store not initialized, creating in-memory fallback "
-                    "(correlation_id=%s)",
-                    correlation_id,
-                )
-                from omnibase_infra.idempotency.store_inmemory import (
-                    StoreIdempotencyInmemory,
-                )
-
-                idempotency_store = AdapterIdempotencyStoreInfra(
-                    StoreIdempotencyInmemory()
-                )
+            idempotency_store = AdapterIdempotencyStoreInfra(self._idempotency_store)
 
             intent_classifier = AdapterIntentClassifier()
 

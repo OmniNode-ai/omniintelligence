@@ -21,6 +21,7 @@ Ticket: OMN-2393
 
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID, uuid4
 
@@ -621,8 +622,8 @@ class TestBootstrapTierAssignment:
         assert policy.tier == EnumBootstrapTier.VALIDATED
         assert policy.bootstrap_confidence == 0.85
 
-    def test_home_claude_md_gets_validated(self) -> None:
-        policy = assign_bootstrap_tier("/home/user/.claude/CLAUDE.md")
+    def test_home_claude_md_gets_validated(self, tmp_path: Path) -> None:
+        policy = assign_bootstrap_tier(str(tmp_path / ".claude" / "CLAUDE.md"))
         assert policy.tier == EnumBootstrapTier.VALIDATED
 
     def test_design_doc_gets_validated(self) -> None:

@@ -450,6 +450,24 @@ class TestPluginWireDispatchers:
         assert plugin._dispatch_engine is None
 
     @pytest.mark.asyncio
+    async def test_wire_dispatchers_returns_failed_without_idempotency_store(
+        self,
+    ) -> None:
+        """wire_dispatchers must not build an in-memory idempotency fallback (OMN-21680)."""
+        plugin = PluginIntelligence()
+        plugin._handshake_validated = True  # bypass guard — not testing handshake here
+        plugin._pool = _make_mock_pool()
+        plugin._pattern_runtime = _make_mock_runtime()
+        # Do not set plugin._idempotency_store -- leave it None
+        config = _make_config()
+
+        result = await plugin.wire_dispatchers(config)
+
+        assert not result.success
+        assert "idempotency store" in result.error_message.lower()
+        assert plugin._dispatch_engine is None
+
+    @pytest.mark.asyncio
     async def test_wire_dispatchers_returns_failed_on_engine_error(self) -> None:
         """wire_dispatchers should return failed result when engine creation raises."""
         plugin = PluginIntelligence()

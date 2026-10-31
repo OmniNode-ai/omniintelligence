@@ -32,6 +32,8 @@ import signal
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+from omniintelligence.models.runtime_bindings import runtime_bindings
+
 
 def _get_log_level() -> int:
     """Get log level from environment with safe fallback."""
@@ -51,13 +53,13 @@ logger = logging.getLogger(__name__)
 
 def _run_health_server(
     service_name: str,
-    host: str = "0.0.0.0",
-    port: int = 8000,
+    host: str = runtime_bindings().bind_host,
+    port: int = runtime_bindings().stub_health_port,
 ) -> HTTPServer:
     """Run a health check HTTP server in a daemon thread.
 
-    NOTE: Binds to 0.0.0.0 for container health probes (Kubernetes/Docker).
-    No authentication -- intended for internal network only.
+    NOTE: Defaults come from runtime_bindings.yaml (all interfaces, for container
+    health probes). No authentication -- intended for internal network only.
     """
 
     class HealthHandler(BaseHTTPRequestHandler):
@@ -95,9 +97,7 @@ async def run_stub(  # stub-ok: stub-launcher-name-not-unimplemented
     node_type: str, node_name: str | None = None
 ) -> None:
     """Run stub node process with health check endpoint."""
-    service_name = f"intelligence-{node_type}"
-    if node_name:
-        service_name = f"intelligence-{node_name}"
+    service_name = f"intelligence-{node_name or node_type}"
 
     logger.info("=" * 60)
     logger.info("Starting %s (stub mode)", service_name)
@@ -121,11 +121,11 @@ async def run_stub(  # stub-ok: stub-launcher-name-not-unimplemented
         signal.signal(signal.SIGTERM, lambda *_: shutdown_event.set())
         signal.signal(signal.SIGINT, lambda *_: shutdown_event.set())
 
+    health_port = runtime_bindings().stub_health_port
     try:
-        health_port = int(os.getenv("HEALTH_PORT", "8000"))
+        health_port = int(os.getenv("HEALTH_PORT", str(health_port)))
     except ValueError:
-        logger.warning("Invalid HEALTH_PORT value, using default 8000")
-        health_port = 8000
+        logger.warning("Invalid HEALTH_PORT value, using default %d", health_port)
     health_server = _run_health_server(service_name, port=health_port)
 
     try:

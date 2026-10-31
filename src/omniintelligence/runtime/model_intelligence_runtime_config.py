@@ -30,6 +30,7 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from omniintelligence.models.runtime_bindings import runtime_bindings
 from omniintelligence.runtime.enum_handler_type import EnumHandlerType
 from omniintelligence.runtime.enum_log_level import EnumLogLevel
 from omniintelligence.runtime.model_event_bus_config import ModelEventBusConfig
@@ -103,7 +104,7 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
     )
 
     health_check_port: int = Field(
-        default=8080,
+        default_factory=lambda: runtime_bindings().runtime_health_port,
         ge=1,
         le=65535,
         description="Port for health check endpoint",
@@ -115,7 +116,7 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
     )
 
     metrics_port: int = Field(
-        default=9090,
+        default_factory=lambda: runtime_bindings().runtime_metrics_port,
         ge=1,
         le=65535,
         description="Port for Prometheus metrics endpoint",
@@ -400,9 +401,7 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
                     config={"bootstrap_servers": "${KAFKA_BOOTSTRAP_SERVERS}"},
                 ),
             ],
-            health_check_port=8080,
             metrics_enabled=True,
-            metrics_port=9090,
         )
 
     @classmethod
@@ -441,9 +440,7 @@ class ModelIntelligenceRuntimeConfig(BaseModel):
                     config={"bootstrap_servers": bootstrap_servers},
                 ),
             ],
-            health_check_port=8080,
             metrics_enabled=True,
-            metrics_port=9090,
         )
 
     # ==========================================
