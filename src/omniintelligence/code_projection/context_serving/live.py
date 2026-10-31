@@ -33,8 +33,6 @@ from omniintelligence.nodes.node_embedding_generation_effect.models.model_embedd
 )
 
 _DEFAULT_QDRANT_COLLECTION = "code_semantic_v2"
-_DEFAULT_EMBEDDING_MODEL = "text-embedding-qwen3"
-_DEFAULT_EMBEDDING_MODEL_VERSION = "qwen3-embedding-0.6b-lab-2026-08-14"
 _QDRANT_HTTP_MAX_CONNECTIONS = 8
 
 
@@ -100,11 +98,11 @@ def load_live_code_context_search_configuration(
     )
     embedding_model = values.get(
         "CODE_PROJECTION_EMBEDDING_MODEL",
-        _DEFAULT_EMBEDDING_MODEL,
+        "",
     )
     embedding_model_version = values.get(
         "CODE_PROJECTION_EMBEDDING_MODEL_VERSION",
-        _DEFAULT_EMBEDDING_MODEL_VERSION,
+        "",
     )
     for name, value in (
         ("CODE_PROJECTION_QDRANT_COLLECTION", qdrant_collection),

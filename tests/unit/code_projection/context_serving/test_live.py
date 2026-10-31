@@ -12,6 +12,9 @@ from omniintelligence.code_projection.context_serving import live
 
 pytestmark = pytest.mark.unit
 
+EMBEDDING_MODEL = "overlay-embedding-model"
+EMBEDDING_VERSION = "overlay-embedding-version"
+
 
 def test_local_search_configuration_requires_no_postgres_memgraph_or_api_key() -> None:
     configuration = live.load_live_code_context_search_configuration(
@@ -19,12 +22,34 @@ def test_local_search_configuration_requires_no_postgres_memgraph_or_api_key() -
             "QDRANT_HOST": "omnimemory-qdrant",
             "QDRANT_PORT": "6333",
             "LLM_EMBEDDING_URL": "http://embedding:8000/v1",
+            "CODE_PROJECTION_EMBEDDING_MODEL": EMBEDDING_MODEL,
+            "CODE_PROJECTION_EMBEDDING_MODEL_VERSION": EMBEDDING_VERSION,
         }
     )
 
     assert configuration.qdrant_url == "http://omnimemory-qdrant:6333"
     assert configuration.qdrant_api_key is None
     assert configuration.qdrant_collection == "code_semantic_v2"
+    assert configuration.embedding_model == EMBEDDING_MODEL
+    assert configuration.embedding_model_version == EMBEDDING_VERSION
+
+
+@pytest.mark.parametrize(
+    "missing",
+    ["CODE_PROJECTION_EMBEDDING_MODEL", "CODE_PROJECTION_EMBEDDING_MODEL_VERSION"],
+)
+def test_search_configuration_requires_overlay_embedding_model(missing: str) -> None:
+    values = {
+        "QDRANT_HOST": "omnimemory-qdrant",
+        "QDRANT_PORT": "6333",
+        "LLM_EMBEDDING_URL": "http://embedding:8000/v1",
+        "CODE_PROJECTION_EMBEDDING_MODEL": EMBEDDING_MODEL,
+        "CODE_PROJECTION_EMBEDDING_MODEL_VERSION": EMBEDDING_VERSION,
+    }
+    del values[missing]
+
+    with pytest.raises(ValueError, match=missing):
+        live.load_live_code_context_search_configuration(values)
 
 
 def test_cloud_search_configuration_accepts_https_database_key() -> None:
@@ -33,6 +58,8 @@ def test_cloud_search_configuration_accepts_https_database_key() -> None:
             "QDRANT_URL": "https://cluster.example.qdrant.io:6333",
             "QDRANT_API_KEY": "test-only-database-key",
             "LLM_EMBEDDING_URL": "https://embedding.example.test/v1",
+            "CODE_PROJECTION_EMBEDDING_MODEL": EMBEDDING_MODEL,
+            "CODE_PROJECTION_EMBEDDING_MODEL_VERSION": EMBEDDING_VERSION,
         }
     )
 
@@ -47,6 +74,8 @@ def test_search_configuration_rejects_key_over_plaintext() -> None:
                 "QDRANT_URL": "http://cluster.example.test:6333",
                 "QDRANT_API_KEY": "test-only-database-key",
                 "LLM_EMBEDDING_URL": "http://embedding:8000/v1",
+                "CODE_PROJECTION_EMBEDDING_MODEL": EMBEDDING_MODEL,
+                "CODE_PROJECTION_EMBEDDING_MODEL_VERSION": EMBEDDING_VERSION,
             }
         )
 
@@ -59,6 +88,8 @@ def test_qdrant_transport_is_bounded_and_does_not_reuse_idle_connections(
             "QDRANT_HOST": "omnimemory-qdrant",
             "QDRANT_PORT": "6333",
             "LLM_EMBEDDING_URL": "http://embedding:8000/v1",
+            "CODE_PROJECTION_EMBEDDING_MODEL": EMBEDDING_MODEL,
+            "CODE_PROJECTION_EMBEDDING_MODEL_VERSION": EMBEDDING_VERSION,
         }
     )
     captured: dict[str, object] = {}

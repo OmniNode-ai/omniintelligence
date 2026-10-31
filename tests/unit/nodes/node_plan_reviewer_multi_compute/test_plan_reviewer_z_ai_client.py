@@ -11,6 +11,7 @@ Ticket: OMN-3286
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -25,8 +26,22 @@ from omniintelligence.adapters.plan_reviewer_z_ai_client import (
     PlanReviewerZAIClientError,
     PlanReviewerZAITimeoutError,
 )
+from omniintelligence.models.llm_routing import llm_routing
 
 pytestmark = pytest.mark.unit
+
+_OVERLAY_MODEL = "overlay-zai-model"
+
+
+@pytest.fixture(autouse=True)
+def _overlay_model(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """The deployment overlay names the model; the client holds none."""
+    monkeypatch.setenv("OMNIINTELLIGENCE_PLAN_REVIEWER_ZAI_MODEL", _OVERLAY_MODEL)
+    llm_routing.cache_clear()
+    yield
+    monkeypatch.delenv("OMNIINTELLIGENCE_PLAN_REVIEWER_ZAI_MODEL")
+    llm_routing.cache_clear()
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -81,7 +96,7 @@ class TestModelPlanReviewerZAIConfig:
         """Config uses sensible defaults."""
         config = _make_config()
         assert config.api_key == _API_KEY
-        assert config.model == "glm-4-plus"
+        assert config.model == _OVERLAY_MODEL
         assert "api.z.ai" in config.chat_url
         assert config.timeout_seconds == 60.0
         assert config.max_tokens == 2048
@@ -205,7 +220,7 @@ class TestPlanReviewerZAIClientChatSuccess:
             async with PlanReviewerZAIClient(config) as client:
                 await client.chat(_MESSAGES)
 
-        assert captured_payload["model"] == "glm-4-plus"
+        assert captured_payload["model"] == _OVERLAY_MODEL
         assert captured_payload["messages"] == _MESSAGES
         assert captured_payload["max_tokens"] == 512
         assert captured_payload["temperature"] == 0.0

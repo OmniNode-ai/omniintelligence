@@ -35,6 +35,10 @@ class ModelLlmRoutingSettings(BaseSettings):
             utilization.
         OMNIINTELLIGENCE_PATTERN_COMPLIANCE_MODEL: Default pattern compliance
             evaluation model.
+        OMNIINTELLIGENCE_PLAN_REVIEWER_GEMINI_MODEL: Model of the Gemini plan-reviewer
+            client.
+        OMNIINTELLIGENCE_PLAN_REVIEWER_ZAI_MODEL: Model of the Z.AI plan-reviewer
+            client.
         OMNIINTELLIGENCE_EVAL_COST_RATES: JSON object, case-insensitive model id
             prefix -> [input USD per token, output USD per token] for the eval LLM
             client; a model that matches no prefix costs nothing.
@@ -71,6 +75,16 @@ class ModelLlmRoutingSettings(BaseSettings):
         default=DEFAULT_MODEL_NAME,
         description="Default pattern compliance evaluation model",
         alias="OMNIINTELLIGENCE_PATTERN_COMPLIANCE_MODEL",
+    )
+    plan_reviewer_gemini_model: str = Field(
+        default=DEFAULT_MODEL_NAME,
+        description="Model of the Gemini plan-reviewer client",
+        alias="OMNIINTELLIGENCE_PLAN_REVIEWER_GEMINI_MODEL",
+    )
+    plan_reviewer_zai_model: str = Field(
+        default=DEFAULT_MODEL_NAME,
+        description="Model of the Z.AI plan-reviewer client",
+        alias="OMNIINTELLIGENCE_PLAN_REVIEWER_ZAI_MODEL",
     )
     eval_cost_rates: dict[str, tuple[float, float]] = Field(
         default_factory=dict,

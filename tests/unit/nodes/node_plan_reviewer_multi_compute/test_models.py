@@ -10,6 +10,7 @@ Ticket: OMN-3291
 
 from __future__ import annotations
 
+from pathlib import Path
 from uuid import UUID
 
 import pytest
@@ -210,3 +211,16 @@ class TestPlanReviewFindingWithConfidence:
         """finding_id is a UUID."""
         merged = self._make_merged()
         assert isinstance(merged.finding_id, UUID)
+
+
+@pytest.mark.unit
+def test_review_model_values_match_persisted_model_ids() -> None:
+    """Values are the ``model_id`` keys seeded by migration 020 and must not drift."""
+    migration = (
+        Path(__file__).resolve().parents[4]
+        / "deployment/database/migrations/020_plan_reviewer_accuracy_and_runs.sql"
+    ).read_text()
+    values = [m.value for m in EnumReviewModel]
+    assert len(set(values)) == len(EnumReviewModel)
+    for value in values:
+        assert f"'{value}'" in migration

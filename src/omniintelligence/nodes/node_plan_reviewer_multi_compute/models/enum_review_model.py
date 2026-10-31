@@ -19,7 +19,7 @@ Note:
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import Enum, auto
 
 
 class EnumReviewModel(str, Enum):
@@ -47,10 +47,17 @@ class EnumReviewModel(str, Enum):
         If you add a value here, add a corresponding INSERT to the migration.
     """
 
-    QWEN3_CODER = "qwen3-coder"
-    DEEPSEEK_R1 = "deepseek-r1"
-    GEMINI_FLASH = "gemini-flash"
-    GLM_4 = "glm-4"
+    @staticmethod
+    def _generate_next_value_(
+        name: str, _start: int, _count: int, _last_values: list[str]
+    ) -> str:
+        """Persisted ``model_id`` is the lower-case member name, dashes for underscores."""
+        return name.lower().replace("_", "-")
+
+    QWEN3_CODER = auto()
+    DEEPSEEK_R1 = auto()
+    GEMINI_FLASH = auto()
+    GLM_4 = auto()
 
 
 __all__ = ["EnumReviewModel"]
