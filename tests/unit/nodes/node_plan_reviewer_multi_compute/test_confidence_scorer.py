@@ -115,14 +115,14 @@ async def test_no_db_conn_covers_all_models() -> None:
 async def test_db_rows_update_weights() -> None:
     """Rows returned by DB override the default weight of 0.5."""
     rows = [
-        _make_row(EnumReviewModel.QWEN3_CODER.value, 0.8),
-        _make_row(EnumReviewModel.DEEPSEEK_R1.value, 0.7),
+        _make_row(EnumReviewModel.CODE_DRAFTER.value, 0.8),
+        _make_row(EnumReviewModel.DEEP_REASONER.value, 0.7),
     ]
     conn = _make_db_conn(rows)
     weights = await fetch_accuracy_weights(conn)
 
-    assert weights[EnumReviewModel.QWEN3_CODER] == pytest.approx(0.8)
-    assert weights[EnumReviewModel.DEEPSEEK_R1] == pytest.approx(0.7)
+    assert weights[EnumReviewModel.CODE_DRAFTER] == pytest.approx(0.8)
+    assert weights[EnumReviewModel.DEEP_REASONER] == pytest.approx(0.7)
 
 
 @pytest.mark.unit
@@ -130,14 +130,14 @@ async def test_db_rows_update_weights() -> None:
 async def test_db_rows_absent_models_keep_default() -> None:
     """Models not present in DB rows keep the default weight of 0.5."""
     rows = [
-        _make_row(EnumReviewModel.QWEN3_CODER.value, 0.9),
+        _make_row(EnumReviewModel.CODE_DRAFTER.value, 0.9),
     ]
     conn = _make_db_conn(rows)
     weights = await fetch_accuracy_weights(conn)
 
-    # gemini-flash and glm-4 are absent from rows — must stay 0.5.
-    assert weights[EnumReviewModel.GEMINI_FLASH] == pytest.approx(0.5)
-    assert weights[EnumReviewModel.GLM_4] == pytest.approx(0.5)
+    # fast-reviewer and tiebreaker are absent from rows — must stay 0.5.
+    assert weights[EnumReviewModel.FAST_REVIEWER] == pytest.approx(0.5)
+    assert weights[EnumReviewModel.TIEBREAKER] == pytest.approx(0.5)
 
 
 @pytest.mark.unit
@@ -145,18 +145,18 @@ async def test_db_rows_absent_models_keep_default() -> None:
 async def test_all_models_in_db_updates_all_weights() -> None:
     """When all 4 models have rows, all weights are updated."""
     rows = [
-        _make_row(EnumReviewModel.QWEN3_CODER.value, 0.9),
-        _make_row(EnumReviewModel.DEEPSEEK_R1.value, 0.8),
-        _make_row(EnumReviewModel.GEMINI_FLASH.value, 0.7),
-        _make_row(EnumReviewModel.GLM_4.value, 0.6),
+        _make_row(EnumReviewModel.CODE_DRAFTER.value, 0.9),
+        _make_row(EnumReviewModel.DEEP_REASONER.value, 0.8),
+        _make_row(EnumReviewModel.FAST_REVIEWER.value, 0.7),
+        _make_row(EnumReviewModel.TIEBREAKER.value, 0.6),
     ]
     conn = _make_db_conn(rows)
     weights = await fetch_accuracy_weights(conn)
 
-    assert weights[EnumReviewModel.QWEN3_CODER] == pytest.approx(0.9)
-    assert weights[EnumReviewModel.DEEPSEEK_R1] == pytest.approx(0.8)
-    assert weights[EnumReviewModel.GEMINI_FLASH] == pytest.approx(0.7)
-    assert weights[EnumReviewModel.GLM_4] == pytest.approx(0.6)
+    assert weights[EnumReviewModel.CODE_DRAFTER] == pytest.approx(0.9)
+    assert weights[EnumReviewModel.DEEP_REASONER] == pytest.approx(0.8)
+    assert weights[EnumReviewModel.FAST_REVIEWER] == pytest.approx(0.7)
+    assert weights[EnumReviewModel.TIEBREAKER] == pytest.approx(0.6)
 
 
 @pytest.mark.unit
@@ -164,10 +164,10 @@ async def test_all_models_in_db_updates_all_weights() -> None:
 async def test_all_models_in_db_none_missing_from_result() -> None:
     """Result always contains all four EnumReviewModel members."""
     rows = [
-        _make_row(EnumReviewModel.QWEN3_CODER.value, 0.9),
-        _make_row(EnumReviewModel.DEEPSEEK_R1.value, 0.8),
-        _make_row(EnumReviewModel.GEMINI_FLASH.value, 0.7),
-        _make_row(EnumReviewModel.GLM_4.value, 0.6),
+        _make_row(EnumReviewModel.CODE_DRAFTER.value, 0.9),
+        _make_row(EnumReviewModel.DEEP_REASONER.value, 0.8),
+        _make_row(EnumReviewModel.FAST_REVIEWER.value, 0.7),
+        _make_row(EnumReviewModel.TIEBREAKER.value, 0.6),
     ]
     conn = _make_db_conn(rows)
     weights = await fetch_accuracy_weights(conn)

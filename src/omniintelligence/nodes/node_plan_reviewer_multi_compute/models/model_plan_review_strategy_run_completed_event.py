@@ -20,7 +20,7 @@ class ModelPlanReviewStrategyRunCompletedEvent(BaseModel):
 
     Allowed strategies: S1_PANEL_VOTE, S2_SPECIALIST_SPLIT,
                         S3_SEQUENTIAL_CRITIQUE, S4_INDEPENDENT_MERGE
-    Allowed model IDs: qwen3-coder, deepseek-r1, gemini-flash, glm-4
+    Allowed model IDs: code-drafter, deep-reasoner, fast-reviewer, tiebreaker
 
     Attributes:
         event_id: UUID string — unique per emission.
@@ -46,7 +46,7 @@ class ModelPlanReviewStrategyRunCompletedEvent(BaseModel):
             event_id="550e8400-e29b-41d4-a716-446655440000",
             run_id="OMN-1234",
             strategy="S1_PANEL_VOTE",
-            models_used=["qwen3-coder", "deepseek-r1"],
+            models_used=["code-drafter", "deep-reasoner"],
             plan_text_hash="abc123...",
             findings_count=2,
             blocks_count=1,
@@ -56,7 +56,7 @@ class ModelPlanReviewStrategyRunCompletedEvent(BaseModel):
             tokens_used=1200,
             duration_ms=3400,
             strategy_run_stored=True,
-            model_weights={"qwen3-coder": 0.72, "deepseek-r1": 0.68},
+            model_weights={"code-drafter": 0.72, "deep-reasoner": 0.68},
             emitted_at="2026-03-01T19:00:00Z",
         )
     """

@@ -182,8 +182,8 @@ class HandlerPlanReviewerMultiCompute:
 
         handler = HandlerPlanReviewerMultiCompute(
             model_callers={
-                EnumReviewModel.QWEN3_CODER: my_qwen_caller,
-                EnumReviewModel.DEEPSEEK_R1: my_deepseek_caller,
+                EnumReviewModel.CODE_DRAFTER: my_qwen_caller,
+                EnumReviewModel.DEEP_REASONER: my_deepseek_caller,
             },
             db_conn=pool_conn,
             producer=kafka_producer,
@@ -280,10 +280,10 @@ class HandlerPlanReviewerMultiCompute:
             )
 
         elif strategy == EnumReviewStrategy.S3_SEQUENTIAL_CRITIQUE:
-            drafter_caller = active_callers.get(EnumReviewModel.QWEN3_CODER)
+            drafter_caller = active_callers.get(EnumReviewModel.CODE_DRAFTER)
             if drafter_caller is None or critic_caller is None:
                 logger.warning(
-                    "handle_plan_reviewer_multi_compute: S3 requires qwen3-coder caller "
+                    "handle_plan_reviewer_multi_compute: S3 requires code-drafter caller "
                     "and critic_caller — falling back to S4 independent_merge"
                 )
                 findings = await HandlerIndependentMerge().handle(

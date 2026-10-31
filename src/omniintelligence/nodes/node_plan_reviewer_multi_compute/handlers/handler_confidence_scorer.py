@@ -71,7 +71,7 @@ async def fetch_accuracy_weights(
     Example::
 
         weights = await fetch_accuracy_weights(db_conn)
-        # {"qwen3-coder": 0.7, "deepseek-r1": 0.6, ...}
+        # {"code-drafter": 0.7, "deep-reasoner": 0.6, ...}
     """
     # Start with uniform defaults so every model always has a weight.
     weights: dict[EnumReviewModel, float] = dict.fromkeys(

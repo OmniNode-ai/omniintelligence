@@ -8,10 +8,10 @@ only its assigned categories.  All four invocations run concurrently.
 Findings are merged directly — no majority vote is needed because each
 category has exactly one owner.
 
-Category-model assignment: R1/R5 -> qwen3-coder, R4/R6 -> deepseek-r1,
-R2/R3 -> gemini-flash, tiebreaker (all, if empty) -> glm-4.
+Category-model assignment: R1/R5 -> code-drafter, R4/R6 -> deep-reasoner,
+R2/R3 -> fast-reviewer, tiebreaker (all, if empty) -> tiebreaker.
 
-The ``glm-4`` tiebreaker model is only invoked when any other model
+The ``tiebreaker`` tiebreaker model is only invoked when any other model
 returns an empty findings list for its assigned categories.
 
 Ticket: OMN-3288
@@ -41,20 +41,20 @@ logger = logging.getLogger(__name__)
 
 # Domain-strength assignment: model → list of owned categories.
 _SPECIALIST_MAP: dict[EnumReviewModel, list[EnumPlanReviewCategory]] = {
-    EnumReviewModel.QWEN3_CODER: [
+    EnumReviewModel.CODE_DRAFTER: [
         EnumPlanReviewCategory.R1_COUNTS,
         EnumPlanReviewCategory.R5_IDEMPOTENCY,
     ],
-    EnumReviewModel.DEEPSEEK_R1: [
+    EnumReviewModel.DEEP_REASONER: [
         EnumPlanReviewCategory.R4_INTEGRATION_TRAPS,
         EnumPlanReviewCategory.R6_VERIFICATION,
     ],
-    EnumReviewModel.GEMINI_FLASH: [
+    EnumReviewModel.FAST_REVIEWER: [
         EnumPlanReviewCategory.R2_ACCEPTANCE_CRITERIA,
         EnumPlanReviewCategory.R3_SCOPE,
     ],
     # GLM-4 is the tiebreaker — called only when another model returns empty.
-    EnumReviewModel.GLM_4: list(EnumPlanReviewCategory),
+    EnumReviewModel.TIEBREAKER: list(EnumPlanReviewCategory),
 }
 
 
@@ -67,7 +67,7 @@ class HandlerSpecialistSplit:
         Each specialist model is invoked concurrently for its assigned
         categories (filtered to those present in ``categories``).
 
-        The ``glm-4`` tiebreaker is invoked **after** the three specialist
+        The ``tiebreaker`` tiebreaker is invoked **after** the three specialist
         results arrive, and only for the categories where its assigned
         specialist returned no findings.
 
@@ -95,7 +95,7 @@ class HandlerSpecialistSplit:
         # and the requested categories.
         specialist_assignments: dict[EnumReviewModel, list[EnumPlanReviewCategory]] = {}
         for model, owned in _SPECIALIST_MAP.items():
-            if model == EnumReviewModel.GLM_4:
+            if model == EnumReviewModel.TIEBREAKER:
                 continue  # tiebreaker — handled separately
             assigned = [c for c in owned if c in request.categories]
             if assigned and model in request.callers:
@@ -133,18 +133,18 @@ class HandlerSpecialistSplit:
         ]
 
         tiebreaker_results: list[PlanReviewFinding] = []
-        if tiebreaker_categories and EnumReviewModel.GLM_4 in request.callers:
+        if tiebreaker_categories and EnumReviewModel.TIEBREAKER in request.callers:
             try:
-                tiebreaker_results = await request.callers[EnumReviewModel.GLM_4](
+                tiebreaker_results = await request.callers[EnumReviewModel.TIEBREAKER](
                     request.plan_text, tiebreaker_categories
                 )
             except Exception:
-                logger.exception("specialist_split: glm-4 tiebreaker call failed")
+                logger.exception("specialist_split: tiebreaker tiebreaker call failed")
 
         # Compute total weight across all models that actually ran.
         participating: set[EnumReviewModel] = set(specialist_assignments.keys())
         if tiebreaker_results:
-            participating.add(EnumReviewModel.GLM_4)
+            participating.add(EnumReviewModel.TIEBREAKER)
         total_weight = sum(request.weights.get(m, 0.5) for m in participating)
         if total_weight == 0.0:
             total_weight = float(len(participating)) if participating else 1.0
@@ -175,7 +175,7 @@ class HandlerSpecialistSplit:
                 output.append(_convert(finding, model))
 
         for finding in tiebreaker_results:
-            output.append(_convert(finding, EnumReviewModel.GLM_4))
+            output.append(_convert(finding, EnumReviewModel.TIEBREAKER))
 
         logger.debug(
             "specialist_split: %d findings from specialists, %d from tiebreaker",

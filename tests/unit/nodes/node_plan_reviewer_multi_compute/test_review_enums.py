@@ -35,10 +35,10 @@ EXPECTED_STRATEGY_VALUES = frozenset(
 
 EXPECTED_MODEL_VALUES = frozenset(
     {
-        "qwen3-coder",
-        "deepseek-r1",
-        "gemini-flash",
-        "glm-4",
+        "code-drafter",
+        "deep-reasoner",
+        "fast-reviewer",
+        "tiebreaker",
     }
 )
 
@@ -196,20 +196,20 @@ class TestEnumReviewModelStability:
         assert model.value == value
 
     def test_qwen3_coder(self) -> None:
-        """QWEN3_CODER has value 'qwen3-coder'."""
-        assert EnumReviewModel.QWEN3_CODER.value == "qwen3-coder"
+        """CODE_DRAFTER has value 'code-drafter'."""
+        assert EnumReviewModel.CODE_DRAFTER.value == "code-drafter"
 
     def test_deepseek_r1(self) -> None:
-        """DEEPSEEK_R1 has value 'deepseek-r1'."""
-        assert EnumReviewModel.DEEPSEEK_R1.value == "deepseek-r1"
+        """DEEP_REASONER has value 'deep-reasoner'."""
+        assert EnumReviewModel.DEEP_REASONER.value == "deep-reasoner"
 
     def test_gemini_flash(self) -> None:
-        """GEMINI_FLASH has value 'gemini-flash'."""
-        assert EnumReviewModel.GEMINI_FLASH.value == "gemini-flash"
+        """FAST_REVIEWER has value 'fast-reviewer'."""
+        assert EnumReviewModel.FAST_REVIEWER.value == "fast-reviewer"
 
     def test_glm_4(self) -> None:
-        """GLM_4 has value 'glm-4'."""
-        assert EnumReviewModel.GLM_4.value == "glm-4"
+        """TIEBREAKER has value 'tiebreaker'."""
+        assert EnumReviewModel.TIEBREAKER.value == "tiebreaker"
 
 
 @pytest.mark.unit
@@ -234,10 +234,10 @@ class TestEnumReviewModelProperties:
 
     def test_comparison_with_string(self) -> None:
         """Enum members compare equal to their string values."""
-        assert EnumReviewModel.QWEN3_CODER == "qwen3-coder"
-        assert EnumReviewModel.DEEPSEEK_R1 == "deepseek-r1"
-        assert EnumReviewModel.GEMINI_FLASH == "gemini-flash"
-        assert EnumReviewModel.GLM_4 == "glm-4"
+        assert EnumReviewModel.CODE_DRAFTER == "code-drafter"
+        assert EnumReviewModel.DEEP_REASONER == "deep-reasoner"
+        assert EnumReviewModel.FAST_REVIEWER == "fast-reviewer"
+        assert EnumReviewModel.TIEBREAKER == "tiebreaker"
 
     def test_importable_from_models_package(self) -> None:
         """EnumReviewModel is exported from the models package."""

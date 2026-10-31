@@ -37,7 +37,7 @@ def _make_finding(
     category: EnumPlanReviewCategory = EnumPlanReviewCategory.R1_COUNTS,
     location: str = "Step 3",
     severity: str = SEVERITY_WARN,
-    source_model: EnumReviewModel = EnumReviewModel.QWEN3_CODER,
+    source_model: EnumReviewModel = EnumReviewModel.CODE_DRAFTER,
     patch: str | None = None,
 ) -> PlanReviewFinding:
     return PlanReviewFinding.create(
@@ -103,8 +103,8 @@ class TestPlanReviewFindingCreate:
 
     def test_source_model_stored(self) -> None:
         """source_model is stored correctly."""
-        finding = _make_finding(source_model=EnumReviewModel.DEEPSEEK_R1)
-        assert finding.source_model == EnumReviewModel.DEEPSEEK_R1
+        finding = _make_finding(source_model=EnumReviewModel.DEEP_REASONER)
+        assert finding.source_model == EnumReviewModel.DEEP_REASONER
 
     def test_category_stored(self) -> None:
         """category is stored correctly."""
@@ -153,7 +153,7 @@ class TestPlanReviewFindingWithConfidence:
             description="Merged finding description.",
             suggested_fix="Apply the fix.",
             confidence=confidence,
-            sources=sources or [EnumReviewModel.QWEN3_CODER],
+            sources=sources or [EnumReviewModel.CODE_DRAFTER],
         )
 
     def test_confidence_stored(self) -> None:
@@ -188,10 +188,10 @@ class TestPlanReviewFindingWithConfidence:
     def test_sources_list_stored(self) -> None:
         """sources list is stored correctly."""
         merged = self._make_merged(
-            sources=[EnumReviewModel.QWEN3_CODER, EnumReviewModel.DEEPSEEK_R1]
+            sources=[EnumReviewModel.CODE_DRAFTER, EnumReviewModel.DEEP_REASONER]
         )
-        assert EnumReviewModel.QWEN3_CODER in merged.sources
-        assert EnumReviewModel.DEEPSEEK_R1 in merged.sources
+        assert EnumReviewModel.CODE_DRAFTER in merged.sources
+        assert EnumReviewModel.DEEP_REASONER in merged.sources
 
     def test_patch_defaults_to_none(self) -> None:
         """patch is None by default."""

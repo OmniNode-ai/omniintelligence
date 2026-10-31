@@ -78,10 +78,10 @@ class NodePlanReviewerMultiCompute(
 
         node = NodePlanReviewerMultiCompute(container)
         node.set_model_callers({
-            EnumReviewModel.QWEN3_CODER: my_qwen_caller,
-            EnumReviewModel.DEEPSEEK_R1: my_deepseek_caller,
-            EnumReviewModel.GEMINI_FLASH: my_gemini_caller,
-            EnumReviewModel.GLM_4: my_glm_caller,
+            EnumReviewModel.CODE_DRAFTER: my_qwen_caller,
+            EnumReviewModel.DEEP_REASONER: my_deepseek_caller,
+            EnumReviewModel.FAST_REVIEWER: my_gemini_caller,
+            EnumReviewModel.TIEBREAKER: my_glm_caller,
         })
         node.set_db_conn(pool_conn)
         output = await node.compute(command)
