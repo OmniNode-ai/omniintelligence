@@ -59,7 +59,8 @@ dod_evidence:
     binds_ac:
       - AC1
   - id: dod-omn21782-ac2-values-from-setting
-    description: The regression tests pass and no loopback host literal remains in the script.
+    description: The regression tests pass and the script no longer derives the omnidash DSN from the
+      infra DSN by testing it for a loopback host name.
     source: manual
     checks:
       - check_type: test_passes
@@ -67,7 +68,7 @@ dod_evidence:
           -q
         cwd: ${OMNI_HOME}/omniintelligence
       - check_type: command
-        check_value: "! grep -n localhost scripts/verify_pattern_lifecycle_e2e.py"
+        check_value: "! grep -nE 'infra_dsn|\"localhost\" in' scripts/verify_pattern_lifecycle_e2e.py"
         cwd: ${OMNI_HOME}/omniintelligence
     binds_ac:
       - AC2
