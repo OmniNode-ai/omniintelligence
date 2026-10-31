@@ -366,3 +366,65 @@ async def test_kafka_event_fields_event_id_and_node_id() -> None:
     # event_id must be a valid UUID string
     uuid.UUID(payload["event_id"])  # raises ValueError if invalid
     assert payload["node_id"] == "node_plan_reviewer_multi_compute"
+
+
+_PARITY_COMMANDS = [
+    ModelPlanReviewerMultiCommand(
+        plan_text=_PLAN,
+        strategy=EnumReviewStrategy.S4_INDEPENDENT_MERGE,
+        run_id="parity-normal",
+    ),
+    ModelPlanReviewerMultiCommand(
+        plan_text=_PLAN,
+        strategy=EnumReviewStrategy.S4_INDEPENDENT_MERGE,
+        model_ids=[],
+        run_id="parity-empty",
+    ),
+    ModelPlanReviewerMultiCommand(
+        plan_text=_PLAN,
+        strategy=EnumReviewStrategy.S3_SEQUENTIAL_CRITIQUE,
+        run_id="parity-s3-fallback",
+    ),
+]
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "command",
+    _PARITY_COMMANDS,
+    ids=["normal_success", "empty_input", "s3_fallback"],
+)
+async def test_typed_dispatch_matches_strategy_handler(
+    command: ModelPlanReviewerMultiCommand,
+) -> None:
+    """The typed entry point returns exactly what the routed strategy handler merges."""
+    from omniintelligence.nodes.node_plan_reviewer_multi_compute.handlers.strategies.handler_independent_merge import (
+        HandlerIndependentMerge,
+    )
+    from omniintelligence.nodes.node_plan_reviewer_multi_compute.models.model_strategy_review_request import (
+        ModelStrategyReviewRequest,
+    )
+
+    callers = _make_callers([_make_finding()])
+    active = (
+        {m: callers[m] for m in command.model_ids if m in callers}
+        if command.model_ids is not None
+        else dict(callers)
+    )
+    expected = await HandlerIndependentMerge().handle(
+        ModelStrategyReviewRequest(
+            plan_text=command.plan_text,
+            categories=command.review_categories,
+            callers=active,
+            weights=dict.fromkeys(EnumReviewModel, 0.5),
+        )
+    )
+    actual = await HandlerPlanReviewerMultiCompute(callers).handle(command)
+
+    assert [(f.category, f.location, f.severity) for f in actual.findings] == [
+        (f.category, f.location, f.severity) for f in expected
+    ]
+    assert actual.findings_count == len(expected)
+    assert actual.models_used == list(active)
+    assert actual.run_id == command.run_id
