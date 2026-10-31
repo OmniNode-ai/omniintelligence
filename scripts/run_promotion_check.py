@@ -67,7 +67,7 @@ async def run_promotion(*, db_url: str, dry_run: bool) -> None:
     import asyncpg
 
     from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers import (
-        apply_transition,
+        HandlerTransition,
     )
     from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_auto_promote import (
         handle_auto_promote_check,
@@ -133,7 +133,7 @@ async def run_promotion(*, db_url: str, dry_run: bool) -> None:
         # Execute mode: actually promote
         result = await handle_auto_promote_check(
             repository=repository,
-            apply_transition_fn=apply_transition,
+            apply_transition_fn=HandlerTransition(repository).handle,
             idempotency_store=None,
             producer=None,  # type: ignore[arg-type]  # Kafka optional — DB-only transitions
             correlation_id=correlation_id,

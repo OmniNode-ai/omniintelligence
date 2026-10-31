@@ -29,8 +29,8 @@ class ModelCrawlSchedulerResult(BaseModel):
     """Result of processing a single crawl trigger through CrawlSchedulerEffect.
 
     Returned by both:
-      - ``schedule_crawl_tick()`` — scheduler tick handler
-      - ``handle_crawl_requested()`` — manual/external trigger handler
+      - ``HandlerCrawlTick`` — scheduler tick handler
+      - ``HandlerCrawlRequested`` — manual/external trigger handler
 
     The ``status`` field is the primary outcome discriminator.
     """

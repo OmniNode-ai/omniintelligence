@@ -26,7 +26,10 @@ import pytest
 
 from omniintelligence.enums import EnumPatternLifecycleStatus
 from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition import (
-    apply_transition,
+    HandlerTransition,
+)
+from omniintelligence.nodes.node_pattern_lifecycle_effect.models import (
+    ModelPatternLifecycleTransitionRequest,
 )
 
 pytestmark = pytest.mark.unit
@@ -160,17 +163,18 @@ class TestEvidenceTierGuardValidated:
             evidence_tier="observed",
         )
 
-        result = await apply_transition(
-            repository=repo,
-            idempotency_store=idempotency_store,
-            producer=None,
-            request_id=request_id,
-            correlation_id=correlation_id,
-            pattern_id=pattern_id,
-            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            to_status=EnumPatternLifecycleStatus.VALIDATED,
-            trigger="auto_promote",
-            transition_at=transition_at,
+        result = await HandlerTransition(
+            repository=repo, idempotency_store=idempotency_store, producer=None
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=request_id,
+                correlation_id=correlation_id,
+                pattern_id=pattern_id,
+                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                to_status=EnumPatternLifecycleStatus.VALIDATED,
+                trigger="auto_promote",
+                transition_at=transition_at,
+            )
         )
 
         assert result.success is False
@@ -193,17 +197,18 @@ class TestEvidenceTierGuardValidated:
             evidence_tier="measured",
         )
 
-        result = await apply_transition(
-            repository=repo,
-            idempotency_store=idempotency_store,
-            producer=None,
-            request_id=request_id,
-            correlation_id=correlation_id,
-            pattern_id=pattern_id,
-            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            to_status=EnumPatternLifecycleStatus.VALIDATED,
-            trigger="auto_promote",
-            transition_at=transition_at,
+        result = await HandlerTransition(
+            repository=repo, idempotency_store=idempotency_store, producer=None
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=request_id,
+                correlation_id=correlation_id,
+                pattern_id=pattern_id,
+                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                to_status=EnumPatternLifecycleStatus.VALIDATED,
+                trigger="auto_promote",
+                transition_at=transition_at,
+            )
         )
 
         assert result.success is True
@@ -224,17 +229,18 @@ class TestEvidenceTierGuardValidated:
             evidence_tier="verified",
         )
 
-        result = await apply_transition(
-            repository=repo,
-            idempotency_store=idempotency_store,
-            producer=None,
-            request_id=request_id,
-            correlation_id=correlation_id,
-            pattern_id=pattern_id,
-            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            to_status=EnumPatternLifecycleStatus.VALIDATED,
-            trigger="auto_promote",
-            transition_at=transition_at,
+        result = await HandlerTransition(
+            repository=repo, idempotency_store=idempotency_store, producer=None
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=request_id,
+                correlation_id=correlation_id,
+                pattern_id=pattern_id,
+                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                to_status=EnumPatternLifecycleStatus.VALIDATED,
+                trigger="auto_promote",
+                transition_at=transition_at,
+            )
         )
 
         assert result.success is True
@@ -255,17 +261,18 @@ class TestEvidenceTierGuardValidated:
             evidence_tier="unmeasured",
         )
 
-        result = await apply_transition(
-            repository=repo,
-            idempotency_store=idempotency_store,
-            producer=None,
-            request_id=request_id,
-            correlation_id=correlation_id,
-            pattern_id=pattern_id,
-            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            to_status=EnumPatternLifecycleStatus.VALIDATED,
-            trigger="auto_promote",
-            transition_at=transition_at,
+        result = await HandlerTransition(
+            repository=repo, idempotency_store=idempotency_store, producer=None
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=request_id,
+                correlation_id=correlation_id,
+                pattern_id=pattern_id,
+                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                to_status=EnumPatternLifecycleStatus.VALIDATED,
+                trigger="auto_promote",
+                transition_at=transition_at,
+            )
         )
 
         assert result.success is False
@@ -301,17 +308,18 @@ class TestEvidenceTierGuardProvisional:
             evidence_tier="observed",
         )
 
-        result = await apply_transition(
-            repository=repo,
-            idempotency_store=idempotency_store,
-            producer=None,
-            request_id=request_id,
-            correlation_id=correlation_id,
-            pattern_id=pattern_id,
-            from_status=EnumPatternLifecycleStatus.CANDIDATE,
-            to_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            trigger="auto_promote_evidence_gate",
-            transition_at=transition_at,
+        result = await HandlerTransition(
+            repository=repo, idempotency_store=idempotency_store, producer=None
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=request_id,
+                correlation_id=correlation_id,
+                pattern_id=pattern_id,
+                from_status=EnumPatternLifecycleStatus.CANDIDATE,
+                to_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                trigger="auto_promote_evidence_gate",
+                transition_at=transition_at,
+            )
         )
 
         assert result.success is True
@@ -332,17 +340,18 @@ class TestEvidenceTierGuardProvisional:
             evidence_tier="unmeasured",
         )
 
-        result = await apply_transition(
-            repository=repo,
-            idempotency_store=idempotency_store,
-            producer=None,
-            request_id=request_id,
-            correlation_id=correlation_id,
-            pattern_id=pattern_id,
-            from_status=EnumPatternLifecycleStatus.CANDIDATE,
-            to_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            trigger="auto_promote_evidence_gate",
-            transition_at=transition_at,
+        result = await HandlerTransition(
+            repository=repo, idempotency_store=idempotency_store, producer=None
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=request_id,
+                correlation_id=correlation_id,
+                pattern_id=pattern_id,
+                from_status=EnumPatternLifecycleStatus.CANDIDATE,
+                to_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                trigger="auto_promote_evidence_gate",
+                transition_at=transition_at,
+            )
         )
 
         assert result.success is False
@@ -364,17 +373,18 @@ class TestEvidenceTierGuardProvisional:
             evidence_tier="measured",
         )
 
-        result = await apply_transition(
-            repository=repo,
-            idempotency_store=idempotency_store,
-            producer=None,
-            request_id=request_id,
-            correlation_id=correlation_id,
-            pattern_id=pattern_id,
-            from_status=EnumPatternLifecycleStatus.VALIDATED,
-            to_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            trigger="manual_revert",
-            transition_at=transition_at,
+        result = await HandlerTransition(
+            repository=repo, idempotency_store=idempotency_store, producer=None
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=request_id,
+                correlation_id=correlation_id,
+                pattern_id=pattern_id,
+                from_status=EnumPatternLifecycleStatus.VALIDATED,
+                to_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                trigger="manual_revert",
+                transition_at=transition_at,
+            )
         )
 
         assert result.success is False
@@ -396,17 +406,18 @@ class TestEvidenceTierGuardProvisional:
             evidence_tier="",  # Empty string = null/unparseable
         )
 
-        result = await apply_transition(
-            repository=repo,
-            idempotency_store=idempotency_store,
-            producer=None,
-            request_id=request_id,
-            correlation_id=correlation_id,
-            pattern_id=pattern_id,
-            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            to_status=EnumPatternLifecycleStatus.VALIDATED,
-            trigger="auto_promote",
-            transition_at=transition_at,
+        result = await HandlerTransition(
+            repository=repo, idempotency_store=idempotency_store, producer=None
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=request_id,
+                correlation_id=correlation_id,
+                pattern_id=pattern_id,
+                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                to_status=EnumPatternLifecycleStatus.VALIDATED,
+                trigger="auto_promote",
+                transition_at=transition_at,
+            )
         )
 
         assert result.success is False
@@ -428,17 +439,18 @@ class TestEvidenceTierGuardProvisional:
             evidence_tier="garbage_value",
         )
 
-        result = await apply_transition(
-            repository=repo,
-            idempotency_store=idempotency_store,
-            producer=None,
-            request_id=request_id,
-            correlation_id=correlation_id,
-            pattern_id=pattern_id,
-            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            to_status=EnumPatternLifecycleStatus.VALIDATED,
-            trigger="auto_promote",
-            transition_at=transition_at,
+        result = await HandlerTransition(
+            repository=repo, idempotency_store=idempotency_store, producer=None
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=request_id,
+                correlation_id=correlation_id,
+                pattern_id=pattern_id,
+                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                to_status=EnumPatternLifecycleStatus.VALIDATED,
+                trigger="auto_promote",
+                transition_at=transition_at,
+            )
         )
 
         assert result.success is False
@@ -468,17 +480,18 @@ class TestNoEvidenceGateForDeprecated:
             evidence_tier="unmeasured",
         )
 
-        result = await apply_transition(
-            repository=repo,
-            idempotency_store=idempotency_store,
-            producer=None,
-            request_id=request_id,
-            correlation_id=correlation_id,
-            pattern_id=pattern_id,
-            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            to_status=EnumPatternLifecycleStatus.DEPRECATED,
-            trigger="manual_deprecation",
-            transition_at=transition_at,
+        result = await HandlerTransition(
+            repository=repo, idempotency_store=idempotency_store, producer=None
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=request_id,
+                correlation_id=correlation_id,
+                pattern_id=pattern_id,
+                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                to_status=EnumPatternLifecycleStatus.DEPRECATED,
+                trigger="manual_deprecation",
+                transition_at=transition_at,
+            )
         )
 
         assert result.success is True

@@ -951,7 +951,7 @@ class PluginIntelligence:
         Dispatchers registered:
             1. claude-hook-event → route_hook_event() with classifier + publisher
             2. session-outcome → record_session_outcome() with DB repository
-            3. pattern-lifecycle-transition → apply_transition() with DB + idempotency
+            3. pattern-lifecycle-transition → HandlerTransition.handle() with DB + idempotency
             4. pattern-storage → store_pattern() for pattern-learned + pattern.discovered
             5. pattern-learning-cmd → pattern extraction + Kafka publish
 

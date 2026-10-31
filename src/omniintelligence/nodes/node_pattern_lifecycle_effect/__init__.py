@@ -13,7 +13,7 @@ This is the ONLY code path that may update learned_patterns.status.
 Key Components:
     - NodePatternLifecycleEffect: Pure declarative effect node (thin shell)
     - ModelTransitionResult: Output for transition results
-    - apply_transition: Handler function for applying transitions
+    - HandlerTransition: Handler class for applying transitions
     - ProtocolPatternRepository: Interface for database operations
     - ProtocolIdempotencyStore: Interface for idempotency tracking
     - ProtocolKafkaPublisher: Interface for Kafka event publishing
@@ -31,8 +31,9 @@ Usage (Declarative Pattern):
     ```python
     from omnibase_core.models.container import ModelONEXContainer
     from omniintelligence.nodes.node_pattern_lifecycle_effect import (
+        HandlerTransition,
+        ModelPatternLifecycleTransitionRequest,
         NodePatternLifecycleEffect,
-        apply_transition,
         ModelTransitionResult,
     )
 
@@ -40,18 +41,22 @@ Usage (Declarative Pattern):
     container = ModelONEXContainer()
     node = NodePatternLifecycleEffect(container)
 
-    # Handlers are called directly with their dependencies
-    result = await apply_transition(
+    # Handlers are constructed with their dependencies, then called with a request
+    handler = HandlerTransition(
         repository=db_conn,
         idempotency_store=idempotency_impl,
         producer=kafka_producer,  # Optional, can be None
-        request_id=request_id,
-        correlation_id=correlation_id,
-        pattern_id=pattern_id,
-        from_status="provisional",
-        to_status="validated",
-        trigger="promote",
-        transition_at=datetime.now(UTC),
+    )
+    result = await handler.handle(
+        ModelPatternLifecycleTransitionRequest(
+            request_id=request_id,
+            correlation_id=correlation_id,
+            pattern_id=pattern_id,
+            from_status="provisional",
+            to_status="validated",
+            trigger="promote",
+            transition_at=datetime.now(UTC),
+        )
     )
 
     # For event-driven execution, use RuntimeHostProcess
@@ -64,11 +69,12 @@ Reference:
 """
 
 from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers import (
+    HandlerTransition,
     ProtocolIdempotencyStore,
-    apply_transition,
 )
 from omniintelligence.nodes.node_pattern_lifecycle_effect.models import (
     ModelPatternLifecycleTransitionedEvent,
+    ModelPatternLifecycleTransitionRequest,
     ModelTransitionResult,
 )
 from omniintelligence.nodes.node_pattern_lifecycle_effect.node import (
@@ -76,13 +82,14 @@ from omniintelligence.nodes.node_pattern_lifecycle_effect.node import (
 )
 
 __all__ = [
+    # Handler classes (for direct invocation)
+    "HandlerTransition",
     # Models
+    "ModelPatternLifecycleTransitionRequest",
     "ModelPatternLifecycleTransitionedEvent",
     "ModelTransitionResult",
     # Node
     "NodePatternLifecycleEffect",
     # Protocols
     "ProtocolIdempotencyStore",
-    # Handler functions (for direct invocation)
-    "apply_transition",
 ]

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 # Copyright (c) 2025 OmniNode Team
-"""Unit tests for handle_linear_crawl.
+"""Unit tests for HandlerLinearCrawl.
 
 Covers the requirements from OMN-2388:
 
@@ -40,7 +40,7 @@ import hashlib
 import pytest
 
 from omniintelligence.nodes.node_linear_crawler_effect.handlers.handler_linear_crawl import (
-    handle_linear_crawl,
+    HandlerLinearCrawl,
 )
 from omniintelligence.nodes.node_linear_crawler_effect.handlers.protocol_linear_state import (
     ModelLinearStateEntry,
@@ -81,11 +81,10 @@ async def test_new_issue_emits_discovered_event(
     """A new Linear issue emits document.discovered.v1."""
     linear_client.add_issue("OMN-1", "2026-01-01T00:00:00Z", "# Ticket 1\n\nContent")
 
-    result = await handle_linear_crawl(
-        ModelLinearCrawlInput(team_id=TEAM_ID, crawl_scope=SCOPE),
+    result = await HandlerLinearCrawl(
         linear_state=linear_state,
         linear_client=linear_client,
-    )
+    ).handle(ModelLinearCrawlInput(team_id=TEAM_ID, crawl_scope=SCOPE))
 
     assert len(result.discovered) == 1
     evt = result.discovered[0]
@@ -104,11 +103,10 @@ async def test_new_document_emits_discovered_event(
     """A new Linear document emits document.discovered.v1."""
     linear_client.add_document("doc-abc", "2026-01-15T00:00:00Z", "# Design Doc")
 
-    result = await handle_linear_crawl(
-        ModelLinearCrawlInput(team_id=TEAM_ID, crawl_scope=SCOPE),
+    result = await HandlerLinearCrawl(
         linear_state=linear_state,
         linear_client=linear_client,
-    )
+    ).handle(ModelLinearCrawlInput(team_id=TEAM_ID, crawl_scope=SCOPE))
 
     assert len(result.discovered) == 1
     evt = result.discovered[0]
@@ -141,11 +139,10 @@ async def test_unchanged_updated_at_skips_full_fetch(
         )
     )
 
-    result = await handle_linear_crawl(
-        ModelLinearCrawlInput(team_id=TEAM_ID, crawl_scope=SCOPE),
+    result = await HandlerLinearCrawl(
         linear_state=linear_state,
         linear_client=linear_client,
-    )
+    ).handle(ModelLinearCrawlInput(team_id=TEAM_ID, crawl_scope=SCOPE))
 
     assert result.skipped == 1
     assert result.discovered == []
@@ -177,11 +174,10 @@ async def test_changed_updated_at_triggers_full_fetch(
         )
     )
 
-    result = await handle_linear_crawl(
-        ModelLinearCrawlInput(team_id=TEAM_ID, crawl_scope=SCOPE),
+    result = await HandlerLinearCrawl(
         linear_state=linear_state,
         linear_client=linear_client,
-    )
+    ).handle(ModelLinearCrawlInput(team_id=TEAM_ID, crawl_scope=SCOPE))
 
     assert len(result.changed) == 1
     evt = result.changed[0]
@@ -220,11 +216,10 @@ async def test_metadata_only_update_emits_no_event(
         )
     )
 
-    result = await handle_linear_crawl(
-        ModelLinearCrawlInput(team_id=TEAM_ID, crawl_scope=SCOPE),
+    result = await HandlerLinearCrawl(
         linear_state=linear_state,
         linear_client=linear_client,
-    )
+    ).handle(ModelLinearCrawlInput(team_id=TEAM_ID, crawl_scope=SCOPE))
 
     assert result.discovered == []
     assert result.changed == []
@@ -255,11 +250,10 @@ async def test_removed_item_emits_removed_event(
         )
     )
 
-    result = await handle_linear_crawl(
-        ModelLinearCrawlInput(team_id=TEAM_ID, crawl_scope=SCOPE),
+    result = await HandlerLinearCrawl(
         linear_state=linear_state,
         linear_client=linear_client,
-    )
+    ).handle(ModelLinearCrawlInput(team_id=TEAM_ID, crawl_scope=SCOPE))
 
     assert len(result.removed) == 1
     evt = result.removed[0]
@@ -286,11 +280,10 @@ async def test_state_persisted_after_discovery(
     markdown = "# New Ticket"
     linear_client.add_issue("OMN-4", "2026-01-01T12:00:00Z", markdown)
 
-    await handle_linear_crawl(
-        ModelLinearCrawlInput(team_id=TEAM_ID, crawl_scope=SCOPE),
+    await HandlerLinearCrawl(
         linear_state=linear_state,
         linear_client=linear_client,
-    )
+    ).handle(ModelLinearCrawlInput(team_id=TEAM_ID, crawl_scope=SCOPE))
 
     entry = await linear_state.get_entry(SCOPE, "OMN-4")
     assert entry is not None
@@ -309,19 +302,17 @@ async def test_idempotent_recrawl_with_same_updated_at(
     linear_client.add_issue("OMN-5", updated_at, markdown)
 
     # First crawl
-    first = await handle_linear_crawl(
-        ModelLinearCrawlInput(team_id=TEAM_ID, crawl_scope=SCOPE),
+    first = await HandlerLinearCrawl(
         linear_state=linear_state,
         linear_client=linear_client,
-    )
+    ).handle(ModelLinearCrawlInput(team_id=TEAM_ID, crawl_scope=SCOPE))
     assert len(first.discovered) == 1
 
     # Second crawl with same data
-    second = await handle_linear_crawl(
-        ModelLinearCrawlInput(team_id=TEAM_ID, crawl_scope=SCOPE),
+    second = await HandlerLinearCrawl(
         linear_state=linear_state,
         linear_client=linear_client,
-    )
+    ).handle(ModelLinearCrawlInput(team_id=TEAM_ID, crawl_scope=SCOPE))
     assert second.discovered == []
     assert second.changed == []
     assert second.skipped == 1
@@ -342,11 +333,10 @@ async def test_list_issues_error_returns_early(
     """If list_issues raises, the handler returns early with an error."""
     linear_client.list_issues_error = RuntimeError("Linear API unavailable")
 
-    result = await handle_linear_crawl(
-        ModelLinearCrawlInput(team_id=TEAM_ID, crawl_scope=SCOPE),
+    result = await HandlerLinearCrawl(
         linear_state=linear_state,
         linear_client=linear_client,
-    )
+    ).handle(ModelLinearCrawlInput(team_id=TEAM_ID, crawl_scope=SCOPE))
 
     assert result.discovered == []
     assert result.changed == []
@@ -363,11 +353,10 @@ async def test_per_item_fetch_error_continues_others(
     linear_client.add_issue("OMN-OK", "2026-01-01T00:00:00Z", "# Works")
     linear_client.fetch_errors["OMN-FAIL"] = RuntimeError("rate limited")
 
-    result = await handle_linear_crawl(
-        ModelLinearCrawlInput(team_id=TEAM_ID, crawl_scope=SCOPE),
+    result = await HandlerLinearCrawl(
         linear_state=linear_state,
         linear_client=linear_client,
-    )
+    ).handle(ModelLinearCrawlInput(team_id=TEAM_ID, crawl_scope=SCOPE))
 
     # OMN-FAIL is in errors
     assert "OMN-FAIL" in result.errors
@@ -389,14 +378,15 @@ async def test_correlation_id_propagated_to_events(
     """correlation_id from input is propagated to all emitted events."""
     linear_client.add_issue("OMN-6", "2026-01-01T00:00:00Z", "# Content")
 
-    result = await handle_linear_crawl(
+    result = await HandlerLinearCrawl(
+        linear_state=linear_state,
+        linear_client=linear_client,
+    ).handle(
         ModelLinearCrawlInput(
             team_id=TEAM_ID,
             crawl_scope=SCOPE,
             correlation_id="test-corr-88",
-        ),
-        linear_state=linear_state,
-        linear_client=linear_client,
+        )
     )
 
     for evt in result.discovered:
@@ -417,11 +407,10 @@ async def test_issues_and_documents_processed_together(
     linear_client.add_issue("OMN-10", "2026-01-01T00:00:00Z", "# Issue 10")
     linear_client.add_document("doc-XYZ", "2026-01-01T00:00:00Z", "# Design Doc")
 
-    result = await handle_linear_crawl(
-        ModelLinearCrawlInput(team_id=TEAM_ID, crawl_scope=SCOPE),
+    result = await HandlerLinearCrawl(
         linear_state=linear_state,
         linear_client=linear_client,
-    )
+    ).handle(ModelLinearCrawlInput(team_id=TEAM_ID, crawl_scope=SCOPE))
 
     discovered_refs = {e.source_ref for e in result.discovered}
     assert discovered_refs == {"OMN-10", "doc-XYZ"}

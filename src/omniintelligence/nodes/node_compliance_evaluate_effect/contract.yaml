@@ -47,8 +47,8 @@ handler_routing:
   handlers:
     - operation: "evaluate_compliance"
       handler:
-        function: "handle_compliance_evaluate_command"
-        module: "omniintelligence.nodes.node_compliance_evaluate_effect.handlers"
+        class: "HandlerComplianceEvaluate"
+        module: "omniintelligence.nodes.node_compliance_evaluate_effect.handlers.handler_compliance_evaluate"
         type: "async"
 
 # =============================================================================

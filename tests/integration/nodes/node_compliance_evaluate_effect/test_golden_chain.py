@@ -4,7 +4,7 @@
 """Golden chain test for node_compliance_evaluate_effect.
 
 Verifies the full event flow:
-  compliance-evaluate command -> handle_compliance_evaluate_command ->
+  compliance-evaluate command -> HandlerComplianceEvaluate.handle ->
   compliance-evaluated output event on EventBusInmemory
 
 Uses a mock LLM client (no real inference) and EventBusInmemory (no real Kafka).
@@ -25,7 +25,7 @@ from omnibase_infra.event_bus.event_bus_inmemory import EventBusInmemory
 from omnibase_infra.models import ModelNodeIdentity
 
 from omniintelligence.nodes.node_compliance_evaluate_effect.handlers.handler_compliance_evaluate import (
-    handle_compliance_evaluate_command,
+    HandlerComplianceEvaluate,
 )
 from omniintelligence.nodes.node_compliance_evaluate_effect.models import (
     ModelApplicablePatternPayload,
@@ -118,14 +118,9 @@ class TestComplianceEvaluateGoldenChain:
             command = _make_command()
 
             # Execute handler (llm_client=None -> graceful degradation)
-            event: ModelComplianceEvaluatedEvent = (
-                await handle_compliance_evaluate_command(
-                    command,
-                    llm_client=None,
-                    kafka_producer=adapter,
-                    publish_topic=PUBLISH_TOPIC,
-                )
-            )
+            event: ModelComplianceEvaluatedEvent = await HandlerComplianceEvaluate(
+                llm_client=None, kafka_producer=adapter, publish_topic=PUBLISH_TOPIC
+            ).handle(command)
 
             # Handler publishes directly via kafka_producer, so event
             # should already be on the bus.
@@ -145,11 +140,9 @@ class TestComplianceEvaluateGoldenChain:
         """Verify handler output carries all expected fields."""
         command = _make_command()
 
-        event = await handle_compliance_evaluate_command(
-            command,
-            llm_client=None,
-            kafka_producer=None,
-        )
+        event = await HandlerComplianceEvaluate(
+            llm_client=None, kafka_producer=None
+        ).handle(command)
 
         assert isinstance(event, ModelComplianceEvaluatedEvent)
         assert event.event_type == "ComplianceEvaluated"

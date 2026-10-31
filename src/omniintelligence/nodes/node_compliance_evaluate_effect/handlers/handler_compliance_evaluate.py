@@ -81,206 +81,223 @@ DLQ_TOPIC: Final[str] = f"{PUBLISH_TOPIC}.dlq"
 STATUS_EVALUATION_FAILED: Final[str] = "evaluation_failed"
 
 
-async def handle_compliance_evaluate_command(
-    command: ModelComplianceEvaluateCommand,
-    *,
-    llm_client: ProtocolLlmClient | None,
-    model: str = DEFAULT_MODEL,
-    kafka_producer: ProtocolKafkaPublisher | None = None,
-    publish_topic: str = PUBLISH_TOPIC,
-) -> ModelComplianceEvaluatedEvent:
-    """Handle a compliance-evaluate command from Kafka.
+class HandlerComplianceEvaluate:
+    """Handler for compliance-evaluate commands from Kafka.
 
-    Orchestrates the full workflow:
-    1. Map command payload to ModelComplianceRequest (OMN-2256 format)
-    2. Call handle_evaluate_compliance() with the injected llm_client
-    3. Map result to ModelComplianceEvaluatedEvent
-    4. Publish the event to Kafka (if kafka_producer available)
-    5. Route failures to DLQ (if kafka_producer available)
-
-    Error Handling:
-        All errors from handle_evaluate_compliance() are already captured
-        as structured output (success=False, appropriate status). This
-        handler only routes failures to DLQ and logs them.
+    Collaborators (LLM client, model id, Kafka producer, publish topic) are
+    injected through the constructor; the command is the request.
 
     Args:
-        command: Deserialized Kafka command payload.
         llm_client: LLM client for Coder-14B inference. When None,
             handle_evaluate_compliance() returns a structured llm_error
             result; no exception is raised.
         model: Model identifier (default: Coder-14B).
         kafka_producer: Optional Kafka producer for event emission.
         publish_topic: Full publish topic (from contract, default: PUBLISH_TOPIC).
-
-    Returns:
-        ModelComplianceEvaluatedEvent with evaluation results.
-        Always returns a valid event, even on errors.
     """
-    start_time = time.perf_counter()
-    cid = command.correlation_id
 
-    # Sanitize source_path once up front so all log calls (including early-return
-    # branches) use the safe form and never emit an unsanitized path.
-    sanitizer = get_log_sanitizer()
-    safe_source_path: str = sanitizer.sanitize(command.source_path)
+    def __init__(
+        self,
+        *,
+        llm_client: ProtocolLlmClient | None,
+        model: str = DEFAULT_MODEL,
+        kafka_producer: ProtocolKafkaPublisher | None = None,
+        publish_topic: str = PUBLISH_TOPIC,
+    ) -> None:
+        self._llm_client = llm_client
+        self._model = model
+        self._kafka_producer = kafka_producer
+        self._publish_topic = publish_topic
 
-    # Validate that content_sha256 matches the actual SHA-256 of content.
-    # A mismatch means the caller sent a stale or incorrect hash, which would
-    # cause incorrect idempotency deduplication at the dispatch layer.
-    computed_sha256 = hashlib.sha256(command.content.encode()).hexdigest()
-    if computed_sha256 != command.content_sha256:
-        logger.warning(
-            "content_sha256 mismatch: declared=%s, computed=%s, "
-            "source_path=%s, correlation_id=%s",
-            command.content_sha256,
-            computed_sha256,
+    async def handle(
+        self, request: ModelComplianceEvaluateCommand
+    ) -> ModelComplianceEvaluatedEvent:
+        """Handle a compliance-evaluate command from Kafka.
+
+        Orchestrates the full workflow:
+        1. Map command payload to ModelComplianceRequest (OMN-2256 format)
+        2. Call handle_evaluate_compliance() with the injected llm_client
+        3. Map result to ModelComplianceEvaluatedEvent
+        4. Publish the event to Kafka (if kafka_producer available)
+        5. Route failures to DLQ (if kafka_producer available)
+
+        Error Handling:
+            All errors from handle_evaluate_compliance() are already captured
+            as structured output (success=False, appropriate status). This
+            handler only routes failures to DLQ and logs them.
+
+        Args:
+            request: Deserialized Kafka command payload.
+
+        Returns:
+            ModelComplianceEvaluatedEvent with evaluation results.
+            Always returns a valid event, even on errors.
+        """
+        start_time = time.perf_counter()
+        cid = request.correlation_id
+
+        # Sanitize source_path once up front so all log calls (including early-return
+        # branches) use the safe form and never emit an unsanitized path.
+        sanitizer = get_log_sanitizer()
+        safe_source_path: str = sanitizer.sanitize(request.source_path)
+
+        # Validate that content_sha256 matches the actual SHA-256 of content.
+        # A mismatch means the caller sent a stale or incorrect hash, which would
+        # cause incorrect idempotency deduplication at the dispatch layer.
+        computed_sha256 = hashlib.sha256(request.content.encode()).hexdigest()
+        if computed_sha256 != request.content_sha256:
+            logger.warning(
+                "content_sha256 mismatch: declared=%s, computed=%s, "
+                "source_path=%s, correlation_id=%s",
+                request.content_sha256,
+                computed_sha256,
+                safe_source_path,
+                cid,
+            )
+            elapsed_ms = (time.perf_counter() - start_time) * 1000
+            error_event = ModelComplianceEvaluatedEvent(
+                event_type="ComplianceEvaluated",
+                correlation_id=cid,
+                source_path=safe_source_path,
+                content_sha256=request.content_sha256,
+                language=request.language,
+                success=False,
+                compliant=False,
+                violations=[],
+                confidence=0.0,
+                patterns_checked=len(request.applicable_patterns),
+                model_used=None,
+                status="validation_error",
+                processing_time_ms=elapsed_ms,
+                evaluated_at=datetime.now(UTC).isoformat(),
+                session_id=request.session_id,
+            )
+            # Route to DLQ so operators can inspect and replay tampered/stale messages.
+            # Mirrors the DLQ routing in _publish_event() for Kafka publish failures.
+            if self._kafka_producer is not None:
+                await _route_to_dlq(
+                    producer=self._kafka_producer,
+                    correlation_id=cid,
+                    source_path=safe_source_path,
+                    error_message=(
+                        f"content_sha256 mismatch: declared={request.content_sha256}, "
+                        f"computed={computed_sha256}"
+                    ),
+                    original_topic=self._publish_topic,
+                    original_envelope=request.model_dump(mode="json"),
+                    retry_count=0,
+                )
+            return error_event
+
+        logger.info(
+            "Processing compliance-evaluate command. "
+            "source_path=%s, language=%s, patterns=%d, correlation_id=%s",
             safe_source_path,
+            request.language,
+            len(request.applicable_patterns),
             cid,
         )
-        elapsed_ms = (time.perf_counter() - start_time) * 1000
-        error_event = ModelComplianceEvaluatedEvent(
+
+        # 1. Map payload patterns to ModelApplicablePattern (OMN-2256 format).
+        applicable_patterns = [
+            ModelApplicablePattern(
+                pattern_id=p.pattern_id,
+                pattern_signature=p.pattern_signature,
+                domain_id=p.domain_id,
+                confidence=p.confidence,
+            )
+            for p in request.applicable_patterns
+        ]
+
+        # 2. Build the compliance request.
+        compliance_request = ModelComplianceRequest(
+            correlation_id=cid,
+            source_path=safe_source_path,
+            content=request.content,
+            language=request.language,
+            applicable_patterns=applicable_patterns,
+        )
+
+        # 3. Call the leaf handler (all error handling is inside).
+        # Pass kafka_producer=None so the leaf handler does not attempt its own
+        # DLQ routing to its own DLQ topic.  The outer handler (_publish_event /
+        # _route_to_dlq) owns all DLQ routing for this node's topic boundary.
+        # Forwarding kafka_producer to the leaf would cause dual DLQ publishes on
+        # error paths, and the leaf's DLQ payload omits the content_sha256
+        # idempotency fields required by node_compliance_evaluate_effect.
+        result = await handle_evaluate_compliance(
+            compliance_request,
+            llm_client=self._llm_client,
+            model=self._model,
+            correlation_id=cid,
+            kafka_producer=None,
+        )
+
+        evaluated_at = datetime.now(UTC).isoformat()
+        processing_time_ms = (
+            time.perf_counter() - start_time
+        ) * 1000  # excludes Kafka publish latency
+
+        # 4. Map result violations to event payload format.
+        violations = [
+            ModelComplianceViolationPayload(
+                pattern_id=v.pattern_id,
+                pattern_signature=v.pattern_signature,
+                description=v.description,
+                severity=v.severity,
+                line_reference=v.line_reference,
+            )
+            for v in result.violations
+        ]
+
+        # 5. Build the output event.
+        # Use safe_source_path (sanitized at function entry) so the in-memory
+        # event object never carries an unsanitized path value.
+        metadata = result.metadata
+        event = ModelComplianceEvaluatedEvent(
             event_type="ComplianceEvaluated",
             correlation_id=cid,
             source_path=safe_source_path,
-            content_sha256=command.content_sha256,
-            language=command.language,
-            success=False,
-            compliant=False,
-            violations=[],
-            confidence=0.0,
-            patterns_checked=len(command.applicable_patterns),
-            model_used=None,
-            status="validation_error",
-            processing_time_ms=elapsed_ms,
-            evaluated_at=datetime.now(UTC).isoformat(),
-            session_id=command.session_id,
+            content_sha256=request.content_sha256,
+            language=request.language,
+            success=result.success,
+            compliant=result.compliant,
+            violations=violations,
+            confidence=result.confidence,
+            patterns_checked=metadata.patterns_checked
+            if metadata is not None
+            else len(applicable_patterns),
+            model_used=metadata.model_used if metadata is not None else self._model,
+            status=metadata.status
+            if metadata is not None and metadata.status is not None
+            else ("completed" if result.success else STATUS_EVALUATION_FAILED),
+            processing_time_ms=processing_time_ms,
+            evaluated_at=evaluated_at,
+            session_id=request.session_id,
         )
-        # Route to DLQ so operators can inspect and replay tampered/stale messages.
-        # Mirrors the DLQ routing in _publish_event() for Kafka publish failures.
-        if kafka_producer is not None:
-            await _route_to_dlq(
-                producer=kafka_producer,
-                correlation_id=cid,
-                source_path=safe_source_path,
-                error_message=(
-                    f"content_sha256 mismatch: declared={command.content_sha256}, "
-                    f"computed={computed_sha256}"
-                ),
-                original_topic=publish_topic,
-                original_envelope=command.model_dump(mode="json"),
-                retry_count=0,
+
+        # 6. Publish event to Kafka (if producer available).
+        if self._kafka_producer is not None:
+            await _publish_event(
+                event=event,
+                producer=self._kafka_producer,
+                publish_topic=self._publish_topic,
             )
-        return error_event
 
-    logger.info(
-        "Processing compliance-evaluate command. "
-        "source_path=%s, language=%s, patterns=%d, correlation_id=%s",
-        safe_source_path,
-        command.language,
-        len(command.applicable_patterns),
-        cid,
-    )
-
-    # 1. Map payload patterns to ModelApplicablePattern (OMN-2256 format).
-    applicable_patterns = [
-        ModelApplicablePattern(
-            pattern_id=p.pattern_id,
-            pattern_signature=p.pattern_signature,
-            domain_id=p.domain_id,
-            confidence=p.confidence,
-        )
-        for p in command.applicable_patterns
-    ]
-
-    # 2. Build the compliance request.
-    request = ModelComplianceRequest(
-        correlation_id=cid,
-        source_path=safe_source_path,
-        content=command.content,
-        language=command.language,
-        applicable_patterns=applicable_patterns,
-    )
-
-    # 3. Call the leaf handler (all error handling is inside).
-    # Pass kafka_producer=None so the leaf handler does not attempt its own
-    # DLQ routing to its own DLQ topic.  The outer handler (_publish_event /
-    # _route_to_dlq) owns all DLQ routing for this node's topic boundary.
-    # Forwarding kafka_producer to the leaf would cause dual DLQ publishes on
-    # error paths, and the leaf's DLQ payload omits the content_sha256
-    # idempotency fields required by node_compliance_evaluate_effect.
-    result = await handle_evaluate_compliance(
-        request,
-        llm_client=llm_client,
-        model=model,
-        correlation_id=cid,
-        kafka_producer=None,
-    )
-
-    evaluated_at = datetime.now(UTC).isoformat()
-    processing_time_ms = (
-        time.perf_counter() - start_time
-    ) * 1000  # excludes Kafka publish latency
-
-    # 4. Map result violations to event payload format.
-    violations = [
-        ModelComplianceViolationPayload(
-            pattern_id=v.pattern_id,
-            pattern_signature=v.pattern_signature,
-            description=v.description,
-            severity=v.severity,
-            line_reference=v.line_reference,
-        )
-        for v in result.violations
-    ]
-
-    # 5. Build the output event.
-    # Use safe_source_path (sanitized at function entry) so the in-memory
-    # event object never carries an unsanitized path value.
-    metadata = result.metadata
-    event = ModelComplianceEvaluatedEvent(
-        event_type="ComplianceEvaluated",
-        correlation_id=cid,
-        source_path=safe_source_path,
-        content_sha256=command.content_sha256,
-        language=command.language,
-        success=result.success,
-        compliant=result.compliant,
-        violations=violations,
-        confidence=result.confidence,
-        patterns_checked=metadata.patterns_checked
-        if metadata is not None
-        else len(applicable_patterns),
-        model_used=metadata.model_used if metadata is not None else model,
-        status=metadata.status
-        if metadata is not None and metadata.status is not None
-        else ("completed" if result.success else STATUS_EVALUATION_FAILED),
-        processing_time_ms=processing_time_ms,
-        evaluated_at=evaluated_at,
-        session_id=command.session_id,
-    )
-
-    # 6. Publish event to Kafka (if producer available).
-    if kafka_producer is not None:
-        await _publish_event(
-            event=event,
-            producer=kafka_producer,
-            publish_topic=publish_topic,
+        logger.info(
+            "Compliance evaluate command handled. "
+            "source_path=%s, success=%s, compliant=%s, violations=%d, "
+            "confidence=%.2f, processing_time_ms=%.2f, correlation_id=%s",
+            safe_source_path,
+            result.success,
+            result.compliant,
+            len(violations),
+            result.confidence,
+            (processing_time_ms or 0.0),
+            cid,
         )
 
-    logger.info(
-        "Compliance evaluate command handled. "
-        "source_path=%s, success=%s, compliant=%s, violations=%d, "
-        "confidence=%.2f, processing_time_ms=%.2f, correlation_id=%s",
-        safe_source_path,
-        result.success,
-        result.compliant,
-        len(violations),
-        result.confidence,
-        (processing_time_ms or 0.0),
-        cid,
-    )
-
-    return event
+        return event
 
 
 async def _publish_event(
@@ -423,5 +440,5 @@ __all__ = [
     "DLQ_TOPIC",
     "PUBLISH_TOPIC",
     "STATUS_EVALUATION_FAILED",
-    "handle_compliance_evaluate_command",
+    "HandlerComplianceEvaluate",
 ]

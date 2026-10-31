@@ -19,7 +19,7 @@ All handler routing is 100% driven by contract.yaml, not Python code.
 
 Handler Routing Pattern:
     1. Receive transition intent (input_model in contract)
-    2. Route to apply_transition handler (handler_routing)
+    2. Route to HandlerTransition.handle (handler_routing)
     3. Execute infrastructure I/O via handler (PostgreSQL update + audit)
     4. Return structured response (output_model in contract)
 
@@ -39,7 +39,7 @@ The actual handler execution and routing is performed by:
     - Or RuntimeHostProcess for workflow coordination
 
 Handlers receive their dependencies directly via constructor injection:
-    - apply_transition(repository, idempotency_store, producer, ...)
+    - HandlerTransition(repository=..., idempotency_store=..., producer=...)
 
 Related Modules:
     - contract.yaml: Handler routing and I/O model definitions
@@ -64,11 +64,11 @@ class NodePatternLifecycleEffect(NodeEffect):
 
     Supported Operations (defined in contract.yaml handler_routing):
         - apply_transition: Apply pattern status transition with idempotency,
-          status guard, and atomic audit trail
+          status guard, and atomic audit trail (HandlerTransition.handle)
 
     Dependency Injection:
         Handlers are invoked by callers with their dependencies
-        (repository, idempotency_store, producer). This node contains NO
+        (repository, idempotency_store, producer) via HandlerTransition. This node contains NO
         instance variables for handlers or registries.
 
     Example:
@@ -76,7 +76,8 @@ class NodePatternLifecycleEffect(NodeEffect):
         from omnibase_core.models.container import ModelONEXContainer
         from omniintelligence.nodes.node_pattern_lifecycle_effect import (
             NodePatternLifecycleEffect,
-            apply_transition,
+            HandlerTransition,
+            ModelPatternLifecycleTransitionRequest,
             ModelTransitionResult,
         )
 
@@ -85,17 +86,21 @@ class NodePatternLifecycleEffect(NodeEffect):
         effect = NodePatternLifecycleEffect(container)
 
         # Handlers are invoked directly with their dependencies
-        result = await apply_transition(
+        handler = HandlerTransition(
             repository=db_conn,
             idempotency_store=idempotency_impl,
             producer=kafka_producer,  # Optional, can be None
-            request_id=request_id,
-            correlation_id=correlation_id,
-            pattern_id=pattern_id,
-            from_status="provisional",
-            to_status="validated",
-            trigger="promote",
-            transition_at=datetime.now(UTC),
+        )
+        result = await handler.handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=request_id,
+                correlation_id=correlation_id,
+                pattern_id=pattern_id,
+                from_status="provisional",
+                to_status="validated",
+                trigger="promote",
+                transition_at=datetime.now(UTC),
+            )
         )
 
         # Or use RuntimeHostProcess for event-driven execution

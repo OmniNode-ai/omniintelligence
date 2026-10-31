@@ -12,8 +12,11 @@ from uuid import uuid4
 import pytest
 
 from omniintelligence.nodes.node_debug_fix_record_effect.handlers.handler_fix_record import (
+    HandlerFixRecord,
     _detect_regression_test_added,
-    handle_fix_record,
+)
+from omniintelligence.nodes.node_debug_fix_record_effect.models.model_fix_record_request import (
+    ModelFixRecordRequest,
 )
 
 
@@ -29,13 +32,14 @@ async def test_fix_record_atomic_transaction() -> None:
     store.try_mark_trigger_resolved.return_value = True  # won the race
     store.insert_fix_record.return_value = {"id": str(uuid4())}
 
-    await handle_fix_record(
-        repo="r",
-        branch="b",
-        sha="fix-sha",
-        pr_number=42,
-        changed_files=["src/foo.py"],
-        store=store,
+    await HandlerFixRecord(store=store).handle(
+        ModelFixRecordRequest(
+            repo="r",
+            branch="b",
+            sha="fix-sha",
+            pr_number=42,
+            changed_files=["src/foo.py"],
+        )
     )
 
     # Both must be called: insert fix, then mark resolved
@@ -52,13 +56,14 @@ async def test_race_lost_fix_record_not_returned() -> None:
     fix_id = str(uuid4())
     store.insert_fix_record.return_value = {"id": fix_id}
 
-    result = await handle_fix_record(
-        repo="r",
-        branch="b",
-        sha="fix-sha",
-        pr_number=None,
-        changed_files=[],
-        store=store,
+    result = await HandlerFixRecord(store=store).handle(
+        ModelFixRecordRequest(
+            repo="r",
+            branch="b",
+            sha="fix-sha",
+            pr_number=None,
+            changed_files=[],
+        )
     )
 
     # Race-lost result must be marked as orphaned (not returned as success)
@@ -71,8 +76,10 @@ async def test_no_open_trigger_record_is_noop() -> None:
     store = AsyncMock()
     store.find_open_trigger_record.return_value = None
 
-    result = await handle_fix_record(
-        repo="r", branch="b", sha="sha", pr_number=None, changed_files=[], store=store
+    result = await HandlerFixRecord(store=store).handle(
+        ModelFixRecordRequest(
+            repo="r", branch="b", sha="sha", pr_number=None, changed_files=[]
+        )
     )
 
     store.insert_fix_record.assert_not_called()

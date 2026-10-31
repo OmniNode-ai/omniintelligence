@@ -4,7 +4,7 @@
 
 ``create_intelligence_dispatch_engine`` is the entry point ``PluginIntelligence``
 uses, so these tests send the event through ``engine.dispatch`` on the topic
-alias rather than calling ``process_routing_feedback`` directly.
+alias rather than calling ``HandlerRoutingFeedback`` directly.
 """
 
 from __future__ import annotations

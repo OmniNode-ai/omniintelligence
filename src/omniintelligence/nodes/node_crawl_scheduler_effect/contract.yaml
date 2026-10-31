@@ -61,7 +61,7 @@ handler_routing:
     # Periodic scheduler tick — emits crawl-tick.v1 for configured sources
     - operation: "schedule_crawl_tick"
       handler:
-        function: "schedule_crawl_tick"
+        class: "HandlerCrawlTick"
         module: "omniintelligence.nodes.node_crawl_scheduler_effect.handlers.handler_crawl_scheduler"
         type: "async"
       description: >
@@ -81,7 +81,7 @@ handler_routing:
     # Manual / external trigger from crawl-requested.v1
     - operation: "handle_crawl_requested"
       handler:
-        function: "handle_crawl_requested"
+        class: "HandlerCrawlRequested"
         module: "omniintelligence.nodes.node_crawl_scheduler_effect.handlers.handler_crawl_scheduler"
         type: "async"
       description: >
@@ -102,7 +102,7 @@ handler_routing:
     # Debounce reset on crawl completion
     - operation: "handle_document_indexed"
       handler:
-        function: "handle_document_indexed"
+        class: "HandlerDocumentIndexed"
         module: "omniintelligence.nodes.node_crawl_scheduler_effect.handlers.handler_crawl_scheduler"
         type: "sync"
       description: >
@@ -118,8 +118,7 @@ io_operations:
       - crawl_type
       - crawl_scope
       - source_ref
-      - debounce_state
-      - config
+      - now
     output_fields:
       - status
       - crawl_type
@@ -272,7 +271,7 @@ error_handling:
     debounce entry for the (source_ref, crawler_type) key BEFORE attempting the publish.  This is intentional:
     callers who retry after receiving ERROR within the active debounce window will receive status=DEBOUNCED
     rather than a burst of additional ERROR results.  The debounce entry is NOT cleared on error — it
-    will expire naturally via the configured window, or be reset by a document-indexed.v1 event via handle_document_indexed().
+    will expire naturally via the configured window, or be reset by a document-indexed.v1 event via HandlerDocumentIndexed.
 
   error_types:
     - name: "KafkaPublishError"

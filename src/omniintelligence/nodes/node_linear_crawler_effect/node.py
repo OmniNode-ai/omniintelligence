@@ -47,21 +47,26 @@ class NodeLinearCrawlerEffect(NodeEffect):
         - crawl_linear: Fetch Linear issues/docs and emit document lifecycle events
 
     Dependency Injection:
-        The ``handle_linear_crawl`` handler accepts a ``ProtocolLinearStateStore``
-        instance and a ``ProtocolLinearClient`` instance. These are resolved
-        by the caller or RuntimeHostProcess.
+        The ``HandlerLinearCrawl`` handler class accepts a ``ProtocolLinearStateStore``
+        instance and a ``ProtocolLinearClient`` instance as keyword-only
+        constructor arguments. These are resolved by the caller or
+        RuntimeHostProcess.
 
     Example:
         ```python
         from omniintelligence.nodes.node_linear_crawler_effect import (
             NodeLinearCrawlerEffect,
-            handle_linear_crawl,
+        )
+        from omniintelligence.nodes.node_linear_crawler_effect.handlers import (
+            HandlerLinearCrawl,
         )
 
-        result = await handle_linear_crawl(
-            ModelLinearCrawlInput(team_id="omninode", crawl_scope="omninode/shared"),
+        handler = HandlerLinearCrawl(
             linear_state=my_state_store,
             linear_client=my_linear_client,
+        )
+        result = await handler.handle(
+            ModelLinearCrawlInput(team_id="omninode", crawl_scope="omninode/shared"),
         )
         ```
     """

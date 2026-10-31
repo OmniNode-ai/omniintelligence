@@ -59,7 +59,7 @@ handler_routing:
   handlers:
     - operation: "apply_transition"
       handler:
-        function: "apply_transition"
+        class: "HandlerTransition"
         module: "omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition"
         type: "async"
         description: "Apply pattern status transition with idempotency, status guard, and atomic audit"

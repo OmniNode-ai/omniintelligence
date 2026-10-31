@@ -1202,7 +1202,7 @@ def create_pattern_lifecycle_dispatch_handler(
 
     Returns an async handler function compatible with MessageDispatchEngine's
     handler signature. The handler extracts the payload from the envelope,
-    maps it to transition parameters, and delegates to apply_transition().
+    maps it to a transition request, and delegates to HandlerTransition.handle().
 
     Args:
         repository: REQUIRED database repository for pattern state management.
@@ -1219,10 +1219,11 @@ def create_pattern_lifecycle_dispatch_handler(
         envelope: ModelEventEnvelope[object],
         context: ProtocolHandlerContext,
     ) -> str:
-        """Bridge handler: envelope -> apply_transition()."""
+        """Bridge handler: envelope -> HandlerTransition.handle()."""
         from omniintelligence.enums import EnumPatternLifecycleStatus
-        from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers import (
-            apply_transition,
+        from omniintelligence.nodes.node_pattern_lifecycle_effect import (
+            HandlerTransition,
+            ModelPatternLifecycleTransitionRequest,
         )
 
         ctx_correlation_id = (
@@ -1346,28 +1347,30 @@ def create_pattern_lifecycle_dispatch_handler(
             ctx_correlation_id,
         )
 
-        result = await apply_transition(
-            repository=repository,
-            idempotency_store=idempotency_store,
-            producer=kafka_producer,
-            request_id=request_id,
-            correlation_id=ctx_correlation_id,
-            pattern_id=pattern_id,
-            from_status=from_status,
-            to_status=to_status,
-            trigger=trigger,
-            actor=str(payload.get("actor", "dispatch")),
-            reason=str(_reason)
-            if (_reason := payload.get("reason")) is not None
-            else None,
-            # gate_snapshot contract: apply_transition accepts
-            # ModelGateSnapshot | dict[str, object] | None.  Payload
-            # deserialization always yields dict | None here.
-            gate_snapshot=_gate
-            if isinstance((_gate := payload.get("gate_snapshot")), dict)
-            else None,
-            transition_at=transition_at,
-            publish_topic=publish_topic if kafka_producer else None,
+        transition_handler = HandlerTransition(
+            repository, idempotency_store, kafka_producer
+        )
+        result = await transition_handler.handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=request_id,
+                correlation_id=ctx_correlation_id,
+                pattern_id=pattern_id,
+                from_status=from_status,
+                to_status=to_status,
+                trigger=trigger,
+                actor=str(payload.get("actor", "dispatch")),
+                reason=str(_reason)
+                if (_reason := payload.get("reason")) is not None
+                else None,
+                # gate_snapshot contract: the request accepts
+                # ModelGateSnapshot | dict[str, object] | None.  Payload
+                # deserialization always yields dict | None here.
+                gate_snapshot=_gate
+                if isinstance((_gate := payload.get("gate_snapshot")), dict)
+                else None,
+                transition_at=transition_at,
+                publish_topic=publish_topic if kafka_producer else None,
+            )
         )
 
         logger.info(
@@ -1699,7 +1702,7 @@ def create_compliance_evaluate_dispatch_handler(
     """Create a dispatch engine handler for compliance-evaluate commands.
 
     Deserializes the Kafka payload into ModelComplianceEvaluateCommand,
-    delegates to handle_compliance_evaluate_command(), and returns "ok".
+    delegates to HandlerComplianceEvaluate.handle(), and returns "ok".
 
     Args:
         llm_client: Optional LLM client (ProtocolLlmClient) for Coder-14B inference.
@@ -1727,10 +1730,10 @@ def create_compliance_evaluate_dispatch_handler(
         envelope: ModelEventEnvelope[object],
         context: ProtocolHandlerContext,
     ) -> str:
-        """Bridge handler: envelope -> handle_compliance_evaluate_command()."""
+        """Bridge handler: envelope -> HandlerComplianceEvaluate.handle()."""
         # Deferred import to avoid circular dependency at module load time.
         from omniintelligence.nodes.node_compliance_evaluate_effect.handlers import (
-            handle_compliance_evaluate_command,
+            HandlerComplianceEvaluate,
         )
         from omniintelligence.nodes.node_compliance_evaluate_effect.models import (
             ModelComplianceEvaluateCommand,
@@ -1775,7 +1778,7 @@ def create_compliance_evaluate_dispatch_handler(
         # NOTE: This path does not route to DLQ; the leaf-level guard in
         # _execute_compliance handles DLQ routing on direct calls.
         # Duplicates leaf-level error event shape intentionally — the dispatch layer
-        # short-circuits before calling handle_compliance_evaluate_command to avoid
+        # short-circuits before calling HandlerComplianceEvaluate.handle to avoid
         # the LLM call overhead. Update both sites if the error response schema changes.
         safe_source_path = get_log_sanitizer().sanitize(command.source_path)
         if llm_client is None:
@@ -1816,12 +1819,11 @@ def create_compliance_evaluate_dispatch_handler(
                 ctx_correlation_id,
             )
 
-            result = await handle_compliance_evaluate_command(
-                command,
+            result = await HandlerComplianceEvaluate(
                 llm_client=llm_client,
                 kafka_producer=kafka_producer,
                 publish_topic=publish_topic or _FALLBACK_TOPIC_COMPLIANCE_EVALUATED,
-            )
+            ).handle(command)
 
         logger.info(
             "Compliance-evaluate command processed via dispatch engine "
@@ -2502,7 +2504,7 @@ def create_dispatch_outcome_record_dispatch_handler(
     """Create a dispatch handler for dispatch-outcome-evaluated events.
 
     Deserializes the payload, constructs a ModelDispatchEvalResult, and calls
-    record_dispatch_outcome() to write the row into dispatch_eval_results.
+    HandlerDispatchOutcome.handle() to write the row into dispatch_eval_results.
 
     Args:
         repository: REQUIRED database repository for dispatch_eval_results writes.
@@ -2524,7 +2526,7 @@ def create_dispatch_outcome_record_dispatch_handler(
         )
 
         from omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_dispatch_outcome import (
-            record_dispatch_outcome,
+            HandlerDispatchOutcome,
         )
 
         ctx_correlation_id = (
@@ -2627,10 +2629,7 @@ def create_dispatch_outcome_record_dispatch_handler(
             ctx_correlation_id,
         )
 
-        result = await record_dispatch_outcome(
-            eval_result,
-            repository=repository,
-        )
+        result = await HandlerDispatchOutcome(repository=repository).handle(eval_result)
 
         logger.info(
             "Dispatch outcome recorded "
@@ -2937,7 +2936,7 @@ def create_intelligence_dispatch_engine(
             message_category=EnumMessageCategory.COMMAND,
             handler_id="intelligence-pattern-lifecycle-handler",
             description=(
-                "Routes pattern-lifecycle-transition commands to apply_transition handler."
+                "Routes pattern-lifecycle-transition commands to HandlerTransition.handle."
             ),
         )
     )
@@ -3037,7 +3036,7 @@ def create_intelligence_dispatch_engine(
             message_category=EnumMessageCategory.COMMAND,
             handler_id="intelligence-compliance-evaluate-handler",
             description=(
-                "Routes compliance-evaluate commands to handle_compliance_evaluate_command "
+                "Routes compliance-evaluate commands to HandlerComplianceEvaluate "
                 "(OMN-2339). Calls Coder-14B via handle_evaluate_compliance() and emits "
                 "compliance-evaluated events."
             ),
@@ -3153,7 +3152,7 @@ def create_intelligence_dispatch_engine(
             message_category=EnumMessageCategory.COMMAND,
             handler_id="intelligence-crawl-requested-handler",
             description=(
-                "Routes crawl-requested commands to handle_crawl_requested() "
+                "Routes crawl-requested commands to HandlerCrawlRequested "
                 "(OMN-2384). Applies per-source debounce guard before emitting "
                 "crawl-tick.v1."
             ),
@@ -3177,7 +3176,7 @@ def create_intelligence_dispatch_engine(
             message_category=EnumMessageCategory.EVENT,
             handler_id="intelligence-document-indexed-handler",
             description=(
-                "Routes document-indexed events to handle_document_indexed() "
+                "Routes document-indexed events to HandlerDocumentIndexed "
                 "(OMN-2384). Resets the per-source debounce window after a "
                 "successful crawl completion."
             ),

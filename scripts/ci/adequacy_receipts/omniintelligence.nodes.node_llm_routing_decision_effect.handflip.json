@@ -1,0 +1,29 @@
+{
+  "base_ref": "978c2645",
+  "canonical_handler_module": "omniintelligence.nodes.node_llm_routing_decision_effect.handlers.handler_llm_routing_decision",
+  "legacy_handler_module": "omniintelligence.nodes.node_llm_routing_decision_effect.handlers.handler_llm_routing_decision",
+  "node_id": "omniintelligence.nodes.node_llm_routing_decision_effect",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:9e585fa04ad268a220ac4775c129e72d981da1696d4b7d137057b81f0c156bc6",
+      "sha256:0d03f5d46d4f21f2497d27bad1e856faab0c72b9784c46a519facbdf4be3a39e",
+      "sha256:86a94733743bb2b5ec7e37950f0e445c0564bc59b59403331a37e7627187b598",
+      "sha256:75eae740733b6dbdae9dcd6b0a49c4aa517320f1c332222ac6dbc213c97c4b81",
+      "sha256:31285d1f570a0ad167a28ad84cb7f5071e1f084fa361e899db77ce9d1a06c27c",
+      "sha256:d9d868399a50b31af8beb7564e4d8be5779162d560ef35210bd44991072c0eaf"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "src/omniintelligence/nodes/node_llm_routing_decision_effect/node_tests/test_handler_llm_routing_decision.py::TestHappyPath::test_success_result_on_valid_event",
+      "src/omniintelligence/nodes/node_llm_routing_decision_effect/node_tests/test_handler_llm_routing_decision.py::TestHappyPath::test_fallback_event_is_processed",
+      "src/omniintelligence/nodes/node_llm_routing_decision_effect/node_tests/test_handler_llm_routing_decision.py::TestIdempotency::test_second_delivery_returns_success",
+      "src/omniintelligence/nodes/node_llm_routing_decision_effect/node_tests/test_handler_llm_routing_decision.py::TestKafkaPublishFailure::test_db_upsert_succeeds_when_kafka_fails",
+      "src/omniintelligence/nodes/node_llm_routing_decision_effect/node_tests/test_handler_llm_routing_decision.py::TestDatabaseError::test_db_error_returns_error_status",
+      "src/omniintelligence/nodes/node_llm_routing_decision_effect/node_tests/test_handler_llm_routing_decision.py::TestModelValidation::test_event_model_is_frozen"
+    ]
+  },
+  "preserved_symbols": [
+    "_route_to_dlq"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

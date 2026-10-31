@@ -58,7 +58,7 @@ async def test_full_promotion_lifecycle_bootstrap_candidate() -> None:
         None,  # no latest run result
     ]
 
-    # Mock apply_transition_fn
+    # Mock apply_transition_fn (bound HandlerTransition.handle)
     mock_transition_result = MagicMock()
     mock_transition_result.success = True
     mock_transition_result.duplicate = False
@@ -83,13 +83,13 @@ async def test_full_promotion_lifecycle_bootstrap_candidate() -> None:
     assert result["provisionals_checked"] == 0
     assert result["provisionals_promoted"] == 0
 
-    # Verify apply_transition was called with correct transition
+    # Verify the transition handler was called with correct transition
     assert mock_apply_transition.called
-    call_kwargs = mock_apply_transition.call_args.kwargs
-    assert call_kwargs["pattern_id"] == pattern_id
-    assert call_kwargs["from_status"] == EnumPatternLifecycleStatus.CANDIDATE
-    assert call_kwargs["to_status"] == EnumPatternLifecycleStatus.PROVISIONAL
-    assert "Bootstrap-promoted" in call_kwargs["reason"]
+    request = mock_apply_transition.call_args.args[0]
+    assert request.pattern_id == pattern_id
+    assert request.from_status == EnumPatternLifecycleStatus.CANDIDATE
+    assert request.to_status == EnumPatternLifecycleStatus.PROVISIONAL
+    assert "Bootstrap-promoted" in request.reason
 
 
 @pytest.mark.integration
@@ -184,5 +184,5 @@ async def test_full_promotion_lifecycle_normal_metric_path() -> None:
     assert result["candidates_checked"] == 1
     assert result["candidates_promoted"] == 1
     assert mock_apply_transition.called
-    call_kwargs = mock_apply_transition.call_args.kwargs
-    assert "Auto-promoted" in call_kwargs["reason"]
+    request = mock_apply_transition.call_args.args[0]
+    assert "Auto-promoted" in request.reason

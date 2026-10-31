@@ -1,0 +1,30 @@
+{
+  "base_ref": "978c2645",
+  "canonical_handler_module": "omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition",
+  "legacy_handler_module": "omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition",
+  "node_id": "omniintelligence.nodes.node_pattern_lifecycle_effect",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:7dcd8555c93302b6ea52690719bfc4ef789aa46181309b705989e1ba65663597",
+      "sha256:acf4341cf3eec6d59126f4a043ba0977098aa0550ee897f27205574f2e05abc6",
+      "sha256:4633bf1865d449fa33da5c6476a92ed9b81f9a8c5d5eff978d9d0209e0352b1e",
+      "sha256:b0358a07600ed846fb46c29d20e9e419044734faa9f536e94fb71e4e85b502de",
+      "sha256:0602e874f203120cd25871d7b6ba4607654414d72b8cea1525e9c227e599177b",
+      "sha256:1fdebed1865dd976e7fa80bb71acca458eef9786e61b120c91a125135416b9b3"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "src/omniintelligence/nodes/node_pattern_lifecycle_effect/node_tests/test_handler_transition.py::TestSuccessfulTransitions::test_successful_transition_provisional_to_validated",
+      "src/omniintelligence/nodes/node_pattern_lifecycle_effect/node_tests/test_handler_transition.py::TestIdempotency::test_new_request_id_is_recorded_in_idempotency_store",
+      "src/omniintelligence/nodes/node_pattern_lifecycle_effect/node_tests/test_handler_transition.py::TestProvisionalGuard::test_provisional_target_rejected_with_enum",
+      "src/omniintelligence/nodes/node_pattern_lifecycle_effect/node_tests/test_handler_transition.py::TestKafkaEvents::test_kafka_event_emitted_on_success",
+      "src/omniintelligence/nodes/node_pattern_lifecycle_effect/node_tests/test_handler_transition.py::TestParseUpdateCount::test_parses_insert_status",
+      "src/omniintelligence/nodes/node_pattern_lifecycle_effect/node_tests/test_handler_transition.py::TestProtocolCompliance::test_mock_idempotency_store_is_protocol_compliant"
+    ]
+  },
+  "preserved_symbols": [
+    "_emit_transition_event",
+    "_send_to_dlq"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

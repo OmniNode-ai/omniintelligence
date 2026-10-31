@@ -24,7 +24,10 @@ import yaml
 from omniintelligence.enums import EnumPatternLifecycleStatus
 from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition import (
     SQL_UPDATE_PATTERN_STATUS,
-    apply_transition,
+    HandlerTransition,
+)
+from omniintelligence.nodes.node_pattern_lifecycle_effect.models import (
+    ModelPatternLifecycleTransitionRequest,
 )
 
 # =============================================================================
@@ -107,17 +110,18 @@ class TestLifecycleTransitionIsCurrentFix:
             evidence_tier="observed",
         )
 
-        result = await apply_transition(
-            repository=repo,
-            idempotency_store=MockIdempotencyStore(),
-            producer=None,
-            request_id=uuid4(),
-            correlation_id=uuid4(),
-            pattern_id=pattern_id,
-            from_status=EnumPatternLifecycleStatus.CANDIDATE,
-            to_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            trigger="auto_promote",
-            transition_at=datetime(2026, 4, 2, 12, 0, 0, tzinfo=UTC),
+        result = await HandlerTransition(
+            repository=repo, idempotency_store=MockIdempotencyStore(), producer=None
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=uuid4(),
+                correlation_id=uuid4(),
+                pattern_id=pattern_id,
+                from_status=EnumPatternLifecycleStatus.CANDIDATE,
+                to_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                trigger="auto_promote",
+                transition_at=datetime(2026, 4, 2, 12, 0, 0, tzinfo=UTC),
+            )
         )
 
         assert result.success is True
@@ -144,17 +148,18 @@ class TestLifecycleTransitionIsCurrentFix:
             evidence_tier="measured",
         )
 
-        result = await apply_transition(
-            repository=repo,
-            idempotency_store=MockIdempotencyStore(),
-            producer=None,
-            request_id=uuid4(),
-            correlation_id=uuid4(),
-            pattern_id=pattern_id,
-            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            to_status=EnumPatternLifecycleStatus.VALIDATED,
-            trigger="promote",
-            transition_at=datetime(2026, 4, 2, 12, 0, 0, tzinfo=UTC),
+        result = await HandlerTransition(
+            repository=repo, idempotency_store=MockIdempotencyStore(), producer=None
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=uuid4(),
+                correlation_id=uuid4(),
+                pattern_id=pattern_id,
+                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                to_status=EnumPatternLifecycleStatus.VALIDATED,
+                trigger="promote",
+                transition_at=datetime(2026, 4, 2, 12, 0, 0, tzinfo=UTC),
+            )
         )
 
         assert result.success is True

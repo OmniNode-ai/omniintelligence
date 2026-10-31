@@ -9,7 +9,7 @@ Tests cover:
 - Evidence tier gate: PROVISIONAL->VALIDATED with MEASURED -> accepted
 - Metrics gates: insufficient injection count -> skipped
 - Failure streak gate: too many failures -> skipped
-- Mock apply_transition integration
+- Mock HandlerTransition.handle integration
 - Empty candidate/provisional sets
 
 Reference: OMN-2133
@@ -25,6 +25,10 @@ from uuid import UUID, uuid4
 import pytest
 
 from omniintelligence.enums import EnumPatternLifecycleStatus
+from omniintelligence.models.domain import ModelGateSnapshot
+from omniintelligence.nodes.node_pattern_lifecycle_effect.models import (
+    ModelPatternLifecycleTransitionRequest,
+)
 from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_auto_promote import (
     MAX_FAILURE_STREAK,
     MIN_SUCCESS_RATE,
@@ -53,7 +57,7 @@ class MockRecord(dict):
 
 @dataclass
 class MockTransitionResult:
-    """Mock result from apply_transition."""
+    """Mock result from HandlerTransition.handle."""
 
     success: bool = True
     duplicate: bool = False
@@ -343,7 +347,7 @@ class TestCheckAndAutoPromote:
         repo = MockPatternRepository()
 
         async def mock_apply_transition(
-            *_args: Any, **_kwargs: Any
+            _request: ModelPatternLifecycleTransitionRequest,
         ) -> MockTransitionResult:
             raise AssertionError("Should not be called")
 
@@ -378,16 +382,15 @@ class TestCheckAndAutoPromote:
         )
         repo.candidate_patterns = [pattern]
 
-        transition_calls: list[dict[str, Any]] = []
+        transition_calls: list[ModelPatternLifecycleTransitionRequest] = []
 
         async def mock_apply_transition(
-            *_args: Any,
-            **kwargs: Any,
+            request: ModelPatternLifecycleTransitionRequest,
         ) -> MockTransitionResult:
-            transition_calls.append(kwargs)
+            transition_calls.append(request)
             return MockTransitionResult(
                 success=True,
-                pattern_id=kwargs["pattern_id"],
+                pattern_id=request.pattern_id,
                 from_status="candidate",
                 to_status="provisional",
             )
@@ -403,14 +406,10 @@ class TestCheckAndAutoPromote:
         assert result["candidates_checked"] == 1
         assert result["candidates_promoted"] == 1
         assert len(transition_calls) == 1
-        assert transition_calls[0]["trigger"] == "auto_promote_evidence_gate"
-        assert (
-            transition_calls[0]["from_status"] == EnumPatternLifecycleStatus.CANDIDATE
-        )
-        assert (
-            transition_calls[0]["to_status"] == EnumPatternLifecycleStatus.PROVISIONAL
-        )
-        assert transition_calls[0]["pattern_id"] == pattern["id"]
+        assert transition_calls[0].trigger == "auto_promote_evidence_gate"
+        assert transition_calls[0].from_status == EnumPatternLifecycleStatus.CANDIDATE
+        assert transition_calls[0].to_status == EnumPatternLifecycleStatus.PROVISIONAL
+        assert transition_calls[0].pattern_id == pattern["id"]
 
     @pytest.mark.asyncio
     async def test_provisional_promoted_to_validated(
@@ -429,16 +428,15 @@ class TestCheckAndAutoPromote:
         )
         repo.provisional_patterns = [pattern]
 
-        transition_calls: list[dict[str, Any]] = []
+        transition_calls: list[ModelPatternLifecycleTransitionRequest] = []
 
         async def mock_apply_transition(
-            *_args: Any,
-            **kwargs: Any,
+            request: ModelPatternLifecycleTransitionRequest,
         ) -> MockTransitionResult:
-            transition_calls.append(kwargs)
+            transition_calls.append(request)
             return MockTransitionResult(
                 success=True,
-                pattern_id=kwargs["pattern_id"],
+                pattern_id=request.pattern_id,
                 from_status="provisional",
                 to_status="validated",
             )
@@ -472,8 +470,7 @@ class TestCheckAndAutoPromote:
         repo.candidate_patterns = [pattern]
 
         async def mock_apply_transition(
-            *_args: Any,
-            **_kwargs: Any,
+            _request: ModelPatternLifecycleTransitionRequest,
         ) -> MockTransitionResult:
             raise AssertionError("Should not be called")
 
@@ -503,8 +500,7 @@ class TestCheckAndAutoPromote:
         call_count = 0
 
         async def mock_apply_transition(
-            *_args: Any,
-            **kwargs: Any,
+            request: ModelPatternLifecycleTransitionRequest,
         ) -> MockTransitionResult:
             nonlocal call_count
             call_count += 1
@@ -512,7 +508,7 @@ class TestCheckAndAutoPromote:
                 raise RuntimeError("DB connection lost")
             return MockTransitionResult(
                 success=True,
-                pattern_id=kwargs["pattern_id"],
+                pattern_id=request.pattern_id,
             )
 
         result = await handle_auto_promote_check(
@@ -544,12 +540,11 @@ class TestCheckAndAutoPromote:
         ]
 
         async def mock_apply_transition(
-            *_args: Any,
-            **kwargs: Any,
+            request: ModelPatternLifecycleTransitionRequest,
         ) -> MockTransitionResult:
             return MockTransitionResult(
                 success=True,
-                pattern_id=kwargs["pattern_id"],
+                pattern_id=request.pattern_id,
             )
 
         result = await handle_auto_promote_check(
@@ -600,16 +595,16 @@ class TestGateSnapshotEnrichment:
         captured_gate_snapshots: list[dict[str, Any]] = []
 
         async def mock_apply_transition(
-            *_args: Any,
-            **kwargs: Any,
+            request: ModelPatternLifecycleTransitionRequest,
         ) -> MockTransitionResult:
-            # Capture the gate_snapshot passed to apply_transition
-            if "gate_snapshot" in kwargs:
-                snapshot = kwargs["gate_snapshot"]
+            # Capture the gate_snapshot passed to the transition handler
+            snapshot = request.gate_snapshot
+            if snapshot is not None:
+                assert isinstance(snapshot, ModelGateSnapshot)
                 captured_gate_snapshots.append(snapshot.model_dump(mode="json"))
             return MockTransitionResult(
                 success=True,
-                pattern_id=kwargs["pattern_id"],
+                pattern_id=request.pattern_id,
             )
 
         result = await handle_auto_promote_check(
@@ -629,7 +624,7 @@ class TestGateSnapshotEnrichment:
         assert gate["latest_run_result"] == "success"
         assert gate["evidence_tier"] == "observed"
 
-        # Also verify what was passed to apply_transition
+        # Also verify what was passed to the transition handler
         assert len(captured_gate_snapshots) == 1
         assert captured_gate_snapshots[0]["measured_attribution_count"] == 7
         assert captured_gate_snapshots[0]["latest_run_result"] == "success"
@@ -652,12 +647,11 @@ class TestGateSnapshotEnrichment:
         repo.candidate_patterns = [pattern]
 
         async def mock_apply_transition(
-            *_args: Any,
-            **kwargs: Any,
+            request: ModelPatternLifecycleTransitionRequest,
         ) -> MockTransitionResult:
             return MockTransitionResult(
                 success=True,
-                pattern_id=kwargs["pattern_id"],
+                pattern_id=request.pattern_id,
             )
 
         result = await handle_auto_promote_check(

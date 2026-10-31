@@ -43,7 +43,7 @@ def create_routing_feedback_dispatch_handler(
 ) -> Any:  # any-ok: dispatch handler callable
     """Create a dispatch handler for routing feedback events.
 
-    Delegates to ``process_routing_feedback`` from
+    Delegates to ``HandlerRoutingFeedback.handle`` from
     ``node_routing_feedback_effect``. Filters on ``feedback_status``:
     - ``"produced"``: upserts to routing_feedback_scores, publishes processed event
     - ``"skipped"``: logs skip_reason, no DB write
@@ -62,7 +62,7 @@ def create_routing_feedback_dispatch_handler(
         context: Any,  # any-ok: ProtocolHandlerContext
     ) -> str:
         from omniintelligence.nodes.node_routing_feedback_effect.handlers.handler_routing_feedback import (
-            process_routing_feedback,
+            HandlerRoutingFeedback,
         )
         from omniintelligence.nodes.node_routing_feedback_effect.models import (
             ModelRoutingFeedbackPayload,
@@ -86,11 +86,10 @@ def create_routing_feedback_dispatch_handler(
             },
         )
 
-        result = await process_routing_feedback(
-            event=event,
+        result = await HandlerRoutingFeedback(
             repository=repository,
             kafka_publisher=kafka_producer,
-        )
+        ).handle(event)
 
         logger.info(
             "Routing feedback processed via dispatch",

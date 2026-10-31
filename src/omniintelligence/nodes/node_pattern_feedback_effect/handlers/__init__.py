@@ -53,7 +53,7 @@ from omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_attrib
 )
 from omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_dispatch_outcome import (
     SQL_UPSERT_DISPATCH_EVAL_RESULT,
-    record_dispatch_outcome,
+    HandlerDispatchOutcome,
 )
 from omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_session_outcome import (
     ROLLING_WINDOW_SIZE,
@@ -77,6 +77,7 @@ __all__ = [
     "ROLLING_WINDOW_SIZE",
     "SQL_UPSERT_DISPATCH_EVAL_RESULT",
     "ContributionWeights",
+    "HandlerDispatchOutcome",
     "apply_heuristic",
     "handle_attribution_binding",
     "compute_and_store_heuristics",
@@ -85,7 +86,6 @@ __all__ = [
     "compute_first_match",
     "compute_recency_weighted",
     "event_to_handler_args",
-    "record_dispatch_outcome",
     "record_session_outcome",
     "update_effectiveness_scores",
     "update_pattern_rolling_metrics",

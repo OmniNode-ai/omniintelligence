@@ -60,7 +60,7 @@ handler_routing:
   handlers:
     - operation: "process_llm_routing_decision"
       handler:
-        function: "process_llm_routing_decision"
+        class: "HandlerLlmRoutingDecision"
         module: "omniintelligence.nodes.node_llm_routing_decision_effect.handlers.handler_llm_routing_decision"
         type: "async"
       description: "Consume LLM routing decision event, upsert to llm_routing_decisions, publish processed

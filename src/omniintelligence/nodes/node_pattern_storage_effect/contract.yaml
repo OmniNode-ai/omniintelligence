@@ -117,7 +117,8 @@ handler_routing:
     # Consume discovered pattern - ingest from external discovery event
     - operation: "consume_discovered_pattern"
       handler:
-        function: "handle_consume_discovered"
+        class: "HandlerConsumeDiscovered"
+        function: "handle"
         module: "omniintelligence.nodes.node_pattern_storage_effect.handlers.handler_consume_discovered"
         type: "async"
       description: "Consume a pattern.discovered event from external systems and store it"

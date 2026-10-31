@@ -123,100 +123,118 @@ def _map_discovered_to_storage_input(
     )
 
 
-async def handle_consume_discovered(
-    event: ModelPatternDiscoveredEvent,
-    *,
-    pattern_store: ProtocolPatternStore,
-    conn: AsyncConnection,
-) -> StorePatternResult:
-    """Consume a pattern.discovered event and persist it via handle_store_pattern.
+class HandlerConsumeDiscovered:
+    """Consumes ``pattern.discovered`` events and persists them via handle_store_pattern.
 
-    Thin mapping layer between the external discovery
-    event schema and the internal pattern storage pipeline. All governance,
-    idempotency, and version management is delegated to handle_store_pattern.
+    Thin mapping layer between the external discovery event schema and the
+    internal pattern storage pipeline. All governance, idempotency, and
+    version management is delegated to handle_store_pattern.
 
-    The returned StorePatternResult contains both success and failure paths:
-    - On success: result.success is True and result.event holds the stored event.
-    - On governance rejection: result.success is False and
-      result.governance_violations holds the violation details.
-
-    Callers MUST check result.success before accessing result.event.
+    The request passed to :meth:`handle` is the ``ModelPatternDiscoveredEvent``
+    itself. Both collaborators are constructor arguments: ``pattern_store`` and
+    ``conn``. The connection is a runtime resource (not request data) that is
+    only forwarded to handle_store_pattern for interface compatibility
+    (``AdapterPatternStore`` ignores it), so it is held privately rather than
+    modelled in a request type; construct one handler per connection/transaction.
 
     Args:
-        event: The pattern discovery event from an external system.
         pattern_store: Pattern store implementing ProtocolPatternStore.
         conn: Database connection for transaction control.
-
-    Returns:
-        StorePatternResult with success/failure information. On success,
-        result.event is set. On governance rejection, result.governance_violations
-        and result.error_message are set.
-
-    Raises:
-        Exception: Database errors from ProtocolPatternStore operations
-            (e.g., connection failures, constraint violations) propagate
-            uncaught from handle_store_pattern.
     """
-    logger.info(
-        "Consuming pattern.discovered event",
-        extra={
-            "discovery_id": str(event.discovery_id),
-            "domain": event.domain,
-            "signature_hash": event.signature_hash,
-            "source_system": event.source_system,
-            "source_session_id": str(event.source_session_id),
-            "confidence": event.confidence,
-            "correlation_id": str(event.correlation_id),
-        },
-    )
 
-    # Map discovered event to storage input
-    storage_input = _map_discovered_to_storage_input(event)
+    def __init__(
+        self,
+        *,
+        pattern_store: ProtocolPatternStore,
+        conn: AsyncConnection,
+    ) -> None:
+        self._pattern_store = pattern_store
+        self._conn = conn
 
-    # Delegate to existing store handler (handles governance, idempotency, versioning)
-    store_result: StorePatternResult = await handle_store_pattern(
-        storage_input,
-        pattern_store=pattern_store,
-        conn=conn,
-    )
+    async def handle(self, request: ModelPatternDiscoveredEvent) -> StorePatternResult:
+        """Consume a pattern.discovered event and persist it.
 
-    if not store_result.success:
+        The returned StorePatternResult contains both success and failure paths:
+        - On success: result.success is True and result.event holds the stored event.
+        - On governance rejection: result.success is False and
+          result.governance_violations holds the violation details.
+
+        Callers MUST check result.success before accessing result.event.
+
+        Args:
+            request: The pattern discovery event from an external system.
+
+        Returns:
+            StorePatternResult with success/failure information. On success,
+            result.event is set. On governance rejection,
+            result.governance_violations and result.error_message are set.
+
+        Raises:
+            Exception: Database errors from ProtocolPatternStore operations
+                (e.g., connection failures, constraint violations) propagate
+                uncaught from handle_store_pattern.
+        """
+        event = request
         logger.info(
-            "Pattern.discovered event rejected by governance",
+            "Consuming pattern.discovered event",
             extra={
                 "discovery_id": str(event.discovery_id),
-                "error": store_result.error_message,
-                "violations": [
-                    v.rule for v in (store_result.governance_violations or [])
-                ],
+                "domain": event.domain,
+                "signature_hash": event.signature_hash,
+                "source_system": event.source_system,
+                "source_session_id": str(event.source_session_id),
+                "confidence": event.confidence,
                 "correlation_id": str(event.correlation_id),
             },
         )
-        return store_result
 
-    # Invariant: success=True implies event is set. Use explicit check
-    # instead of assert so it is not stripped by Python -O.
-    if store_result.event is None:
-        raise RuntimeError(
-            "Invariant violation: store_result.event must not be None "
-            "after successful store (discovery_id="
-            f"{event.discovery_id})"
+        # Map discovered event to storage input
+        storage_input = _map_discovered_to_storage_input(event)
+
+        # Delegate to existing store handler (handles governance, idempotency, versioning)
+        store_result: StorePatternResult = await handle_store_pattern(
+            storage_input,
+            pattern_store=self._pattern_store,
+            conn=self._conn,
         )
 
-    logger.info(
-        "Pattern.discovered event consumed and stored",
-        extra={
-            "discovery_id": str(event.discovery_id),
-            "pattern_id": str(store_result.event.pattern_id),
-            "domain": store_result.event.domain,
-            "version": store_result.event.version,
-            "correlation_id": str(event.correlation_id),
-        },
-    )
+        if not store_result.success:
+            logger.info(
+                "Pattern.discovered event rejected by governance",
+                extra={
+                    "discovery_id": str(event.discovery_id),
+                    "error": store_result.error_message,
+                    "violations": [
+                        v.rule for v in (store_result.governance_violations or [])
+                    ],
+                    "correlation_id": str(event.correlation_id),
+                },
+            )
+            return store_result
 
-    return store_result
+        # Invariant: success=True implies event is set. Use explicit check
+        # instead of assert so it is not stripped by Python -O.
+        if store_result.event is None:
+            raise RuntimeError(
+                "Invariant violation: store_result.event must not be None "
+                "after successful store (discovery_id="
+                f"{event.discovery_id})"
+            )
+
+        logger.info(
+            "Pattern.discovered event consumed and stored",
+            extra={
+                "discovery_id": str(event.discovery_id),
+                "pattern_id": str(store_result.event.pattern_id),
+                "domain": store_result.event.domain,
+                "version": store_result.event.version,
+                "correlation_id": str(event.correlation_id),
+            },
+        )
+
+        return store_result
 
 
 __all__ = [
-    "handle_consume_discovered",
+    "HandlerConsumeDiscovered",
 ]

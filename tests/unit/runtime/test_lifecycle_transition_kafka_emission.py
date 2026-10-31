@@ -4,7 +4,7 @@
 """Unit test for lifecycle transition Kafka emission wiring.
 
 Verifies that the lifecycle dispatch handler passes kafka_producer and
-publish_topic through to apply_transition(), ensuring that lifecycle
+publish_topic through to HandlerTransition, ensuring that lifecycle
 transition events reach Kafka.
 
 Reference: OMN-6808 Task 5
@@ -25,10 +25,10 @@ from omniintelligence.runtime.dispatch_handlers import (
 @pytest.mark.unit
 @pytest.mark.asyncio
 class TestLifecycleTransitionKafkaEmission:
-    """Verify lifecycle handler passes producer to apply_transition."""
+    """Verify lifecycle handler passes producer to HandlerTransition."""
 
-    async def test_producer_passed_to_apply_transition(self) -> None:
-        """Handler passes kafka_producer and publish_topic to apply_transition."""
+    async def test_producer_passed_to_handler_transition(self) -> None:
+        """Handler passes kafka_producer to HandlerTransition and publish_topic to the request."""
         mock_producer = AsyncMock()
         mock_repository = AsyncMock()
         mock_idempotency = AsyncMock()
@@ -62,22 +62,22 @@ class TestLifecycleTransitionKafkaEmission:
         mock_result.duplicate = False
 
         with patch(
-            "omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.apply_transition",
-            new_callable=AsyncMock,
-            return_value=mock_result,
-        ) as mock_apply:
+            "omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.HandlerTransition",
+        ) as mock_handler_cls:
+            mock_handler_cls.return_value.handle = AsyncMock(return_value=mock_result)
             await handler(envelope, context)
 
-            mock_apply.assert_called_once()
-            call_kwargs = mock_apply.call_args.kwargs
+            mock_handler_cls.assert_called_once()
+            assert mock_handler_cls.call_args.kwargs["producer"] is mock_producer
+            mock_handler_cls.return_value.handle.assert_called_once()
+            request = mock_handler_cls.return_value.handle.call_args.args[0]
 
-            assert call_kwargs["producer"] is mock_producer
-            assert call_kwargs["publish_topic"] == publish_topic
-            assert call_kwargs["pattern_id"] == pattern_id
-            assert call_kwargs["request_id"] == request_id
+            assert request.publish_topic == publish_topic
+            assert request.pattern_id == pattern_id
+            assert request.request_id == request_id
 
-    async def test_producer_none_still_calls_apply_transition(self) -> None:
-        """When producer is None, handler still calls apply_transition (graceful)."""
+    async def test_producer_none_still_calls_handler_transition(self) -> None:
+        """When producer is None, handler still calls HandlerTransition.handle (graceful)."""
         mock_repository = AsyncMock()
         mock_idempotency = AsyncMock()
 
@@ -105,13 +105,13 @@ class TestLifecycleTransitionKafkaEmission:
         mock_result.duplicate = False
 
         with patch(
-            "omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.apply_transition",
-            new_callable=AsyncMock,
-            return_value=mock_result,
-        ) as mock_apply:
+            "omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.HandlerTransition",
+        ) as mock_handler_cls:
+            mock_handler_cls.return_value.handle = AsyncMock(return_value=mock_result)
             await handler(envelope, context)
 
-            mock_apply.assert_called_once()
-            call_kwargs = mock_apply.call_args.kwargs
-            assert call_kwargs["producer"] is None
-            assert call_kwargs["publish_topic"] is None
+            mock_handler_cls.assert_called_once()
+            assert mock_handler_cls.call_args.kwargs["producer"] is None
+            mock_handler_cls.return_value.handle.assert_called_once()
+            request = mock_handler_cls.return_value.handle.call_args.args[0]
+            assert request.publish_topic is None

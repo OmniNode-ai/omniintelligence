@@ -192,7 +192,10 @@ class RegistryPatternLifecycleEffect:
         """
         # Import here to avoid circular imports
         from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition import (
-            apply_transition,
+            HandlerTransition,
+        )
+        from omniintelligence.nodes.node_pattern_lifecycle_effect.models import (
+            ModelPatternLifecycleTransitionRequest,
         )
 
         # Validate dependencies (fail-fast)
@@ -209,25 +212,30 @@ class RegistryPatternLifecycleEffect:
             )
 
         # Create handler with bound dependencies
+        transition_handler = HandlerTransition(
+            repository=repository,
+            idempotency_store=idempotency_store,
+            producer=producer,
+        )
+
         async def bound_apply_transition(
             intent: ModelPayloadUpdatePatternStatus,
         ) -> ModelTransitionResult:
             """Handler with repository, idempotency_store, and producer bound."""
-            return await apply_transition(
-                repository=repository,
-                idempotency_store=idempotency_store,
-                producer=producer,
-                request_id=intent.request_id,
-                correlation_id=intent.correlation_id,
-                pattern_id=intent.pattern_id,
-                from_status=intent.from_status,
-                to_status=intent.to_status,
-                trigger=intent.trigger,
-                actor=intent.actor,
-                reason=intent.reason,
-                gate_snapshot=intent.gate_snapshot,
-                transition_at=intent.transition_at,
-                publish_topic=publish_topic,
+            return await transition_handler.handle(
+                ModelPatternLifecycleTransitionRequest(
+                    request_id=intent.request_id,
+                    correlation_id=intent.correlation_id,
+                    pattern_id=intent.pattern_id,
+                    from_status=intent.from_status,
+                    to_status=intent.to_status,
+                    trigger=intent.trigger,
+                    actor=intent.actor,
+                    reason=intent.reason,
+                    gate_snapshot=intent.gate_snapshot,
+                    transition_at=intent.transition_at,
+                    publish_topic=publish_topic,
+                )
             )
 
         # Create frozen registry

@@ -49,27 +49,33 @@ class NodeCrawlSchedulerEffect(NodeEffect):
           - WatchdogCrawler:   30 seconds (same as filesystem)
 
     Dependency Injection:
-        Handlers receive dependencies directly via parameters (kafka_publisher,
-        debounce_state, config).  This node contains NO instance variables
-        for handlers or dependencies.
+        Handler classes (``HandlerCrawlTick``, ``HandlerCrawlRequested``,
+        ``HandlerDocumentIndexed``) receive dependencies (kafka_publisher,
+        debounce_state, config) via keyword-only constructor arguments.  This
+        node contains NO instance variables for handlers or dependencies.
 
     Example:
         ```python
         from omniintelligence.nodes.node_crawl_scheduler_effect.handlers import (
-            schedule_crawl_tick,
+            HandlerCrawlTick,
         )
         from omniintelligence.nodes.node_crawl_scheduler_effect.models import (
             CrawlerType,
             ModelCrawlSchedulerConfig,
+            ModelCrawlTickRequest,
         )
 
-        result = await schedule_crawl_tick(
-            crawl_type=CrawlerType.FILESYSTEM,
-            crawl_scope="omninode/omniintelligence",
-            source_ref=os.environ["OMNI_REPO_ROOT"],
+        handler = HandlerCrawlTick(
             debounce_state=debounce_manager,
             config=ModelCrawlSchedulerConfig(),
             kafka_publisher=producer,
+        )
+        result = await handler.handle(
+            ModelCrawlTickRequest(
+                crawl_type=CrawlerType.FILESYSTEM,
+                crawl_scope="omninode/omniintelligence",
+                source_ref=os.environ["OMNI_REPO_ROOT"],
+            )
         )
 
         if result.status == EnumCrawlSchedulerStatus.EMITTED:

@@ -30,7 +30,7 @@ from pydantic import ValidationError
 from omniintelligence.constants import TOPIC_LLM_ROUTING_DECISION_PROCESSED
 from omniintelligence.nodes.node_llm_routing_decision_effect.handlers.handler_llm_routing_decision import (
     DLQ_TOPIC,
-    process_llm_routing_decision,
+    HandlerLlmRoutingDecision,
 )
 from omniintelligence.nodes.node_llm_routing_decision_effect.models import (
     EnumLlmRoutingDecisionStatus,
@@ -58,9 +58,8 @@ class TestHappyPath:
         sample_correlation_id: str,
     ) -> None:
         """Valid routing decision event is processed and upserted."""
-        result = await process_llm_routing_decision(
-            event=sample_routing_decision_event,
-            repository=mock_repository,
+        result = await HandlerLlmRoutingDecision(repository=mock_repository).handle(
+            sample_routing_decision_event
         )
 
         assert result.status == EnumLlmRoutingDecisionStatus.SUCCESS
@@ -79,9 +78,8 @@ class TestHappyPath:
         sample_correlation_id: str,
     ) -> None:
         """Row is written to the mock repository after processing."""
-        await process_llm_routing_decision(
-            event=sample_routing_decision_event,
-            repository=mock_repository,
+        await HandlerLlmRoutingDecision(repository=mock_repository).handle(
+            sample_routing_decision_event
         )
 
         row = mock_repository.get_row(sample_session_id, sample_correlation_id)
@@ -98,9 +96,8 @@ class TestHappyPath:
         sample_routing_decision_event_fallback: ModelLlmRoutingDecisionEvent,
     ) -> None:
         """Fallback routing decision event (LLM fell back to fuzzy) is processed."""
-        result = await process_llm_routing_decision(
-            event=sample_routing_decision_event_fallback,
-            repository=mock_repository,
+        result = await HandlerLlmRoutingDecision(repository=mock_repository).handle(
+            sample_routing_decision_event_fallback
         )
 
         assert result.status == EnumLlmRoutingDecisionStatus.SUCCESS
@@ -124,13 +121,11 @@ class TestIdempotency:
         sample_routing_decision_event: ModelLlmRoutingDecisionEvent,
     ) -> None:
         """Re-processing the same event does not create duplicate rows."""
-        await process_llm_routing_decision(
-            event=sample_routing_decision_event,
-            repository=mock_repository,
+        await HandlerLlmRoutingDecision(repository=mock_repository).handle(
+            sample_routing_decision_event
         )
-        await process_llm_routing_decision(
-            event=sample_routing_decision_event,
-            repository=mock_repository,
+        await HandlerLlmRoutingDecision(repository=mock_repository).handle(
+            sample_routing_decision_event
         )
 
         assert mock_repository.row_count() == 1
@@ -142,13 +137,11 @@ class TestIdempotency:
         sample_routing_decision_event: ModelLlmRoutingDecisionEvent,
     ) -> None:
         """Re-processing the same event returns SUCCESS status."""
-        await process_llm_routing_decision(
-            event=sample_routing_decision_event,
-            repository=mock_repository,
+        await HandlerLlmRoutingDecision(repository=mock_repository).handle(
+            sample_routing_decision_event
         )
-        result = await process_llm_routing_decision(
-            event=sample_routing_decision_event,
-            repository=mock_repository,
+        result = await HandlerLlmRoutingDecision(repository=mock_repository).handle(
+            sample_routing_decision_event
         )
 
         assert result.status == EnumLlmRoutingDecisionStatus.SUCCESS
@@ -173,11 +166,9 @@ class TestKafkaGracefulDegradation:
         sample_correlation_id: str,
     ) -> None:
         """DB upsert succeeds when kafka_publisher is None."""
-        result = await process_llm_routing_decision(
-            event=sample_routing_decision_event,
-            repository=mock_repository,
-            kafka_publisher=None,
-        )
+        result = await HandlerLlmRoutingDecision(
+            repository=mock_repository, kafka_publisher=None
+        ).handle(sample_routing_decision_event)
 
         assert result.status == EnumLlmRoutingDecisionStatus.SUCCESS
         assert result.was_upserted is True
@@ -204,11 +195,9 @@ class TestKafkaPublishFailure:
         """DB upsert succeeds even when Kafka publish raises."""
         mock_publisher.simulate_publish_error = RuntimeError("Kafka unavailable")
 
-        result = await process_llm_routing_decision(
-            event=sample_routing_decision_event,
-            repository=mock_repository,
-            kafka_publisher=mock_publisher,
-        )
+        result = await HandlerLlmRoutingDecision(
+            repository=mock_repository, kafka_publisher=mock_publisher
+        ).handle(sample_routing_decision_event)
 
         assert result.status == EnumLlmRoutingDecisionStatus.SUCCESS
         assert result.was_upserted is True
@@ -227,11 +216,9 @@ class TestKafkaPublishFailure:
             None,  # DLQ succeeds
         ]
 
-        await process_llm_routing_decision(
-            event=sample_routing_decision_event,
-            repository=mock_repository,
-            kafka_publisher=mock_publisher,
-        )
+        await HandlerLlmRoutingDecision(
+            repository=mock_repository, kafka_publisher=mock_publisher
+        ).handle(sample_routing_decision_event)
 
         assert len(mock_publisher.published) == 1
         dlq_topic, _, dlq_value = mock_publisher.published[0]
@@ -258,9 +245,8 @@ class TestDatabaseError:
         """DB error produces structured ERROR result, not an exception."""
         mock_repository.simulate_db_error = RuntimeError("DB connection lost")
 
-        result = await process_llm_routing_decision(
-            event=sample_routing_decision_event,
-            repository=mock_repository,
+        result = await HandlerLlmRoutingDecision(repository=mock_repository).handle(
+            sample_routing_decision_event
         )
 
         assert result.status == EnumLlmRoutingDecisionStatus.ERROR
@@ -277,9 +263,8 @@ class TestDatabaseError:
         mock_repository.simulate_db_error = RuntimeError("DB connection lost")
 
         # Should not raise
-        result = await process_llm_routing_decision(
-            event=sample_routing_decision_event,
-            repository=mock_repository,
+        result = await HandlerLlmRoutingDecision(repository=mock_repository).handle(
+            sample_routing_decision_event
         )
 
         assert isinstance(result, ModelLlmRoutingDecisionResult)
@@ -359,11 +344,9 @@ class TestTopicNames:
         sample_routing_decision_event: ModelLlmRoutingDecisionEvent,
     ) -> None:
         """Confirmation event is published to the correct topic."""
-        await process_llm_routing_decision(
-            event=sample_routing_decision_event,
-            repository=mock_repository,
-            kafka_publisher=mock_publisher,
-        )
+        await HandlerLlmRoutingDecision(
+            repository=mock_repository, kafka_publisher=mock_publisher
+        ).handle(sample_routing_decision_event)
 
         assert len(mock_publisher.published) == 1
         topic, key, _ = mock_publisher.published[0]

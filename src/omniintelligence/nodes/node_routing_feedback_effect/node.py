@@ -21,7 +21,7 @@ All handler routing is 100% driven by contract.yaml, not Python code.
 
 Handler Routing Pattern:
     1. Receive ModelRoutingFeedbackPayload (input_model in contract)
-    2. Route to process_routing_feedback handler (handler_routing)
+    2. Route to HandlerRoutingFeedback handler (handler_routing)
     3. Filter on feedback_status: produced → upsert DB; skipped → log only
     4. Publish onex.evt.omniintelligence.routing-feedback-processed.v1 (produced only)
     5. Return ModelRoutingFeedbackResult (output_model in contract)
@@ -66,7 +66,7 @@ class NodeRoutingFeedbackEffect(NodeEffect):
           publish processed event.
 
     Dependency Injection:
-        The process_routing_feedback handler is invoked by callers with
+        HandlerRoutingFeedback is constructed by callers with
         its dependencies (repository protocol for database operations,
         optional kafka publisher). This node contains NO instance variables
         for handlers or repositories.
@@ -74,14 +74,12 @@ class NodeRoutingFeedbackEffect(NodeEffect):
     Example:
         ```python
         from omniintelligence.nodes.node_routing_feedback_effect.handlers import (
-            process_routing_feedback,
+            HandlerRoutingFeedback,
         )
 
-        # Handler receives dependencies directly via parameters
-        result = await process_routing_feedback(
-            event=routing_feedback_event,
-            repository=db_connection,
-        )
+        # Handler receives dependencies via its constructor
+        handler = HandlerRoutingFeedback(repository=db_connection)
+        result = await handler.handle(routing_feedback_event)
 
         if result.status == EnumRoutingFeedbackStatus.SUCCESS:
             print(f"Processed routing feedback for session {result.session_id}")

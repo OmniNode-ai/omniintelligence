@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 # Copyright (c) 2025 OmniNode Team
-"""Unit tests for handle_compliance_evaluate_command.
+"""Unit tests for HandlerComplianceEvaluate.
 
 Covers:
 - Compliant evaluation (no violations) — 3 tests
@@ -38,7 +38,7 @@ from uuid import UUID
 import pytest
 
 from omniintelligence.nodes.node_compliance_evaluate_effect.handlers import (
-    handle_compliance_evaluate_command,
+    HandlerComplianceEvaluate,
 )
 from omniintelligence.nodes.node_compliance_evaluate_effect.handlers.handler_compliance_evaluate import (
     DLQ_TOPIC,
@@ -105,9 +105,8 @@ async def test_compliant_evaluation_returns_success(
     compliant_llm_client: MockLlmClient,
 ) -> None:
     """Compliant code -> success=True, compliant=True, violations=[]."""
-    result = await handle_compliance_evaluate_command(
-        sample_command,
-        llm_client=compliant_llm_client,
+    result = await HandlerComplianceEvaluate(llm_client=compliant_llm_client).handle(
+        sample_command
     )
 
     assert result.success is True
@@ -123,9 +122,8 @@ async def test_compliant_evaluation_propagates_identifiers(
     sample_correlation_id: UUID,
 ) -> None:
     """Event carries correct correlation_id, source_path, content_sha256."""
-    result = await handle_compliance_evaluate_command(
-        sample_command,
-        llm_client=compliant_llm_client,
+    result = await HandlerComplianceEvaluate(llm_client=compliant_llm_client).handle(
+        sample_command
     )
 
     assert result.correlation_id == sample_correlation_id
@@ -139,9 +137,8 @@ async def test_compliant_evaluation_event_type(
     compliant_llm_client: MockLlmClient,
 ) -> None:
     """event_type is always 'ComplianceEvaluated'."""
-    result = await handle_compliance_evaluate_command(
-        sample_command,
-        llm_client=compliant_llm_client,
+    result = await HandlerComplianceEvaluate(llm_client=compliant_llm_client).handle(
+        sample_command
     )
 
     assert result.event_type == "ComplianceEvaluated"
@@ -158,9 +155,8 @@ async def test_violating_evaluation_returns_violations(
     violating_llm_client: MockLlmClient,
 ) -> None:
     """Violating code -> success=True, compliant=False, violations non-empty."""
-    result = await handle_compliance_evaluate_command(
-        sample_command,
-        llm_client=violating_llm_client,
+    result = await HandlerComplianceEvaluate(llm_client=violating_llm_client).handle(
+        sample_command
     )
 
     assert result.success is True
@@ -178,9 +174,8 @@ async def test_violation_pattern_signature_enriched(
     violating_llm_client: MockLlmClient,
 ) -> None:
     """Violation includes pattern_signature from input patterns."""
-    result = await handle_compliance_evaluate_command(
-        sample_command,
-        llm_client=violating_llm_client,
+    result = await HandlerComplianceEvaluate(llm_client=violating_llm_client).handle(
+        sample_command
     )
 
     assert result.violations[0].pattern_signature == "Use frozen Pydantic models"
@@ -197,9 +192,8 @@ async def test_llm_error_returns_structured_failure(
     error_llm_client: MockLlmClientError,
 ) -> None:
     """LLM inference failure -> success=False, confidence=0.0."""
-    result = await handle_compliance_evaluate_command(
-        sample_command,
-        llm_client=error_llm_client,
+    result = await HandlerComplianceEvaluate(llm_client=error_llm_client).handle(
+        sample_command
     )
 
     assert result.success is False
@@ -221,11 +215,9 @@ async def test_kafka_publish_on_compliant_result(
     mock_kafka_producer: MockKafkaProducer,
 ) -> None:
     """When kafka_producer is provided, event is published to PUBLISH_TOPIC."""
-    await handle_compliance_evaluate_command(
-        sample_command,
-        llm_client=compliant_llm_client,
-        kafka_producer=mock_kafka_producer,
-    )
+    await HandlerComplianceEvaluate(
+        llm_client=compliant_llm_client, kafka_producer=mock_kafka_producer
+    ).handle(sample_command)
 
     assert len(mock_kafka_producer.published) == 1
     publish_call = mock_kafka_producer.published[0]
@@ -243,11 +235,9 @@ async def test_kafka_publish_on_violating_result(
     mock_kafka_producer: MockKafkaProducer,
 ) -> None:
     """Violation result is also published to Kafka."""
-    await handle_compliance_evaluate_command(
-        sample_command,
-        llm_client=violating_llm_client,
-        kafka_producer=mock_kafka_producer,
-    )
+    await HandlerComplianceEvaluate(
+        llm_client=violating_llm_client, kafka_producer=mock_kafka_producer
+    ).handle(sample_command)
 
     assert len(mock_kafka_producer.published) == 1
     value = mock_kafka_producer.published[0]["value"]
@@ -265,11 +255,9 @@ async def test_no_kafka_producer_no_publish(
 ) -> None:
     """When kafka_producer is None, no publish is attempted (graceful degradation)."""
     # Should not raise; handler returns event without publishing
-    result = await handle_compliance_evaluate_command(
-        sample_command,
-        llm_client=compliant_llm_client,
-        kafka_producer=None,
-    )
+    result = await HandlerComplianceEvaluate(
+        llm_client=compliant_llm_client, kafka_producer=None
+    ).handle(sample_command)
 
     assert result.success is True
 
@@ -299,11 +287,9 @@ async def test_kafka_publish_failure_routes_to_dlq(
     # Why: Test replaces the method with a stub to exercise error handling.
     mock_kafka_producer.publish = fail_first_then_succeed  # type: ignore[method-assign]
 
-    result = await handle_compliance_evaluate_command(
-        sample_command,
-        llm_client=compliant_llm_client,
-        kafka_producer=mock_kafka_producer,
-    )
+    result = await HandlerComplianceEvaluate(
+        llm_client=compliant_llm_client, kafka_producer=mock_kafka_producer
+    ).handle(sample_command)
 
     # Handler should succeed (event returned) even when publish fails
     assert result.success is True
@@ -326,11 +312,9 @@ async def test_kafka_and_dlq_failure_is_swallowed(
     mock_kafka_producer.simulate_error = RuntimeError("total Kafka failure")
 
     # Should not raise
-    result = await handle_compliance_evaluate_command(
-        sample_command,
-        llm_client=compliant_llm_client,
-        kafka_producer=mock_kafka_producer,
-    )
+    result = await HandlerComplianceEvaluate(
+        llm_client=compliant_llm_client, kafka_producer=mock_kafka_producer
+    ).handle(sample_command)
 
     assert result.success is True
 
@@ -346,9 +330,8 @@ async def test_idempotency_fields_match_command_source_and_sha256(
     compliant_llm_client: MockLlmClient,
 ) -> None:
     """Event includes source_path and content_sha256 for idempotency keying."""
-    result = await handle_compliance_evaluate_command(
-        sample_command,
-        llm_client=compliant_llm_client,
+    result = await HandlerComplianceEvaluate(llm_client=compliant_llm_client).handle(
+        sample_command
     )
 
     assert result.source_path == sample_command.source_path
@@ -364,9 +347,8 @@ async def test_real_sha256_matches_content(
     expected_sha256 = sha256_of(real_sha256_command.content)
     assert real_sha256_command.content_sha256 == expected_sha256
 
-    result = await handle_compliance_evaluate_command(
-        real_sha256_command,
-        llm_client=compliant_llm_client,
+    result = await HandlerComplianceEvaluate(llm_client=compliant_llm_client).handle(
+        real_sha256_command
     )
 
     assert result.content_sha256 == expected_sha256
@@ -388,9 +370,8 @@ async def test_patterns_checked_reflects_applicable_patterns_count(
     ]
     command = _make_command(patterns=patterns)
 
-    result = await handle_compliance_evaluate_command(
-        command,
-        llm_client=compliant_llm_client,
+    result = await HandlerComplianceEvaluate(llm_client=compliant_llm_client).handle(
+        command
     )
 
     assert result.patterns_checked == 2
@@ -407,9 +388,8 @@ async def test_processing_time_is_populated(
     compliant_llm_client: MockLlmClient,
 ) -> None:
     """processing_time_ms is a non-negative float."""
-    result = await handle_compliance_evaluate_command(
-        sample_command,
-        llm_client=compliant_llm_client,
+    result = await HandlerComplianceEvaluate(llm_client=compliant_llm_client).handle(
+        sample_command
     )
 
     assert result.processing_time_ms is not None
@@ -427,9 +407,8 @@ async def test_evaluated_at_is_iso_string(
     compliant_llm_client: MockLlmClient,
 ) -> None:
     """evaluated_at is a non-empty ISO-8601 string."""
-    result = await handle_compliance_evaluate_command(
-        sample_command,
-        llm_client=compliant_llm_client,
+    result = await HandlerComplianceEvaluate(llm_client=compliant_llm_client).handle(
+        sample_command
     )
 
     assert isinstance(result.evaluated_at, str)
@@ -484,9 +463,8 @@ async def test_session_id_propagated_from_command_to_event(
 ) -> None:
     """Handler propagates session_id from command to the returned event."""
     command = _make_command(session_id="session-abc-456")
-    result = await handle_compliance_evaluate_command(
-        command,
-        llm_client=compliant_llm_client,
+    result = await HandlerComplianceEvaluate(llm_client=compliant_llm_client).handle(
+        command
     )
     assert result.session_id == "session-abc-456"
 
@@ -497,9 +475,8 @@ async def test_session_id_none_propagated_from_command_to_event(
 ) -> None:
     """Handler propagates session_id=None from command when not set."""
     command = _make_command()
-    result = await handle_compliance_evaluate_command(
-        command,
-        llm_client=compliant_llm_client,
+    result = await HandlerComplianceEvaluate(llm_client=compliant_llm_client).handle(
+        command
     )
     assert result.session_id is None
 
@@ -511,11 +488,9 @@ async def test_session_id_in_kafka_payload(
 ) -> None:
     """session_id is included in the published Kafka payload."""
     command = _make_command(session_id="kafka-session-789")
-    await handle_compliance_evaluate_command(
-        command,
-        llm_client=compliant_llm_client,
-        kafka_producer=mock_kafka_producer,
-    )
+    await HandlerComplianceEvaluate(
+        llm_client=compliant_llm_client, kafka_producer=mock_kafka_producer
+    ).handle(command)
     assert len(mock_kafka_producer.published) == 1
     payload = mock_kafka_producer.published[0]["value"]
     assert isinstance(payload, dict)
@@ -548,11 +523,9 @@ async def test_sha256_mismatch_returns_validation_error(
         content_sha256=wrong_sha256,
     )
 
-    result = await handle_compliance_evaluate_command(
-        command,
-        llm_client=compliant_llm_client,
-        kafka_producer=mock_kafka_producer,
-    )
+    result = await HandlerComplianceEvaluate(
+        llm_client=compliant_llm_client, kafka_producer=mock_kafka_producer
+    ).handle(command)
 
     assert result.success is False
     assert result.status == "validation_error"

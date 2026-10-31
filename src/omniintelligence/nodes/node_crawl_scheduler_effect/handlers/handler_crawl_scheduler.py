@@ -2,20 +2,20 @@
 # SPDX-License-Identifier: MIT
 
 # Copyright (c) 2025 OmniNode Team
-"""Handler functions for CrawlSchedulerEffect.
+"""Handler classes for CrawlSchedulerEffect.
 
-Two handler entry points for the crawl scheduler:
+Three handler classes for the crawl scheduler, one per operation:
 
-1. ``schedule_crawl_tick()``
+1. ``HandlerCrawlTick``
    Called by RuntimeScheduler on a periodic tick.  Iterates over configured
    crawl sources and emits crawl-tick.v1 commands for any source whose
    debounce window has expired.
 
-2. ``handle_crawl_requested()``
+2. ``HandlerCrawlRequested``
    Called when a manual/external trigger arrives via crawl-requested.v1.
    Applies the same per-source debounce guard before emitting.
 
-3. ``handle_document_indexed()``
+3. ``HandlerDocumentIndexed``
    Called when a document-indexed.v1 event is received.  Resets the debounce
    window for the crawled (source_ref, crawler_type) so the next trigger is
    not throttled.
@@ -31,7 +31,7 @@ Design: See omni_save/design/DESIGN_OMNIMEMORY_DOCUMENT_INGESTION_PIPELINE.md §
 Handler Contract:
 -----------------
 ALL exceptions are caught and returned as structured ERROR results.
-These functions never raise — unexpected errors produce a result with
+These handlers never raise — unexpected errors produce a result with
 status=EnumCrawlSchedulerStatus.ERROR.
 
 Kafka Graceful Degradation:
@@ -48,6 +48,7 @@ Reference: OMN-2384
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
@@ -63,6 +64,8 @@ from omniintelligence.nodes.node_crawl_scheduler_effect.models import (
     ModelCrawlSchedulerConfig,
     ModelCrawlSchedulerResult,
     ModelCrawlTickCommand,
+    ModelCrawlTickRequest,
+    ModelDocumentIndexedRequest,
 )
 from omniintelligence.protocols import ProtocolKafkaPublisher
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
@@ -70,78 +73,81 @@ from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 logger = logging.getLogger(__name__)
 
 
-async def schedule_crawl_tick(
-    *,
-    crawl_type: CrawlerType,
-    crawl_scope: str,
-    source_ref: str,
-    debounce_state: DebounceStateManager,
-    config: ModelCrawlSchedulerConfig,
-    kafka_publisher: ProtocolKafkaPublisher | None = None,
-    now: datetime | None = None,
-) -> ModelCrawlSchedulerResult:
+def _utc_now() -> datetime:
+    """Default clock for the crawl handlers."""
+    return datetime.now(UTC)
+
+
+class HandlerCrawlTick:
     """Emit a crawl-tick.v1 command for a scheduled trigger.
 
     Called by the RuntimeScheduler tick for each configured crawl source.
     Applies the per-source debounce guard before emitting.
 
     Args:
-        crawl_type: Crawler type for the tick.
-        crawl_scope: Logical scope for the crawl.
-        source_ref: Canonical source identifier.
         debounce_state: Active debounce state manager (injected).
         config: Scheduler configuration with debounce windows.
         kafka_publisher: Optional Kafka publisher.  When None, the trigger
             is recorded in debounce state but no event is published.
-        now: Current UTC datetime.  Defaults to ``datetime.now(UTC)``.
-            Injected for testability.
-
-    Returns:
-        ModelCrawlSchedulerResult with status EMITTED, DEBOUNCED, or ERROR.
     """
-    current_time = now or datetime.now(UTC)
 
-    try:
-        return await _process_trigger(
-            crawl_type=crawl_type,
-            crawl_scope=crawl_scope,
-            source_ref=source_ref,
-            trigger_source=EnumTriggerSource.SCHEDULED,
-            debounce_state=debounce_state,
-            config=config,
-            kafka_publisher=kafka_publisher,
-            now=current_time,
-        )
-    except Exception as exc:
-        sanitized = get_log_sanitizer().sanitize(str(exc))
-        logger.exception(
-            "Unhandled exception in schedule_crawl_tick",
-            extra={
-                "source_ref": source_ref,
-                "crawl_type": crawl_type.value,
-                "error": sanitized,
-            },
-        )
-        return ModelCrawlSchedulerResult(
-            status=EnumCrawlSchedulerStatus.ERROR,
-            crawl_type=crawl_type,
-            source_ref=source_ref,
-            crawl_scope=crawl_scope,
-            trigger_source=EnumTriggerSource.SCHEDULED,
-            correlation_id=uuid4(),
-            processed_at=current_time,
-            error_message=sanitized,
-        )
+    def __init__(
+        self,
+        *,
+        debounce_state: DebounceStateManager,
+        config: ModelCrawlSchedulerConfig,
+        kafka_publisher: ProtocolKafkaPublisher | None = None,
+    ) -> None:
+        self._debounce_state = debounce_state
+        self._config = config
+        self._kafka_publisher = kafka_publisher
+
+    async def handle(self, request: ModelCrawlTickRequest) -> ModelCrawlSchedulerResult:
+        """Process one scheduled tick.
+
+        Args:
+            request: Crawl type, scope, source reference and optional
+                injected ``now`` (defaults to ``datetime.now(UTC)``).
+
+        Returns:
+            ModelCrawlSchedulerResult with status EMITTED, DEBOUNCED, or ERROR.
+        """
+        current_time = request.now or datetime.now(UTC)
+
+        try:
+            return await _process_trigger(
+                crawl_type=request.crawl_type,
+                crawl_scope=request.crawl_scope,
+                source_ref=request.source_ref,
+                trigger_source=EnumTriggerSource.SCHEDULED,
+                debounce_state=self._debounce_state,
+                config=self._config,
+                kafka_publisher=self._kafka_publisher,
+                now=current_time,
+            )
+        except Exception as exc:
+            sanitized = get_log_sanitizer().sanitize(str(exc))
+            logger.exception(
+                "Unhandled exception in schedule_crawl_tick",
+                extra={
+                    "source_ref": request.source_ref,
+                    "crawl_type": request.crawl_type.value,
+                    "error": sanitized,
+                },
+            )
+            return ModelCrawlSchedulerResult(
+                status=EnumCrawlSchedulerStatus.ERROR,
+                crawl_type=request.crawl_type,
+                source_ref=request.source_ref,
+                crawl_scope=request.crawl_scope,
+                trigger_source=EnumTriggerSource.SCHEDULED,
+                correlation_id=uuid4(),
+                processed_at=current_time,
+                error_message=sanitized,
+            )
 
 
-async def handle_crawl_requested(
-    *,
-    event: ModelCrawlRequestedEvent,
-    debounce_state: DebounceStateManager,
-    config: ModelCrawlSchedulerConfig,
-    kafka_publisher: ProtocolKafkaPublisher | None = None,
-    now: datetime | None = None,
-) -> ModelCrawlSchedulerResult:
+class HandlerCrawlRequested:
     """Process a manual/external crawl trigger from crawl-requested.v1.
 
     Applies the same per-source debounce guard as the scheduled tick handler.
@@ -149,58 +155,74 @@ async def handle_crawl_requested(
     do not produce duplicate crawl-tick events.
 
     Args:
-        event: The crawl-requested event received from Kafka.
         debounce_state: Active debounce state manager (injected).
         config: Scheduler configuration with debounce windows.
         kafka_publisher: Optional Kafka publisher.
-        now: Current UTC datetime.  Defaults to ``datetime.now(UTC)``.
-
-    Returns:
-        ModelCrawlSchedulerResult with status EMITTED, DEBOUNCED, or ERROR.
+        clock: Returns the current UTC datetime.  Defaults to
+            ``datetime.now(UTC)``.  Injected for testability.
     """
-    current_time = now or datetime.now(UTC)
 
-    try:
-        return await _process_trigger(
-            crawl_type=event.crawl_type,
-            crawl_scope=event.crawl_scope,
-            source_ref=event.source_ref,
-            trigger_source=event.trigger_source,
-            debounce_state=debounce_state,
-            config=config,
-            kafka_publisher=kafka_publisher,
-            now=current_time,
-            correlation_id_hint=event.correlation_id,
-        )
-    except Exception as exc:
-        sanitized = get_log_sanitizer().sanitize(str(exc))
-        logger.exception(
-            "Unhandled exception in handle_crawl_requested",
-            extra={
-                "source_ref": event.source_ref,
-                "crawl_type": event.crawl_type.value,
-                "correlation_id": str(event.correlation_id),
-                "error": sanitized,
-            },
-        )
-        return ModelCrawlSchedulerResult(
-            status=EnumCrawlSchedulerStatus.ERROR,
-            crawl_type=event.crawl_type,
-            source_ref=event.source_ref,
-            crawl_scope=event.crawl_scope,
-            trigger_source=event.trigger_source,
-            correlation_id=event.correlation_id,
-            processed_at=current_time,
-            error_message=sanitized,
-        )
+    def __init__(
+        self,
+        debounce_state: DebounceStateManager,
+        config: ModelCrawlSchedulerConfig,
+        kafka_publisher: ProtocolKafkaPublisher | None = None,
+        clock: Callable[[], datetime] = _utc_now,
+    ) -> None:
+        self._debounce_state = debounce_state
+        self._config = config
+        self._kafka_publisher = kafka_publisher
+        self._clock = clock
+
+    async def handle(
+        self, request: ModelCrawlRequestedEvent
+    ) -> ModelCrawlSchedulerResult:
+        """Process one crawl-requested event.
+
+        Args:
+            request: The crawl-requested event received from Kafka.
+
+        Returns:
+            ModelCrawlSchedulerResult with status EMITTED, DEBOUNCED, or ERROR.
+        """
+        current_time = self._clock()
+
+        try:
+            return await _process_trigger(
+                crawl_type=request.crawl_type,
+                crawl_scope=request.crawl_scope,
+                source_ref=request.source_ref,
+                trigger_source=request.trigger_source,
+                debounce_state=self._debounce_state,
+                config=self._config,
+                kafka_publisher=self._kafka_publisher,
+                now=current_time,
+                correlation_id_hint=request.correlation_id,
+            )
+        except Exception as exc:
+            sanitized = get_log_sanitizer().sanitize(str(exc))
+            logger.exception(
+                "Unhandled exception in handle_crawl_requested",
+                extra={
+                    "source_ref": request.source_ref,
+                    "crawl_type": request.crawl_type.value,
+                    "correlation_id": str(request.correlation_id),
+                    "error": sanitized,
+                },
+            )
+            return ModelCrawlSchedulerResult(
+                status=EnumCrawlSchedulerStatus.ERROR,
+                crawl_type=request.crawl_type,
+                source_ref=request.source_ref,
+                crawl_scope=request.crawl_scope,
+                trigger_source=request.trigger_source,
+                correlation_id=request.correlation_id,
+                processed_at=current_time,
+                error_message=sanitized,
+            )
 
 
-def handle_document_indexed(
-    *,
-    source_ref: str,
-    crawler_type: CrawlerType,
-    debounce_state: DebounceStateManager,
-) -> bool:
+class HandlerDocumentIndexed:
     """Reset the debounce window after a successful crawl completion.
 
     Called when a ``document-indexed.v1`` event is received.  Clears the
@@ -208,37 +230,50 @@ def handle_document_indexed(
     trigger is not throttled.
 
     Args:
-        source_ref: Canonical source identifier from the indexed event.
-        crawler_type: Crawler type from the indexed event.
         debounce_state: Active debounce state manager (injected).
-
-    Returns:
-        True if a debounce entry was cleared; False if no entry existed
-        (e.g., process restarted since the crawl was triggered).
     """
-    cleared = debounce_state.clear_debounce(
-        source_ref=source_ref,
-        crawler_type=crawler_type,
-    )
 
-    if cleared:
-        logger.debug(
-            "Debounce window cleared after successful crawl",
-            extra={
-                "source_ref": source_ref,
-                "crawler_type": crawler_type.value,
-            },
-        )
-    else:
-        logger.debug(
-            "No debounce entry to clear (already cleared or process restarted)",
-            extra={
-                "source_ref": source_ref,
-                "crawler_type": crawler_type.value,
-            },
+    def __init__(self, *, debounce_state: DebounceStateManager) -> None:
+        self._debounce_state = debounce_state
+
+    def handle(self, request: ModelDocumentIndexedRequest) -> bool:
+        """Clear the debounce entry for the indexed source.
+
+        Args:
+            request: Source reference and crawler type from the indexed event.
+
+        Returns:
+            True if a debounce entry was cleared; False if no entry existed
+            (e.g., process restarted since the crawl was triggered).
+        """
+        cleared = self._debounce_state.clear_debounce(
+            source_ref=request.source_ref,
+            crawler_type=request.crawler_type,
         )
 
-    return cleared
+        if cleared:
+            logger.debug(
+                "Debounce window cleared after successful crawl",
+                extra={
+                    "source_ref": request.source_ref,
+                    "crawler_type": request.crawler_type.value,
+                },
+            )
+        else:
+            logger.debug(
+                "No debounce entry to clear (already cleared or process restarted)",
+                extra={
+                    "source_ref": request.source_ref,
+                    "crawler_type": request.crawler_type.value,
+                },
+            )
+
+        return cleared
+
+
+# =============================================================================
+# Internal helpers
+# =============================================================================
 
 
 # =============================================================================
@@ -379,7 +414,7 @@ async def _process_trigger(
 
 __all__ = [
     "TOPIC_CRAWL_TICK_V1",
-    "handle_crawl_requested",
-    "handle_document_indexed",
-    "schedule_crawl_tick",
+    "HandlerCrawlRequested",
+    "HandlerCrawlTick",
+    "HandlerDocumentIndexed",
 ]

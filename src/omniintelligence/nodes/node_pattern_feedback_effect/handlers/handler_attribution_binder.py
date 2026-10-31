@@ -9,7 +9,7 @@ to pipeline measurement runs via ``run_id`` and computes evidence tiers for patt
 
 Schema Decisions (locked in epic OMN-2043):
     - SD-2: ``run_id`` on pattern_injections is the canonical join key.
-    - SD-3: ``apply_transition()`` reads ``learned_patterns.evidence_tier`` directly.
+    - SD-3: ``HandlerTransition.handle()`` reads ``learned_patterns.evidence_tier`` directly.
     - SD-4: ``evidence_tier`` is denormalized on ``learned_patterns``.
             This handler is the SOLE WRITER. Monotonic (only increases).
 

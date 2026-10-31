@@ -19,7 +19,7 @@ All handler routing is 100% driven by contract.yaml, not Python code.
 
 Handler Routing Pattern:
     1. Receive ModelLlmRoutingDecisionEvent (input_model in contract)
-    2. Route to process_llm_routing_decision handler (handler_routing)
+    2. Route to HandlerLlmRoutingDecision handler (handler_routing)
     3. Execute database I/O via handler (PostgreSQL upsert to llm_routing_decisions)
     4. Publish onex.evt.omniintelligence.llm-routing-decision-processed.v1
     5. Return ModelLlmRoutingDecisionResult (output_model in contract)
@@ -63,7 +63,7 @@ class NodeLlmRoutingDecisionEffect(NodeEffect):
           (session_id, correlation_id), publish processed event.
 
     Dependency Injection:
-        The process_llm_routing_decision handler is invoked by callers with
+        HandlerLlmRoutingDecision is constructed by callers with
         its dependencies (repository protocol for database operations,
         optional kafka publisher). This node contains NO instance variables
         for handlers or repositories.
@@ -71,14 +71,12 @@ class NodeLlmRoutingDecisionEffect(NodeEffect):
     Example:
         ```python
         from omniintelligence.nodes.node_llm_routing_decision_effect.handlers import (
-            process_llm_routing_decision,
+            HandlerLlmRoutingDecision,
         )
 
-        # Handler receives dependencies directly via parameters
-        result = await process_llm_routing_decision(
-            event=llm_routing_decision_event,
-            repository=db_connection,
-        )
+        # Handler receives dependencies via its constructor
+        handler = HandlerLlmRoutingDecision(repository=db_connection)
+        result = await handler.handle(llm_routing_decision_event)
 
         if result.status == EnumLlmRoutingDecisionStatus.SUCCESS:
             print(f"Processed routing decision for session {result.session_id}")

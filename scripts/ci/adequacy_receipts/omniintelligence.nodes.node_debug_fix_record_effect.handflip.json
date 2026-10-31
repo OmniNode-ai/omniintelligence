@@ -1,0 +1,29 @@
+{
+  "base_ref": "978c2645",
+  "canonical_handler_module": "omniintelligence.nodes.node_debug_fix_record_effect.handlers.handler_fix_record",
+  "legacy_handler_module": "omniintelligence.nodes.node_debug_fix_record_effect.handlers.handler_fix_record",
+  "node_id": "omniintelligence.nodes.node_debug_fix_record_effect",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:a53e57bbbe2e19981cae858febefa5cdfc572f579bb87b4d1ba275c59199d6af",
+      "sha256:66695868b60b3f5df201824a3b8e8b4aed5810bcc34c207a957a91c7a8993f24",
+      "sha256:592e5f6ec80cd490585c1229c1dd22e7f05f0a04c29240df11fe891bd3440358",
+      "sha256:e982f0f156073025d3c88a0db750cbf8c87be1ed41395f2027682a930d98f3f2",
+      "sha256:d85a7398ac54d8739c482450725497073ae2a057a090be430fe9d0a32c78879a",
+      "sha256:e7161518911a28f618ba83538939054cb3f761aeac00ebf9a71e7214a2ff3207"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_debug_fix_record_effect/handlers/test_handler_fix_record.py::test_fix_record_atomic_transaction",
+      "tests/unit/nodes/node_debug_fix_record_effect/handlers/test_handler_fix_record.py::test_race_lost_fix_record_not_returned",
+      "tests/unit/nodes/node_debug_fix_record_effect/handlers/test_handler_fix_record.py::test_no_open_trigger_record_is_noop",
+      "tests/unit/nodes/node_debug_fix_record_effect/handlers/test_handler_fix_record.py::test_regression_test_added_true_when_tests_modified",
+      "tests/unit/nodes/node_debug_fix_record_effect/handlers/test_handler_fix_record.py::test_regression_test_added_false_when_no_test_files",
+      "tests/unit/nodes/node_debug_fix_record_effect/handlers/test_handler_fix_record.py::test_regression_test_added_false_when_tests_dir_not_touched"
+    ]
+  },
+  "preserved_symbols": [
+    "_detect_regression_test_added"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

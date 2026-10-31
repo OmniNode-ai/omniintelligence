@@ -9,14 +9,14 @@ handler signature and the CrawlSchedulerEffect domain handlers.  It wires
 two subscribed topics to their respective handler functions:
 
     1. ``onex.cmd.omnimemory.crawl-requested.v1``
-       → ``handle_crawl_requested()`` — manual/external crawl trigger
+       → ``HandlerCrawlRequested`` — manual/external crawl trigger
     2. ``onex.evt.omnimemory.document-indexed.v1``
-       → ``handle_document_indexed()`` — debounce reset on crawl completion
+       → ``HandlerDocumentIndexed`` — debounce reset on crawl completion
 
 Design Decisions:
     - Both handlers read from ``RegistryCrawlSchedulerEffect`` for their
       Kafka publisher, config, and debounce state dependencies.
-    - ``handle_document_indexed`` is synchronous at the domain level; the
+    - ``HandlerDocumentIndexed.handle`` is synchronous at the domain level; the
       dispatch bridge wraps it in an async closure for engine compatibility.
     - Payload parsing follows the same defensive pattern as other dispatch
       bridge handlers: missing/malformed payloads raise ValueError so the
@@ -89,9 +89,9 @@ def create_crawl_requested_dispatch_handler(
         envelope: ModelEventEnvelope[object],
         context: ProtocolHandlerContext,
     ) -> str:
-        """Bridge handler: envelope -> handle_crawl_requested()."""
+        """Bridge handler: envelope -> HandlerCrawlRequested.handle()."""
         from omniintelligence.nodes.node_crawl_scheduler_effect.handlers.handler_crawl_scheduler import (
-            handle_crawl_requested,
+            HandlerCrawlRequested,
         )
         from omniintelligence.nodes.node_crawl_scheduler_effect.models import (
             ModelCrawlRequestedEvent,
@@ -139,12 +139,9 @@ def create_crawl_requested_dispatch_handler(
             ctx_correlation_id,
         )
 
-        result = await handle_crawl_requested(
-            event=event,
-            debounce_state=debounce_state,
-            config=config,
-            kafka_publisher=kafka_publisher,
-        )
+        result = await HandlerCrawlRequested(
+            debounce_state, config, kafka_publisher
+        ).handle(event)
 
         logger.info(
             "Crawl-requested processed via dispatch engine "
@@ -188,12 +185,13 @@ def create_document_indexed_dispatch_handler(
         envelope: ModelEventEnvelope[object],
         context: ProtocolHandlerContext,
     ) -> str:
-        """Bridge handler: envelope -> handle_document_indexed()."""
+        """Bridge handler: envelope -> HandlerDocumentIndexed.handle()."""
         from omniintelligence.nodes.node_crawl_scheduler_effect.handlers.handler_crawl_scheduler import (
-            handle_document_indexed,
+            HandlerDocumentIndexed,
         )
         from omniintelligence.nodes.node_crawl_scheduler_effect.models import (
             CrawlerType,
+            ModelDocumentIndexedRequest,
         )
         from omniintelligence.nodes.node_crawl_scheduler_effect.registry.registry_crawl_scheduler_effect import (
             RegistryCrawlSchedulerEffect,
@@ -253,10 +251,11 @@ def create_document_indexed_dispatch_handler(
             ctx_correlation_id,
         )
 
-        cleared = handle_document_indexed(
-            source_ref=source_ref,
-            crawler_type=crawler_type,
-            debounce_state=debounce_state,
+        cleared = HandlerDocumentIndexed(debounce_state=debounce_state).handle(
+            ModelDocumentIndexedRequest(
+                source_ref=source_ref,
+                crawler_type=crawler_type,
+            )
         )
 
         logger.info(

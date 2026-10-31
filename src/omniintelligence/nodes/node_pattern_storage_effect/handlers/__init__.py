@@ -131,7 +131,7 @@ except ImportError as e:
 
 try:
     from omniintelligence.nodes.node_pattern_storage_effect.handlers.handler_consume_discovered import (
-        handle_consume_discovered,
+        HandlerConsumeDiscovered,
     )
 except ImportError as e:
     raise ImportError(
@@ -170,7 +170,7 @@ __all__ = [
     # Functions (store)
     "create_initial_storage_transition",
     # Functions (consume discovered)
-    "handle_consume_discovered",
+    "HandlerConsumeDiscovered",
     # Functions (promote)
     "get_valid_targets",
     "handle_promote_pattern",

@@ -105,7 +105,7 @@ class ModelDocumentRemovedEvent(BaseModel):
 
 
 class ModelLinearCrawlOutput(BaseModel):
-    """Aggregate result returned by handle_linear_crawl.
+    """Aggregate result returned by HandlerLinearCrawl.handle.
 
     Attributes:
         team_id: Linear team that was crawled.

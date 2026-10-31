@@ -5,7 +5,7 @@
 Verifies the full event bus round-trip:
 
     onex.evt.omniclaude.routing-feedback.v1 (input)
-        -> dispatch handler -> process_routing_feedback
+        -> dispatch handler -> HandlerRoutingFeedback.handle
         -> upsert to DB (mocked) + publish processed event
     onex.evt.omniintelligence.routing-feedback-processed.v1 (output)
 
@@ -15,7 +15,7 @@ feedback_status, emitted_at, processed_at, event_name) -- NOT just
 
 Uses EventBusInmemory + adapter as ProtocolKafkaPublisher -- no Kafka required.
 
-Imports process_routing_feedback directly to avoid the runtime.__init__ chain
+Imports HandlerRoutingFeedback directly to avoid the runtime.__init__ chain
 which pulls in omnibase_infra (requires omnibase_spi.protocols.runtime).
 """
 
@@ -30,7 +30,7 @@ import pytest
 from omnibase_core.event_bus.event_bus_inmemory import EventBusInmemory
 
 from omniintelligence.nodes.node_routing_feedback_effect.handlers.handler_routing_feedback import (
-    process_routing_feedback,
+    HandlerRoutingFeedback,
 )
 from omniintelligence.nodes.node_routing_feedback_effect.models import (
     EnumRoutingFeedbackStatus,
@@ -79,7 +79,7 @@ class _MockRepository:
 async def test_routing_feedback_dispatch_handler() -> None:
     """Golden chain: routing-feedback in -> handler -> processed event on bus.
 
-    Full chain: ModelRoutingFeedbackPayload -> process_routing_feedback
+    Full chain: ModelRoutingFeedbackPayload -> HandlerRoutingFeedback.handle
     -> DB upsert (mocked) + Kafka publish (EventBusInmemory)
     -> verify processed event on bus with specific field values.
     """
@@ -103,11 +103,9 @@ async def test_routing_feedback_dispatch_handler() -> None:
             emitted_at=now,
         )
 
-        result = await process_routing_feedback(
-            event=event,
-            repository=mock_repository,
-            kafka_publisher=publisher,
-        )
+        result = await HandlerRoutingFeedback(
+            repository=mock_repository, kafka_publisher=publisher
+        ).handle(event)
 
         assert result.status == EnumRoutingFeedbackStatus.SUCCESS
         assert result.session_id == session_id
@@ -163,11 +161,9 @@ async def test_routing_feedback_dispatch_handler_skipped_no_event() -> None:
             emitted_at=now,
         )
 
-        result = await process_routing_feedback(
-            event=event,
-            repository=mock_repository,
-            kafka_publisher=publisher,
-        )
+        result = await HandlerRoutingFeedback(
+            repository=mock_repository, kafka_publisher=publisher
+        ).handle(event)
 
         assert result.status == EnumRoutingFeedbackStatus.SUCCESS
         assert result.was_upserted is False
@@ -202,11 +198,9 @@ async def test_routing_feedback_dispatch_handler_no_producer_graceful() -> None:
         emitted_at=now,
     )
 
-    result = await process_routing_feedback(
-        event=event,
-        repository=mock_repository,
-        kafka_publisher=None,
-    )
+    result = await HandlerRoutingFeedback(
+        repository=mock_repository, kafka_publisher=None
+    ).handle(event)
 
     assert result.status == EnumRoutingFeedbackStatus.SUCCESS
     assert result.session_id == session_id

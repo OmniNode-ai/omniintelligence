@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from omniintelligence.nodes.node_linear_crawler_effect.handlers.handler_linear_crawl import (
-    handle_linear_crawl,
+    HandlerLinearCrawl,
 )
 from omniintelligence.nodes.node_linear_crawler_effect.handlers.protocol_linear_state import (
     ModelLinearStateEntry,
@@ -16,8 +16,8 @@ from omniintelligence.nodes.node_linear_crawler_effect.handlers.protocol_linear_
 )
 
 __all__ = [
+    "HandlerLinearCrawl",
     "ModelLinearStateEntry",
     "ProtocolLinearClient",
     "ProtocolLinearStateStore",
-    "handle_linear_crawl",
 ]

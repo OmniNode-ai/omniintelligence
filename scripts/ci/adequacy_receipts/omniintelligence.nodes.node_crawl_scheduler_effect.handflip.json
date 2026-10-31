@@ -1,0 +1,29 @@
+{
+  "base_ref": "978c2645",
+  "canonical_handler_module": "omniintelligence.nodes.node_crawl_scheduler_effect.handlers.handler_crawl_scheduler",
+  "legacy_handler_module": "omniintelligence.nodes.node_crawl_scheduler_effect.handlers.handler_crawl_scheduler",
+  "node_id": "omniintelligence.nodes.node_crawl_scheduler_effect",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:456842e12295a458234411206914319b018e27b483cce264abee30765e2cedec",
+      "sha256:a8487ab56392a675eff33c11edcd48de95b18eecce69e8d97d37a37050557530",
+      "sha256:4ad80cc5a9e9053934f476c7acf9d379d72673d722a3da51b76388accdbf58a3",
+      "sha256:ba7a539c51a97129188e9314fd378fc8643b244ad464753c6a502687b3c93931",
+      "sha256:a8fc1120d416e26994a1152c4649ae64713bf302a140139112fcdf380f420380",
+      "sha256:bdf3a8b9a5fb3931b6d518e9ad3c515ab6f829d0f372738d5061d2e8302cbc12"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_crawl_scheduler_effect/test_handler_crawl_scheduler.py::TestScheduleCrawlTick::test_first_tick_emits",
+      "tests/unit/nodes/node_crawl_scheduler_effect/test_handler_crawl_scheduler.py::TestScheduleCrawlTick::test_different_sources_not_debounced_together",
+      "tests/unit/nodes/node_crawl_scheduler_effect/test_handler_crawl_scheduler.py::TestHandleCrawlRequested::test_manual_trigger_emits",
+      "tests/unit/nodes/node_crawl_scheduler_effect/test_handler_crawl_scheduler.py::TestHandleCrawlRequested::test_correlation_id_preserved_from_event",
+      "tests/unit/nodes/node_crawl_scheduler_effect/test_handler_crawl_scheduler.py::TestHandleDocumentIndexed::test_only_clears_specified_key",
+      "tests/unit/nodes/node_crawl_scheduler_effect/test_handler_crawl_scheduler.py::TestCrossHandlerDebounce::test_manual_trigger_blocks_scheduler_tick"
+    ]
+  },
+  "preserved_symbols": [
+    "_process_trigger"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

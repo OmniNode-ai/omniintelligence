@@ -57,57 +57,66 @@ ON CONFLICT (task_id, dispatch_id) DO UPDATE SET
 """
 
 
-async def record_dispatch_outcome(
-    event: ModelDispatchEvalResult,
-    *,
-    repository: ProtocolPatternRepository,
-) -> ModelDispatchOutcomeResult:
-    """Record a dispatch evaluation result into dispatch_eval_results.
+class HandlerDispatchOutcome:
+    """Records dispatch evaluation results into ``dispatch_eval_results``.
 
-    The dedupe key is the table primary key: ``(task_id, dispatch_id)``.
-    Replays update the same row with the canonical event payload rather than
-    creating duplicates.
+    The repository collaborator is injected at construction time; the
+    dispatch evaluation result is the request passed to :meth:`handle`.
     """
-    logger.info(
-        "Recording dispatch outcome",
-        extra={
-            "task_id": event.task_id,
-            "dispatch_id": event.dispatch_id,
-            "ticket_id": event.ticket_id,
-            "verdict": event.verdict.name,
-        },
-    )
 
-    status = await repository.execute(
-        SQL_UPSERT_DISPATCH_EVAL_RESULT,
-        event.task_id,
-        event.dispatch_id,
-        event.ticket_id,
-        event.verdict.name,
-        event.quality_score,
-        event.token_cost,
-        event.dollars_cost,
-        json.dumps(
-            [call.model_dump(mode="json") for call in event.model_calls],
-            sort_keys=True,
-            separators=(",", ":"),
-        ),
-        event.evaluated_at,
-        event.eval_latency_ms,
-        event.cost_provenance.usage_source.name,
-        event.cost_provenance.estimation_method,
-        event.cost_provenance.source_payload_hash,
-    )
+    def __init__(self, *, repository: ProtocolPatternRepository) -> None:
+        self._repository = repository
 
-    return ModelDispatchOutcomeResult(
-        status=EnumOutcomeRecordingStatus.SUCCESS,
-        task_id=event.task_id,
-        dispatch_id=event.dispatch_id,
-        ticket_id=event.ticket_id,
-        rows_updated=parse_pg_status_count(status),
-        recorded_at=datetime.now(UTC),
-        error_message=None,
-    )
+    async def handle(
+        self, request: ModelDispatchEvalResult
+    ) -> ModelDispatchOutcomeResult:
+        """Record a dispatch evaluation result into dispatch_eval_results.
+
+        The dedupe key is the table primary key: ``(task_id, dispatch_id)``.
+        Replays update the same row with the canonical event payload rather
+        than creating duplicates.
+        """
+        event = request
+        logger.info(
+            "Recording dispatch outcome",
+            extra={
+                "task_id": event.task_id,
+                "dispatch_id": event.dispatch_id,
+                "ticket_id": event.ticket_id,
+                "verdict": event.verdict.name,
+            },
+        )
+
+        status = await self._repository.execute(
+            SQL_UPSERT_DISPATCH_EVAL_RESULT,
+            event.task_id,
+            event.dispatch_id,
+            event.ticket_id,
+            event.verdict.name,
+            event.quality_score,
+            event.token_cost,
+            event.dollars_cost,
+            json.dumps(
+                [call.model_dump(mode="json") for call in event.model_calls],
+                sort_keys=True,
+                separators=(",", ":"),
+            ),
+            event.evaluated_at,
+            event.eval_latency_ms,
+            event.cost_provenance.usage_source.name,
+            event.cost_provenance.estimation_method,
+            event.cost_provenance.source_payload_hash,
+        )
+
+        return ModelDispatchOutcomeResult(
+            status=EnumOutcomeRecordingStatus.SUCCESS,
+            task_id=event.task_id,
+            dispatch_id=event.dispatch_id,
+            ticket_id=event.ticket_id,
+            rows_updated=parse_pg_status_count(status),
+            recorded_at=datetime.now(UTC),
+            error_message=None,
+        )
 
 
-__all__ = ["SQL_UPSERT_DISPATCH_EVAL_RESULT", "record_dispatch_outcome"]
+__all__ = ["SQL_UPSERT_DISPATCH_EVAL_RESULT", "HandlerDispatchOutcome"]

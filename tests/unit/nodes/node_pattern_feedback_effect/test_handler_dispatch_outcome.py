@@ -16,7 +16,7 @@ from omnibase_core.models.cost import ModelCostProvenance
 from omnibase_core.models.dispatch import ModelCallRecord, ModelDispatchEvalResult
 
 from omniintelligence.nodes.node_pattern_feedback_effect.handlers import (
-    record_dispatch_outcome,
+    HandlerDispatchOutcome,
 )
 from omniintelligence.nodes.node_pattern_feedback_effect.models import (
     EnumOutcomeRecordingStatus,
@@ -107,7 +107,7 @@ def _dispatch_result(
 async def test_record_dispatch_outcome_upserts_cost_provenance() -> None:
     repo = MockDispatchRepository()
 
-    result = await record_dispatch_outcome(_dispatch_result(), repository=repo)
+    result = await HandlerDispatchOutcome(repository=repo).handle(_dispatch_result())
 
     assert result.status == EnumOutcomeRecordingStatus.SUCCESS
     assert result.task_id == "t1"
@@ -134,13 +134,12 @@ async def test_record_dispatch_outcome_records_pass_fail_error_rows() -> None:
         ("d-fail", EnumDispatchVerdict.FAIL),
         ("d-error", EnumDispatchVerdict.ERROR),
     ):
-        await record_dispatch_outcome(
+        await HandlerDispatchOutcome(repository=repo).handle(
             _dispatch_result(
                 dispatch_id=dispatch_id,
                 verdict=verdict,
                 quality_score=0.85 if verdict == EnumDispatchVerdict.PASS else None,
-            ),
-            repository=repo,
+            )
         )
 
     assert set(repo.dispatch_eval_results) == {
@@ -157,8 +156,12 @@ async def test_record_dispatch_outcome_records_pass_fail_error_rows() -> None:
 async def test_record_dispatch_outcome_replay_updates_one_row() -> None:
     repo = MockDispatchRepository()
 
-    await record_dispatch_outcome(_dispatch_result(token_cost=12_500), repository=repo)
-    await record_dispatch_outcome(_dispatch_result(token_cost=13_000), repository=repo)
+    await HandlerDispatchOutcome(repository=repo).handle(
+        _dispatch_result(token_cost=12_500)
+    )
+    await HandlerDispatchOutcome(repository=repo).handle(
+        _dispatch_result(token_cost=13_000)
+    )
 
     assert list(repo.dispatch_eval_results) == [("t1", "d1")]
     assert repo.dispatch_eval_results[("t1", "d1")]["token_cost"] == 13_000

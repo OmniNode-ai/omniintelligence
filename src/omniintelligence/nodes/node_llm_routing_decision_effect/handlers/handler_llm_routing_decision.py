@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 # Copyright (c) 2025 OmniNode Team
-"""Handler functions for LLM routing decision processing.
+"""Handler class for LLM routing decision processing.
 
 Bifrost feedback loop consumer: when omniclaude's
 Bifrost LLM gateway makes a routing decision, it emits an LLM routing decision
@@ -95,144 +95,216 @@ DO UPDATE SET
     processed_at = EXCLUDED.processed_at
 ;"""
 # =============================================================================
-# Handler Functions
+# Handler Class
 # =============================================================================
 
 
-async def process_llm_routing_decision(
-    event: ModelLlmRoutingDecisionEvent,
-    *,
-    repository: ProtocolPatternRepository,
-    kafka_publisher: ProtocolKafkaPublisher | None = None,
-) -> ModelLlmRoutingDecisionResult:
-    """Process an LLM routing decision event and upsert to llm_routing_decisions.
+class HandlerLlmRoutingDecision:
+    """Process LLM routing decision events and upsert to llm_routing_decisions.
 
-    This is the main entry point for the LLM routing decision handler. It:
-    1. Upserts the event to llm_routing_decisions with idempotency key
-       (session_id, correlation_id).
-    2. Publishes a confirmation event to Kafka (optional, graceful degradation).
-    3. Returns structured result with processing status.
-
-    Per handler contract: ALL exceptions are caught and returned as structured
-    ERROR results. This function never raises - unexpected errors produce a
-    result with status=EnumLlmRoutingDecisionStatus.ERROR.
+    Collaborators are injected as keyword-only constructor arguments:
 
     Args:
-        event: The LLM routing decision event from omniclaude's Bifrost gateway.
         repository: Database repository implementing ProtocolPatternRepository.
         kafka_publisher: Optional Kafka publisher for confirmation events.
             If None, DB write still succeeds (graceful degradation).
-
-    Returns:
-        ModelLlmRoutingDecisionResult with processing status and upsert details.
     """
-    try:
-        return await _process_llm_routing_decision_inner(
-            event=event,
-            repository=repository,
-            kafka_publisher=kafka_publisher,
-        )
-    except Exception as exc:
-        # Handler contract: return structured errors, never raise.
-        sanitized_error = get_log_sanitizer().sanitize(str(exc))
-        logger.exception(
-            "Unhandled exception in LLM routing decision handler",
+
+    def __init__(
+        self,
+        *,
+        repository: ProtocolPatternRepository,
+        kafka_publisher: ProtocolKafkaPublisher | None = None,
+    ) -> None:
+        self._repository = repository
+        self._kafka_publisher = kafka_publisher
+
+    async def handle(
+        self, request: ModelLlmRoutingDecisionEvent
+    ) -> ModelLlmRoutingDecisionResult:
+        """Process an LLM routing decision event and upsert to llm_routing_decisions.
+
+        This is the main entry point for the LLM routing decision handler. It:
+        1. Upserts the event to llm_routing_decisions with idempotency key
+           (session_id, correlation_id).
+        2. Publishes a confirmation event to Kafka (optional, graceful degradation).
+        3. Returns structured result with processing status.
+
+        Per handler contract: ALL exceptions are caught and returned as structured
+        ERROR results. This method never raises - unexpected errors produce a
+        result with status=EnumLlmRoutingDecisionStatus.ERROR.
+
+        Args:
+            request: The LLM routing decision event from omniclaude's Bifrost gateway.
+
+        Returns:
+            ModelLlmRoutingDecisionResult with processing status and upsert details.
+        """
+        event = request
+        try:
+            return await self._process(event)
+        except Exception as exc:
+            # Handler contract: return structured errors, never raise.
+            sanitized_error = get_log_sanitizer().sanitize(str(exc))
+            logger.exception(
+                "Unhandled exception in LLM routing decision handler",
+                extra={
+                    "correlation_id": event.correlation_id,
+                    "session_id": event.session_id,
+                    "selected_agent": event.selected_agent,
+                    "error": sanitized_error,
+                    "error_type": type(exc).__name__,
+                },
+            )
+            return ModelLlmRoutingDecisionResult(
+                status=EnumLlmRoutingDecisionStatus.ERROR,
+                session_id=event.session_id,
+                correlation_id=event.correlation_id,
+                selected_agent=event.selected_agent,
+                was_upserted=False,
+                processed_at=datetime.now(UTC),
+                error_message=sanitized_error,
+            )
+
+    async def _process(
+        self, event: ModelLlmRoutingDecisionEvent
+    ) -> ModelLlmRoutingDecisionResult:
+        """Inner implementation of handle.
+
+        Separated from the public entry point so ``handle`` can apply
+        a top-level try/except that catches any unhandled exceptions and converts
+        them to structured ERROR results per the handler contract.
+        """
+        now = datetime.now(UTC)
+
+        logger.info(
+            "Processing LLM routing decision event",
             extra={
                 "correlation_id": event.correlation_id,
                 "session_id": event.session_id,
                 "selected_agent": event.selected_agent,
-                "error": sanitized_error,
-                "error_type": type(exc).__name__,
+                "llm_confidence": event.llm_confidence,
+                "agreement": event.agreement,
             },
         )
+
+        # Step 1: Upsert to llm_routing_decisions with idempotency key.
+        # ON CONFLICT (session_id, correlation_id) DO UPDATE SET processed_at
+        # ensures at-least-once Kafka delivery is safe.
+        status = await self._repository.execute(
+            SQL_UPSERT_LLM_ROUTING_DECISION,
+            event.session_id,
+            event.correlation_id,
+            event.selected_agent,
+            event.llm_confidence,
+            event.llm_latency_ms,
+            event.fallback_used,
+            event.model_used,
+            event.fuzzy_top_candidate,
+            event.llm_selected_candidate,
+            event.agreement,
+            event.routing_prompt_version,
+            now,
+        )
+
+        rows_affected = parse_pg_status_count(status)
+        was_upserted = rows_affected > 0
+
+        logger.debug(
+            "Upserted LLM routing decision record",
+            extra={
+                "correlation_id": event.correlation_id,
+                "session_id": event.session_id,
+                "selected_agent": event.selected_agent,
+                "rows_affected": rows_affected,
+                "was_upserted": was_upserted,
+            },
+        )
+
+        # Step 2: Publish confirmation event (optional, graceful degradation).
+        # DB write already succeeded; Kafka failure does NOT roll back the upsert.
+        if self._kafka_publisher is not None:
+            await self._publish_processed_event(
+                event=event,
+                kafka_publisher=self._kafka_publisher,
+                was_upserted=was_upserted,
+                processed_at=now,
+            )
+
         return ModelLlmRoutingDecisionResult(
-            status=EnumLlmRoutingDecisionStatus.ERROR,
+            status=EnumLlmRoutingDecisionStatus.SUCCESS,
             session_id=event.session_id,
             correlation_id=event.correlation_id,
             selected_agent=event.selected_agent,
-            was_upserted=False,
-            processed_at=datetime.now(UTC),
-            error_message=sanitized_error,
-        )
-
-
-async def _process_llm_routing_decision_inner(
-    event: ModelLlmRoutingDecisionEvent,
-    *,
-    repository: ProtocolPatternRepository,
-    kafka_publisher: ProtocolKafkaPublisher | None,
-) -> ModelLlmRoutingDecisionResult:
-    """Inner implementation of process_llm_routing_decision.
-
-    Separated from the public entry point so the outer function can apply
-    a top-level try/except that catches any unhandled exceptions and converts
-    them to structured ERROR results per the handler contract.
-    """
-    now = datetime.now(UTC)
-
-    logger.info(
-        "Processing LLM routing decision event",
-        extra={
-            "correlation_id": event.correlation_id,
-            "session_id": event.session_id,
-            "selected_agent": event.selected_agent,
-            "llm_confidence": event.llm_confidence,
-            "agreement": event.agreement,
-        },
-    )
-
-    # Step 1: Upsert to llm_routing_decisions with idempotency key.
-    # ON CONFLICT (session_id, correlation_id) DO UPDATE SET processed_at
-    # ensures at-least-once Kafka delivery is safe.
-    status = await repository.execute(
-        SQL_UPSERT_LLM_ROUTING_DECISION,
-        event.session_id,
-        event.correlation_id,
-        event.selected_agent,
-        event.llm_confidence,
-        event.llm_latency_ms,
-        event.fallback_used,
-        event.model_used,
-        event.fuzzy_top_candidate,
-        event.llm_selected_candidate,
-        event.agreement,
-        event.routing_prompt_version,
-        now,
-    )
-
-    rows_affected = parse_pg_status_count(status)
-    was_upserted = rows_affected > 0
-
-    logger.debug(
-        "Upserted LLM routing decision record",
-        extra={
-            "correlation_id": event.correlation_id,
-            "session_id": event.session_id,
-            "selected_agent": event.selected_agent,
-            "rows_affected": rows_affected,
-            "was_upserted": was_upserted,
-        },
-    )
-
-    # Step 2: Publish confirmation event (optional, graceful degradation).
-    # DB write already succeeded; Kafka failure does NOT roll back the upsert.
-    if kafka_publisher is not None:
-        await _publish_processed_event(
-            event=event,
-            kafka_publisher=kafka_publisher,
             was_upserted=was_upserted,
             processed_at=now,
+            error_message=None,
         )
 
-    return ModelLlmRoutingDecisionResult(
-        status=EnumLlmRoutingDecisionStatus.SUCCESS,
-        session_id=event.session_id,
-        correlation_id=event.correlation_id,
-        selected_agent=event.selected_agent,
-        was_upserted=was_upserted,
-        processed_at=now,
-        error_message=None,
-    )
+    async def _publish_processed_event(
+        self,
+        *,
+        event: ModelLlmRoutingDecisionEvent,
+        kafka_publisher: ProtocolKafkaPublisher,
+        was_upserted: bool,
+        processed_at: datetime,
+    ) -> None:
+        """Publish a llm-routing-decision-processed confirmation event.
+
+        Failures are logged but NOT propagated - the DB upsert already succeeded.
+        On publish failure, the original envelope is routed to the DLQ topic.
+
+        Args:
+            event: The original LLM routing decision event.
+            kafka_publisher: Kafka publisher for the confirmation event.
+            was_upserted: Whether a DB row was created/updated.
+            processed_at: Timestamp of when the upsert was processed.
+        """
+        event_model = ModelLlmRoutingDecisionProcessedEvent(
+            session_id=event.session_id,
+            correlation_id=event.correlation_id,
+            selected_agent=event.selected_agent,
+            was_upserted=was_upserted,
+            processed_at=processed_at,
+        )
+        payload = event_model.model_dump(mode="json")
+        try:
+            await kafka_publisher.publish(
+                topic=TOPIC_LLM_ROUTING_DECISION_PROCESSED,
+                key=event.session_id,
+                value=payload,
+            )
+            logger.debug(
+                "Published LLM routing decision processed event",
+                extra={
+                    "correlation_id": event.correlation_id,
+                    "session_id": event.session_id,
+                    "topic": TOPIC_LLM_ROUTING_DECISION_PROCESSED,
+                },
+            )
+        except Exception as exc:
+            # DB upsert already succeeded; Kafka failure is non-fatal.
+            sanitized_error = get_log_sanitizer().sanitize(str(exc))
+            logger.warning(
+                "Failed to publish LLM routing decision processed event — "
+                "DB upsert succeeded, Kafka publish failed (non-fatal)",
+                exc_info=True,
+                extra={
+                    "correlation_id": event.correlation_id,
+                    "session_id": event.session_id,
+                    "topic": TOPIC_LLM_ROUTING_DECISION_PROCESSED,
+                },
+            )
+
+            await _route_to_dlq(
+                producer=kafka_publisher,
+                original_topic=TOPIC_LLM_ROUTING_DECISION_PROCESSED,
+                original_envelope=payload,
+                error_message=sanitized_error,
+                error_timestamp=datetime.now(UTC).isoformat(),
+                session_id=event.session_id,
+                correlation_id=event.correlation_id,
+            )
 
 
 async def _route_to_dlq(
@@ -296,71 +368,7 @@ async def _route_to_dlq(
         )
 
 
-async def _publish_processed_event(
-    event: ModelLlmRoutingDecisionEvent,
-    kafka_publisher: ProtocolKafkaPublisher,
-    was_upserted: bool,
-    processed_at: datetime,
-) -> None:
-    """Publish a llm-routing-decision-processed confirmation event.
-
-    Failures are logged but NOT propagated - the DB upsert already succeeded.
-    On publish failure, the original envelope is routed to the DLQ topic.
-
-    Args:
-        event: The original LLM routing decision event.
-        kafka_publisher: Kafka publisher for the confirmation event.
-        was_upserted: Whether a DB row was created/updated.
-        processed_at: Timestamp of when the upsert was processed.
-    """
-    event_model = ModelLlmRoutingDecisionProcessedEvent(
-        session_id=event.session_id,
-        correlation_id=event.correlation_id,
-        selected_agent=event.selected_agent,
-        was_upserted=was_upserted,
-        processed_at=processed_at,
-    )
-    payload = event_model.model_dump(mode="json")
-    try:
-        await kafka_publisher.publish(
-            topic=TOPIC_LLM_ROUTING_DECISION_PROCESSED,
-            key=event.session_id,
-            value=payload,
-        )
-        logger.debug(
-            "Published LLM routing decision processed event",
-            extra={
-                "correlation_id": event.correlation_id,
-                "session_id": event.session_id,
-                "topic": TOPIC_LLM_ROUTING_DECISION_PROCESSED,
-            },
-        )
-    except Exception as exc:
-        # DB upsert already succeeded; Kafka failure is non-fatal.
-        sanitized_error = get_log_sanitizer().sanitize(str(exc))
-        logger.warning(
-            "Failed to publish LLM routing decision processed event — "
-            "DB upsert succeeded, Kafka publish failed (non-fatal)",
-            exc_info=True,
-            extra={
-                "correlation_id": event.correlation_id,
-                "session_id": event.session_id,
-                "topic": TOPIC_LLM_ROUTING_DECISION_PROCESSED,
-            },
-        )
-
-        await _route_to_dlq(
-            producer=kafka_publisher,
-            original_topic=TOPIC_LLM_ROUTING_DECISION_PROCESSED,
-            original_envelope=payload,
-            error_message=sanitized_error,
-            error_timestamp=datetime.now(UTC).isoformat(),
-            session_id=event.session_id,
-            correlation_id=event.correlation_id,
-        )
-
-
 __all__ = [
     "DLQ_TOPIC",
-    "process_llm_routing_decision",
+    "HandlerLlmRoutingDecision",
 ]

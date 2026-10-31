@@ -60,7 +60,7 @@ def create_promotion_check_dispatch_handler(
         context: Any,  # any-ok: ProtocolHandlerContext
     ) -> str:
         from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers import (
-            apply_transition,
+            HandlerTransition,
         )
         from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_auto_promote import (
             handle_auto_promote_check,
@@ -83,16 +83,16 @@ def create_promotion_check_dispatch_handler(
             extra={"correlation_id": str(correlation_id)},
         )
 
-        # Wrap apply_transition to match ProtocolApplyTransition signature
-        # by pre-binding repository, idempotency_store, and producer.
-        producer = kafka_producer
+        # HandlerTransition.handle matches ProtocolApplyTransition: the handler
+        # pre-binds repository, idempotency_store, and producer.
+        transitions = HandlerTransition(repository, idempotency_store, kafka_producer)
 
         result = await handle_auto_promote_check(
             repository=repository,
-            apply_transition_fn=apply_transition,
+            apply_transition_fn=transitions.handle,
             idempotency_store=idempotency_store,
             # Why: Runtime validation intentionally accepts this broader fixture/input shape.
-            producer=producer,  # type: ignore[arg-type]
+            producer=kafka_producer,  # type: ignore[arg-type]
             correlation_id=correlation_id,
             publish_topic=publish_topic,
         )

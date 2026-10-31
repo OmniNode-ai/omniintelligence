@@ -27,6 +27,12 @@ from omniintelligence.nodes.node_crawl_scheduler_effect.models.model_crawl_sched
 from omniintelligence.nodes.node_crawl_scheduler_effect.models.model_crawl_tick_command import (
     ModelCrawlTickCommand,
 )
+from omniintelligence.nodes.node_crawl_scheduler_effect.models.model_crawl_tick_request import (
+    ModelCrawlTickRequest,
+)
+from omniintelligence.nodes.node_crawl_scheduler_effect.models.model_document_indexed_request import (
+    ModelDocumentIndexedRequest,
+)
 
 __all__ = [
     "CrawlerType",
@@ -36,4 +42,6 @@ __all__ = [
     "ModelCrawlSchedulerConfig",
     "ModelCrawlSchedulerResult",
     "ModelCrawlTickCommand",
+    "ModelCrawlTickRequest",
+    "ModelDocumentIndexedRequest",
 ]

@@ -24,6 +24,13 @@ requirements:
       - id: "AC2"
         statement: |-
           AC2: the unit tests of the pattern learning and pattern assembler nodes call the handler classes and pass, and the canonical-dispatch parity tests of the two contract-bound handlers pass -- falsifier: uv run pytest tests/unit/nodes/node_pattern_learning_compute tests/unit/nodes/node_pattern_assembler_orchestrator tests/unit/test_node_purity.py -q
+  - id: "req-effect-handler-classes"
+    statement: |-
+      Each handler module of the seven converted effect nodes holds a handler class exposing handle(request); no bare public handler function remains in it.
+    acceptance:
+      - id: "AC3"
+        statement: |-
+          AC3: the unit tests of the seven converted effect handlers call the handler classes and pass -- falsifier: uv run pytest tests/unit/nodes/node_crawl_scheduler_effect tests/unit/nodes/node_debug_fix_record_effect tests/unit/nodes/node_pattern_lifecycle_effect src/omniintelligence/nodes/node_compliance_evaluate_effect/node_tests src/omniintelligence/nodes/node_linear_crawler_effect/node_tests src/omniintelligence/nodes/node_llm_routing_decision_effect/node_tests src/omniintelligence/nodes/node_routing_feedback_effect/node_tests -q
 evidence_requirements:
   - kind: "tests"
     description: "Handler-class unit tests for the six nodes pass."
@@ -32,6 +39,10 @@ evidence_requirements:
   - kind: "tests"
     description: "Handler-class unit tests of the pattern learning and pattern assembler nodes pass."
     command: "uv run pytest tests/unit/nodes/node_pattern_learning_compute tests/unit/nodes/node_pattern_assembler_orchestrator
+      -q"
+  - kind: "tests"
+    description: "Handler-class unit tests of the seven converted effect nodes pass."
+    command: "uv run pytest tests/unit/nodes/node_crawl_scheduler_effect tests/unit/nodes/node_debug_fix_record_effect
       -q"
 emergency_bypass:
   enabled: false
@@ -55,3 +66,11 @@ dod_evidence:
         check_value: "uv run pytest tests/unit/nodes/node_pattern_learning_compute tests/unit/nodes/node_pattern_assembler_orchestrator
           -q"
     binds_ac: ["AC2"]
+  - id: "dod-omn21536-ac3-effect-handler-classes"
+    description: "The converted effect handler classes are exercised by their unit tests."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/nodes/node_crawl_scheduler_effect tests/unit/nodes/node_debug_fix_record_effect
+          -q"
+    binds_ac: ["AC3"]

@@ -62,7 +62,7 @@ handler_routing:
   handlers:
     - operation: "process_routing_feedback"
       handler:
-        function: "process_routing_feedback"
+        class: "HandlerRoutingFeedback"
         module: "omniintelligence.nodes.node_routing_feedback_effect.handlers.handler_routing_feedback"
         type: "async"
       description: "Consume routing-feedback event, filter on feedback_status, upsert produced events

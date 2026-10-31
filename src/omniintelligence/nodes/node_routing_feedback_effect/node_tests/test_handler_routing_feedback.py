@@ -37,7 +37,7 @@ import pytest
 from omniintelligence.constants import TOPIC_ROUTING_FEEDBACK_PROCESSED
 from omniintelligence.nodes.node_routing_feedback_effect.handlers.handler_routing_feedback import (
     DLQ_TOPIC,
-    process_routing_feedback,
+    HandlerRoutingFeedback,
 )
 from omniintelligence.nodes.node_routing_feedback_effect.models import (
     EnumRoutingFeedbackStatus,
@@ -65,9 +65,8 @@ class TestHappyPath:
         sample_session_id: str,
     ) -> None:
         """feedback_status='produced' event is upserted to routing_feedback_scores."""
-        result = await process_routing_feedback(
-            event=sample_routing_feedback_event_produced,
-            repository=mock_repository,
+        result = await HandlerRoutingFeedback(repository=mock_repository).handle(
+            sample_routing_feedback_event_produced
         )
 
         assert result.status == EnumRoutingFeedbackStatus.SUCCESS
@@ -85,9 +84,8 @@ class TestHappyPath:
         sample_session_id: str,
     ) -> None:
         """Exactly one row is written to routing_feedback_scores."""
-        await process_routing_feedback(
-            event=sample_routing_feedback_event_produced,
-            repository=mock_repository,
+        await HandlerRoutingFeedback(repository=mock_repository).handle(
+            sample_routing_feedback_event_produced
         )
 
         assert mock_repository.row_count() == 1
@@ -103,9 +101,8 @@ class TestHappyPath:
     ) -> None:
         """processed_at in result is a recent UTC timestamp."""
         before = datetime.now(UTC)
-        result = await process_routing_feedback(
-            event=sample_routing_feedback_event_produced,
-            repository=mock_repository,
+        result = await HandlerRoutingFeedback(repository=mock_repository).handle(
+            sample_routing_feedback_event_produced
         )
         after = datetime.now(UTC)
 
@@ -119,11 +116,9 @@ class TestHappyPath:
         sample_routing_feedback_event_produced: ModelRoutingFeedbackPayload,
     ) -> None:
         """When Kafka publisher is provided, confirmation event is published."""
-        result = await process_routing_feedback(
-            event=sample_routing_feedback_event_produced,
-            repository=mock_repository,
-            kafka_publisher=mock_publisher,
-        )
+        result = await HandlerRoutingFeedback(
+            repository=mock_repository, kafka_publisher=mock_publisher
+        ).handle(sample_routing_feedback_event_produced)
 
         assert result.status == EnumRoutingFeedbackStatus.SUCCESS
         assert len(mock_publisher.published) == 1
@@ -149,9 +144,8 @@ class TestSkippedEvents:
         sample_routing_feedback_event_skipped: ModelRoutingFeedbackPayload,
     ) -> None:
         """feedback_status='skipped' event skips DB write."""
-        result = await process_routing_feedback(
-            event=sample_routing_feedback_event_skipped,
-            repository=mock_repository,
+        result = await HandlerRoutingFeedback(repository=mock_repository).handle(
+            sample_routing_feedback_event_skipped
         )
 
         assert result.status == EnumRoutingFeedbackStatus.SUCCESS
@@ -165,9 +159,8 @@ class TestSkippedEvents:
         sample_routing_feedback_event_skipped: ModelRoutingFeedbackPayload,
     ) -> None:
         """Result for a skipped event includes the skip_reason from input."""
-        result = await process_routing_feedback(
-            event=sample_routing_feedback_event_skipped,
-            repository=mock_repository,
+        result = await HandlerRoutingFeedback(repository=mock_repository).handle(
+            sample_routing_feedback_event_skipped
         )
 
         assert result.feedback_status == "skipped"
@@ -181,11 +174,9 @@ class TestSkippedEvents:
         sample_routing_feedback_event_skipped: ModelRoutingFeedbackPayload,
     ) -> None:
         """Skipped events do not publish a confirmation event to Kafka."""
-        await process_routing_feedback(
-            event=sample_routing_feedback_event_skipped,
-            repository=mock_repository,
-            kafka_publisher=mock_publisher,
-        )
+        await HandlerRoutingFeedback(
+            repository=mock_repository, kafka_publisher=mock_publisher
+        ).handle(sample_routing_feedback_event_skipped)
 
         assert len(mock_publisher.published) == 0
 
@@ -196,9 +187,8 @@ class TestSkippedEvents:
         sample_routing_feedback_event_skipped: ModelRoutingFeedbackPayload,
     ) -> None:
         """Skipped events return SUCCESS status (not an error)."""
-        result = await process_routing_feedback(
-            event=sample_routing_feedback_event_skipped,
-            repository=mock_repository,
+        result = await HandlerRoutingFeedback(repository=mock_repository).handle(
+            sample_routing_feedback_event_skipped
         )
 
         assert result.status == EnumRoutingFeedbackStatus.SUCCESS
@@ -229,8 +219,8 @@ class TestSkippedEvents:
             emitted_at=datetime(2026, 2, 28, 12, 0, 1, tzinfo=UTC),
         )
 
-        await process_routing_feedback(event=produced_event, repository=mock_repository)
-        await process_routing_feedback(event=skipped_event, repository=mock_repository)
+        await HandlerRoutingFeedback(repository=mock_repository).handle(produced_event)
+        await HandlerRoutingFeedback(repository=mock_repository).handle(skipped_event)
 
         # Only the produced event should be in the DB
         assert mock_repository.row_count() == 1
@@ -259,14 +249,12 @@ class TestIdempotency:
         Simulates at-least-once Kafka delivery.
         """
         # First delivery
-        result1 = await process_routing_feedback(
-            event=sample_routing_feedback_event_produced,
-            repository=mock_repository,
+        result1 = await HandlerRoutingFeedback(repository=mock_repository).handle(
+            sample_routing_feedback_event_produced
         )
         # Second delivery (simulating at-least-once re-delivery)
-        result2 = await process_routing_feedback(
-            event=sample_routing_feedback_event_produced,
-            repository=mock_repository,
+        result2 = await HandlerRoutingFeedback(repository=mock_repository).handle(
+            sample_routing_feedback_event_produced
         )
 
         # Both results should succeed
@@ -304,8 +292,8 @@ class TestIdempotency:
             emitted_at=datetime(2026, 2, 28, 12, 0, 1, tzinfo=UTC),
         )
 
-        await process_routing_feedback(event=event_a, repository=mock_repository)
-        await process_routing_feedback(event=event_b, repository=mock_repository)
+        await HandlerRoutingFeedback(repository=mock_repository).handle(event_a)
+        await HandlerRoutingFeedback(repository=mock_repository).handle(event_b)
 
         # Two distinct sessions should produce two rows
         assert mock_repository.row_count() == 2
@@ -318,9 +306,8 @@ class TestIdempotency:
     ) -> None:
         """At-least-once delivery of 5x the same session = exactly 1 row."""
         for _ in range(5):
-            result = await process_routing_feedback(
-                event=sample_routing_feedback_event_produced,
-                repository=mock_repository,
+            result = await HandlerRoutingFeedback(repository=mock_repository).handle(
+                sample_routing_feedback_event_produced
             )
             assert result.status == EnumRoutingFeedbackStatus.SUCCESS
 
@@ -345,11 +332,9 @@ class TestKafkaGracefulDegradation:
         sample_routing_feedback_event_produced: ModelRoutingFeedbackPayload,
     ) -> None:
         """Handler succeeds when kafka_publisher is None (graceful degradation)."""
-        result = await process_routing_feedback(
-            event=sample_routing_feedback_event_produced,
-            repository=mock_repository,
-            kafka_publisher=None,
-        )
+        result = await HandlerRoutingFeedback(
+            repository=mock_repository, kafka_publisher=None
+        ).handle(sample_routing_feedback_event_produced)
 
         assert result.status == EnumRoutingFeedbackStatus.SUCCESS
         assert result.was_upserted is True
@@ -362,9 +347,8 @@ class TestKafkaGracefulDegradation:
         sample_routing_feedback_event_produced: ModelRoutingFeedbackPayload,
     ) -> None:
         """kafka_publisher defaults to None when not provided."""
-        result = await process_routing_feedback(
-            event=sample_routing_feedback_event_produced,
-            repository=mock_repository,
+        result = await HandlerRoutingFeedback(repository=mock_repository).handle(
+            sample_routing_feedback_event_produced
         )
 
         assert result.status == EnumRoutingFeedbackStatus.SUCCESS
@@ -389,11 +373,9 @@ class TestKafkaPublishFailure:
         """Kafka publish failure is non-fatal; DB upsert result is SUCCESS."""
         mock_publisher.simulate_publish_error = ConnectionError("Kafka unavailable")
 
-        result = await process_routing_feedback(
-            event=sample_routing_feedback_event_produced,
-            repository=mock_repository,
-            kafka_publisher=mock_publisher,
-        )
+        result = await HandlerRoutingFeedback(
+            repository=mock_repository, kafka_publisher=mock_publisher
+        ).handle(sample_routing_feedback_event_produced)
 
         # DB write succeeded
         assert result.status == EnumRoutingFeedbackStatus.SUCCESS
@@ -412,11 +394,9 @@ class TestKafkaPublishFailure:
         """Even when Kafka fails, the DB row is persisted."""
         mock_publisher.simulate_publish_error = RuntimeError("Kafka broker down")
 
-        await process_routing_feedback(
-            event=sample_routing_feedback_event_produced,
-            repository=mock_repository,
-            kafka_publisher=mock_publisher,
-        )
+        await HandlerRoutingFeedback(
+            repository=mock_repository, kafka_publisher=mock_publisher
+        ).handle(sample_routing_feedback_event_produced)
 
         row = mock_repository.get_row(sample_session_id)
         assert row is not None
@@ -441,9 +421,8 @@ class TestDatabaseError:
         """Database error returns structured ERROR result, never raises."""
         mock_repository.simulate_db_error = ConnectionError("DB connection refused")
 
-        result = await process_routing_feedback(
-            event=sample_routing_feedback_event_produced,
-            repository=mock_repository,
+        result = await HandlerRoutingFeedback(repository=mock_repository).handle(
+            sample_routing_feedback_event_produced
         )
 
         assert result.status == EnumRoutingFeedbackStatus.ERROR
@@ -461,9 +440,8 @@ class TestDatabaseError:
         """Even on DB error, event metadata is preserved in the result."""
         mock_repository.simulate_db_error = Exception("Unexpected failure")
 
-        result = await process_routing_feedback(
-            event=sample_routing_feedback_event_produced,
-            repository=mock_repository,
+        result = await HandlerRoutingFeedback(repository=mock_repository).handle(
+            sample_routing_feedback_event_produced
         )
 
         assert result.session_id == sample_session_id
@@ -479,9 +457,8 @@ class TestDatabaseError:
         mock_repository.simulate_db_error = RuntimeError("Catastrophic failure")
 
         # Must NOT raise - handler contract
-        result = await process_routing_feedback(
-            event=sample_routing_feedback_event_produced,
-            repository=mock_repository,
+        result = await HandlerRoutingFeedback(repository=mock_repository).handle(
+            sample_routing_feedback_event_produced
         )
 
         assert result.status == EnumRoutingFeedbackStatus.ERROR
@@ -504,11 +481,9 @@ class TestKafkaPublishedEvent:
         sample_routing_feedback_event_produced: ModelRoutingFeedbackPayload,
     ) -> None:
         """Confirmation event is published to the correct topic."""
-        await process_routing_feedback(
-            event=sample_routing_feedback_event_produced,
-            repository=mock_repository,
-            kafka_publisher=mock_publisher,
-        )
+        await HandlerRoutingFeedback(
+            repository=mock_repository, kafka_publisher=mock_publisher
+        ).handle(sample_routing_feedback_event_produced)
 
         assert len(mock_publisher.published) == 1
         topic, _, _ = mock_publisher.published[0]
@@ -523,11 +498,9 @@ class TestKafkaPublishedEvent:
         sample_session_id: str,
     ) -> None:
         """Confirmation event uses session_id as the Kafka message key."""
-        await process_routing_feedback(
-            event=sample_routing_feedback_event_produced,
-            repository=mock_repository,
-            kafka_publisher=mock_publisher,
-        )
+        await HandlerRoutingFeedback(
+            repository=mock_repository, kafka_publisher=mock_publisher
+        ).handle(sample_routing_feedback_event_produced)
 
         _, key, _ = mock_publisher.published[0]
         assert key == sample_session_id
@@ -540,11 +513,9 @@ class TestKafkaPublishedEvent:
         sample_routing_feedback_event_produced: ModelRoutingFeedbackPayload,
     ) -> None:
         """Confirmation event payload includes the feedback_status field."""
-        await process_routing_feedback(
-            event=sample_routing_feedback_event_produced,
-            repository=mock_repository,
-            kafka_publisher=mock_publisher,
-        )
+        await HandlerRoutingFeedback(
+            repository=mock_repository, kafka_publisher=mock_publisher
+        ).handle(sample_routing_feedback_event_produced)
 
         _, _, value = mock_publisher.published[0]
         assert value["feedback_status"] == "produced"
@@ -558,11 +529,9 @@ class TestKafkaPublishedEvent:
         sample_routing_feedback_event_produced: ModelRoutingFeedbackPayload,
     ) -> None:
         """Confirmation event payload includes the fixed event_name discriminator."""
-        await process_routing_feedback(
-            event=sample_routing_feedback_event_produced,
-            repository=mock_repository,
-            kafka_publisher=mock_publisher,
-        )
+        await HandlerRoutingFeedback(
+            repository=mock_repository, kafka_publisher=mock_publisher
+        ).handle(sample_routing_feedback_event_produced)
 
         _, _, value = mock_publisher.published[0]
         assert value["event_name"] == "routing.feedback.processed"
@@ -576,11 +545,9 @@ class TestKafkaPublishedEvent:
     ) -> None:
         """Confirmation event payload includes emitted_at and processed_at fields."""
         before = datetime.now(UTC)
-        await process_routing_feedback(
-            event=sample_routing_feedback_event_produced,
-            repository=mock_repository,
-            kafka_publisher=mock_publisher,
-        )
+        await HandlerRoutingFeedback(
+            repository=mock_repository, kafka_publisher=mock_publisher
+        ).handle(sample_routing_feedback_event_produced)
         after = datetime.now(UTC)
 
         _, _, value = mock_publisher.published[0]
@@ -601,11 +568,9 @@ class TestKafkaPublishedEvent:
         sample_routing_feedback_event_produced: ModelRoutingFeedbackPayload,
     ) -> None:
         """No Kafka publish occurs when kafka_publisher is None."""
-        result = await process_routing_feedback(
-            event=sample_routing_feedback_event_produced,
-            repository=mock_repository,
-            kafka_publisher=None,
-        )
+        result = await HandlerRoutingFeedback(
+            repository=mock_repository, kafka_publisher=None
+        ).handle(sample_routing_feedback_event_produced)
         assert result.status == EnumRoutingFeedbackStatus.SUCCESS
 
 
@@ -631,11 +596,9 @@ class TestDlqRouting:
             None,  # DLQ publish succeeds
         ]
 
-        result = await process_routing_feedback(
-            event=sample_routing_feedback_event_produced,
-            repository=mock_repository,
-            kafka_publisher=mock_publisher,
-        )
+        result = await HandlerRoutingFeedback(
+            repository=mock_repository, kafka_publisher=mock_publisher
+        ).handle(sample_routing_feedback_event_produced)
 
         assert result.status == EnumRoutingFeedbackStatus.SUCCESS
         assert result.was_upserted is True
@@ -659,11 +622,9 @@ class TestDlqRouting:
         """Handler returns SUCCESS even when both primary and DLQ publishes fail."""
         mock_publisher.simulate_publish_error = RuntimeError("Kafka cluster down")
 
-        result = await process_routing_feedback(
-            event=sample_routing_feedback_event_produced,
-            repository=mock_repository,
-            kafka_publisher=mock_publisher,
-        )
+        result = await HandlerRoutingFeedback(
+            repository=mock_repository, kafka_publisher=mock_publisher
+        ).handle(sample_routing_feedback_event_produced)
 
         assert result.status == EnumRoutingFeedbackStatus.SUCCESS
         assert result.was_upserted is True

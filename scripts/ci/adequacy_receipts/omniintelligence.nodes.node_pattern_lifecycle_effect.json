@@ -1,0 +1,26 @@
+{
+  "branch_coverage_pct": 78.57,
+  "candidate_count": 6,
+  "coverage_target": 80.0,
+  "handler_module": "omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition",
+  "handler_module_sha256": "sha256:8dd681cdbe91718648103853e30302a2798bf98414458ee5c60ca6c567920854",
+  "meets_target": false,
+  "node_id": "omniintelligence.nodes.node_pattern_lifecycle_effect",
+  "receipt_schema": "adequacy_receipt.v1",
+  "recorded_at": "2026-10-31T09:19:49.345982+00:00",
+  "recorder_schema": "adequacy_receipt.v1",
+  "selected_count": 6,
+  "selected_input_hashes": [
+    "sha256:7dcd8555c93302b6ea52690719bfc4ef789aa46181309b705989e1ba65663597",
+    "sha256:acf4341cf3eec6d59126f4a043ba0977098aa0550ee897f27205574f2e05abc6",
+    "sha256:4633bf1865d449fa33da5c6476a92ed9b81f9a8c5d5eff978d9d0209e0352b1e",
+    "sha256:b0358a07600ed846fb46c29d20e9e419044734faa9f536e94fb71e4e85b502de",
+    "sha256:0602e874f203120cd25871d7b6ba4607654414d72b8cea1525e9c227e599177b",
+    "sha256:1fdebed1865dd976e7fa80bb71acca458eef9786e61b120c91a125135416b9b3"
+  ],
+  "uncovered_waiver": {
+    "reason": "pytest-cov branch coverage of handler_transition is 22 of 28 branches. The six uncovered branches are the idempotency_store-is-None skip, the dict and ModelGateSnapshot gate_snapshot evidence-tier enrichment, the Kafka-emit failure handler and the DLQ helper's send and failure paths.",
+    "uncovered_branch_count": 6
+  },
+  "volatile_mask": []
+}

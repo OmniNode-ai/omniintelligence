@@ -2911,7 +2911,7 @@ class TestComplianceEvaluateDispatchHandler:
     ) -> None:
         """Valid payload with a mock LLM client must return 'ok'.
 
-        Patches handle_compliance_evaluate_command so no real LLM call is made.
+        Patches HandlerComplianceEvaluate so no real LLM call is made.
         Verifies the dispatch handler parses the payload, calls the leaf handler,
         and returns 'ok'.
         """
@@ -2967,18 +2967,21 @@ class TestComplianceEvaluateDispatchHandler:
             evaluated_at="2026-02-18T00:00:00+00:00",
         )
 
+        mock_handler_instance = MagicMock()
+        mock_handler_instance.handle = AsyncMock(return_value=mock_event)
+
         with patch(
             "omniintelligence.nodes.node_compliance_evaluate_effect.handlers"
-            ".handle_compliance_evaluate_command",
-            new_callable=AsyncMock,
-            return_value=mock_event,
-        ) as mock_handle:
+            ".HandlerComplianceEvaluate",
+            return_value=mock_handler_instance,
+        ) as mock_handler_cls:
             result = await handler(envelope, context)
 
         assert result == "ok"
-        mock_handle.assert_called_once()
-        call_kwargs = mock_handle.call_args.kwargs
+        mock_handler_cls.assert_called_once()
+        call_kwargs = mock_handler_cls.call_args.kwargs
         assert call_kwargs["llm_client"] is mock_llm_client
+        mock_handler_instance.handle.assert_awaited_once()
 
 
 class TestBloomEvalRunDispatchHandler:

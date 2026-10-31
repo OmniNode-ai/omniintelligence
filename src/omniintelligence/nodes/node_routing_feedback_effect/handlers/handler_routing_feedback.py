@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 # Copyright (c) 2025 OmniNode Team
-"""Handler functions for routing feedback processing.
+"""Handler class for routing feedback processing.
 
 OMN-2622: Switched subscription from routing-outcome-raw.v1 to routing-feedback.v1.
 The producer (omniclaude) now emits all routing feedback outcomes on routing-feedback.v1
@@ -36,7 +36,7 @@ Reference:
     - OMN-2622: Fold routing-feedback-skipped into routing-feedback.v1
 
 Design Principles:
-    - Pure handler functions with injected repository and optional publisher
+    - Handler class with injected repository and optional publisher
     - Protocol-based dependency injection for testability
     - asyncpg-style positional parameters ($1, $2, etc.)
     - Structured error returns, never raises domain errors
@@ -89,149 +89,219 @@ DO UPDATE SET
 ;"""
 
 # =============================================================================
-# Handler Functions
+# Handler Class
 # =============================================================================
 
 
-async def process_routing_feedback(
-    event: ModelRoutingFeedbackPayload,
-    *,
-    repository: ProtocolPatternRepository,
-    kafka_publisher: ProtocolKafkaPublisher | None = None,
-) -> ModelRoutingFeedbackResult:
-    """Process a routing-feedback event and conditionally upsert to routing_feedback_scores.
+class HandlerRoutingFeedback:
+    """Process routing-feedback events and conditionally upsert to routing_feedback_scores.
 
-    When ``event.feedback_status == "produced"``, upserts to routing_feedback_scores
-    and publishes a confirmation event. When ``"skipped"``, logs the skip_reason and
-    returns without touching the DB.
-
-    Per handler contract: ALL exceptions are caught and returned as structured
-    ERROR results. This function never raises - unexpected errors produce a
-    result with status=EnumRoutingFeedbackStatus.ERROR.
+    Collaborators are injected as keyword-only constructor arguments:
 
     Args:
-        event: The routing-feedback event from omniclaude.
         repository: Database repository implementing ProtocolPatternRepository.
         kafka_publisher: Optional Kafka publisher for confirmation events.
             If None, DB write still succeeds (graceful degradation).
-
-    Returns:
-        ModelRoutingFeedbackResult with processing status and upsert details.
     """
-    try:
-        return await _process_routing_feedback_inner(
-            event=event,
-            repository=repository,
-            kafka_publisher=kafka_publisher,
-        )
-    except Exception as exc:
-        # Handler contract: return structured errors, never raise.
-        sanitized_error = get_log_sanitizer().sanitize(str(exc))
-        logger.exception(
-            "Unhandled exception in routing feedback handler",
-            extra={
-                "session_id": event.session_id,
-                "feedback_status": event.feedback_status,
-                "error": sanitized_error,
-                "error_type": type(exc).__name__,
-            },
-        )
-        return ModelRoutingFeedbackResult(
-            status=EnumRoutingFeedbackStatus.ERROR,
-            session_id=event.session_id,
-            outcome=event.outcome,
-            feedback_status=event.feedback_status,
-            skip_reason=event.skip_reason,
-            was_upserted=False,
-            processed_at=datetime.now(UTC),
-            error_message=sanitized_error,
-        )
 
+    def __init__(
+        self,
+        *,
+        repository: ProtocolPatternRepository,
+        kafka_publisher: ProtocolKafkaPublisher | None = None,
+    ) -> None:
+        self._repository = repository
+        self._kafka_publisher = kafka_publisher
 
-async def _process_routing_feedback_inner(
-    event: ModelRoutingFeedbackPayload,
-    *,
-    repository: ProtocolPatternRepository,
-    kafka_publisher: ProtocolKafkaPublisher | None,
-) -> ModelRoutingFeedbackResult:
-    """Inner implementation of process_routing_feedback.
+    async def handle(
+        self, request: ModelRoutingFeedbackPayload
+    ) -> ModelRoutingFeedbackResult:
+        """Process a routing-feedback event and conditionally upsert to routing_feedback_scores.
 
-    Separated from the public entry point so the outer function can apply
-    a top-level try/except that catches any unhandled exceptions and converts
-    them to structured ERROR results per the handler contract.
-    """
-    now = datetime.now(UTC)
+        When ``request.feedback_status == "produced"``, upserts to
+        routing_feedback_scores and publishes a confirmation event. When
+        ``"skipped"``, logs the skip_reason and returns without touching the DB.
 
-    # Filter on feedback_status — skipped events do not go to DB.
-    if event.feedback_status == "skipped":
+        Per handler contract: ALL exceptions are caught and returned as structured
+        ERROR results. This method never raises - unexpected errors produce a
+        result with status=EnumRoutingFeedbackStatus.ERROR.
+
+        Args:
+            request: The routing-feedback event from omniclaude.
+
+        Returns:
+            ModelRoutingFeedbackResult with processing status and upsert details.
+        """
+        event = request
+        try:
+            return await self._process(event)
+        except Exception as exc:
+            # Handler contract: return structured errors, never raise.
+            sanitized_error = get_log_sanitizer().sanitize(str(exc))
+            logger.exception(
+                "Unhandled exception in routing feedback handler",
+                extra={
+                    "session_id": event.session_id,
+                    "feedback_status": event.feedback_status,
+                    "error": sanitized_error,
+                    "error_type": type(exc).__name__,
+                },
+            )
+            return ModelRoutingFeedbackResult(
+                status=EnumRoutingFeedbackStatus.ERROR,
+                session_id=event.session_id,
+                outcome=event.outcome,
+                feedback_status=event.feedback_status,
+                skip_reason=event.skip_reason,
+                was_upserted=False,
+                processed_at=datetime.now(UTC),
+                error_message=sanitized_error,
+            )
+
+    async def _process(
+        self, event: ModelRoutingFeedbackPayload
+    ) -> ModelRoutingFeedbackResult:
+        """Inner implementation of handle.
+
+        Separated from the public entry point so ``handle`` can apply
+        a top-level try/except that catches any unhandled exceptions and converts
+        them to structured ERROR results per the handler contract.
+        """
+        now = datetime.now(UTC)
+
+        # Filter on feedback_status — skipped events do not go to DB.
+        if event.feedback_status == "skipped":
+            logger.info(
+                "Routing feedback skipped — not persisting to DB",
+                extra={
+                    "session_id": event.session_id,
+                    "outcome": event.outcome,
+                    "skip_reason": event.skip_reason,
+                },
+            )
+            return ModelRoutingFeedbackResult(
+                status=EnumRoutingFeedbackStatus.SUCCESS,
+                session_id=event.session_id,
+                outcome=event.outcome,
+                feedback_status="skipped",
+                skip_reason=event.skip_reason,
+                was_upserted=False,
+                processed_at=now,
+                error_message=None,
+            )
+
         logger.info(
-            "Routing feedback skipped — not persisting to DB",
+            "Processing routing-feedback event (produced)",
             extra={
                 "session_id": event.session_id,
                 "outcome": event.outcome,
-                "skip_reason": event.skip_reason,
+                "feedback_status": event.feedback_status,
             },
         )
+
+        # Step 1: Upsert to routing_feedback_scores with idempotency key session_id.
+        # ON CONFLICT (session_id) DO UPDATE ensures at-least-once Kafka delivery
+        # is safe — re-delivering the same session updates processed_at.
+        status = await self._repository.execute(
+            SQL_UPSERT_ROUTING_FEEDBACK,
+            event.session_id,
+            now,
+        )
+
+        rows_affected = parse_pg_status_count(status)
+        was_upserted = rows_affected > 0
+
+        logger.debug(
+            "Upserted routing feedback record",
+            extra={
+                "session_id": event.session_id,
+                "rows_affected": rows_affected,
+                "was_upserted": was_upserted,
+            },
+        )
+
+        # Step 2: Publish confirmation event (optional, graceful degradation).
+        # DB write already succeeded; Kafka failure does NOT roll back the upsert.
+        if self._kafka_publisher is not None:
+            await self._publish_processed_event(
+                event=event,
+                kafka_publisher=self._kafka_publisher,
+                processed_at=now,
+            )
+
         return ModelRoutingFeedbackResult(
             status=EnumRoutingFeedbackStatus.SUCCESS,
             session_id=event.session_id,
             outcome=event.outcome,
-            feedback_status="skipped",
-            skip_reason=event.skip_reason,
-            was_upserted=False,
+            feedback_status="produced",
+            skip_reason=None,
+            was_upserted=was_upserted,
             processed_at=now,
             error_message=None,
         )
 
-    logger.info(
-        "Processing routing-feedback event (produced)",
-        extra={
-            "session_id": event.session_id,
-            "outcome": event.outcome,
-            "feedback_status": event.feedback_status,
-        },
-    )
+    async def _publish_processed_event(
+        self,
+        *,
+        event: ModelRoutingFeedbackPayload,
+        kafka_publisher: ProtocolKafkaPublisher,
+        processed_at: datetime,
+    ) -> None:
+        """Publish a routing-feedback-processed confirmation event.
 
-    # Step 1: Upsert to routing_feedback_scores with idempotency key session_id.
-    # ON CONFLICT (session_id) DO UPDATE ensures at-least-once Kafka delivery
-    # is safe — re-delivering the same session updates processed_at.
-    status = await repository.execute(
-        SQL_UPSERT_ROUTING_FEEDBACK,
-        event.session_id,
-        now,
-    )
+        Only called when feedback_status == "produced". Failures are logged
+        but NOT propagated - the DB upsert already succeeded.
+        On publish failure, the original envelope is routed to the DLQ topic
+        (``TOPIC_ROUTING_FEEDBACK_PROCESSED + ".dlq"``) per effect-node guidelines.
 
-    rows_affected = parse_pg_status_count(status)
-    was_upserted = rows_affected > 0
-
-    logger.debug(
-        "Upserted routing feedback record",
-        extra={
-            "session_id": event.session_id,
-            "rows_affected": rows_affected,
-            "was_upserted": was_upserted,
-        },
-    )
-
-    # Step 2: Publish confirmation event (optional, graceful degradation).
-    # DB write already succeeded; Kafka failure does NOT roll back the upsert.
-    if kafka_publisher is not None:
-        await _publish_processed_event(
-            event=event,
-            kafka_publisher=kafka_publisher,
-            processed_at=now,
+        Args:
+            event: The original routing-feedback event (feedback_status == "produced").
+            kafka_publisher: Kafka publisher for the confirmation event.
+            processed_at: Timestamp of when the upsert was processed.
+        """
+        event_model = ModelRoutingFeedbackProcessedEvent(
+            session_id=event.session_id,
+            outcome=event.outcome,
+            feedback_status="produced",
+            emitted_at=event.emitted_at,
+            processed_at=processed_at,
         )
+        payload = event_model.model_dump(mode="json")
+        try:
+            await kafka_publisher.publish(
+                topic=TOPIC_ROUTING_FEEDBACK_PROCESSED,
+                key=event.session_id,
+                value=payload,
+            )
+            logger.debug(
+                "Published routing feedback processed event",
+                extra={
+                    "session_id": event.session_id,
+                    "topic": TOPIC_ROUTING_FEEDBACK_PROCESSED,
+                },
+            )
+        except Exception as exc:
+            # DB upsert already succeeded; Kafka failure is non-fatal.
+            sanitized_error = get_log_sanitizer().sanitize(str(exc))
+            logger.warning(
+                "Failed to publish routing feedback processed event — "
+                "DB upsert succeeded, Kafka publish failed (non-fatal)",
+                exc_info=True,
+                extra={
+                    "session_id": event.session_id,
+                    "topic": TOPIC_ROUTING_FEEDBACK_PROCESSED,
+                },
+            )
 
-    return ModelRoutingFeedbackResult(
-        status=EnumRoutingFeedbackStatus.SUCCESS,
-        session_id=event.session_id,
-        outcome=event.outcome,
-        feedback_status="produced",
-        skip_reason=None,
-        was_upserted=was_upserted,
-        processed_at=now,
-        error_message=None,
-    )
+            # Route to DLQ per effect-node guidelines.
+            await _route_to_dlq(
+                producer=kafka_publisher,
+                original_topic=TOPIC_ROUTING_FEEDBACK_PROCESSED,
+                original_envelope=payload,
+                error_message=sanitized_error,
+                error_timestamp=datetime.now(UTC).isoformat(),
+                session_id=event.session_id,
+            )
 
 
 async def _route_to_dlq(
@@ -297,69 +367,7 @@ async def _route_to_dlq(
         )
 
 
-async def _publish_processed_event(
-    event: ModelRoutingFeedbackPayload,
-    kafka_publisher: ProtocolKafkaPublisher,
-    processed_at: datetime,
-) -> None:
-    """Publish a routing-feedback-processed confirmation event.
-
-    Only called when feedback_status == "produced". Failures are logged
-    but NOT propagated - the DB upsert already succeeded.
-    On publish failure, the original envelope is routed to the DLQ topic
-    (``TOPIC_ROUTING_FEEDBACK_PROCESSED + ".dlq"``) per effect-node guidelines.
-
-    Args:
-        event: The original routing-feedback event (feedback_status == "produced").
-        kafka_publisher: Kafka publisher for the confirmation event.
-        processed_at: Timestamp of when the upsert was processed.
-    """
-    event_model = ModelRoutingFeedbackProcessedEvent(
-        session_id=event.session_id,
-        outcome=event.outcome,
-        feedback_status="produced",
-        emitted_at=event.emitted_at,
-        processed_at=processed_at,
-    )
-    payload = event_model.model_dump(mode="json")
-    try:
-        await kafka_publisher.publish(
-            topic=TOPIC_ROUTING_FEEDBACK_PROCESSED,
-            key=event.session_id,
-            value=payload,
-        )
-        logger.debug(
-            "Published routing feedback processed event",
-            extra={
-                "session_id": event.session_id,
-                "topic": TOPIC_ROUTING_FEEDBACK_PROCESSED,
-            },
-        )
-    except Exception as exc:
-        # DB upsert already succeeded; Kafka failure is non-fatal.
-        sanitized_error = get_log_sanitizer().sanitize(str(exc))
-        logger.warning(
-            "Failed to publish routing feedback processed event — "
-            "DB upsert succeeded, Kafka publish failed (non-fatal)",
-            exc_info=True,
-            extra={
-                "session_id": event.session_id,
-                "topic": TOPIC_ROUTING_FEEDBACK_PROCESSED,
-            },
-        )
-
-        # Route to DLQ per effect-node guidelines.
-        await _route_to_dlq(
-            producer=kafka_publisher,
-            original_topic=TOPIC_ROUTING_FEEDBACK_PROCESSED,
-            original_envelope=payload,
-            error_message=sanitized_error,
-            error_timestamp=datetime.now(UTC).isoformat(),
-            session_id=event.session_id,
-        )
-
-
 __all__ = [
     "DLQ_TOPIC",
-    "process_routing_feedback",
+    "HandlerRoutingFeedback",
 ]

@@ -1,0 +1,30 @@
+{
+  "base_ref": "978c2645",
+  "canonical_handler_module": "omniintelligence.nodes.node_compliance_evaluate_effect.handlers.handler_compliance_evaluate",
+  "legacy_handler_module": "omniintelligence.nodes.node_compliance_evaluate_effect.handlers.handler_compliance_evaluate",
+  "node_id": "omniintelligence.nodes.node_compliance_evaluate_effect",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:08f96737802496583f14e946cadc01f6812fad8a56779f706b1d1532f12114bf",
+      "sha256:27063e4282f017c551bf7c6629222bf6deb123c5c4889eb63b534b87bdaecc78",
+      "sha256:533cf4139642df7ff6cb50e8c04257a04c0c2f2a6ace997a546c0fe9a4929ad6",
+      "sha256:aef059b4b89c2bbee28d384b037d41c31ca68044f4e38fbebff733bfa3be01f6",
+      "sha256:3a848e084894f900e8efa6cd9719fb9ab2ca8d981bfbfdacf6aa4b01cf9889bc",
+      "sha256:bc3649acaa9f08e422304999397cd38f47bf31842c508b2e5d5ca260e06258f4"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "src/omniintelligence/nodes/node_compliance_evaluate_effect/node_tests/test_handler_compliance_evaluate.py::test_publish_topic_matches_contract",
+      "src/omniintelligence/nodes/node_compliance_evaluate_effect/node_tests/test_handler_compliance_evaluate.py::test_compliant_evaluation_propagates_identifiers",
+      "src/omniintelligence/nodes/node_compliance_evaluate_effect/node_tests/test_handler_compliance_evaluate.py::test_llm_error_returns_structured_failure",
+      "src/omniintelligence/nodes/node_compliance_evaluate_effect/node_tests/test_handler_compliance_evaluate.py::test_kafka_publish_failure_routes_to_dlq",
+      "src/omniintelligence/nodes/node_compliance_evaluate_effect/node_tests/test_handler_compliance_evaluate.py::test_patterns_checked_reflects_applicable_patterns_count",
+      "src/omniintelligence/nodes/node_compliance_evaluate_effect/node_tests/test_handler_compliance_evaluate.py::test_compliance_evaluate_command_session_id_defaults_to_none"
+    ]
+  },
+  "preserved_symbols": [
+    "_publish_event",
+    "_route_to_dlq"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

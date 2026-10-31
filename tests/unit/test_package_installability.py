@@ -157,7 +157,7 @@ HANDLER_ENTRY_POINTS = [
     ),
     (
         "omniintelligence.nodes.node_compliance_evaluate_effect.handlers",
-        "handle_compliance_evaluate_command",
+        "HandlerComplianceEvaluate",
     ),
     (
         "omniintelligence.nodes.node_pattern_compliance_effect.handlers",
@@ -181,7 +181,7 @@ HANDLER_ENTRY_POINTS = [
     ),
     (
         "omniintelligence.nodes.node_pattern_lifecycle_effect.handlers",
-        "apply_transition",
+        "HandlerTransition",
     ),
     (
         "omniintelligence.nodes.node_enforcement_feedback_effect.handlers",

@@ -31,7 +31,7 @@ Relationship to handler_promotion.py:
 Design Principles:
     - Pure functions for criteria evaluation (no I/O)
     - Evidence tier read from denormalized column (fast, no joins)
-    - Calls existing ``apply_transition()`` for actual state changes
+    - Calls ``HandlerTransition.handle()`` for actual state changes
     - Protocol-based dependency injection for testability
     - asyncpg-style positional parameters ($1, $2, etc.)
 
@@ -49,6 +49,9 @@ from uuid import UUID, uuid4
 
 from omniintelligence.enums import EnumPatternLifecycleStatus
 from omniintelligence.models.domain import EvidenceTierLiteral, ModelGateSnapshot
+from omniintelligence.nodes.node_pattern_lifecycle_effect.models import (
+    ModelPatternLifecycleTransitionRequest,
+)
 from omniintelligence.protocols import ProtocolPatternRepository
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
@@ -216,36 +219,18 @@ class PatternMetricsRow(_PatternMetricsRowRequired, total=False):
 
 @runtime_checkable
 class ProtocolApplyTransition(Protocol):
-    """Protocol for the ``apply_transition`` function from handler_transition.
+    """Protocol for ``HandlerTransition.handle`` from handler_transition.
 
     Typed callable protocol replacing ``Callable[..., Any]`` so that callers
     get static type safety on the return type (``ModelTransitionResult``).
 
-    The positional parameters mirror ``apply_transition()`` exactly:
-        1. repository (ProtocolPatternRepository)
-        2. idempotency_store (ProtocolIdempotencyStore | None)
-        3. producer (ProtocolKafkaPublisher)
-
-    All remaining parameters are keyword-only.
+    The injected callable is the bound ``handle`` of a ``HandlerTransition``
+    instance, which already holds the repository, idempotency store, and Kafka
+    producer. It takes a single ``ModelPatternLifecycleTransitionRequest``.
     """
 
     async def __call__(
-        self,
-        repository: ProtocolPatternRepository,
-        idempotency_store: ProtocolIdempotencyStore | None,
-        producer: ProtocolKafkaPublisher,
-        *,
-        request_id: UUID,
-        correlation_id: UUID,
-        pattern_id: UUID,
-        from_status: EnumPatternLifecycleStatus,
-        to_status: EnumPatternLifecycleStatus,
-        trigger: str,
-        actor: str,
-        reason: str | None,
-        gate_snapshot: ModelGateSnapshot | dict[str, object] | None,
-        transition_at: datetime,
-        publish_topic: str | None,
+        self, request: ModelPatternLifecycleTransitionRequest
     ) -> ModelTransitionResult: ...
 
 
@@ -515,26 +500,24 @@ async def handle_auto_promote_check(
     - CANDIDATE -> PROVISIONAL (evidence_tier >= OBSERVED)
     - PROVISIONAL -> VALIDATED (evidence_tier >= MEASURED)
 
-    Calls ``apply_transition()`` for each eligible pattern to ensure
+    Calls ``HandlerTransition.handle()`` for each eligible pattern to ensure
     the standard transition machinery (idempotency, audit trail, Kafka)
     is used.
 
     Args:
         repository: Database repository for pattern queries.
-        apply_transition_fn: The ``apply_transition`` function from
-            handler_transition.py. Injected to avoid circular imports.
-        idempotency_store: Idempotency store for transition deduplication.
-            May be None -- ``apply_transition()`` accepts an Optional
-            idempotency store and skips deduplication when None.
-            Callers that need idempotency should pass a concrete store.
-        producer: Kafka producer for transition events. Required infrastructure
-            — Kafka is the only transition path. Passing None is a programming
-            error. Must be passed as a keyword argument.
+        apply_transition_fn: The bound ``HandlerTransition.handle`` from
+            handler_transition.py. The handler instance already holds the
+            repository, idempotency store, and producer.
+        idempotency_store: Retained for call-site compatibility. Transition
+            deduplication is configured on the injected ``HandlerTransition``.
+        producer: Retained for call-site compatibility. The Kafka producer is
+            configured on the injected ``HandlerTransition``.
         correlation_id: Optional correlation ID for tracing. When None a
             single fallback UUID is generated and reused for every
             transition in this invocation to ensure consistent tracing.
         publish_topic: Kafka topic for transition events. When ``None``, the
-            ``apply_transition`` machinery uses its own default topic (typically
+            transition machinery uses its own default topic (typically
             the contract-declared publish topic). Callers that need to override
             the topic should pass an explicit string. ``None`` is a valid
             "use the default" signal, not a programming error.
@@ -601,20 +584,19 @@ async def handle_auto_promote_check(
                 pattern, conn=repository, correlation_id=effective_correlation_id
             )
             transition_result = await apply_transition_fn(
-                repository,
-                idempotency_store,
-                producer,
-                request_id=request_id,
-                correlation_id=effective_correlation_id,
-                pattern_id=pattern_id,
-                from_status=EnumPatternLifecycleStatus.CANDIDATE,
-                to_status=EnumPatternLifecycleStatus.PROVISIONAL,
-                trigger="auto_promote_evidence_gate",
-                actor="auto_promote_handler",
-                reason=_build_candidate_promotion_reason(pattern, gate_snapshot),
-                gate_snapshot=gate_snapshot,
-                transition_at=now,
-                publish_topic=publish_topic,
+                ModelPatternLifecycleTransitionRequest(
+                    request_id=request_id,
+                    correlation_id=effective_correlation_id,
+                    pattern_id=pattern_id,
+                    from_status=EnumPatternLifecycleStatus.CANDIDATE,
+                    to_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                    trigger="auto_promote_evidence_gate",
+                    actor="auto_promote_handler",
+                    reason=_build_candidate_promotion_reason(pattern, gate_snapshot),
+                    gate_snapshot=gate_snapshot,
+                    transition_at=now,
+                    publish_topic=publish_topic,
+                )
             )
 
             promoted = transition_result.success and not transition_result.duplicate
@@ -702,21 +684,20 @@ async def handle_auto_promote_check(
                 pattern, conn=repository, correlation_id=effective_correlation_id
             )
             transition_result = await apply_transition_fn(
-                repository,
-                idempotency_store,
-                producer,
-                request_id=request_id,
-                correlation_id=effective_correlation_id,
-                pattern_id=pattern_id,
-                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
-                to_status=EnumPatternLifecycleStatus.VALIDATED,
-                trigger="auto_promote_evidence_gate",
-                actor="auto_promote_handler",
-                reason=f"Auto-promoted: evidence_tier={pattern.get('evidence_tier')}, "
-                f"success_rate={gate_snapshot.success_rate_rolling_20:.2%}",
-                gate_snapshot=gate_snapshot,
-                transition_at=now,
-                publish_topic=publish_topic,
+                ModelPatternLifecycleTransitionRequest(
+                    request_id=request_id,
+                    correlation_id=effective_correlation_id,
+                    pattern_id=pattern_id,
+                    from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                    to_status=EnumPatternLifecycleStatus.VALIDATED,
+                    trigger="auto_promote_evidence_gate",
+                    actor="auto_promote_handler",
+                    reason=f"Auto-promoted: evidence_tier={pattern.get('evidence_tier')}, "
+                    f"success_rate={gate_snapshot.success_rate_rolling_20:.2%}",
+                    gate_snapshot=gate_snapshot,
+                    transition_at=now,
+                    publish_topic=publish_topic,
+                )
             )
 
             promoted = transition_result.success and not transition_result.duplicate

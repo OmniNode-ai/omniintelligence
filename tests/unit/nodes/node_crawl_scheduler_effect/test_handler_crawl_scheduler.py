@@ -5,11 +5,11 @@
 """Unit tests for CrawlSchedulerEffect handler functions.
 
 Tests:
-  1. schedule_crawl_tick — debounce drops duplicates within window
-  2. schedule_crawl_tick — passes after window expires
-  3. handle_crawl_requested — debounce drops duplicates
-  4. handle_crawl_requested — manual trigger emits crawl-tick
-  5. handle_document_indexed — resets debounce window
+  1. HandlerCrawlTick — debounce drops duplicates within window
+  2. HandlerCrawlTick — passes after window expires
+  3. HandlerCrawlRequested — debounce drops duplicates
+  4. HandlerCrawlRequested — manual trigger emits crawl-tick
+  5. HandlerDocumentIndexed — resets debounce window
   6. No Kafka publisher — returns ERROR status
   7. Config defaults match design doc values
 
@@ -28,9 +28,9 @@ from omniintelligence.nodes.node_crawl_scheduler_effect.handlers.debounce_state 
     DebounceStateManager,
 )
 from omniintelligence.nodes.node_crawl_scheduler_effect.handlers.handler_crawl_scheduler import (
-    handle_crawl_requested,
-    handle_document_indexed,
-    schedule_crawl_tick,
+    HandlerCrawlRequested,
+    HandlerCrawlTick,
+    HandlerDocumentIndexed,
 )
 from omniintelligence.nodes.node_crawl_scheduler_effect.models import (
     CrawlerType,
@@ -38,6 +38,8 @@ from omniintelligence.nodes.node_crawl_scheduler_effect.models import (
     EnumTriggerSource,
     ModelCrawlRequestedEvent,
     ModelCrawlSchedulerConfig,
+    ModelCrawlTickRequest,
+    ModelDocumentIndexedRequest,
 )
 from omniintelligence.protocols import ProtocolKafkaPublisher
 
@@ -98,27 +100,28 @@ def publisher() -> _MockKafkaPublisher:
 
 
 # =============================================================================
-# Tests: schedule_crawl_tick
+# Tests: HandlerCrawlTick
 # =============================================================================
 
 
 @pytest.mark.asyncio
 class TestScheduleCrawlTick:
-    """Tests for schedule_crawl_tick (periodic scheduler tick)."""
+    """Tests for HandlerCrawlTick (periodic scheduler tick)."""
 
     async def test_first_tick_emits(
         self,
         fresh_state: DebounceStateManager,
         publisher: _MockKafkaPublisher,
     ) -> None:
-        result = await schedule_crawl_tick(
-            crawl_type=CrawlerType.FILESYSTEM,
-            crawl_scope=_SCOPE,
-            source_ref=_SOURCE,
-            debounce_state=fresh_state,
-            config=_TEST_CONFIG,
-            kafka_publisher=publisher,
-            now=_T0,
+        result = await HandlerCrawlTick(
+            debounce_state=fresh_state, config=_TEST_CONFIG, kafka_publisher=publisher
+        ).handle(
+            ModelCrawlTickRequest(
+                crawl_type=CrawlerType.FILESYSTEM,
+                crawl_scope=_SCOPE,
+                source_ref=_SOURCE,
+                now=_T0,
+            )
         )
         assert result.status == EnumCrawlSchedulerStatus.EMITTED
         assert result.crawl_type == CrawlerType.FILESYSTEM
@@ -133,26 +136,28 @@ class TestScheduleCrawlTick:
         publisher: _MockKafkaPublisher,
     ) -> None:
         # First tick
-        await schedule_crawl_tick(
-            crawl_type=CrawlerType.FILESYSTEM,
-            crawl_scope=_SCOPE,
-            source_ref=_SOURCE,
-            debounce_state=fresh_state,
-            config=_TEST_CONFIG,
-            kafka_publisher=publisher,
-            now=_T0,
+        await HandlerCrawlTick(
+            debounce_state=fresh_state, config=_TEST_CONFIG, kafka_publisher=publisher
+        ).handle(
+            ModelCrawlTickRequest(
+                crawl_type=CrawlerType.FILESYSTEM,
+                crawl_scope=_SCOPE,
+                source_ref=_SOURCE,
+                now=_T0,
+            )
         )
 
         # Second tick within window (1 second later, window=5s)
         t1 = _T0 + timedelta(seconds=1)
-        result = await schedule_crawl_tick(
-            crawl_type=CrawlerType.FILESYSTEM,
-            crawl_scope=_SCOPE,
-            source_ref=_SOURCE,
-            debounce_state=fresh_state,
-            config=_TEST_CONFIG,
-            kafka_publisher=publisher,
-            now=t1,
+        result = await HandlerCrawlTick(
+            debounce_state=fresh_state, config=_TEST_CONFIG, kafka_publisher=publisher
+        ).handle(
+            ModelCrawlTickRequest(
+                crawl_type=CrawlerType.FILESYSTEM,
+                crawl_scope=_SCOPE,
+                source_ref=_SOURCE,
+                now=t1,
+            )
         )
         assert result.status == EnumCrawlSchedulerStatus.DEBOUNCED
         assert result.debounce_window_seconds == 5
@@ -165,26 +170,28 @@ class TestScheduleCrawlTick:
         publisher: _MockKafkaPublisher,
     ) -> None:
         # First tick
-        await schedule_crawl_tick(
-            crawl_type=CrawlerType.FILESYSTEM,
-            crawl_scope=_SCOPE,
-            source_ref=_SOURCE,
-            debounce_state=fresh_state,
-            config=_TEST_CONFIG,
-            kafka_publisher=publisher,
-            now=_T0,
+        await HandlerCrawlTick(
+            debounce_state=fresh_state, config=_TEST_CONFIG, kafka_publisher=publisher
+        ).handle(
+            ModelCrawlTickRequest(
+                crawl_type=CrawlerType.FILESYSTEM,
+                crawl_scope=_SCOPE,
+                source_ref=_SOURCE,
+                now=_T0,
+            )
         )
 
         # Tick after window expires (6s later, window=5s)
         t_after = _T0 + timedelta(seconds=6)
-        result = await schedule_crawl_tick(
-            crawl_type=CrawlerType.FILESYSTEM,
-            crawl_scope=_SCOPE,
-            source_ref=_SOURCE,
-            debounce_state=fresh_state,
-            config=_TEST_CONFIG,
-            kafka_publisher=publisher,
-            now=t_after,
+        result = await HandlerCrawlTick(
+            debounce_state=fresh_state, config=_TEST_CONFIG, kafka_publisher=publisher
+        ).handle(
+            ModelCrawlTickRequest(
+                crawl_type=CrawlerType.FILESYSTEM,
+                crawl_scope=_SCOPE,
+                source_ref=_SOURCE,
+                now=t_after,
+            )
         )
         assert result.status == EnumCrawlSchedulerStatus.EMITTED
         assert len(publisher.published) == 2
@@ -194,25 +201,27 @@ class TestScheduleCrawlTick:
         fresh_state: DebounceStateManager,
         publisher: _MockKafkaPublisher,
     ) -> None:
-        await schedule_crawl_tick(
-            crawl_type=CrawlerType.FILESYSTEM,
-            crawl_scope=_SCOPE,
-            source_ref=_SOURCE,
-            debounce_state=fresh_state,
-            config=_TEST_CONFIG,
-            kafka_publisher=publisher,
-            now=_T0,
+        await HandlerCrawlTick(
+            debounce_state=fresh_state, config=_TEST_CONFIG, kafka_publisher=publisher
+        ).handle(
+            ModelCrawlTickRequest(
+                crawl_type=CrawlerType.FILESYSTEM,
+                crawl_scope=_SCOPE,
+                source_ref=_SOURCE,
+                now=_T0,
+            )
         )
 
         # Different source_ref — should emit immediately
-        result = await schedule_crawl_tick(
-            crawl_type=CrawlerType.FILESYSTEM,
-            crawl_scope=_SCOPE,
-            source_ref="/other/repo",
-            debounce_state=fresh_state,
-            config=_TEST_CONFIG,
-            kafka_publisher=publisher,
-            now=_T0,
+        result = await HandlerCrawlTick(
+            debounce_state=fresh_state, config=_TEST_CONFIG, kafka_publisher=publisher
+        ).handle(
+            ModelCrawlTickRequest(
+                crawl_type=CrawlerType.FILESYSTEM,
+                crawl_scope=_SCOPE,
+                source_ref="/other/repo",
+                now=_T0,
+            )
         )
         assert result.status == EnumCrawlSchedulerStatus.EMITTED
         assert len(publisher.published) == 2
@@ -221,14 +230,15 @@ class TestScheduleCrawlTick:
         self,
         fresh_state: DebounceStateManager,
     ) -> None:
-        result = await schedule_crawl_tick(
-            crawl_type=CrawlerType.FILESYSTEM,
-            crawl_scope=_SCOPE,
-            source_ref=_SOURCE,
-            debounce_state=fresh_state,
-            config=_TEST_CONFIG,
-            kafka_publisher=None,
-            now=_T0,
+        result = await HandlerCrawlTick(
+            debounce_state=fresh_state, config=_TEST_CONFIG, kafka_publisher=None
+        ).handle(
+            ModelCrawlTickRequest(
+                crawl_type=CrawlerType.FILESYSTEM,
+                crawl_scope=_SCOPE,
+                source_ref=_SOURCE,
+                now=_T0,
+            )
         )
         assert result.status == EnumCrawlSchedulerStatus.ERROR
         assert result.error_message is not None
@@ -247,14 +257,15 @@ class TestScheduleCrawlTick:
         fresh_state: DebounceStateManager,
         publisher: _MockKafkaPublisher,
     ) -> None:
-        await schedule_crawl_tick(
-            crawl_type=CrawlerType.GIT_REPO,
-            crawl_scope=_SCOPE,
-            source_ref=_SOURCE,
-            debounce_state=fresh_state,
-            config=_TEST_CONFIG,
-            kafka_publisher=publisher,
-            now=_T0,
+        await HandlerCrawlTick(
+            debounce_state=fresh_state, config=_TEST_CONFIG, kafka_publisher=publisher
+        ).handle(
+            ModelCrawlTickRequest(
+                crawl_type=CrawlerType.GIT_REPO,
+                crawl_scope=_SCOPE,
+                source_ref=_SOURCE,
+                now=_T0,
+            )
         )
         assert len(publisher.published) == 1
         payload = publisher.published[0]["value"]
@@ -268,13 +279,13 @@ class TestScheduleCrawlTick:
 
 
 # =============================================================================
-# Tests: handle_crawl_requested
+# Tests: HandlerCrawlRequested
 # =============================================================================
 
 
 @pytest.mark.asyncio
 class TestHandleCrawlRequested:
-    """Tests for handle_crawl_requested (manual/external trigger)."""
+    """Tests for HandlerCrawlRequested (manual/external trigger)."""
 
     def _make_event(
         self,
@@ -295,13 +306,12 @@ class TestHandleCrawlRequested:
         publisher: _MockKafkaPublisher,
     ) -> None:
         event = self._make_event()
-        result = await handle_crawl_requested(
-            event=event,
+        result = await HandlerCrawlRequested(
             debounce_state=fresh_state,
             config=_TEST_CONFIG,
             kafka_publisher=publisher,
-            now=_T0,
-        )
+            clock=lambda: _T0,
+        ).handle(event)
         assert result.status == EnumCrawlSchedulerStatus.EMITTED
         assert result.trigger_source == EnumTriggerSource.MANUAL
         assert len(publisher.published) == 1
@@ -312,13 +322,12 @@ class TestHandleCrawlRequested:
         publisher: _MockKafkaPublisher,
     ) -> None:
         event = self._make_event(trigger_source=EnumTriggerSource.GIT_HOOK)
-        result = await handle_crawl_requested(
-            event=event,
+        result = await HandlerCrawlRequested(
             debounce_state=fresh_state,
             config=_TEST_CONFIG,
             kafka_publisher=publisher,
-            now=_T0,
-        )
+            clock=lambda: _T0,
+        ).handle(event)
         assert result.status == EnumCrawlSchedulerStatus.EMITTED
         assert result.trigger_source == EnumTriggerSource.GIT_HOOK
         payload = publisher.published[0]["value"]
@@ -331,22 +340,20 @@ class TestHandleCrawlRequested:
     ) -> None:
         event = self._make_event()
         # First trigger
-        await handle_crawl_requested(
-            event=event,
+        await HandlerCrawlRequested(
             debounce_state=fresh_state,
             config=_TEST_CONFIG,
             kafka_publisher=publisher,
-            now=_T0,
-        )
+            clock=lambda: _T0,
+        ).handle(event)
         # Second trigger within window
         t1 = _T0 + timedelta(seconds=2)
-        result = await handle_crawl_requested(
-            event=event,
+        result = await HandlerCrawlRequested(
             debounce_state=fresh_state,
             config=_TEST_CONFIG,
             kafka_publisher=publisher,
-            now=t1,
-        )
+            clock=lambda: t1,
+        ).handle(event)
         assert result.status == EnumCrawlSchedulerStatus.DEBOUNCED
         assert len(publisher.published) == 1
 
@@ -364,25 +371,24 @@ class TestHandleCrawlRequested:
             requested_at_utc=_T0.isoformat(),
             trigger_source=EnumTriggerSource.MANUAL,
         )
-        result = await handle_crawl_requested(
-            event=event,
+        result = await HandlerCrawlRequested(
             debounce_state=fresh_state,
             config=_TEST_CONFIG,
             kafka_publisher=publisher,
-            now=_T0,
-        )
+            clock=lambda: _T0,
+        ).handle(event)
         assert result.correlation_id == fixed_id
         payload = publisher.published[0]["value"]
         assert payload["correlation_id"] == str(fixed_id)
 
 
 # =============================================================================
-# Tests: handle_document_indexed
+# Tests: HandlerDocumentIndexed
 # =============================================================================
 
 
 class TestHandleDocumentIndexed:
-    """Tests for handle_document_indexed (debounce reset)."""
+    """Tests for HandlerDocumentIndexed (debounce reset)."""
 
     def test_clears_existing_window(self, fresh_state: DebounceStateManager) -> None:
         fresh_state.record_trigger(
@@ -398,10 +404,10 @@ class TestHandleDocumentIndexed:
             now=_T0,
         )
 
-        cleared = handle_document_indexed(
-            source_ref=_SOURCE,
-            crawler_type=CrawlerType.FILESYSTEM,
-            debounce_state=fresh_state,
+        cleared = HandlerDocumentIndexed(debounce_state=fresh_state).handle(
+            ModelDocumentIndexedRequest(
+                source_ref=_SOURCE, crawler_type=CrawlerType.FILESYSTEM
+            )
         )
         assert cleared is True
 
@@ -416,10 +422,10 @@ class TestHandleDocumentIndexed:
     def test_returns_false_when_no_entry(
         self, fresh_state: DebounceStateManager
     ) -> None:
-        cleared = handle_document_indexed(
-            source_ref="/no/such/path",
-            crawler_type=CrawlerType.GIT_REPO,
-            debounce_state=fresh_state,
+        cleared = HandlerDocumentIndexed(debounce_state=fresh_state).handle(
+            ModelDocumentIndexedRequest(
+                source_ref="/no/such/path", crawler_type=CrawlerType.GIT_REPO
+            )
         )
         assert cleared is False
 
@@ -435,10 +441,10 @@ class TestHandleDocumentIndexed:
             now=_T0,
         )
 
-        handle_document_indexed(
-            source_ref=_SOURCE,
-            crawler_type=CrawlerType.FILESYSTEM,
-            debounce_state=fresh_state,
+        HandlerDocumentIndexed(debounce_state=fresh_state).handle(
+            ModelDocumentIndexedRequest(
+                source_ref=_SOURCE, crawler_type=CrawlerType.FILESYSTEM
+            )
         )
 
         # FILESYSTEM cleared
@@ -506,24 +512,24 @@ class TestCrossHandlerDebounce:
             requested_at_utc=_T0.isoformat(),
             trigger_source=EnumTriggerSource.MANUAL,
         )
-        await handle_crawl_requested(
-            event=event,
+        await HandlerCrawlRequested(
             debounce_state=fresh_state,
             config=_TEST_CONFIG,
             kafka_publisher=publisher,
-            now=_T0,
-        )
+            clock=lambda: _T0,
+        ).handle(event)
 
         # Scheduler tick immediately after — should be debounced
         t1 = _T0 + timedelta(seconds=1)
-        result = await schedule_crawl_tick(
-            crawl_type=CrawlerType.FILESYSTEM,
-            crawl_scope=_SCOPE,
-            source_ref=_SOURCE,
-            debounce_state=fresh_state,
-            config=_TEST_CONFIG,
-            kafka_publisher=publisher,
-            now=t1,
+        result = await HandlerCrawlTick(
+            debounce_state=fresh_state, config=_TEST_CONFIG, kafka_publisher=publisher
+        ).handle(
+            ModelCrawlTickRequest(
+                crawl_type=CrawlerType.FILESYSTEM,
+                crawl_scope=_SCOPE,
+                source_ref=_SOURCE,
+                now=t1,
+            )
         )
         assert result.status == EnumCrawlSchedulerStatus.DEBOUNCED
         assert len(publisher.published) == 1
@@ -534,33 +540,35 @@ class TestCrossHandlerDebounce:
         publisher: _MockKafkaPublisher,
     ) -> None:
         """After document-indexed.v1, the next scheduled tick is allowed."""
-        await schedule_crawl_tick(
-            crawl_type=CrawlerType.FILESYSTEM,
-            crawl_scope=_SCOPE,
-            source_ref=_SOURCE,
-            debounce_state=fresh_state,
-            config=_TEST_CONFIG,
-            kafka_publisher=publisher,
-            now=_T0,
+        await HandlerCrawlTick(
+            debounce_state=fresh_state, config=_TEST_CONFIG, kafka_publisher=publisher
+        ).handle(
+            ModelCrawlTickRequest(
+                crawl_type=CrawlerType.FILESYSTEM,
+                crawl_scope=_SCOPE,
+                source_ref=_SOURCE,
+                now=_T0,
+            )
         )
 
         # Simulate document-indexed.v1
-        handle_document_indexed(
-            source_ref=_SOURCE,
-            crawler_type=CrawlerType.FILESYSTEM,
-            debounce_state=fresh_state,
+        HandlerDocumentIndexed(debounce_state=fresh_state).handle(
+            ModelDocumentIndexedRequest(
+                source_ref=_SOURCE, crawler_type=CrawlerType.FILESYSTEM
+            )
         )
 
         # Next tick (still within original window) — should be allowed now
         t1 = _T0 + timedelta(seconds=2)
-        result = await schedule_crawl_tick(
-            crawl_type=CrawlerType.FILESYSTEM,
-            crawl_scope=_SCOPE,
-            source_ref=_SOURCE,
-            debounce_state=fresh_state,
-            config=_TEST_CONFIG,
-            kafka_publisher=publisher,
-            now=t1,
+        result = await HandlerCrawlTick(
+            debounce_state=fresh_state, config=_TEST_CONFIG, kafka_publisher=publisher
+        ).handle(
+            ModelCrawlTickRequest(
+                crawl_type=CrawlerType.FILESYSTEM,
+                crawl_scope=_SCOPE,
+                source_ref=_SOURCE,
+                now=t1,
+            )
         )
         assert result.status == EnumCrawlSchedulerStatus.EMITTED
         assert len(publisher.published) == 2

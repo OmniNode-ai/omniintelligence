@@ -4,7 +4,7 @@
 # Copyright (c) 2025 OmniNode Team
 """Handler-level integration tests for pattern.discovered consumer.
 
-These tests validate the handle_consume_discovered call chain (event
+These tests validate the HandlerConsumeDiscovered call chain (event
 creation, mapping, storage, idempotency, and lineage versioning) using
 MockPatternStore.  They do NOT require real infrastructure.
 
@@ -38,7 +38,7 @@ if TYPE_CHECKING:
 import pytest
 
 from omniintelligence.nodes.node_pattern_storage_effect.handlers.handler_consume_discovered import (
-    handle_consume_discovered,
+    HandlerConsumeDiscovered,
 )
 from omniintelligence.testing import MockPatternStore, make_discovered_event
 
@@ -100,7 +100,7 @@ class TestPatternDiscoveredMock:
     """Integration-level tests for the handler -> store pipeline using mocks.
 
     These live under integration/ because they validate the full
-    handle_consume_discovered call chain (event creation, mapping, storage,
+    HandlerConsumeDiscovered call chain (event creation, mapping, storage,
     idempotency, and lineage versioning).  MockPatternStore is used instead
     of a real database so the tests are always runnable without infrastructure.
     True end-to-end tests against PostgreSQL belong in a separate
@@ -112,11 +112,10 @@ class TestPatternDiscoveredMock:
         event = _make_e2e_discovered_event()
         store = MockPatternStore()
 
-        result = await handle_consume_discovered(
-            event,
+        result = await HandlerConsumeDiscovered(
             pattern_store=store,
             conn=None,  # type: ignore[arg-type]
-        )
+        ).handle(event)
 
         assert result.success
         assert result.event is not None
@@ -128,16 +127,14 @@ class TestPatternDiscoveredMock:
         event = _make_e2e_discovered_event()
         store = MockPatternStore()
 
-        r1 = await handle_consume_discovered(
-            event,
+        r1 = await HandlerConsumeDiscovered(
             pattern_store=store,
             conn=None,  # type: ignore[arg-type]
-        )
-        r2 = await handle_consume_discovered(
-            event,
+        ).handle(event)
+        r2 = await HandlerConsumeDiscovered(
             pattern_store=store,
             conn=None,  # type: ignore[arg-type]
-        )
+        ).handle(event)
 
         assert r1.success and r1.event is not None
         assert r2.success and r2.event is not None
@@ -160,16 +157,14 @@ class TestPatternDiscoveredMock:
         )
         store = MockPatternStore()
 
-        r1 = await handle_consume_discovered(
-            event1,
+        r1 = await HandlerConsumeDiscovered(
             pattern_store=store,
             conn=None,  # type: ignore[arg-type]
-        )
-        r2 = await handle_consume_discovered(
-            event2,
+        ).handle(event1)
+        r2 = await HandlerConsumeDiscovered(
             pattern_store=store,
             conn=None,  # type: ignore[arg-type]
-        )
+        ).handle(event2)
 
         assert r1.success and r1.event is not None
         assert r2.success and r2.event is not None

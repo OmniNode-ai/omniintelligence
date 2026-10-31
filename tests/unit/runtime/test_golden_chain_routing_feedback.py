@@ -132,10 +132,10 @@ def test_routing_feedback_processed_event_model_validation() -> None:
 
 @pytest.mark.unit
 async def test_routing_feedback_dispatch_handler_invokes_process() -> None:
-    """Verify dispatch handler calls process_routing_feedback with correct payload.
+    """Verify dispatch handler calls HandlerRoutingFeedback.handle with correct payload.
 
     Chain: create_routing_feedback_dispatch_handler → handle(envelope) →
-           process_routing_feedback(payload, producer)
+           HandlerRoutingFeedback(...).handle(payload)
     Asserts that the handler is invoked and produces a result string.
     """
     mock_repository = AsyncMock()
@@ -159,7 +159,7 @@ async def test_routing_feedback_dispatch_handler_invokes_process() -> None:
     mock_envelope.payload = feedback_payload.model_dump(mode="json")
     mock_context = MagicMock()
 
-    # Mock process_routing_feedback to avoid DB access
+    # Mock HandlerRoutingFeedback.handle to avoid DB access
     # status must be EnumRoutingFeedbackStatus (has .value) as used by the handler
     from omniintelligence.nodes.node_routing_feedback_effect.models.enum_routing_feedback_status import (
         EnumRoutingFeedbackStatus,
@@ -171,7 +171,7 @@ async def test_routing_feedback_dispatch_handler_invokes_process() -> None:
     with pytest.MonkeyPatch().context() as mp:
         mp.setattr(
             "omniintelligence.nodes.node_routing_feedback_effect.handlers."
-            "handler_routing_feedback.process_routing_feedback",
+            "handler_routing_feedback.HandlerRoutingFeedback.handle",
             AsyncMock(return_value=mock_result),
         )
 

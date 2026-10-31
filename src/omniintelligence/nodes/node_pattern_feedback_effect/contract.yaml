@@ -86,7 +86,8 @@ handler_routing:
         - error_message
     - operation: "record_dispatch_outcome"
       handler:
-        function: "record_dispatch_outcome"
+        class: "HandlerDispatchOutcome"
+        function: "handle"
         module: "omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_dispatch_outcome"
         type: "async"
       description: "Record per-task dispatch evaluation outcomes without mutating session outcome state"

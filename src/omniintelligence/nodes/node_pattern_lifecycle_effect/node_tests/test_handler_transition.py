@@ -31,9 +31,10 @@ import pytest
 
 from omniintelligence.enums import EnumPatternLifecycleStatus
 from omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition import (
-    apply_transition,
+    HandlerTransition,
 )
 from omniintelligence.nodes.node_pattern_lifecycle_effect.models import (
+    ModelPatternLifecycleTransitionRequest,
     ModelTransitionResult,
 )
 from omniintelligence.protocols import (
@@ -81,17 +82,20 @@ class TestSuccessfulTransitions:
         )
 
         # Act
-        result = await apply_transition(
+        result = await HandlerTransition(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             producer=None,
-            request_id=sample_request_id,
-            correlation_id=sample_correlation_id,
-            pattern_id=sample_pattern_id,
-            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            to_status=EnumPatternLifecycleStatus.VALIDATED,
-            trigger="promote",
-            transition_at=sample_transition_at,
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=sample_request_id,
+                correlation_id=sample_correlation_id,
+                pattern_id=sample_pattern_id,
+                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                to_status=EnumPatternLifecycleStatus.VALIDATED,
+                trigger="promote",
+                transition_at=sample_transition_at,
+            )
         )
 
         # Assert
@@ -119,17 +123,20 @@ class TestSuccessfulTransitions:
         mock_repository.add_pattern(sample_pattern_id, status="validated")
 
         # Act
-        result = await apply_transition(
+        result = await HandlerTransition(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             producer=None,
-            request_id=sample_request_id,
-            correlation_id=sample_correlation_id,
-            pattern_id=sample_pattern_id,
-            from_status=EnumPatternLifecycleStatus.VALIDATED,
-            to_status=EnumPatternLifecycleStatus.DEPRECATED,
-            trigger="demote",
-            transition_at=sample_transition_at,
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=sample_request_id,
+                correlation_id=sample_correlation_id,
+                pattern_id=sample_pattern_id,
+                from_status=EnumPatternLifecycleStatus.VALIDATED,
+                to_status=EnumPatternLifecycleStatus.DEPRECATED,
+                trigger="demote",
+                transition_at=sample_transition_at,
+            )
         )
 
         # Assert
@@ -156,17 +163,20 @@ class TestSuccessfulTransitions:
         )
 
         # Act
-        result = await apply_transition(
+        result = await HandlerTransition(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             producer=None,
-            request_id=sample_request_id,
-            correlation_id=sample_correlation_id,
-            pattern_id=sample_pattern_id,
-            from_status=EnumPatternLifecycleStatus.CANDIDATE,
-            to_status=EnumPatternLifecycleStatus.VALIDATED,
-            trigger="promote_direct",  # Valid trigger for candidate -> validated
-            transition_at=sample_transition_at,
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=sample_request_id,
+                correlation_id=sample_correlation_id,
+                pattern_id=sample_pattern_id,
+                from_status=EnumPatternLifecycleStatus.CANDIDATE,
+                to_status=EnumPatternLifecycleStatus.VALIDATED,
+                trigger="promote_direct",
+                transition_at=sample_transition_at,
+            )
         )
 
         # Assert
@@ -199,20 +209,23 @@ class TestSuccessfulTransitions:
         }
 
         # Act
-        result = await apply_transition(
+        result = await HandlerTransition(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             producer=None,
-            request_id=sample_request_id,
-            correlation_id=sample_correlation_id,
-            pattern_id=sample_pattern_id,
-            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            to_status=EnumPatternLifecycleStatus.VALIDATED,
-            trigger="auto_promote",
-            actor="promotion_scheduler",
-            reason="Passed all promotion gates",
-            gate_snapshot=gate_snapshot,
-            transition_at=sample_transition_at,
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=sample_request_id,
+                correlation_id=sample_correlation_id,
+                pattern_id=sample_pattern_id,
+                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                to_status=EnumPatternLifecycleStatus.VALIDATED,
+                trigger="auto_promote",
+                actor="promotion_scheduler",
+                reason="Passed all promotion gates",
+                gate_snapshot=gate_snapshot,
+                transition_at=sample_transition_at,
+            )
         )
 
         # Assert
@@ -254,17 +267,20 @@ class TestIdempotency:
         )
 
         # Act
-        result = await apply_transition(
+        result = await HandlerTransition(
             repository=mock_repository,
             idempotency_store=idempotency_store,
             producer=None,
-            request_id=sample_request_id,
-            correlation_id=sample_correlation_id,
-            pattern_id=sample_pattern_id,
-            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            to_status=EnumPatternLifecycleStatus.VALIDATED,
-            trigger="promote",
-            transition_at=sample_transition_at,
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=sample_request_id,
+                correlation_id=sample_correlation_id,
+                pattern_id=sample_pattern_id,
+                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                to_status=EnumPatternLifecycleStatus.VALIDATED,
+                trigger="promote",
+                transition_at=sample_transition_at,
+            )
         )
 
         # Assert
@@ -295,17 +311,20 @@ class TestIdempotency:
         )
 
         # Act
-        await apply_transition(
+        await HandlerTransition(
             repository=mock_repository,
             idempotency_store=idempotency_store,
             producer=None,
-            request_id=sample_request_id,
-            correlation_id=sample_correlation_id,
-            pattern_id=sample_pattern_id,
-            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            to_status=EnumPatternLifecycleStatus.VALIDATED,
-            trigger="promote",
-            transition_at=sample_transition_at,
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=sample_request_id,
+                correlation_id=sample_correlation_id,
+                pattern_id=sample_pattern_id,
+                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                to_status=EnumPatternLifecycleStatus.VALIDATED,
+                trigger="promote",
+                transition_at=sample_transition_at,
+            )
         )
 
         # Assert: No UPDATE or INSERT queries executed
@@ -338,17 +357,20 @@ class TestIdempotency:
         )
 
         # Act
-        await apply_transition(
+        await HandlerTransition(
             repository=mock_repository,
             idempotency_store=idempotency_store,
             producer=mock_producer,
-            request_id=sample_request_id,
-            correlation_id=sample_correlation_id,
-            pattern_id=sample_pattern_id,
-            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            to_status=EnumPatternLifecycleStatus.VALIDATED,
-            trigger="promote",
-            transition_at=sample_transition_at,
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=sample_request_id,
+                correlation_id=sample_correlation_id,
+                pattern_id=sample_pattern_id,
+                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                to_status=EnumPatternLifecycleStatus.VALIDATED,
+                trigger="promote",
+                transition_at=sample_transition_at,
+            )
         )
 
         # Assert: No events published
@@ -371,17 +393,20 @@ class TestIdempotency:
         )
 
         # Act
-        await apply_transition(
+        await HandlerTransition(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             producer=None,
-            request_id=sample_request_id,
-            correlation_id=sample_correlation_id,
-            pattern_id=sample_pattern_id,
-            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            to_status=EnumPatternLifecycleStatus.VALIDATED,
-            trigger="promote",
-            transition_at=sample_transition_at,
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=sample_request_id,
+                correlation_id=sample_correlation_id,
+                pattern_id=sample_pattern_id,
+                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                to_status=EnumPatternLifecycleStatus.VALIDATED,
+                trigger="promote",
+                transition_at=sample_transition_at,
+            )
         )
 
         # Assert: Request ID was recorded
@@ -411,31 +436,37 @@ class TestIdempotency:
         )
 
         # Act: First transition
-        result_1 = await apply_transition(
+        result_1 = await HandlerTransition(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             producer=None,
-            request_id=request_id_1,
-            correlation_id=sample_correlation_id,
-            pattern_id=sample_pattern_id,
-            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            to_status=EnumPatternLifecycleStatus.VALIDATED,
-            trigger="promote",
-            transition_at=sample_transition_at,
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=request_id_1,
+                correlation_id=sample_correlation_id,
+                pattern_id=sample_pattern_id,
+                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                to_status=EnumPatternLifecycleStatus.VALIDATED,
+                trigger="promote",
+                transition_at=sample_transition_at,
+            )
         )
 
         # Act: Second transition (different pattern)
-        result_2 = await apply_transition(
+        result_2 = await HandlerTransition(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             producer=None,
-            request_id=request_id_2,
-            correlation_id=sample_correlation_id,
-            pattern_id=pattern_id_2,
-            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            to_status=EnumPatternLifecycleStatus.VALIDATED,
-            trigger="promote",
-            transition_at=sample_transition_at,
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=request_id_2,
+                correlation_id=sample_correlation_id,
+                pattern_id=pattern_id_2,
+                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                to_status=EnumPatternLifecycleStatus.VALIDATED,
+                trigger="promote",
+                transition_at=sample_transition_at,
+            )
         )
 
         # Assert: Both succeeded, neither is duplicate
@@ -477,17 +508,20 @@ class TestStatusGuard:
         )
 
         # Act
-        result = await apply_transition(
+        result = await HandlerTransition(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             producer=None,
-            request_id=sample_request_id,
-            correlation_id=sample_correlation_id,
-            pattern_id=sample_pattern_id,
-            from_status=EnumPatternLifecycleStatus.PROVISIONAL,  # Expected provisional, but pattern is candidate
-            to_status=EnumPatternLifecycleStatus.VALIDATED,
-            trigger="promote",
-            transition_at=sample_transition_at,
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=sample_request_id,
+                correlation_id=sample_correlation_id,
+                pattern_id=sample_pattern_id,
+                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                to_status=EnumPatternLifecycleStatus.VALIDATED,
+                trigger="promote",
+                transition_at=sample_transition_at,
+            )
         )
 
         # Assert
@@ -517,17 +551,20 @@ class TestStatusGuard:
         )
 
         # Act
-        result = await apply_transition(
+        result = await HandlerTransition(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             producer=None,
-            request_id=sample_request_id,
-            correlation_id=sample_correlation_id,
-            pattern_id=sample_pattern_id,
-            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            to_status=EnumPatternLifecycleStatus.DEPRECATED,
-            trigger="demote",
-            transition_at=sample_transition_at,
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=sample_request_id,
+                correlation_id=sample_correlation_id,
+                pattern_id=sample_pattern_id,
+                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                to_status=EnumPatternLifecycleStatus.DEPRECATED,
+                trigger="demote",
+                transition_at=sample_transition_at,
+            )
         )
 
         # Assert: Error message contains both statuses
@@ -552,17 +589,20 @@ class TestStatusGuard:
         )
 
         # Act
-        await apply_transition(
+        await HandlerTransition(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             producer=None,
-            request_id=sample_request_id,
-            correlation_id=sample_correlation_id,
-            pattern_id=sample_pattern_id,
-            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            to_status=EnumPatternLifecycleStatus.VALIDATED,
-            trigger="promote",
-            transition_at=sample_transition_at,
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=sample_request_id,
+                correlation_id=sample_correlation_id,
+                pattern_id=sample_pattern_id,
+                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                to_status=EnumPatternLifecycleStatus.VALIDATED,
+                trigger="promote",
+                transition_at=sample_transition_at,
+            )
         )
 
         # Assert: No audit records inserted
@@ -591,31 +631,37 @@ class TestStatusGuard:
         )
 
         # First transition succeeds
-        result_1 = await apply_transition(
+        result_1 = await HandlerTransition(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             producer=None,
-            request_id=uuid4(),
-            correlation_id=sample_correlation_id,
-            pattern_id=sample_pattern_id,
-            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            to_status=EnumPatternLifecycleStatus.VALIDATED,
-            trigger="promote",
-            transition_at=sample_transition_at,
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=uuid4(),
+                correlation_id=sample_correlation_id,
+                pattern_id=sample_pattern_id,
+                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                to_status=EnumPatternLifecycleStatus.VALIDATED,
+                trigger="promote",
+                transition_at=sample_transition_at,
+            )
         )
 
         # Second transition with same from_status should fail
-        result_2 = await apply_transition(
+        result_2 = await HandlerTransition(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             producer=None,
-            request_id=uuid4(),  # Different request ID
-            correlation_id=sample_correlation_id,
-            pattern_id=sample_pattern_id,
-            from_status=EnumPatternLifecycleStatus.PROVISIONAL,  # Pattern is now "validated"
-            to_status=EnumPatternLifecycleStatus.DEPRECATED,
-            trigger="demote",
-            transition_at=sample_transition_at,
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=uuid4(),
+                correlation_id=sample_correlation_id,
+                pattern_id=sample_pattern_id,
+                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                to_status=EnumPatternLifecycleStatus.DEPRECATED,
+                trigger="demote",
+                transition_at=sample_transition_at,
+            )
         )
 
         # Assert
@@ -663,17 +709,20 @@ class TestProvisionalGuard:
         )
 
         # Act
-        result = await apply_transition(
+        result = await HandlerTransition(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             producer=None,
-            request_id=sample_request_id,
-            correlation_id=sample_correlation_id,
-            pattern_id=sample_pattern_id,
-            from_status=EnumPatternLifecycleStatus.VALIDATED,
-            to_status=EnumPatternLifecycleStatus.PROVISIONAL,  # FORBIDDEN from non-CANDIDATE
-            trigger="demote",
-            transition_at=sample_transition_at,
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=sample_request_id,
+                correlation_id=sample_correlation_id,
+                pattern_id=sample_pattern_id,
+                from_status=EnumPatternLifecycleStatus.VALIDATED,
+                to_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                trigger="demote",
+                transition_at=sample_transition_at,
+            )
         )
 
         # Assert
@@ -704,17 +753,20 @@ class TestProvisionalGuard:
         )
 
         # Act - Use proper enum value
-        result = await apply_transition(
+        result = await HandlerTransition(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             producer=None,
-            request_id=sample_request_id,
-            correlation_id=sample_correlation_id,
-            pattern_id=sample_pattern_id,
-            from_status=EnumPatternLifecycleStatus.DEPRECATED,
-            to_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            trigger="reactivate",
-            transition_at=sample_transition_at,
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=sample_request_id,
+                correlation_id=sample_correlation_id,
+                pattern_id=sample_pattern_id,
+                from_status=EnumPatternLifecycleStatus.DEPRECATED,
+                to_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                trigger="reactivate",
+                transition_at=sample_transition_at,
+            )
         )
 
         # Assert
@@ -744,17 +796,20 @@ class TestProvisionalGuard:
         )
 
         # Act
-        await apply_transition(
+        await HandlerTransition(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             producer=None,
-            request_id=sample_request_id,
-            correlation_id=sample_correlation_id,
-            pattern_id=sample_pattern_id,
-            from_status=EnumPatternLifecycleStatus.VALIDATED,
-            to_status=EnumPatternLifecycleStatus.PROVISIONAL,  # FORBIDDEN from non-CANDIDATE
-            trigger="demote",
-            transition_at=sample_transition_at,
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=sample_request_id,
+                correlation_id=sample_correlation_id,
+                pattern_id=sample_pattern_id,
+                from_status=EnumPatternLifecycleStatus.VALIDATED,
+                to_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                trigger="demote",
+                transition_at=sample_transition_at,
+            )
         )
 
         # Assert: Request ID should NOT be recorded (guard failed first)
@@ -777,17 +832,20 @@ class TestProvisionalGuard:
         )
 
         # Act
-        result = await apply_transition(
+        result = await HandlerTransition(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             producer=None,
-            request_id=sample_request_id,
-            correlation_id=sample_correlation_id,
-            pattern_id=sample_pattern_id,
-            from_status=EnumPatternLifecycleStatus.PROVISIONAL,  # FROM provisional is OK
-            to_status=EnumPatternLifecycleStatus.VALIDATED,
-            trigger="promote",
-            transition_at=sample_transition_at,
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=sample_request_id,
+                correlation_id=sample_correlation_id,
+                pattern_id=sample_pattern_id,
+                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                to_status=EnumPatternLifecycleStatus.VALIDATED,
+                trigger="promote",
+                transition_at=sample_transition_at,
+            )
         )
 
         # Assert
@@ -817,17 +875,20 @@ class TestPatternNotFound:
         # Arrange: Do NOT add pattern to repository
 
         # Act
-        result = await apply_transition(
+        result = await HandlerTransition(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             producer=None,
-            request_id=sample_request_id,
-            correlation_id=sample_correlation_id,
-            pattern_id=sample_pattern_id,
-            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            to_status=EnumPatternLifecycleStatus.VALIDATED,
-            trigger="promote",
-            transition_at=sample_transition_at,
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=sample_request_id,
+                correlation_id=sample_correlation_id,
+                pattern_id=sample_pattern_id,
+                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                to_status=EnumPatternLifecycleStatus.VALIDATED,
+                trigger="promote",
+                transition_at=sample_transition_at,
+            )
         )
 
         # Assert
@@ -852,17 +913,20 @@ class TestPatternNotFound:
         # Arrange: No pattern
 
         # Act
-        await apply_transition(
+        await HandlerTransition(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             producer=None,
-            request_id=sample_request_id,
-            correlation_id=sample_correlation_id,
-            pattern_id=sample_pattern_id,
-            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            to_status=EnumPatternLifecycleStatus.VALIDATED,
-            trigger="promote",
-            transition_at=sample_transition_at,
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=sample_request_id,
+                correlation_id=sample_correlation_id,
+                pattern_id=sample_pattern_id,
+                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                to_status=EnumPatternLifecycleStatus.VALIDATED,
+                trigger="promote",
+                transition_at=sample_transition_at,
+            )
         )
 
         # Assert: No audit records
@@ -895,17 +959,20 @@ class TestAuditRecords:
         )
 
         # Act
-        await apply_transition(
+        await HandlerTransition(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             producer=None,
-            request_id=sample_request_id,
-            correlation_id=sample_correlation_id,
-            pattern_id=sample_pattern_id,
-            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            to_status=EnumPatternLifecycleStatus.VALIDATED,
-            trigger="promote",
-            transition_at=sample_transition_at,
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=sample_request_id,
+                correlation_id=sample_correlation_id,
+                pattern_id=sample_pattern_id,
+                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                to_status=EnumPatternLifecycleStatus.VALIDATED,
+                trigger="promote",
+                transition_at=sample_transition_at,
+            )
         )
 
         # Assert: Audit record was inserted
@@ -930,19 +997,22 @@ class TestAuditRecords:
         )
 
         # Act
-        await apply_transition(
+        await HandlerTransition(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             producer=None,
-            request_id=sample_request_id,
-            correlation_id=sample_correlation_id,
-            pattern_id=sample_pattern_id,
-            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            to_status=EnumPatternLifecycleStatus.VALIDATED,
-            trigger="promote",
-            actor="test_actor",
-            reason="Test reason",
-            transition_at=sample_transition_at,
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=sample_request_id,
+                correlation_id=sample_correlation_id,
+                pattern_id=sample_pattern_id,
+                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                to_status=EnumPatternLifecycleStatus.VALIDATED,
+                trigger="promote",
+                actor="test_actor",
+                reason="Test reason",
+                transition_at=sample_transition_at,
+            )
         )
 
         # Assert: Check the args passed to INSERT
@@ -986,18 +1056,21 @@ class TestKafkaEvents:
         )
 
         # Act
-        await apply_transition(
+        await HandlerTransition(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             producer=mock_producer,
-            request_id=sample_request_id,
-            correlation_id=sample_correlation_id,
-            pattern_id=sample_pattern_id,
-            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            to_status=EnumPatternLifecycleStatus.VALIDATED,
-            trigger="promote",
-            transition_at=sample_transition_at,
-            publish_topic="onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1",  # onex-topic-test-fixture
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=sample_request_id,
+                correlation_id=sample_correlation_id,
+                pattern_id=sample_pattern_id,
+                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                to_status=EnumPatternLifecycleStatus.VALIDATED,
+                trigger="promote",
+                transition_at=sample_transition_at,
+                publish_topic="onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1",
+            )
         )
 
         # Assert
@@ -1027,18 +1100,21 @@ class TestKafkaEvents:
         )
 
         # Act
-        await apply_transition(
+        await HandlerTransition(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             producer=mock_producer,
-            request_id=sample_request_id,
-            correlation_id=sample_correlation_id,
-            pattern_id=sample_pattern_id,
-            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            to_status=EnumPatternLifecycleStatus.VALIDATED,
-            trigger="promote",
-            transition_at=sample_transition_at,
-            publish_topic="onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1",  # onex-topic-test-fixture
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=sample_request_id,
+                correlation_id=sample_correlation_id,
+                pattern_id=sample_pattern_id,
+                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                to_status=EnumPatternLifecycleStatus.VALIDATED,
+                trigger="promote",
+                transition_at=sample_transition_at,
+                publish_topic="onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1",
+            )
         )
 
         # Assert
@@ -1063,17 +1139,20 @@ class TestKafkaEvents:
         )
 
         # Act - Should not raise
-        result = await apply_transition(
+        result = await HandlerTransition(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
-            producer=None,  # No Kafka producer
-            request_id=sample_request_id,
-            correlation_id=sample_correlation_id,
-            pattern_id=sample_pattern_id,
-            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            to_status=EnumPatternLifecycleStatus.VALIDATED,
-            trigger="promote",
-            transition_at=sample_transition_at,
+            producer=None,
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=sample_request_id,
+                correlation_id=sample_correlation_id,
+                pattern_id=sample_pattern_id,
+                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                to_status=EnumPatternLifecycleStatus.VALIDATED,
+                trigger="promote",
+                transition_at=sample_transition_at,
+            )
         )
 
         # Assert: Transition still succeeded
@@ -1098,18 +1177,21 @@ class TestKafkaEvents:
         publish_topic = "onex.evt.omniintelligence.pattern-lifecycle-transitioned.v1"  # onex-topic-test-fixture
 
         # Act
-        await apply_transition(
+        await HandlerTransition(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             producer=mock_producer,
-            request_id=sample_request_id,
-            correlation_id=sample_correlation_id,
-            pattern_id=sample_pattern_id,
-            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            to_status=EnumPatternLifecycleStatus.VALIDATED,
-            trigger="promote",
-            transition_at=sample_transition_at,
-            publish_topic=publish_topic,
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=sample_request_id,
+                correlation_id=sample_correlation_id,
+                pattern_id=sample_pattern_id,
+                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                to_status=EnumPatternLifecycleStatus.VALIDATED,
+                trigger="promote",
+                transition_at=sample_transition_at,
+                publish_topic=publish_topic,
+            )
         )
 
         # Assert
@@ -1144,17 +1226,20 @@ class TestErrorHandling:
         mock_repository.simulate_db_error = Exception("Connection refused")
 
         # Act
-        result = await apply_transition(
+        result = await HandlerTransition(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             producer=None,
-            request_id=sample_request_id,
-            correlation_id=sample_correlation_id,
-            pattern_id=sample_pattern_id,
-            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            to_status=EnumPatternLifecycleStatus.VALIDATED,
-            trigger="promote",
-            transition_at=sample_transition_at,
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=sample_request_id,
+                correlation_id=sample_correlation_id,
+                pattern_id=sample_pattern_id,
+                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                to_status=EnumPatternLifecycleStatus.VALIDATED,
+                trigger="promote",
+                transition_at=sample_transition_at,
+            )
         )
 
         # Assert
@@ -1184,18 +1269,21 @@ class TestErrorHandling:
         # mock_repository.add_pattern(sample_pattern_id, status="provisional")
 
         # Act
-        result = await apply_transition(
+        result = await HandlerTransition(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
-            producer=mock_producer,  # Producer provided
-            request_id=sample_request_id,
-            correlation_id=sample_correlation_id,
-            pattern_id=sample_pattern_id,
-            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            to_status=EnumPatternLifecycleStatus.VALIDATED,
-            trigger="promote",
-            transition_at=sample_transition_at,
-            publish_topic=None,  # But publish_topic is None
+            producer=mock_producer,
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=sample_request_id,
+                correlation_id=sample_correlation_id,
+                pattern_id=sample_pattern_id,
+                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                to_status=EnumPatternLifecycleStatus.VALIDATED,
+                trigger="promote",
+                transition_at=sample_transition_at,
+                publish_topic=None,
+            )
         )
 
         # Assert
@@ -1309,17 +1397,20 @@ class TestResultModelValidation:
         )
 
         # Act
-        result = await apply_transition(
+        result = await HandlerTransition(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             producer=None,
-            request_id=sample_request_id,
-            correlation_id=sample_correlation_id,
-            pattern_id=sample_pattern_id,
-            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            to_status=EnumPatternLifecycleStatus.VALIDATED,
-            trigger="promote",
-            transition_at=sample_transition_at,
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=sample_request_id,
+                correlation_id=sample_correlation_id,
+                pattern_id=sample_pattern_id,
+                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                to_status=EnumPatternLifecycleStatus.VALIDATED,
+                trigger="promote",
+                transition_at=sample_transition_at,
+            )
         )
 
         # Assert
@@ -1347,17 +1438,20 @@ class TestResultModelValidation:
         )
 
         # Act - Success case
-        result = await apply_transition(
+        result = await HandlerTransition(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             producer=None,
-            request_id=sample_request_id,
-            correlation_id=sample_correlation_id,
-            pattern_id=sample_pattern_id,
-            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            to_status=EnumPatternLifecycleStatus.VALIDATED,
-            trigger="promote",
-            transition_at=sample_transition_at,
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=sample_request_id,
+                correlation_id=sample_correlation_id,
+                pattern_id=sample_pattern_id,
+                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                to_status=EnumPatternLifecycleStatus.VALIDATED,
+                trigger="promote",
+                transition_at=sample_transition_at,
+            )
         )
 
         # Assert
@@ -1396,17 +1490,20 @@ class TestEdgeCases:
         )
 
         # Act
-        result = await apply_transition(
+        result = await HandlerTransition(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             producer=None,
-            request_id=sample_request_id,
-            correlation_id=sample_correlation_id,
-            pattern_id=sample_pattern_id,
-            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            to_status=EnumPatternLifecycleStatus.VALIDATED,
-            trigger="",  # Empty trigger - should be rejected
-            transition_at=sample_transition_at,
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=sample_request_id,
+                correlation_id=sample_correlation_id,
+                pattern_id=sample_pattern_id,
+                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                to_status=EnumPatternLifecycleStatus.VALIDATED,
+                trigger="",
+                transition_at=sample_transition_at,
+            )
         )
 
         # Assert: Empty trigger should be rejected
@@ -1436,17 +1533,20 @@ class TestEdgeCases:
         )
 
         # Act
-        result = await apply_transition(
+        result = await HandlerTransition(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             producer=None,
-            request_id=sample_request_id,
-            correlation_id=sample_correlation_id,
-            pattern_id=sample_pattern_id,
-            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            to_status=EnumPatternLifecycleStatus.VALIDATED,
-            trigger="   ",  # Whitespace-only trigger - should be rejected
-            transition_at=sample_transition_at,
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=sample_request_id,
+                correlation_id=sample_correlation_id,
+                pattern_id=sample_pattern_id,
+                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                to_status=EnumPatternLifecycleStatus.VALIDATED,
+                trigger="   ",
+                transition_at=sample_transition_at,
+            )
         )
 
         # Assert: Whitespace-only trigger should be rejected
@@ -1473,18 +1573,21 @@ class TestEdgeCases:
         long_reason = "A" * 10000  # 10,000 character reason
 
         # Act
-        result = await apply_transition(
+        result = await HandlerTransition(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             producer=None,
-            request_id=sample_request_id,
-            correlation_id=sample_correlation_id,
-            pattern_id=sample_pattern_id,
-            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            to_status=EnumPatternLifecycleStatus.VALIDATED,
-            trigger="promote",
-            reason=long_reason,
-            transition_at=sample_transition_at,
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=sample_request_id,
+                correlation_id=sample_correlation_id,
+                pattern_id=sample_pattern_id,
+                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                to_status=EnumPatternLifecycleStatus.VALIDATED,
+                trigger="promote",
+                reason=long_reason,
+                transition_at=sample_transition_at,
+            )
         )
 
         # Assert
@@ -1510,17 +1613,20 @@ class TestEdgeCases:
         )
 
         # Act - Transition from validated to validated
-        result = await apply_transition(
+        result = await HandlerTransition(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             producer=None,
-            request_id=sample_request_id,
-            correlation_id=sample_correlation_id,
-            pattern_id=sample_pattern_id,
-            from_status=EnumPatternLifecycleStatus.VALIDATED,
-            to_status=EnumPatternLifecycleStatus.VALIDATED,  # Same as from
-            trigger="reconfirm",
-            transition_at=sample_transition_at,
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=sample_request_id,
+                correlation_id=sample_correlation_id,
+                pattern_id=sample_pattern_id,
+                from_status=EnumPatternLifecycleStatus.VALIDATED,
+                to_status=EnumPatternLifecycleStatus.VALIDATED,
+                trigger="reconfirm",
+                transition_at=sample_transition_at,
+            )
         )
 
         # Assert: Should succeed (no-op is valid)
@@ -1545,18 +1651,21 @@ class TestEdgeCases:
         )
 
         # Act
-        result = await apply_transition(
+        result = await HandlerTransition(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             producer=None,
-            request_id=sample_request_id,
-            correlation_id=sample_correlation_id,
-            pattern_id=sample_pattern_id,
-            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            to_status=EnumPatternLifecycleStatus.VALIDATED,
-            trigger="promote",
-            gate_snapshot=None,  # Explicitly None
-            transition_at=sample_transition_at,
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=sample_request_id,
+                correlation_id=sample_correlation_id,
+                pattern_id=sample_pattern_id,
+                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                to_status=EnumPatternLifecycleStatus.VALIDATED,
+                trigger="promote",
+                gate_snapshot=None,
+                transition_at=sample_transition_at,
+            )
         )
 
         # Assert
@@ -1597,18 +1706,21 @@ class TestEdgeCases:
         }
 
         # Act
-        result = await apply_transition(
+        result = await HandlerTransition(
             repository=mock_repository,
             idempotency_store=mock_idempotency_store,
             producer=None,
-            request_id=sample_request_id,
-            correlation_id=sample_correlation_id,
-            pattern_id=sample_pattern_id,
-            from_status=EnumPatternLifecycleStatus.PROVISIONAL,
-            to_status=EnumPatternLifecycleStatus.VALIDATED,
-            trigger="promote",
-            gate_snapshot=gate_snapshot,
-            transition_at=sample_transition_at,
+        ).handle(
+            ModelPatternLifecycleTransitionRequest(
+                request_id=sample_request_id,
+                correlation_id=sample_correlation_id,
+                pattern_id=sample_pattern_id,
+                from_status=EnumPatternLifecycleStatus.PROVISIONAL,
+                to_status=EnumPatternLifecycleStatus.VALIDATED,
+                trigger="promote",
+                gate_snapshot=gate_snapshot,
+                transition_at=sample_transition_at,
+            )
         )
 
         # Assert

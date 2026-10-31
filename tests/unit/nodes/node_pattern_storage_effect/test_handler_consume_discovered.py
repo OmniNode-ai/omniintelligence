@@ -27,8 +27,8 @@ import pytest
 from pydantic import ValidationError
 
 from omniintelligence.nodes.node_pattern_storage_effect.handlers.handler_consume_discovered import (
+    HandlerConsumeDiscovered,
     _map_discovered_to_storage_input,
-    handle_consume_discovered,
 )
 from omniintelligence.testing import MockPatternStore, make_discovered_event
 
@@ -260,18 +260,17 @@ class TestMapDiscoveredToStorageInput:
 
 @pytest.mark.asyncio
 class TestHandleConsumeDiscovered:
-    """Test handle_consume_discovered with mock dependencies."""
+    """Test HandlerConsumeDiscovered with mock dependencies."""
 
     async def test_happy_path_stores_pattern(self) -> None:
         """Valid event should be stored successfully."""
         event = make_discovered_event()
         store = MockPatternStore()
 
-        result = await handle_consume_discovered(
-            event,
+        result = await HandlerConsumeDiscovered(
             pattern_store=store,
             conn=None,  # type: ignore[arg-type]  # MockPatternStore ignores conn
-        )
+        ).handle(event)
 
         assert result.success
         assert result.event is not None
@@ -286,16 +285,14 @@ class TestHandleConsumeDiscovered:
         event = make_discovered_event()
         store = MockPatternStore()
 
-        result1 = await handle_consume_discovered(
-            event,
+        result1 = await HandlerConsumeDiscovered(
             pattern_store=store,
             conn=None,  # type: ignore[arg-type]
-        )
-        result2 = await handle_consume_discovered(
-            event,
+        ).handle(event)
+        result2 = await HandlerConsumeDiscovered(
             pattern_store=store,
             conn=None,  # type: ignore[arg-type]
-        )
+        ).handle(event)
 
         assert result1.success and result1.event is not None
         assert result2.success and result2.event is not None
