@@ -43,11 +43,10 @@ from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FuturesTimeoutError
 from typing import Literal
 
+from omniintelligence.models.runtime_timeouts import runtime_timeouts
+
 # Module logger for debug/error tracking
 logger = logging.getLogger(__name__)
-
-# Regex execution timeout in seconds (prevents ReDoS attacks)
-_REGEX_TIMEOUT_SECONDS: float = 2.0
 
 # Thread pool for timeout-protected regex execution
 # Lazy initialization to avoid creating threads if never used
@@ -74,7 +73,7 @@ def _timeout_protected_regex_search(
     pattern: str,
     text: str,
     flags: int = 0,
-    timeout: float = _REGEX_TIMEOUT_SECONDS,
+    timeout: float = runtime_timeouts().regex_match_s,  # ReDoS guard budget
     correlation_id: str | None = None,
 ) -> bool:
     """Execute regex search with timeout protection against ReDoS.

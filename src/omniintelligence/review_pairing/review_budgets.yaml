@@ -21,6 +21,7 @@
 #   git_show_seconds:         one `git show` read.
 #   gh_api_seconds:           one paginated `gh api` read.
 #   gh_pr_diff_seconds:       one `gh pr diff` read.
+#   codemod_sandbox_seconds:  one codemod replay run in the sandbox subprocess.
 #   codex_fallback_dirs:      directories searched for the codex binary when it
 #                             is not on PATH (shutil.which only searches PATH,
 #                             which may be narrow in subprocess contexts). A
@@ -32,6 +33,7 @@ codex_exec_seconds: 180.0
 git_show_seconds: 30.0
 gh_api_seconds: 60.0
 gh_pr_diff_seconds: 30.0
+codemod_sandbox_seconds: 10.0
 codex_fallback_dirs:
   - "/opt/homebrew/bin"
   - "/usr/local/bin"

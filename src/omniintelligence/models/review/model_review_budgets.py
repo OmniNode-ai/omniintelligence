@@ -37,6 +37,7 @@ class ModelReviewBudgets(BaseModel):
         git_show_seconds: Budget of one ``git show`` read.
         gh_api_seconds: Budget of one paginated ``gh api`` read.
         gh_pr_diff_seconds: Budget of one ``gh pr diff`` read.
+        codemod_sandbox_seconds: Budget of one codemod replay run.
         codex_fallback_dirs: Directories searched for the codex binary when it
             is not on PATH, with a leading ``~`` expanded.
     """
@@ -50,6 +51,7 @@ class ModelReviewBudgets(BaseModel):
     git_show_seconds: float = Field(gt=0)
     gh_api_seconds: float = Field(gt=0)
     gh_pr_diff_seconds: float = Field(gt=0)
+    codemod_sandbox_seconds: float = Field(gt=0)
     codex_fallback_dirs: tuple[str, ...]
 
     @field_validator("codex_fallback_dirs")

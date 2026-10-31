@@ -41,6 +41,7 @@ from omnibase_core.models.errors.model_onex_error import ModelOnexError
 from pydantic import BaseModel, ValidationError
 
 from omniintelligence.constants import PERCENTAGE_MULTIPLIER
+from omniintelligence.models.runtime_timeouts import runtime_timeouts
 from omniintelligence.validators.enum_contract_error_type import EnumContractErrorType
 from omniintelligence.validators.model_contract_validation_error import (
     ModelContractValidationError,
@@ -261,10 +262,6 @@ VALID_NODE_TYPES: frozenset[str] = frozenset(
 # Default number of worker threads when os.cpu_count() returns None
 # Used as fallback for parallel batch validation
 DEFAULT_MAX_WORKERS_FALLBACK = 4
-
-# Watch mode poll interval in seconds
-# Controls how frequently files are checked for changes in --watch mode
-WATCH_POLL_INTERVAL_SECONDS = 1
 
 # JSON output indentation (spaces)
 # Used for human-readable JSON formatting in CLI output
@@ -1372,7 +1369,7 @@ def _watch_and_validate(
                 else:
                     print(_format_text_output(results, verbose=verbose))
 
-            time_module.sleep(WATCH_POLL_INTERVAL_SECONDS)
+            time_module.sleep(runtime_timeouts().contract_linter_watch_poll_s)
     except KeyboardInterrupt:
         logger.info("Watch mode stopped by user")
         print("\nWatch mode stopped.")

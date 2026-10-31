@@ -27,6 +27,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from omniintelligence.models.runtime_timeouts import runtime_timeouts
 from omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers._timing import (
     elapsed_time_ms,
     elapsed_time_seconds,
@@ -61,8 +62,8 @@ from omniintelligence.nodes.node_pattern_assembler_orchestrator.models.model_pat
 
 logger = logging.getLogger(__name__)
 
-# Default workflow timeout in seconds (from contract.yaml)
-DEFAULT_TIMEOUT_SECONDS = 120
+# Default workflow timeout in seconds (runtime_timeouts.yaml)
+DEFAULT_TIMEOUT_SECONDS = runtime_timeouts().pattern_assembly_workflow_s
 
 
 async def _handle_pattern_assembly_orchestrate(

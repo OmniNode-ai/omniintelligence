@@ -27,6 +27,7 @@ from omniintelligence.code_projection.qdrant import (
     ProtocolCodeProjectionCurrentGenerationResolver,
 )
 from omniintelligence.models.code_projection import artifact_digest
+from omniintelligence.models.runtime_timeouts import runtime_timeouts
 from omniintelligence.nodes.node_embedding_generation_effect.models.model_embedding_client_config import (
     ModelEmbeddingClientConfig,
 )
@@ -169,7 +170,7 @@ def _build_qdrant_client(
     return AsyncQdrantClient(
         url=configuration.qdrant_url,
         api_key=configuration.qdrant_api_key,
-        timeout=30,
+        timeout=int(runtime_timeouts().qdrant_request_s),
         prefer_grpc=False,
         cloud_inference=False,
         check_compatibility=False,
@@ -192,9 +193,8 @@ async def live_code_context_search(
         ModelEmbeddingClientConfig(
             base_url=configuration.embedding_url,
             embedding_dimension=1024,
-            timeout_seconds=60.0,
+            timeout_seconds=runtime_timeouts().embedding_request_s,
             max_retries=2,
-            retry_base_delay=0.5,
             max_concurrency=4,
         ),
         model_name=configuration.embedding_model,

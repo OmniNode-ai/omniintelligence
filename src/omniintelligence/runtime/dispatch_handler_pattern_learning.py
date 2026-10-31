@@ -34,7 +34,6 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
-import os
 import time
 from collections.abc import Awaitable, Callable, Sequence
 from datetime import UTC, datetime
@@ -45,6 +44,7 @@ from omnibase_core.protocols.handler.protocol_handler_context import (
     ProtocolHandlerContext,
 )
 
+from omniintelligence.models.runtime_timeouts import runtime_timeouts
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers.exceptions import (
     PatternExtractionError,
 )
@@ -74,16 +74,10 @@ Note: Events are published one at a time within each batch (no transport-level
 batch optimization). The batch grouping provides log grouping (batch_start/end
 in warnings) and error isolation -- a failed event does not abort the remaining
 events in the batch or subsequent batches."""
-try:
-    _SESSION_QUERY_TIMEOUT_SECONDS: float = float(
-        os.environ.get("INTELLIGENCE_SESSION_QUERY_TIMEOUT_SECONDS", "2.0")
-    )
-except ValueError:
-    _SESSION_QUERY_TIMEOUT_SECONDS = 2.0
+_SESSION_QUERY_TIMEOUT_SECONDS: float = runtime_timeouts().session_query_s
 """Hard timeout for session enrichment DB queries.
 
-Configurable via INTELLIGENCE_SESSION_QUERY_TIMEOUT_SECONDS environment variable.
-Defaults to 2.0 seconds."""
+Declared as ``session_query_s`` in ``runtime/runtime_timeouts.yaml``."""
 _TAXONOMY_VERSION: str = "1.0.0"
 """Domain taxonomy version included in pattern metadata."""
 _DEFAULT_DOMAIN_ID: str = "general"
