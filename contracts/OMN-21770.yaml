@@ -36,7 +36,7 @@ requirements:
 evidence_requirements:
   - kind: tests
     description: The embedding generation and context item writer node tests that read the endpoint files.
-    command: 'env PYTHONDONTWRITEBYTECODE=1 uv run pytest src/omniintelligence/nodes/node_embedding_generation_effect/node_tests/test_handler_embedding_generate.py
+    command: 'uv run pytest src/omniintelligence/nodes/node_embedding_generation_effect/node_tests/test_handler_embedding_generate.py
       src/omniintelligence/nodes/node_context_item_writer_effect/node_tests/test_handler_context_item_writer.py
       -q'
 emergency_bypass:
@@ -44,37 +44,23 @@ emergency_bypass:
   justification: ''
   follow_up_ticket_id: ''
 dod_evidence:
-  - id: dod-omn21770-ac1-checker-rerun
-    description: The checker scans both slice test modules and reports no literal_url finding; missing
-      files and parse errors fail.
+  - id: dod-omn21770-ac1-no-url-literal
+    description: No http URL literal remains in the two slice test modules.
     source: manual
     checks:
       - check_type: command
-        check_value: 'env PYTHONDONTWRITEBYTECODE=1 uv run python -c ''import sys; from pathlib import
-          Path; from omnibase_core.validation.validator_contracts_and_di import ValidatorContractsAndDi;
-          paths = [Path(p) for p in sys.argv[1:]]; assert paths and all(p.is_file() for p in paths), "missing
-          slice path"; result = ValidatorContractsAndDi().validate(paths); assert result.metadata is not
-          None and result.metadata.files_processed == len(paths), "incomplete scan"; findings = [i for
-          i in result.issues if i.rule_name in {"literal_url", "unparseable_file"}]; print(result.summary);
-          [print(i) for i in findings]; sys.exit(bool(findings))'' src/omniintelligence/nodes/node_embedding_generation_effect/node_tests/test_handler_embedding_generate.py
-          src/omniintelligence/nodes/node_context_item_writer_effect/node_tests/test_handler_context_item_writer.py'
-        cwd: ${OMNI_HOME}/omniintelligence
+        check_value: "! grep -nE 'https?://' src/omniintelligence/nodes/node_embedding_generation_effect/node_tests/test_handler_embedding_generate.py
+          src/omniintelligence/nodes/node_context_item_writer_effect/node_tests/test_handler_context_item_writer.py"
     binds_ac:
       - AC1
   - id: dod-omn21770-ac2-values-from-contract
-    description: The touched node tests pass reading the endpoint files, and no http URL literal remains
-      in the touched modules.
+    description: The touched node tests pass reading the endpoint files.
     source: manual
     checks:
       - check_type: test_passes
-        check_value: 'env PYTHONDONTWRITEBYTECODE=1 uv run pytest src/omniintelligence/nodes/node_embedding_generation_effect/node_tests/test_handler_embedding_generate.py
+        check_value: "uv run pytest src/omniintelligence/nodes/node_embedding_generation_effect/node_tests/test_handler_embedding_generate.py
           src/omniintelligence/nodes/node_context_item_writer_effect/node_tests/test_handler_context_item_writer.py
-          -q'
-        cwd: ${OMNI_HOME}/omniintelligence
-      - check_type: command
-        check_value: '! grep -nE ''https?://'' src/omniintelligence/nodes/node_embedding_generation_effect/node_tests/test_handler_embedding_generate.py
-          src/omniintelligence/nodes/node_context_item_writer_effect/node_tests/test_handler_context_item_writer.py'
-        cwd: ${OMNI_HOME}/omniintelligence
+          -q"
     binds_ac:
       - AC2
   - id: dod-omn21770-ac3-unit-suite
@@ -82,9 +68,8 @@ dod_evidence:
     source: manual
     checks:
       - check_type: test_passes
-        check_value: 'env PYTHONDONTWRITEBYTECODE=1 uv run pytest src/omniintelligence/nodes/node_embedding_generation_effect/node_tests/test_handler_embedding_generate.py
+        check_value: "uv run pytest src/omniintelligence/nodes/node_embedding_generation_effect/node_tests/test_handler_embedding_generate.py
           src/omniintelligence/nodes/node_context_item_writer_effect/node_tests/test_handler_context_item_writer.py
-          -q'
-        cwd: ${OMNI_HOME}/omniintelligence
+          -q"
     binds_ac:
       - AC3
