@@ -1,0 +1,58 @@
+---
+schema_version: 1.0.0
+ticket_id: OMN-21824
+title: Update the locked pyasn1 dependency to 0.6.5
+summary: >-
+  Update pyasn1 from 0.6.4 to 0.6.5 in uv.lock, including the source distribution and wheel metadata.
+  Verify the selected version, lock consistency and basic BER and DER encoding and decoding with the installed
+  dependency.
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: req-omn21824-pyasn1-upgrade
+    statement: The project resolves pyasn1 0.6.5 from its lockfile.
+    acceptance:
+      - id: AC1
+        statement: The unique pyasn1 lock entry and its distribution URLs select version 0.6.5.
+      - id: AC2
+        statement: The lockfile remains consistent with the project dependency declarations.
+      - id: AC3
+        statement: The installed pyasn1 version is 0.6.5 and BER and DER integer round trips pass.
+evidence_requirements:
+  - kind: tests
+    description: Run the lockfile assertions, lock consistency check and installed codec smoke check.
+    command: env PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/unit/test_pyasn1_lock_omn21824.py -q
+emergency_bypass:
+  enabled: false
+  justification: ''
+  follow_up_ticket_id: ''
+dod_evidence:
+  - id: dod-omn21824-ac1-lock-version
+    description: Reject a missing, duplicate or stale pyasn1 lock entry or distribution URL.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/test_pyasn1_lock_omn21824.py -q -n 0 --no-cov -k test_lock_selects_pyasn1_0_6_5
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC1
+  - id: dod-omn21824-ac2-lock-consistency
+    description: Reject a lockfile that needs updating for the project dependency declarations.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/test_pyasn1_lock_omn21824.py -q -n 0 --no-cov -k test_lock_pyasn1_artifacts_are_consistent_with_0_6_5
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC2
+  - id: dod-omn21824-ac3-codec-smoke
+    description: Check the installed version and decode BER and DER encoded integers without trailing
+      data.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/test_pyasn1_lock_omn21824.py -q -n 0 --no-cov -k test_installed_pyasn1_round_trips_ber_and_der
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC3
