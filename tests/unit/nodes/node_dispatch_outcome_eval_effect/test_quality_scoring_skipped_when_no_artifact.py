@@ -18,6 +18,9 @@ from omniintelligence.nodes.node_dispatch_outcome_eval_effect.models import (
     ModelCostProvenance,
     ModelInput,
 )
+from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
+    HandlerQualityScoringCompute,
+)
 from omniintelligence.nodes.node_quality_scoring_compute.models import (
     ModelQualityScoringInput,
     ModelQualityScoringOutput,
@@ -63,15 +66,12 @@ async def test_skips_quality_scoring_compute_without_artifact(
     """Dispatch outcomes without artifact_path do not invoke quality scoring."""
 
     def fail_if_called(
-        input_data: ModelQualityScoringInput,
+        self: HandlerQualityScoringCompute,
+        request: ModelQualityScoringInput,
     ) -> ModelQualityScoringOutput:
         raise AssertionError("quality scoring should not be invoked")
 
-    monkeypatch.setattr(
-        handler_dispatch_outcome,
-        "handle_quality_scoring_compute",
-        fail_if_called,
-    )
+    monkeypatch.setattr(HandlerQualityScoringCompute, "handle", fail_if_called)
 
     result = await handler_dispatch_outcome.handle_dispatch_outcome(_make_event())
 
@@ -88,15 +88,12 @@ async def test_skips_quality_scoring_compute_for_unsupported_artifact(
     artifact.write_text("export const value = 1;\n", encoding="utf-8")
 
     def fail_if_called(
-        input_data: ModelQualityScoringInput,
+        self: HandlerQualityScoringCompute,
+        request: ModelQualityScoringInput,
     ) -> ModelQualityScoringOutput:
         raise AssertionError("quality scoring should not be invoked")
 
-    monkeypatch.setattr(
-        handler_dispatch_outcome,
-        "handle_quality_scoring_compute",
-        fail_if_called,
-    )
+    monkeypatch.setattr(HandlerQualityScoringCompute, "handle", fail_if_called)
 
     result = await handler_dispatch_outcome.handle_dispatch_outcome(
         _make_event(str(artifact))
@@ -114,15 +111,12 @@ async def test_skips_quality_scoring_compute_when_artifact_missing(
     artifact = tmp_path / "missing_artifact.py"
 
     def fail_if_called(
-        input_data: ModelQualityScoringInput,
+        self: HandlerQualityScoringCompute,
+        request: ModelQualityScoringInput,
     ) -> ModelQualityScoringOutput:
         raise AssertionError("quality scoring should not be invoked")
 
-    monkeypatch.setattr(
-        handler_dispatch_outcome,
-        "handle_quality_scoring_compute",
-        fail_if_called,
-    )
+    monkeypatch.setattr(HandlerQualityScoringCompute, "handle", fail_if_called)
 
     result = await handler_dispatch_outcome.handle_dispatch_outcome(
         _make_event(str(artifact))
@@ -141,15 +135,12 @@ async def test_skips_quality_score_when_compute_raises_runtime_error(
     artifact.write_text("class DispatchArtifact:\n    pass\n", encoding="utf-8")
 
     def fail_with_runtime_error(
-        input_data: ModelQualityScoringInput,
+        self: HandlerQualityScoringCompute,
+        request: ModelQualityScoringInput,
     ) -> ModelQualityScoringOutput:
         raise RuntimeError("scoring failed")
 
-    monkeypatch.setattr(
-        handler_dispatch_outcome,
-        "handle_quality_scoring_compute",
-        fail_with_runtime_error,
-    )
+    monkeypatch.setattr(HandlerQualityScoringCompute, "handle", fail_with_runtime_error)
 
     result = await handler_dispatch_outcome.handle_dispatch_outcome(
         _make_event(str(artifact))

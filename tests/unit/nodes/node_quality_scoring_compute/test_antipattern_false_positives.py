@@ -22,7 +22,8 @@ import pytest
 pytestmark = pytest.mark.unit
 
 from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
-    score_code_quality,
+    HandlerQualityScoring,
+    ModelScoreCodeQualityRequest,
 )
 from omniintelligence.nodes.node_quality_scoring_compute.handlers.handler_quality_scoring import (
     _count_mutable_default_arguments,
@@ -47,8 +48,14 @@ def process(data: list[str] = []) -> list[str]:
     """Process data items."""
     return data.copy()
 '''
-        result_comment = score_code_quality(code_with_comment, "python")
-        result_actual = score_code_quality(code_with_actual_antipattern, "python")
+        result_comment = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=code_with_comment, language="python")
+        )
+        result_actual = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(
+                content=code_with_actual_antipattern, language="python"
+            )
+        )
 
         # Comment version should have higher patterns score (no anti-pattern)
         assert (
@@ -78,8 +85,14 @@ def process(data: dict[str, int] = {}) -> dict[str, int]:
     """Process data dictionary."""
     return dict(data)
 '''
-        result_docstring = score_code_quality(code_with_docstring, "python")
-        result_actual = score_code_quality(code_with_actual_antipattern, "python")
+        result_docstring = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=code_with_docstring, language="python")
+        )
+        result_actual = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(
+                content=code_with_actual_antipattern, language="python"
+            )
+        )
 
         # Docstring version should have higher patterns score
         assert (
@@ -100,8 +113,14 @@ def process(name: str, **kwargs) -> str:
     """Process name and extra arguments."""
     return f"{name}: {kwargs}"
 '''
-        result_comment = score_code_quality(code_with_comment, "python")
-        result_actual = score_code_quality(code_with_actual_antipattern, "python")
+        result_comment = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=code_with_comment, language="python")
+        )
+        result_actual = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(
+                content=code_with_actual_antipattern, language="python"
+            )
+        )
 
         # Comment version should have higher patterns score
         assert (
@@ -133,8 +152,14 @@ def process(data: Any) -> list:
     """Process data items."""
     return list(data)
 '''
-        result_docstring = score_code_quality(code_with_docstring, "python")
-        result_actual = score_code_quality(code_with_actual_antipattern, "python")
+        result_docstring = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=code_with_docstring, language="python")
+        )
+        result_actual = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(
+                content=code_with_actual_antipattern, language="python"
+            )
+        )
 
         # Docstring version should have higher patterns score
         assert (
@@ -156,8 +181,14 @@ def process(data: dict[str, Any]) -> None:
     """Process arbitrary data."""
     pass
 '''
-        result_string = score_code_quality(code_with_string, "python")
-        result_actual = score_code_quality(code_with_actual_antipattern, "python")
+        result_string = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=code_with_string, language="python")
+        )
+        result_actual = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(
+                content=code_with_actual_antipattern, language="python"
+            )
+        )
 
         # String version should have higher patterns score
         assert (
@@ -345,7 +376,11 @@ def get_antipatterns() -> list[str]:
     return ANTI_PATTERNS.copy()
 '''
         # This code has many anti-patterns in comments/strings but no actual ones
-        result = score_code_quality(well_documented_code, "python")
+        result = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(
+                content=well_documented_code, language="python"
+            )
+        )
 
         # Should have a decent patterns score since no actual anti-patterns
         # The positive patterns (Final, list[str], docstring) should help
@@ -361,7 +396,11 @@ def process(data: dict[str, Any], items=[], **kwargs) -> None:
     cache = {}  # This is fine (not a default argument)
     pass
 '''
-        result = score_code_quality(code_with_actual_issues, "python")
+        result = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(
+                content=code_with_actual_issues, language="python"
+            )
+        )
 
         # Should have lower patterns score due to actual anti-patterns
         # dict[str, Any], = [], **kwargs are all anti-patterns

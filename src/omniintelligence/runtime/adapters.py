@@ -12,7 +12,7 @@ Adapters:
     - AdapterPatternRepositoryRuntime: PostgresRepositoryRuntime -> ProtocolPatternRepository
     - AdapterIdempotencyStoreInfra: omnibase_infra idempotency store -> ProtocolIdempotencyStore
     - AdapterKafkaPublisher: event bus -> ProtocolKafkaPublisher
-    - AdapterIntentClassifier: handle_intent_classification -> ProtocolIntentClassifier
+    - AdapterIntentClassifier: HandlerIntentClassification -> ProtocolIntentClassifier
 
 Design:
     Each adapter is a thin explicit boundary that prevents accidental coupling
@@ -214,7 +214,7 @@ class AdapterKafkaPublisher:
 class AdapterIntentClassifier:
     """Pure-compute intent classifier implementing ProtocolIntentClassifier.
 
-    Wraps the TF-IDF based ``handle_intent_classification`` function as an
+    Wraps the TF-IDF based ``HandlerIntentClassification`` handler as an
     async protocol-conformant object.  No I/O, no external dependencies.
     """
 
@@ -243,13 +243,10 @@ class AdapterIntentClassifier:
             ModelIntentClassificationOutput with classified intents.
         """
         from omniintelligence.nodes.node_intent_classifier_compute.handlers import (
-            handle_intent_classification,
+            HandlerIntentClassification,
         )
 
-        return handle_intent_classification(
-            input_data=input_data,
-            config=self._config,
-        )
+        return HandlerIntentClassification(self._config).handle(input_data)
 
 
 __all__ = [

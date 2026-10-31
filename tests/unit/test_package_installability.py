@@ -120,11 +120,11 @@ HANDLER_ENTRY_POINTS = [
     # --- Compute nodes ---
     (
         "omniintelligence.nodes.node_quality_scoring_compute.handlers",
-        "handle_quality_scoring_compute",
+        "HandlerQualityScoringCompute",
     ),
     (
-        "omniintelligence.nodes.node_intent_classifier_compute.handlers",
-        "handle_intent_classification",
+        "omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_intent_classification",
+        "HandlerIntentClassification",
     ),
     (
         "omniintelligence.nodes.node_pattern_extraction_compute.handlers",

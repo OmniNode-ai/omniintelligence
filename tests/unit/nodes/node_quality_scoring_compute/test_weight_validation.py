@@ -22,7 +22,8 @@ pytestmark = pytest.mark.unit
 
 from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
     DEFAULT_WEIGHTS,
-    score_code_quality,
+    HandlerQualityScoring,
+    ModelScoreCodeQualityRequest,
 )
 
 
@@ -45,7 +46,11 @@ class TestWeightValidation:
             "maintainability": 0.5,
             # Missing: documentation, temporal_relevance, patterns, architectural
         }
-        result = score_code_quality("x = 1", "python", weights=invalid_weights)
+        result = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(
+                content="x = 1", language="python", weights=invalid_weights
+            )
+        )
         assert result["success"] is False
         assert result["quality_score"] == 0.0
         assert any("missing" in r.lower() for r in result["recommendations"])
@@ -66,7 +71,11 @@ class TestWeightValidation:
             "architectural": 0.15,
             "extra_dimension": 0.10,  # Not a valid dimension
         }
-        result = score_code_quality("x = 1", "python", weights=extra_weights)
+        result = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(
+                content="x = 1", language="python", weights=extra_weights
+            )
+        )
         assert result["success"] is False
         assert result["quality_score"] == 0.0
         assert any("extra" in r.lower() for r in result["recommendations"])
@@ -86,7 +95,11 @@ class TestWeightValidation:
             "patterns": 0.5,
             "architectural": 0.5,  # Sum = 3.0
         }
-        result = score_code_quality("x = 1", "python", weights=bad_weights)
+        result = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(
+                content="x = 1", language="python", weights=bad_weights
+            )
+        )
         assert result["success"] is False
         assert result["quality_score"] == 0.0
         assert any("sum" in r.lower() for r in result["recommendations"])

@@ -354,22 +354,20 @@ class TestAdapterIntentClassifier:
         assert adapter._config is custom_config
 
     @pytest.mark.asyncio()
-    async def test_compute_calls_handle_intent_classification(self) -> None:
-        """compute() delegates to handle_intent_classification with input and config."""
+    async def test_compute_calls_handler_intent_classification(self) -> None:
+        """compute() injects config and delegates the input to the handler."""
         mock_result = MagicMock(name="classification_output")
         mock_input = MagicMock(name="classification_input")
 
         # The import is lazy (inside compute()), so patch at the handlers package
         # which is where the lazy import resolves from
         with patch(
-            "omniintelligence.nodes.node_intent_classifier_compute.handlers.handle_intent_classification",
-            return_value=mock_result,
+            "omniintelligence.nodes.node_intent_classifier_compute.handlers.HandlerIntentClassification",
         ) as mock_handler:
+            mock_handler.return_value.handle.return_value = mock_result
             adapter = AdapterIntentClassifier()
             result = await adapter.compute(mock_input)
 
-            mock_handler.assert_called_once_with(
-                input_data=mock_input,
-                config=adapter._config,
-            )
+            mock_handler.assert_called_once_with(adapter._config)
+            mock_handler.return_value.handle.assert_called_once_with(mock_input)
             assert result is mock_result

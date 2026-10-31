@@ -20,20 +20,15 @@ The handler extracts:
     - Topic weights for intent boosting
 
 Usage:
-    from omniintelligence.nodes.node_intent_classifier_compute.handlers import (
-        analyze_semantics,
-        map_semantic_to_intent_boost,
+    result = HandlerSemanticAnalysis().handle(
+        ModelAnalyzeSemanticsRequest(
+            content="Create a REST API endpoint for user authentication",
+            context="api_development",
+        )
     )
-
-    # Analyze content semantically
-    result = analyze_semantics(
-        content="Create a REST API endpoint for user authentication",
-        context="api_development",
+    boosts = HandlerSemanticIntentBoost().handle(
+        ModelSemanticIntentBoostRequest(semantic_result=result)
     )
-
-    # Map results to intent boosts
-    boosts = map_semantic_to_intent_boost(result)
-    # -> {"code_generation": 0.15, "api_design": 0.10, ...}
 """
 
 from __future__ import annotations
@@ -44,7 +39,10 @@ import time
 from collections import Counter
 from typing import TYPE_CHECKING, Any, Final, cast
 
+from pydantic import BaseModel, ConfigDict
+
 from omniintelligence.nodes.node_intent_classifier_compute.models import (
+    ModelAnalyzeSemanticsRequest,
     ModelSemanticAnalysisConfig,
 )
 from omniintelligence.nodes.node_intent_classifier_compute.models.enum_semantic_domain import (
@@ -79,6 +77,15 @@ if TYPE_CHECKING:
 
 else:
     SemanticResult = dict
+
+
+class ModelSemanticIntentBoostRequest(BaseModel):
+    """Semantic analysis result and optional boost configuration."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
+
+    semantic_result: SemanticResult
+    config: ModelSemanticAnalysisConfig | None = None
 
 
 logger = logging.getLogger(__name__)
@@ -477,268 +484,282 @@ DEFAULT_SEMANTIC_CONFIG: Final[ModelSemanticAnalysisConfig] = (
 # =============================================================================
 
 
-def create_empty_semantic_result(error: str | None = None) -> SemanticResult:
-    """Create an empty semantic result.
-
-    Use this for error cases or empty input.
-
-    Args:
-        error: Optional error message.
-
-    Returns:
-        SemanticResult with all fields empty/default.
-
-    Example:
-        >>> result = create_empty_semantic_result()
-        >>> result["concepts"]
-        []
-    """
-    return SemanticResult(
-        concepts=[],
-        themes=[],
-        domains=[],
-        patterns=[],
-        domain_indicators=[],
-        topic_weights={},
-        processing_time_ms=0.0,
-        error=error,
-    )
-
-
 # =============================================================================
 # Core Analysis Functions (Pure Computation)
 # =============================================================================
 
 
-def analyze_semantics(
-    content: str,
-    context: str | None = None,
-    min_confidence: float | None = None,
-    *,
-    config: ModelSemanticAnalysisConfig | None = None,
-) -> SemanticResult:
-    """Analyze content semantically for domain, concepts, and themes.
+class HandlerSemanticAnalysis:
+    """Extract domains, concepts, and themes from text."""
 
-    This is a PURE FUNCTION with no external dependencies.
-    Uses keyword matching and pattern analysis to extract semantic information.
+    def handle(self, request: ModelAnalyzeSemanticsRequest) -> SemanticResult:
+        """Analyze content semantically for domain, concepts, and themes.
 
-    Args:
-        content: Text content to analyze.
-        context: Optional context hint (e.g., "api_development", "testing").
-        min_confidence: Minimum confidence threshold for results (0.0-1.0).
-            Defaults to config value (0.3).
-        config: Optional configuration for semantic analysis. If not provided,
-            uses DEFAULT_SEMANTIC_CONFIG.
+        This is pure computation with no external dependencies.
+        Uses keyword matching and pattern analysis to extract semantic information.
 
-    Returns:
-        SemanticResult with:
-        - concepts: Extracted concepts with confidence
-        - themes: Identified themes
-        - domains: Detected domains with confidence
-        - domain_indicators: Raw domain indicator strings
-        - topic_weights: Topic -> weight mapping
-        - processing_time_ms: Processing time
+        Args:
+            request: Content and optional semantic analysis parameters.
 
-    Example:
-        >>> result = analyze_semantics("Create a REST API for users")
-        >>> "api_design" in result["domain_indicators"]
-        True
-    """
-    # Use provided config or default
-    if config is None:
-        config = DEFAULT_SEMANTIC_CONFIG
+        Request fields:
+            content: Text content to analyze.
+            context: Optional context hint (e.g., "api_development", "testing").
+            min_confidence: Minimum confidence threshold for results (0.0-1.0).
+                Defaults to config value (0.3).
+            config: Optional configuration for semantic analysis. If not provided,
+                uses DEFAULT_SEMANTIC_CONFIG.
 
-    # Apply config defaults for None parameters
-    if min_confidence is None:
-        min_confidence = config.default_min_confidence
+        Returns:
+            SemanticResult with:
+            - concepts: Extracted concepts with confidence
+            - themes: Identified themes
+            - domains: Detected domains with confidence
+            - domain_indicators: Raw domain indicator strings
+            - topic_weights: Topic -> weight mapping
+            - processing_time_ms: Processing time
 
-    # Read config values used in this function
-    context_boost = config.boosts.context_boost
-    max_domain_indicators = config.limits.max_domain_indicators
+        Example:
+            >>> result = HandlerSemanticAnalysis().handle(
+            ...     ModelAnalyzeSemanticsRequest(content="Create a REST API for users")
+            ... )
+            >>> "api_design" in result["domain_indicators"]
+            True
+        """
+        content = request.content
+        context = request.context
+        min_confidence = request.min_confidence
+        config = request.config
+        # Use provided config or default
+        if config is None:
+            config = DEFAULT_SEMANTIC_CONFIG
 
-    if not content or not content.strip():
-        logger.debug("Empty content provided, returning empty result")
-        return create_empty_semantic_result()
+        # Apply config defaults for None parameters
+        if min_confidence is None:
+            min_confidence = config.default_min_confidence
 
-    start_time = time.perf_counter()
+        # Read config values used in this function
+        context_boost = config.boosts.context_boost
+        max_domain_indicators = config.limits.max_domain_indicators
 
-    try:
-        # Normalize content for analysis
-        content_lower = content.lower()
-        min_token_length = config.limits.min_token_length
-        tokens = _tokenize(content_lower, min_token_length=min_token_length)
+        if not content or not content.strip():
+            logger.debug("Empty content provided, returning empty result")
+            return HandlerSemanticAnalysis.create_empty_semantic_result()
 
-        # Detect domains
-        domain_scores = _detect_domains(tokens, content_lower, config)
+        start_time = time.perf_counter()
 
-        # Apply context boost if provided
-        if context:
-            context_normalized = context.lower().replace("-", "_").replace(" ", "_")
-            if context_normalized in domain_scores:
-                domain_scores[context_normalized] = min(
-                    1.0, domain_scores[context_normalized] + context_boost
+        try:
+            # Normalize content for analysis
+            content_lower = content.lower()
+            min_token_length = config.limits.min_token_length
+            tokens = _tokenize(content_lower, min_token_length=min_token_length)
+
+            # Detect domains
+            domain_scores = _detect_domains(tokens, content_lower, config)
+
+            # Apply context boost if provided
+            if context:
+                context_normalized = context.lower().replace("-", "_").replace(" ", "_")
+                if context_normalized in domain_scores:
+                    domain_scores[context_normalized] = min(
+                        1.0, domain_scores[context_normalized] + context_boost
+                    )
+
+            # Filter by confidence
+            domains = [
+                {"name": domain, "confidence": score}
+                for domain, score in domain_scores.items()
+                if score >= min_confidence
+            ]
+
+            # Extract domain indicators (top domains)
+            # Note: Explicit casts for mypy - dict values are Any but runtime types are correct
+            domain_indicators: list[str] = [
+                str(d["name"])
+                for d in sorted(
+                    domains, key=lambda x: cast(float, x["confidence"]), reverse=True
+                )[:max_domain_indicators]
+            ]
+
+            # Build concepts from detected keywords
+            concepts = _extract_concepts(tokens, domain_scores, min_confidence, config)
+
+            # Detect themes
+            themes = _detect_themes(domain_indicators)
+
+            # Calculate topic weights
+            # Note: Explicit casts for mypy - dict values are Any but runtime types are correct
+            topic_weights: dict[str, float] = {
+                str(d["name"]): cast(float, d["confidence"]) for d in domains
+            }
+
+            processing_time_ms = (time.perf_counter() - start_time) * 1000
+
+            logger.debug(
+                "Semantic analysis completed in %.2fms: %d concepts, %d themes, %d domains",
+                processing_time_ms,
+                len(concepts),
+                len(themes),
+                len(domains),
+            )
+
+            return SemanticResult(
+                concepts=concepts,
+                themes=themes,
+                domains=domains,
+                patterns=[],  # Patterns require more complex analysis
+                domain_indicators=domain_indicators,
+                topic_weights=topic_weights,
+                processing_time_ms=round(processing_time_ms, 2),
+                error=None,
+            )
+
+        except Exception as e:
+            processing_time_ms = (time.perf_counter() - start_time) * 1000
+            error_msg = f"Semantic analysis error: {type(e).__name__}: {e}"
+            logger.warning(error_msg, exc_info=True)
+            return HandlerSemanticAnalysis.create_empty_semantic_result(error=error_msg)
+
+    @staticmethod
+    def create_empty_semantic_result(error: str | None = None) -> SemanticResult:
+        """Create an empty semantic result.
+
+        Use this for error cases or empty input.
+
+        Args:
+            error: Optional error message.
+
+        Returns:
+            SemanticResult with all fields empty/default.
+
+        Example:
+            >>> result = HandlerSemanticAnalysis.create_empty_semantic_result()
+            >>> result["concepts"]
+            []
+        """
+        return SemanticResult(
+            concepts=[],
+            themes=[],
+            domains=[],
+            patterns=[],
+            domain_indicators=[],
+            topic_weights={},
+            processing_time_ms=0.0,
+            error=error,
+        )
+
+
+class HandlerSemanticIntentBoost:
+    """Map semantic analysis results to intent confidence boosts."""
+
+    def handle(self, request: ModelSemanticIntentBoostRequest) -> dict[str, float]:
+        """Map semantic analysis results to intent confidence boosts.
+
+        Uses domain indicators, concepts, and topic weights to calculate
+        additive confidence boosts for intent categories.
+
+        Args:
+            request: Semantic result and optional boost configuration.
+
+        Request fields:
+            semantic_result: Result from HandlerSemanticAnalysis.handle().
+            config: Optional configuration for boost calculation. If not provided,
+                uses DEFAULT_SEMANTIC_CONFIG.
+
+        Returns:
+            Dictionary mapping intent categories to confidence boost amounts.
+            Boosts are capped at max_boost_cap per category.
+
+        Example:
+            >>> result = HandlerSemanticAnalysis().handle(
+            ...     ModelAnalyzeSemanticsRequest(content="Write unit tests for the API")
+            ... )
+            >>> boosts = HandlerSemanticIntentBoost().handle(
+            ...     ModelSemanticIntentBoostRequest(semantic_result=result)
+            ... )
+            >>> "testing" in boosts or "api_design" in boosts
+            True
+        """
+        semantic_result = request.semantic_result
+        config = request.config
+        # Use provided config or default
+        if config is None:
+            config = DEFAULT_SEMANTIC_CONFIG
+
+        # Read boost amounts from config.boosts
+        domain_boost = config.boosts.domain_match_boost
+        concept_boost = config.boosts.concept_match_boost
+        topic_multiplier = config.boosts.topic_weight_multiplier
+        max_boost_cap = config.boosts.max_boost_cap
+
+        boosts: dict[str, float] = {}
+
+        # Process domain indicators
+        domain_indicators = semantic_result.get("domain_indicators", [])
+        for indicator in domain_indicators:
+            indicator_lower = indicator.lower().replace(" ", "_").replace("-", "_")
+            intent = DOMAIN_TO_INTENT_MAP.get(indicator_lower)
+            if intent:
+                boosts[intent] = boosts.get(intent, 0.0) + domain_boost
+
+        # Process concepts
+        # Note: Explicit casts for mypy - dict values are Any but runtime types are correct
+        concepts = semantic_result.get("concepts", [])
+        for concept in concepts:
+            concept_name = (
+                cast(str, concept.get("name", ""))
+                .lower()
+                .replace(" ", "_")
+                .replace("-", "_")
+            )
+            concept_category = (
+                cast(str, concept.get("category", ""))
+                .lower()
+                .replace(" ", "_")
+                .replace("-", "_")
+            )
+            concept_confidence = cast(float, concept.get("confidence", 0.0))
+
+            # Check concept name
+            intent = DOMAIN_TO_INTENT_MAP.get(concept_name)
+            if intent:
+                boosts[intent] = boosts.get(intent, 0.0) + (
+                    concept_boost * concept_confidence
                 )
 
-        # Filter by confidence
-        domains = [
-            {"name": domain, "confidence": score}
-            for domain, score in domain_scores.items()
-            if score >= min_confidence
-        ]
+            # Check concept category
+            intent = DOMAIN_TO_INTENT_MAP.get(concept_category)
+            if intent:
+                boosts[intent] = boosts.get(intent, 0.0) + (
+                    concept_boost * concept_confidence
+                )
 
-        # Extract domain indicators (top domains)
+        # Process topic weights
+        topic_weights = semantic_result.get("topic_weights", {})
+        for topic, weight in topic_weights.items():
+            topic_normalized = topic.lower().replace(" ", "_").replace("-", "_")
+            intent = DOMAIN_TO_INTENT_MAP.get(topic_normalized)
+            if intent:
+                boosts[intent] = boosts.get(intent, 0.0) + (topic_multiplier * weight)
+
+        # Process explicit domains
         # Note: Explicit casts for mypy - dict values are Any but runtime types are correct
-        domain_indicators: list[str] = [
-            str(d["name"])
-            for d in sorted(
-                domains, key=lambda x: cast(float, x["confidence"]), reverse=True
-            )[:max_domain_indicators]
-        ]
-
-        # Build concepts from detected keywords
-        concepts = _extract_concepts(tokens, domain_scores, min_confidence, config)
-
-        # Detect themes
-        themes = _detect_themes(domain_indicators)
-
-        # Calculate topic weights
-        # Note: Explicit casts for mypy - dict values are Any but runtime types are correct
-        topic_weights: dict[str, float] = {
-            str(d["name"]): cast(float, d["confidence"]) for d in domains
-        }
-
-        processing_time_ms = (time.perf_counter() - start_time) * 1000
-
-        logger.debug(
-            "Semantic analysis completed in %.2fms: %d concepts, %d themes, %d domains",
-            processing_time_ms,
-            len(concepts),
-            len(themes),
-            len(domains),
-        )
-
-        return SemanticResult(
-            concepts=concepts,
-            themes=themes,
-            domains=domains,
-            patterns=[],  # Patterns require more complex analysis
-            domain_indicators=domain_indicators,
-            topic_weights=topic_weights,
-            processing_time_ms=round(processing_time_ms, 2),
-            error=None,
-        )
-
-    except Exception as e:
-        processing_time_ms = (time.perf_counter() - start_time) * 1000
-        error_msg = f"Semantic analysis error: {type(e).__name__}: {e}"
-        logger.warning(error_msg, exc_info=True)
-        return create_empty_semantic_result(error=error_msg)
-
-
-def map_semantic_to_intent_boost(
-    semantic_result: SemanticResult,
-    *,
-    config: ModelSemanticAnalysisConfig | None = None,
-) -> dict[str, float]:
-    """Map semantic analysis results to intent confidence boosts.
-
-    Uses domain indicators, concepts, and topic weights to calculate
-    additive confidence boosts for intent categories.
-
-    Args:
-        semantic_result: Result from analyze_semantics().
-        config: Optional configuration for boost calculation. If not provided,
-            uses DEFAULT_SEMANTIC_CONFIG.
-
-    Returns:
-        Dictionary mapping intent categories to confidence boost amounts.
-        Boosts are capped at max_boost_cap per category.
-
-    Example:
-        >>> result = analyze_semantics("Write unit tests for the API")
-        >>> boosts = map_semantic_to_intent_boost(result)
-        >>> "testing" in boosts or "api_design" in boosts
-        True
-    """
-    # Use provided config or default
-    if config is None:
-        config = DEFAULT_SEMANTIC_CONFIG
-
-    # Read boost amounts from config.boosts
-    domain_boost = config.boosts.domain_match_boost
-    concept_boost = config.boosts.concept_match_boost
-    topic_multiplier = config.boosts.topic_weight_multiplier
-    max_boost_cap = config.boosts.max_boost_cap
-
-    boosts: dict[str, float] = {}
-
-    # Process domain indicators
-    domain_indicators = semantic_result.get("domain_indicators", [])
-    for indicator in domain_indicators:
-        indicator_lower = indicator.lower().replace(" ", "_").replace("-", "_")
-        intent = DOMAIN_TO_INTENT_MAP.get(indicator_lower)
-        if intent:
-            boosts[intent] = boosts.get(intent, 0.0) + domain_boost
-
-    # Process concepts
-    # Note: Explicit casts for mypy - dict values are Any but runtime types are correct
-    concepts = semantic_result.get("concepts", [])
-    for concept in concepts:
-        concept_name = (
-            cast(str, concept.get("name", ""))
-            .lower()
-            .replace(" ", "_")
-            .replace("-", "_")
-        )
-        concept_category = (
-            cast(str, concept.get("category", ""))
-            .lower()
-            .replace(" ", "_")
-            .replace("-", "_")
-        )
-        concept_confidence = cast(float, concept.get("confidence", 0.0))
-
-        # Check concept name
-        intent = DOMAIN_TO_INTENT_MAP.get(concept_name)
-        if intent:
-            boosts[intent] = boosts.get(intent, 0.0) + (
-                concept_boost * concept_confidence
+        domains = semantic_result.get("domains", [])
+        for domain in domains:
+            domain_name = (
+                cast(str, domain.get("name", ""))
+                .lower()
+                .replace(" ", "_")
+                .replace("-", "_")
             )
+            domain_confidence = cast(float, domain.get("confidence", 0.0))
+            intent = DOMAIN_TO_INTENT_MAP.get(domain_name)
+            if intent:
+                boosts[intent] = boosts.get(intent, 0.0) + (
+                    domain_boost * domain_confidence
+                )
 
-        # Check concept category
-        intent = DOMAIN_TO_INTENT_MAP.get(concept_category)
-        if intent:
-            boosts[intent] = boosts.get(intent, 0.0) + (
-                concept_boost * concept_confidence
-            )
-
-    # Process topic weights
-    topic_weights = semantic_result.get("topic_weights", {})
-    for topic, weight in topic_weights.items():
-        topic_normalized = topic.lower().replace(" ", "_").replace("-", "_")
-        intent = DOMAIN_TO_INTENT_MAP.get(topic_normalized)
-        if intent:
-            boosts[intent] = boosts.get(intent, 0.0) + (topic_multiplier * weight)
-
-    # Process explicit domains
-    # Note: Explicit casts for mypy - dict values are Any but runtime types are correct
-    domains = semantic_result.get("domains", [])
-    for domain in domains:
-        domain_name = (
-            cast(str, domain.get("name", ""))
-            .lower()
-            .replace(" ", "_")
-            .replace("-", "_")
-        )
-        domain_confidence = cast(float, domain.get("confidence", 0.0))
-        intent = DOMAIN_TO_INTENT_MAP.get(domain_name)
-        if intent:
-            boosts[intent] = boosts.get(intent, 0.0) + (
-                domain_boost * domain_confidence
-            )
-
-    # Cap boosts at maximum
-    return {intent: min(boost, max_boost_cap) for intent, boost in boosts.items()}
+        # Cap boosts at maximum
+        return {intent: min(boost, max_boost_cap) for intent, boost in boosts.items()}
 
 
 # =============================================================================
@@ -935,10 +956,10 @@ def _detect_themes(
 
 
 __all__ = [
+    "ModelSemanticIntentBoostRequest",
     "DEFAULT_SEMANTIC_CONFIG",
     "EnumSemanticDomain",
     "SemanticResult",
-    "analyze_semantics",
-    "create_empty_semantic_result",
-    "map_semantic_to_intent_boost",
+    "HandlerSemanticAnalysis",
+    "HandlerSemanticIntentBoost",
 ]

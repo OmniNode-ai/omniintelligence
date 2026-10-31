@@ -25,7 +25,7 @@ from omnibase_core.nodes.node_compute import NodeCompute
 
 from omniintelligence.nodes.node_intent_classifier_compute.handlers import (
     DEFAULT_CLASSIFICATION_CONFIG,
-    handle_intent_classification,
+    HandlerIntentClassification,
 )
 from omniintelligence.nodes.node_intent_classifier_compute.models import (
     ModelClassificationConfig,
@@ -52,9 +52,8 @@ class NodeIntentClassifierCompute(
 
         Thin shell delegation - handler owns timing, error handling, logging.
         """
-        return handle_intent_classification(
-            input_data=input_data,
-            config=self._classification_config,
+        return HandlerIntentClassification(self._classification_config).handle(
+            input_data
         )
 
 

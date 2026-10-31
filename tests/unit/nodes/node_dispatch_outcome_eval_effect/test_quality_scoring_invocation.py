@@ -18,6 +18,9 @@ from omniintelligence.nodes.node_dispatch_outcome_eval_effect.models import (
     ModelCostProvenance,
     ModelInput,
 )
+from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
+    HandlerQualityScoringCompute,
+)
 from omniintelligence.nodes.node_quality_scoring_compute.models import (
     ModelQualityScoringInput,
     ModelQualityScoringOutput,
@@ -67,15 +70,14 @@ async def test_invokes_quality_scoring_compute_for_artifact(
     scoring_inputs: list[ModelQualityScoringInput] = []
 
     def fake_handle_quality_scoring_compute(
-        input_data: ModelQualityScoringInput,
+        self: HandlerQualityScoringCompute,
+        request: ModelQualityScoringInput,
     ) -> ModelQualityScoringOutput:
-        scoring_inputs.append(input_data)
+        scoring_inputs.append(request)
         return ModelQualityScoringOutput(success=True, quality_score=0.875)
 
     monkeypatch.setattr(
-        handler_dispatch_outcome,
-        "handle_quality_scoring_compute",
-        fake_handle_quality_scoring_compute,
+        HandlerQualityScoringCompute, "handle", fake_handle_quality_scoring_compute
     )
 
     result = await handler_dispatch_outcome.handle_dispatch_outcome(

@@ -27,48 +27,51 @@ import logging
 import re
 import time
 from collections import Counter
-from typing import TYPE_CHECKING
+from typing import TypedDict
 
 from omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_langextract import (
-    analyze_semantics,
-    map_semantic_to_intent_boost,
+    HandlerSemanticAnalysis,
+    HandlerSemanticIntentBoost,
+    ModelSemanticIntentBoostRequest,
 )
 from omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_typed_classification import (
-    resolve_typed_intent,
+    HandlerTypedClassification,
 )
 from omniintelligence.nodes.node_intent_classifier_compute.models import (
     IntentMetadataDict,
+    ModelAnalyzeSemanticsRequest,
     ModelClassificationConfig,
+    ModelClassifyIntentRequest,
     ModelIntentClassificationInput,
     ModelIntentClassificationOutput,
+    ModelResolveTypedIntentRequest,
     SecondaryIntentDict,
 )
 from omniintelligence.nodes.node_intent_classifier_compute.models.enum_intent_category import (
     EnumIntentCategory,
 )
 
-if TYPE_CHECKING:
-    from typing import TypedDict
 
-    class SecondaryIntentResultDict(TypedDict):
-        """Secondary intent structure returned by classify_intent.
+class SecondaryIntentResultDict(TypedDict):
+    """Secondary intent structure returned by HandlerIntentClassifier.
 
-        This TypedDict provides proper typing for secondary intent items,
-        ensuring type safety when processing multi-label classification results.
-        """
+    This TypedDict provides proper typing for secondary intent items,
+    ensuring type safety when processing multi-label classification results.
+    """
 
-        intent_category: str
-        confidence: float
-        keywords: list[str]
+    intent_category: str
+    confidence: float
+    keywords: list[str]
 
-    class ClassificationResultDict(TypedDict, total=False):
-        """Result structure from classify_intent function."""
 
-        intent_category: str
-        confidence: float
-        keywords: list[str]
-        all_scores: dict[str, float]
-        secondary_intents: list[SecondaryIntentResultDict]
+class ClassificationResultDict(TypedDict, total=False):
+    """Result structure from HandlerIntentClassifier.handle."""
+
+    intent_category: str
+    confidence: float
+    keywords: list[str]
+    all_scores: dict[str, float]
+    secondary_intents: list[SecondaryIntentResultDict]
 
 
 logger = logging.getLogger(__name__)
@@ -340,7 +343,7 @@ _NORMALIZED_PATTERNS: dict[str, list[str]] = {
 # Default Configuration
 # =============================================================================
 # Immutable default configuration instance for convenience.
-# Users can pass custom config to classify_intent() or use this default.
+# Requests can supply custom configuration or use this default.
 # =============================================================================
 
 DEFAULT_CLASSIFICATION_CONFIG = ModelClassificationConfig()
@@ -350,205 +353,215 @@ DEFAULT_CLASSIFICATION_CONFIG = ModelClassificationConfig()
 # =============================================================================
 
 
-def classify_intent(
-    content: str,
-    *,
-    config: ModelClassificationConfig | None = None,
-    confidence_threshold: float | None = None,
-    multi_label: bool | None = None,
-    max_intents: int | None = None,
-    score_boosts: dict[str, float] | None = None,
-) -> ClassificationResultDict:
-    """Classify user intent using TF-IDF scoring.
+class HandlerIntentClassifier:
+    """Classify intent with TF-IDF scoring and optional semantic boosts."""
 
-    TF-IDF based classification algorithm that
-    matches input text against predefined intent patterns. It supports both
-    single-label and multi-label classification modes.
+    def handle(self, request: ModelClassifyIntentRequest) -> ClassificationResultDict:
+        """Classify user intent using TF-IDF scoring.
 
-    Algorithm Steps:
-        1. Tokenize and normalize the input text
-        2. Calculate term frequency (TF) scores for each token
-        3. Match tokens against intent patterns with weighted scoring
-        4. Max-normalize scores so the top intent receives 1.0 and all others
-           are relative to it (compatible with default_confidence_threshold=0.5)
-        5. Return classification results based on confidence threshold
+        TF-IDF based classification algorithm that
+        matches input text against predefined intent patterns. It supports both
+        single-label and multi-label classification modes.
 
-    Configuration:
-        This function accepts an optional ModelClassificationConfig instance
-        for algorithm parameters. If not provided, DEFAULT_CLASSIFICATION_CONFIG
-        is used.
+        Algorithm Steps:
+            1. Tokenize and normalize the input text
+            2. Calculate term frequency (TF) scores for each token
+            3. Match tokens against intent patterns with weighted scoring
+            4. Max-normalize scores so the top intent receives 1.0 and all others
+               are relative to it (compatible with default_confidence_threshold=0.5)
+            5. Return classification results based on confidence threshold
 
-    Args:
-        content: Text to classify. Must be non-empty for meaningful results.
-        config: Optional frozen configuration for classification parameters.
-            If None, uses DEFAULT_CLASSIFICATION_CONFIG.
-        confidence_threshold: Minimum confidence to return (0.0-1.0).
-            Results below this threshold return "unknown" intent.
-            Defaults to config.default_confidence_threshold (0.5).
-        multi_label: If True, return all intents above threshold as
-            secondary_intents. If False, only return primary intent.
-            Defaults to config.default_multi_label (False).
-        max_intents: Maximum number of secondary intents to return when
-            multi_label is True. Defaults to config.default_max_intents (5).
-        score_boosts: Optional dictionary mapping intent category names to additive
-            boost values applied to raw scores before normalization. Boosts for
-            unknown intent keys are silently ignored. Defaults to None.
+        Configuration:
+            The request accepts an optional ModelClassificationConfig instance
+            for algorithm parameters. If not provided, DEFAULT_CLASSIFICATION_CONFIG
+            is used.
 
-    Returns:
-        Dictionary with classification results:
-            - intent_category: Primary intent (str)
-            - confidence: Confidence score 0.0-1.0 (float)
-            - keywords: Matched keywords that influenced classification (list[str])
-            - all_scores: Confidence scores for all intent categories (dict[str, float])
-            - secondary_intents: List of secondary intents (only if multi_label=True)
+        Args:
+            request: Text and optional classification parameters.
 
-    Examples:
-        >>> result = classify_intent("Please generate a new Python function")
-        >>> result["intent_category"]
-        'code_generation'
-        >>> result["confidence"] > 0.5
-        True
+        Request fields:
+            content: Text to classify. Must be non-empty for meaningful results.
+            config: Optional frozen configuration for classification parameters.
+                If None, uses DEFAULT_CLASSIFICATION_CONFIG.
+            confidence_threshold: Minimum confidence to return (0.0-1.0).
+                Results below this threshold return "unknown" intent.
+                Defaults to config.default_confidence_threshold (0.5).
+            multi_label: If True, return all intents above threshold as
+                secondary_intents. If False, only return primary intent.
+                Defaults to config.default_multi_label (False).
+            max_intents: Maximum number of secondary intents to return when
+                multi_label is True. Defaults to config.default_max_intents (5).
+            score_boosts: Optional dictionary mapping intent category names to additive
+                boost values applied to raw scores before normalization. Boosts for
+                unknown intent keys are silently ignored. Defaults to None.
 
-        >>> result = classify_intent("Fix the authentication bug", multi_label=True)
-        >>> result["intent_category"]
-        'debugging'
-        >>> len(result.get("secondary_intents", [])) >= 0
-        True
+        Returns:
+            Dictionary with classification results:
+                - intent_category: Primary intent (str)
+                - confidence: Confidence score 0.0-1.0 (float)
+                - keywords: Matched keywords that influenced classification (list[str])
+                - all_scores: Confidence scores for all intent categories (dict[str, float])
+                - secondary_intents: List of secondary intents (only if multi_label=True)
 
-        >>> # Using custom config
-        >>> custom_config = ModelClassificationConfig(exact_match_weight=20.0)
-        >>> result = classify_intent("Generate code", config=custom_config)
-    """
-    try:
-        # Runtime type validation for defensive programming when called from untyped code.
-        # These checks are intentionally guarded against static type analysis since they
-        # provide runtime safety for dynamic/untyped callers.
-        if not isinstance(content, str):
-            # Why: Defensive branch covers runtime data even when static narrowing marks it unreachable.
-            logger.warning(  # type: ignore[unreachable]
-                "Invalid content type %s, expected str. Converting to string.",
-                type(content).__name__,
+        Examples:
+            >>> result = HandlerIntentClassifier().handle(
+            ...     ModelClassifyIntentRequest(content="Please generate a new Python function")
+            ... )
+            >>> result["intent_category"]
+            'code_generation'
+            >>> result["confidence"] > 0.5
+            True
+
+            >>> result = HandlerIntentClassifier().handle(
+            ...     ModelClassifyIntentRequest(content="Fix the authentication bug", multi_label=True)
+            ... )
+            >>> result["intent_category"]
+            'debugging'
+            >>> len(result.get("secondary_intents", [])) >= 0
+            True
+
+            >>> # Using custom config
+            >>> custom_config = ModelClassificationConfig(exact_match_weight=20.0)
+            >>> result = HandlerIntentClassifier().handle(
+            ...     ModelClassifyIntentRequest(content="Generate code", config=custom_config)
+            ... )
+        """
+        content = request.content
+        config = request.config
+        confidence_threshold = request.confidence_threshold
+        multi_label = request.multi_label
+        max_intents = request.max_intents
+        score_boosts = request.score_boosts
+        try:
+            # Runtime type validation for defensive programming when called from untyped code.
+            # These checks are intentionally guarded against static type analysis since they
+            # provide runtime safety for dynamic/untyped callers.
+            if not isinstance(content, str):
+                # Why: Defensive branch covers runtime data even when static narrowing marks it unreachable.
+                logger.warning(  # type: ignore[unreachable]
+                    "Invalid content type %s, expected str. Converting to string.",
+                    type(content).__name__,
+                )
+                content = str(content) if content is not None else ""
+
+            if confidence_threshold is not None and not isinstance(
+                confidence_threshold, int | float
+            ):
+                # Why: Defensive branch covers runtime data even when static narrowing marks it unreachable.
+                logger.warning(  # type: ignore[unreachable]
+                    "Invalid confidence_threshold type %s, using default.",
+                    type(confidence_threshold).__name__,
+                )
+                confidence_threshold = None
+
+            if multi_label is not None and not isinstance(multi_label, bool):
+                # Why: Defensive branch covers runtime data even when static narrowing marks it unreachable.
+                logger.warning(  # type: ignore[unreachable]
+                    "Invalid multi_label type %s, using default.",
+                    type(multi_label).__name__,
+                )
+                multi_label = None
+
+            if max_intents is not None and not isinstance(max_intents, int):
+                # Why: Defensive branch covers runtime data even when static narrowing marks it unreachable.
+                logger.warning(  # type: ignore[unreachable]
+                    "Invalid max_intents type %s, using default.",
+                    type(max_intents).__name__,
+                )
+                max_intents = None
+
+            # Use provided config or default
+            if config is None:
+                config = DEFAULT_CLASSIFICATION_CONFIG
+
+            # Apply config defaults for None parameters
+            if confidence_threshold is None:
+                confidence_threshold = config.default_confidence_threshold
+            if max_intents is None:
+                max_intents = config.default_max_intents
+            if multi_label is None:
+                multi_label = config.default_multi_label
+
+            tokens = _tokenize(content)
+
+            if not tokens:
+                result: ClassificationResultDict = {
+                    "intent_category": EnumIntentCategory.UNKNOWN,
+                    "confidence": 0.0,
+                    "keywords": [],
+                    "all_scores": {},
+                }
+                # Ensure secondary_intents is included for multi_label mode
+                if multi_label:
+                    result["secondary_intents"] = []
+                return result
+
+            tf_scores = _calculate_term_frequency(tokens)
+
+            # Score each intent category
+            intent_scores: dict[str, float] = {}
+            intent_keywords: dict[str, list[str]] = {}
+
+            for intent, patterns in _NORMALIZED_PATTERNS.items():
+                score, matched_keywords = _calculate_intent_score(
+                    tf_scores, patterns, tokens, config
+                )
+                intent_scores[intent] = score
+                intent_keywords[intent] = matched_keywords
+
+            # Apply semantic boosts before normalization so corpus-size effects don't dilute them
+            if score_boosts:
+                for intent_key, boost_val in score_boosts.items():
+                    if intent_key in intent_scores:
+                        intent_scores[intent_key] += boost_val
+
+            # Max-normalize so top intent receives 1.0 and others are relative to it.
+            # This keeps confidence values meaningful against the calibrated
+            # default_confidence_threshold of 0.5.
+            max_score = max(intent_scores.values()) if intent_scores else 1.0
+            normalized_scores: dict[str, float] = {
+                intent: score / max_score if max_score > 0 else 0.0
+                for intent, score in intent_scores.items()
+            }
+
+            sorted_intents = sorted(
+                normalized_scores.items(), key=lambda x: x[1], reverse=True
             )
-            content = str(content) if content is not None else ""
 
-        if confidence_threshold is not None and not isinstance(
-            confidence_threshold, int | float
-        ):
-            # Why: Defensive branch covers runtime data even when static narrowing marks it unreachable.
-            logger.warning(  # type: ignore[unreachable]
-                "Invalid confidence_threshold type %s, using default.",
-                type(confidence_threshold).__name__,
+            if multi_label:
+                return _build_multi_label_result(
+                    sorted_intents=sorted_intents,
+                    intent_keywords=intent_keywords,
+                    normalized_scores=normalized_scores,
+                    confidence_threshold=confidence_threshold,
+                    max_intents=max_intents,
+                )
+
+            # Single label mode: return top result
+            return _build_single_label_result(
+                sorted_intents=sorted_intents,
+                intent_keywords=intent_keywords,
+                normalized_scores=normalized_scores,
+                confidence_threshold=confidence_threshold,
             )
-            confidence_threshold = None
 
-        if multi_label is not None and not isinstance(multi_label, bool):
-            # Why: Defensive branch covers runtime data even when static narrowing marks it unreachable.
-            logger.warning(  # type: ignore[unreachable]
-                "Invalid multi_label type %s, using default.",
-                type(multi_label).__name__,
+        except Exception as e:
+            # Catch-all handler for unexpected exceptions
+            logger.exception(
+                "Unexpected error during intent classification: %s",
+                str(e),
             )
-            multi_label = None
-
-        if max_intents is not None and not isinstance(max_intents, int):
-            # Why: Defensive branch covers runtime data even when static narrowing marks it unreachable.
-            logger.warning(  # type: ignore[unreachable]
-                "Invalid max_intents type %s, using default.",
-                type(max_intents).__name__,
-            )
-            max_intents = None
-
-        # Use provided config or default
-        if config is None:
-            config = DEFAULT_CLASSIFICATION_CONFIG
-
-        # Apply config defaults for None parameters
-        if confidence_threshold is None:
-            confidence_threshold = config.default_confidence_threshold
-        if max_intents is None:
-            max_intents = config.default_max_intents
-        if multi_label is None:
-            multi_label = config.default_multi_label
-
-        tokens = _tokenize(content)
-
-        if not tokens:
-            result: ClassificationResultDict = {
+            # Return graceful degradation result
+            error_result: ClassificationResultDict = {
                 "intent_category": EnumIntentCategory.UNKNOWN,
                 "confidence": 0.0,
                 "keywords": [],
                 "all_scores": {},
             }
-            # Ensure secondary_intents is included for multi_label mode
+            # Include secondary_intents if multi_label was requested
             if multi_label:
-                result["secondary_intents"] = []
-            return result
-
-        tf_scores = _calculate_term_frequency(tokens)
-
-        # Score each intent category
-        intent_scores: dict[str, float] = {}
-        intent_keywords: dict[str, list[str]] = {}
-
-        for intent, patterns in _NORMALIZED_PATTERNS.items():
-            score, matched_keywords = _calculate_intent_score(
-                tf_scores, patterns, tokens, config
-            )
-            intent_scores[intent] = score
-            intent_keywords[intent] = matched_keywords
-
-        # Apply semantic boosts before normalization so corpus-size effects don't dilute them
-        if score_boosts:
-            for intent_key, boost_val in score_boosts.items():
-                if intent_key in intent_scores:
-                    intent_scores[intent_key] += boost_val
-
-        # Max-normalize so top intent receives 1.0 and others are relative to it.
-        # This keeps confidence values meaningful against the calibrated
-        # default_confidence_threshold of 0.5.
-        max_score = max(intent_scores.values()) if intent_scores else 1.0
-        normalized_scores: dict[str, float] = {
-            intent: score / max_score if max_score > 0 else 0.0
-            for intent, score in intent_scores.items()
-        }
-
-        sorted_intents = sorted(
-            normalized_scores.items(), key=lambda x: x[1], reverse=True
-        )
-
-        if multi_label:
-            return _build_multi_label_result(
-                sorted_intents=sorted_intents,
-                intent_keywords=intent_keywords,
-                normalized_scores=normalized_scores,
-                confidence_threshold=confidence_threshold,
-                max_intents=max_intents,
-            )
-
-        # Single label mode: return top result
-        return _build_single_label_result(
-            sorted_intents=sorted_intents,
-            intent_keywords=intent_keywords,
-            normalized_scores=normalized_scores,
-            confidence_threshold=confidence_threshold,
-        )
-
-    except Exception as e:
-        # Catch-all handler for unexpected exceptions
-        logger.exception(
-            "Unexpected error during intent classification: %s",
-            str(e),
-        )
-        # Return graceful degradation result
-        error_result: ClassificationResultDict = {
-            "intent_category": EnumIntentCategory.UNKNOWN,
-            "confidence": 0.0,
-            "keywords": [],
-            "all_scores": {},
-        }
-        # Include secondary_intents if multi_label was requested
-        if multi_label:
-            error_result["secondary_intents"] = []
-        return error_result
+                error_result["secondary_intents"] = []
+            return error_result
 
 
 # =============================================================================
@@ -785,175 +798,190 @@ def _build_error_response(
     )
 
 
-def handle_intent_classification(
-    input_data: ModelIntentClassificationInput,
-    config: ModelClassificationConfig,
-) -> ModelIntentClassificationOutput:
-    """Orchestrating handler for intent classification - owns all error handling.
+class HandlerIntentClassification:
+    """Orchestrate classification, semantic enrichment, and error handling."""
 
-    This handler function follows the declarative node pattern:
-    - Owns timing measurement
-    - Owns ALL error handling (try/except)
-    - Owns ALL logging
-    - Returns result models with error info (doesn't raise)
+    def __init__(self, config: ModelClassificationConfig) -> None:
+        self._config = config
 
-    Args:
-        input_data: Typed input model containing content and classification context.
-        config: Classification configuration for TF-IDF parameters.
+    def handle(
+        self, request: ModelIntentClassificationInput
+    ) -> ModelIntentClassificationOutput:
+        """Orchestrating handler for intent classification - owns all error handling.
 
-    Returns:
-        ModelIntentClassificationOutput with primary intent, confidence,
-        secondary intents (if multi-label), and classification metadata.
-        On error, returns a failure response with error details.
-    """
-    start_time = time.perf_counter()
+        This handler follows the declarative node pattern:
+        - Owns timing measurement
+        - Owns ALL error handling (try/except)
+        - Owns ALL logging
+        - Returns result models with error info (doesn't raise)
 
-    try:
-        # Import exceptions locally to avoid circular imports
-        from omniintelligence.nodes.node_intent_classifier_compute.handlers.exceptions import (
-            IntentClassificationComputeError,
-            IntentClassificationValidationError,
-        )
+        Args:
+            request: Typed input containing content and classification context.
+                Classification configuration is supplied to the constructor.
 
-        # Validate input content
-        if not input_data.content or not input_data.content.strip():
-            raise IntentClassificationValidationError("Content cannot be empty")
+        Returns:
+            ModelIntentClassificationOutput with primary intent, confidence,
+            secondary intents (if multi-label), and classification metadata.
+            On error, returns a failure response with error details.
+        """
+        input_data = request
+        config = self._config
+        start_time = time.perf_counter()
 
-        # Extract context parameters - use None to fall through to config defaults
-        context = input_data.context or {}
-        confidence_threshold = context.get("confidence_threshold")
-        max_intents = context.get("max_intents")
-
-        # Semantic enrichment: compute intent boosts from langextract analysis.
-        # Wrapped in try/except so any unexpected exception from semantic analysis
-        # falls back to empty boosts and allows TF-IDF classification to succeed
-        # normally without semantic enrichment.
         try:
-            semantic_result = analyze_semantics(content=input_data.content)
-            boosts: dict[str, float] = (
-                map_semantic_to_intent_boost(semantic_result)
-                if semantic_result.get("error") is None
-                else {}
+            # Import exceptions locally to avoid circular imports
+            from omniintelligence.nodes.node_intent_classifier_compute.handlers.exceptions import (
+                IntentClassificationComputeError,
+                IntentClassificationValidationError,
             )
-        except Exception as e:
-            logger.warning(
-                "Semantic analysis failed, falling back to TF-IDF-only scoring: %s: %s",
-                type(e).__name__,
-                e,
-            )
-            boosts = {}
 
-        # Call pure classification function for TF-IDF classification
-        # Handler applies config defaults when parameters are None
-        result = classify_intent(
-            content=input_data.content,
-            config=config,
-            confidence_threshold=confidence_threshold,
-            multi_label=True,  # Always compute secondary intents
-            max_intents=max_intents,
-            score_boosts=boosts,
-        )
+            # Validate input content
+            if not input_data.content or not input_data.content.strip():
+                raise IntentClassificationValidationError("Content cannot be empty")
 
-        processing_time = (time.perf_counter() - start_time) * 1000
+            # Extract context parameters - use None to fall through to config defaults
+            context = input_data.context or {}
+            confidence_threshold = context.get("confidence_threshold")
+            max_intents = context.get("max_intents")
 
-        # Map secondary intents from handler to typed output
-        secondary_intents: list[SecondaryIntentDict] = []
-        for intent in result.get("secondary_intents", []):
-            # Extract values with type-safe defaults
-            intent_category_raw = intent.get("intent_category", "")
-            confidence_raw = intent.get("confidence", 0.0)
-            keywords_raw = intent.get("keywords", [])
+            # Semantic enrichment: compute intent boosts from langextract analysis.
+            # Wrapped in try/except so any unexpected exception from semantic analysis
+            # falls back to empty boosts and allows TF-IDF classification to succeed
+            # normally without semantic enrichment.
+            try:
+                semantic_result = HandlerSemanticAnalysis().handle(
+                    ModelAnalyzeSemanticsRequest(content=input_data.content)
+                )
+                boosts: dict[str, float] = (
+                    HandlerSemanticIntentBoost().handle(
+                        ModelSemanticIntentBoostRequest(semantic_result=semantic_result)
+                    )
+                    if semantic_result.get("error") is None
+                    else {}
+                )
+            except Exception as e:
+                logger.warning(
+                    "Semantic analysis failed, falling back to TF-IDF-only scoring: %s: %s",
+                    type(e).__name__,
+                    e,
+                )
+                boosts = {}
 
-            secondary_intents.append(
-                SecondaryIntentDict(
-                    intent_category=str(intent_category_raw),
-                    confidence=float(confidence_raw)
-                    if isinstance(confidence_raw, int | float)
-                    else 0.0,
-                    keywords=list(keywords_raw)
-                    if isinstance(keywords_raw, list)
-                    else [],
+            # Delegate TF-IDF classification through its typed request
+            # Handler applies config defaults when parameters are None
+            result = HandlerIntentClassifier().handle(
+                ModelClassifyIntentRequest(
+                    content=input_data.content,
+                    config=config,
+                    confidence_threshold=confidence_threshold,
+                    multi_label=True,
+                    max_intents=max_intents,
+                    score_boosts=boosts,
                 )
             )
 
-        # Determine actual threshold used (config default if None was passed)
-        actual_threshold = (
-            confidence_threshold
-            if confidence_threshold is not None
-            else config.default_confidence_threshold
-        )
+            processing_time = (time.perf_counter() - start_time) * 1000
 
-        # Build metadata with classification details
-        metadata: IntentMetadataDict = {
-            "status": "completed",
-            "classifier_version": config.classifier_version,
-            "classification_time_ms": processing_time,
-            "threshold_used": actual_threshold,
-            "raw_scores": result.get("all_scores", {}),
-        }
+            # Map secondary intents from handler to typed output
+            secondary_intents: list[SecondaryIntentDict] = []
+            for intent in result.get("secondary_intents", []):
+                # Extract values with type-safe defaults
+                intent_category_raw = intent.get("intent_category", "")
+                confidence_raw = intent.get("confidence", 0.0)
+                keywords_raw = intent.get("keywords", [])
 
-        # Extract primary intent keywords from handler result
-        primary_keywords: list[str] = result.get("keywords", [])
+                secondary_intents.append(
+                    SecondaryIntentDict(
+                        intent_category=str(intent_category_raw),
+                        confidence=float(confidence_raw)
+                        if isinstance(confidence_raw, int | float)
+                        else 0.0,
+                        keywords=list(keywords_raw)
+                        if isinstance(keywords_raw, list)
+                        else [],
+                    )
+                )
 
-        # Resolve typed intent from the 8-class system
-        typed_intent = resolve_typed_intent(
-            intent_category=result["intent_category"],
-            confidence=result["confidence"],
-        )
+            # Determine actual threshold used (config default if None was passed)
+            actual_threshold = (
+                confidence_threshold
+                if confidence_threshold is not None
+                else config.default_confidence_threshold
+            )
 
-        return ModelIntentClassificationOutput(
-            success=True,
-            intent_category=result["intent_category"],
-            confidence=result["confidence"],
-            secondary_intents=secondary_intents,
-            keywords=primary_keywords,
-            processing_time_ms=processing_time,
-            classifier_version=config.classifier_version,
-            metadata=metadata,
-            typed_intent=typed_intent,
-        )
+            # Build metadata with classification details
+            metadata: IntentMetadataDict = {
+                "status": "completed",
+                "classifier_version": config.classifier_version,
+                "classification_time_ms": processing_time,
+                "threshold_used": actual_threshold,
+                "raw_scores": result.get("all_scores", {}),
+            }
 
-    except IntentClassificationValidationError as e:
-        logger.warning(
-            "Validation error in intent classification: %s (code=%s)",
-            e.message,
-            e.code,
-        )
-        return _build_error_response(
-            start_time,
-            "validation_error",
-            str(e),
-            error_code=e.code,
-            error_type=type(e).__name__,
-        )
+            # Extract primary intent keywords from handler result
+            primary_keywords: list[str] = result.get("keywords", [])
 
-    except IntentClassificationComputeError as e:
-        logger.warning(
-            "Compute error in intent classification: %s (code=%s)",
-            e.message,
-            e.code,
-        )
-        return _build_error_response(
-            start_time,
-            "compute_error",
-            str(e),
-            error_code=e.code,
-            error_type=type(e).__name__,
-        )
+            # Resolve typed intent from the 8-class system
+            typed_intent = HandlerTypedClassification().handle(
+                ModelResolveTypedIntentRequest(
+                    intent_category=result["intent_category"],
+                    confidence=result["confidence"],
+                )
+            )
 
-    except Exception as e:
-        logger.exception(
-            "Unexpected error in intent classification: %s: %s",
-            type(e).__name__,
-            e,
-        )
-        return _build_error_response(
-            start_time,
-            "unexpected_error",
-            f"Unexpected error: {type(e).__name__}: {e}",
-            error_code=None,
-            error_type=type(e).__name__,
-        )
+            return ModelIntentClassificationOutput(
+                success=True,
+                intent_category=result["intent_category"],
+                confidence=result["confidence"],
+                secondary_intents=secondary_intents,
+                keywords=primary_keywords,
+                processing_time_ms=processing_time,
+                classifier_version=config.classifier_version,
+                metadata=metadata,
+                typed_intent=typed_intent,
+            )
+
+        except IntentClassificationValidationError as e:
+            logger.warning(
+                "Validation error in intent classification: %s (code=%s)",
+                e.message,
+                e.code,
+            )
+            return _build_error_response(
+                start_time,
+                "validation_error",
+                str(e),
+                error_code=e.code,
+                error_type=type(e).__name__,
+            )
+
+        except IntentClassificationComputeError as e:
+            logger.warning(
+                "Compute error in intent classification: %s (code=%s)",
+                e.message,
+                e.code,
+            )
+            return _build_error_response(
+                start_time,
+                "compute_error",
+                str(e),
+                error_code=e.code,
+                error_type=type(e).__name__,
+            )
+
+        except Exception as e:
+            logger.exception(
+                "Unexpected error in intent classification: %s: %s",
+                type(e).__name__,
+                e,
+            )
+            return _build_error_response(
+                start_time,
+                "unexpected_error",
+                f"Unexpected error: {type(e).__name__}: {e}",
+                error_code=None,
+                error_type=type(e).__name__,
+            )
 
 
 # =============================================================================
@@ -964,6 +992,6 @@ __all__ = [
     "DEFAULT_CLASSIFICATION_CONFIG",
     "EnumIntentCategory",
     "INTENT_PATTERNS",
-    "classify_intent",
-    "handle_intent_classification",
+    "HandlerIntentClassifier",
+    "HandlerIntentClassification",
 ]

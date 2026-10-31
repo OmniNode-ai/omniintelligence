@@ -18,7 +18,7 @@ to this handler, following the ONEX declarative pattern.
 
 Example:
     from omniintelligence.nodes.node_quality_scoring_compute.handlers.handler_compute import (
-        handle_quality_scoring_compute,
+        HandlerQualityScoringCompute,
     )
     from omniintelligence.nodes.node_quality_scoring_compute.models import (
         ModelQualityScoringInput,
@@ -30,7 +30,7 @@ Example:
         content="class Foo: pass",
         language="python",
     )
-    output: ModelQualityScoringOutput = handle_quality_scoring_compute(input_data)
+    output: ModelQualityScoringOutput = HandlerQualityScoringCompute().handle(input_data)
 """
 
 from __future__ import annotations
@@ -45,7 +45,10 @@ from omniintelligence.nodes.node_quality_scoring_compute.handlers.exceptions imp
     QualityScoringValidationError,
 )
 from omniintelligence.nodes.node_quality_scoring_compute.handlers.handler_quality_scoring import (
-    score_code_quality,
+    HandlerQualityScoring,
+)
+from omniintelligence.nodes.node_quality_scoring_compute.handlers.model_score_code_quality_request import (
+    ModelScoreCodeQualityRequest,
 )
 from omniintelligence.nodes.node_quality_scoring_compute.handlers.protocols import (
     create_error_dimensions,
@@ -70,66 +73,70 @@ STATUS_VALIDATION_ERROR: Final[str] = "validation_error"
 STATUS_COMPUTE_ERROR: Final[str] = "compute_error"
 
 
-def handle_quality_scoring_compute(
-    input_data: ModelQualityScoringInput,
-) -> ModelQualityScoringOutput:
-    """Handle quality scoring compute operation.
+class HandlerQualityScoringCompute:
+    """Orchestrate quality scoring for a typed node request."""
 
-    This function orchestrates the quality scoring workflow:
-    1. Prepares configuration (handles preset vs manual weights)
-    2. Calls the pure scoring function
-    3. Checks against thresholds
-    4. Constructs the output model with metadata
+    def handle(
+        self,
+        request: ModelQualityScoringInput,
+    ) -> ModelQualityScoringOutput:
+        """Handle quality scoring compute operation.
 
-    Error Handling:
-        - QualityScoringValidationError: Returns output with validation_error status
-        - QualityScoringComputeError: Returns output with compute_error status
-        - All errors are caught and returned as structured output (no exceptions raised)
+        This method orchestrates the quality scoring workflow:
+        1. Prepares configuration (handles preset vs manual weights)
+        2. Calls the pure scoring function
+        3. Checks against thresholds
+        4. Constructs the output model with metadata
 
-    Args:
-        input_data: Typed input model containing source code and scoring configuration.
+        Error Handling:
+            - QualityScoringValidationError: Returns output with validation_error status
+            - QualityScoringComputeError: Returns output with compute_error status
+            - All errors are caught and returned as structured output (no exceptions raised)
 
-    Returns:
-        ModelQualityScoringOutput with quality score, dimensions, compliance status,
-        and recommendations. Always returns a valid output, even on errors.
-    """
-    start_time = time.perf_counter()
+        Args:
+            request: Typed input model containing source code and scoring configuration.
 
-    try:
-        return _execute_scoring(input_data, start_time)
+        Returns:
+            ModelQualityScoringOutput with quality score, dimensions, compliance status,
+            and recommendations. Always returns a valid output, even on errors.
+        """
+        start_time = time.perf_counter()
 
-    except QualityScoringValidationError as e:
-        processing_time = (time.perf_counter() - start_time) * 1000
-        return _create_validation_error_output(str(e), processing_time)
-
-    except QualityScoringComputeError as e:
-        processing_time = (time.perf_counter() - start_time) * 1000
-        return _create_compute_error_output(str(e), processing_time)
-
-    except Exception as e:
-        # Catch-all for any unhandled exceptions.
-        # This block MUST NOT raise - use nested try/except for all operations.
-        processing_time = _safe_elapsed_time_ms(start_time)
-
-        # Safe logging - failures here must not propagate
         try:
-            logger.exception(
-                "Unhandled exception in quality scoring compute. "
-                "source_path=%s, language=%s, processing_time_ms=%.2f",
-                getattr(input_data, "source_path", "<unknown>"),
-                getattr(input_data, "language", "<unknown>"),
+            return _execute_scoring(request, start_time)
+
+        except QualityScoringValidationError as e:
+            processing_time = (time.perf_counter() - start_time) * 1000
+            return _create_validation_error_output(str(e), processing_time)
+
+        except QualityScoringComputeError as e:
+            processing_time = (time.perf_counter() - start_time) * 1000
+            return _create_compute_error_output(str(e), processing_time)
+
+        except Exception as e:
+            # Catch-all for any unhandled exceptions.
+            # This block MUST NOT raise - use nested try/except for all operations.
+            processing_time = _safe_elapsed_time_ms(start_time)
+
+            # Safe logging - failures here must not propagate
+            try:
+                logger.exception(
+                    "Unhandled exception in quality scoring compute. "
+                    "source_path=%s, language=%s, processing_time_ms=%.2f",
+                    getattr(request, "source_path", "<unknown>"),
+                    getattr(request, "language", "<unknown>"),
+                    processing_time,
+                )
+            except Exception:
+                # If logging itself fails, try minimal logging
+                with contextlib.suppress(Exception):
+                    logger.error("Quality scoring compute failed: %s", e)
+
+            # Safe error response creation
+            return _create_safe_error_output(
+                f"Unhandled error: {e}",
                 processing_time,
             )
-        except Exception:
-            # If logging itself fails, try minimal logging
-            with contextlib.suppress(Exception):
-                logger.error("Quality scoring compute failed: %s", e)
-
-        # Safe error response creation
-        return _create_safe_error_output(
-            f"Unhandled error: {e}",
-            processing_time,
-        )
 
 
 def _execute_scoring(
@@ -152,19 +159,23 @@ def _execute_scoring(
     # Determine scoring parameters based on preset or manual config
     if input_data.onex_preset is not None:
         # Preset takes precedence - call handler with preset
-        result = score_code_quality(
-            content=input_data.content,
-            language=input_data.language,
-            preset=input_data.onex_preset,
+        result = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(
+                content=input_data.content,
+                language=input_data.language,
+                preset=input_data.onex_preset,
+            )
         )
     else:
         # Manual configuration - prepare weights dict if provided
         weights = _extract_weights_dict(input_data)
-        result = score_code_quality(
-            content=input_data.content,
-            language=input_data.language,
-            weights=weights,
-            onex_threshold=input_data.onex_compliance_threshold,
+        result = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(
+                content=input_data.content,
+                language=input_data.language,
+                weights=weights,
+                onex_threshold=input_data.onex_compliance_threshold,
+            )
         )
 
     processing_time = (time.perf_counter() - start_time) * 1000
@@ -362,4 +373,4 @@ def _create_safe_error_output(
             )
 
 
-__all__ = ["handle_quality_scoring_compute"]
+__all__ = ["HandlerQualityScoringCompute"]

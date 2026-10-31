@@ -21,7 +21,7 @@ from omniintelligence.nodes.node_dispatch_outcome_eval_effect.models import (
     ModelOutput,
 )
 from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
-    handle_quality_scoring_compute,
+    HandlerQualityScoringCompute,
 )
 from omniintelligence.nodes.node_quality_scoring_compute.models import (
     ModelQualityScoringInput,
@@ -67,7 +67,7 @@ def _compute_quality_score(artifact_path: str) -> float | None:
 
     try:
         content = artifact.read_text(encoding="utf-8")
-        scoring_result = handle_quality_scoring_compute(
+        scoring_result = HandlerQualityScoringCompute().handle(
             ModelQualityScoringInput(
                 source_path=artifact_path,
                 content=content,

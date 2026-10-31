@@ -23,13 +23,14 @@ from unittest.mock import patch
 import pytest
 
 from omniintelligence.nodes.node_intent_classifier_compute.handlers import (
-    handle_intent_classification,
+    HandlerIntentClassification,
 )
 from omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_langextract import (
-    create_empty_semantic_result,
+    HandlerSemanticAnalysis,
 )
 from omniintelligence.nodes.node_intent_classifier_compute.models import (
     ModelClassificationConfig,
+    ModelClassifyIntentRequest,
     ModelIntentClassificationInput,
     ModelIntentClassificationOutput,
 )
@@ -62,17 +63,15 @@ class TestHandleIntentClassificationIntegration:
 
     def test_returns_success_true_for_valid_input(self) -> None:
         """handle_intent_classification returns success=True on valid input."""
-        result = handle_intent_classification(
-            input_data=_make_input("Generate a Python function"),
-            config=_DEFAULT_CONFIG,
+        result = HandlerIntentClassification(_DEFAULT_CONFIG).handle(
+            _make_input("Generate a Python function")
         )
         assert result.success is True
 
     def test_returns_model_intent_classification_output(self) -> None:
         """Return type is ModelIntentClassificationOutput with required fields."""
-        result = handle_intent_classification(
-            input_data=_make_input("Write unit tests"),
-            config=_DEFAULT_CONFIG,
+        result = HandlerIntentClassification(_DEFAULT_CONFIG).handle(
+            _make_input("Write unit tests")
         )
         assert isinstance(result, ModelIntentClassificationOutput)
         assert isinstance(result.intent_category, str)
@@ -81,27 +80,24 @@ class TestHandleIntentClassificationIntegration:
 
     def test_classifies_code_generation_correctly(self) -> None:
         """Strong code generation signal produces code_generation intent."""
-        result = handle_intent_classification(
-            input_data=_make_input("Generate a Python function to process data"),
-            config=_DEFAULT_CONFIG,
+        result = HandlerIntentClassification(_DEFAULT_CONFIG).handle(
+            _make_input("Generate a Python function to process data")
         )
         assert result.success is True
         assert result.intent_category == "code_generation"
 
     def test_classifies_testing_correctly(self) -> None:
         """Strong testing signal produces testing intent."""
-        result = handle_intent_classification(
-            input_data=_make_input("Write comprehensive unit tests with pytest"),
-            config=_DEFAULT_CONFIG,
+        result = HandlerIntentClassification(_DEFAULT_CONFIG).handle(
+            _make_input("Write comprehensive unit tests with pytest")
         )
         assert result.success is True
         assert result.intent_category == "testing"
 
     def test_classifies_debugging_correctly(self) -> None:
         """Strong debugging signal produces debugging intent."""
-        result = handle_intent_classification(
-            input_data=_make_input("Fix the authentication bug causing crash"),
-            config=_DEFAULT_CONFIG,
+        result = HandlerIntentClassification(_DEFAULT_CONFIG).handle(
+            _make_input("Fix the authentication bug causing crash")
         )
         assert result.success is True
         assert result.intent_category == "debugging"
@@ -119,27 +115,22 @@ class TestHandleIntentClassificationIntegration:
         # (min_length=1 allows " ").
         # The handler checks `not input_data.content.strip()` internally.
         input_data = ModelIntentClassificationInput(content=" ")
-        result = handle_intent_classification(
-            input_data=input_data,
-            config=_DEFAULT_CONFIG,
-        )
+        result = HandlerIntentClassification(_DEFAULT_CONFIG).handle(input_data)
         assert result.success is False
         assert result.intent_category == "unknown"
         assert result.confidence == 0.0
 
     def test_processing_time_is_recorded(self) -> None:
         """processing_time_ms is non-negative on successful classification."""
-        result = handle_intent_classification(
-            input_data=_make_input("Generate a REST API endpoint"),
-            config=_DEFAULT_CONFIG,
+        result = HandlerIntentClassification(_DEFAULT_CONFIG).handle(
+            _make_input("Generate a REST API endpoint")
         )
         assert result.processing_time_ms >= 0.0
 
     def test_metadata_contains_status_completed(self) -> None:
         """Successful classification sets metadata.status == 'completed'."""
-        result = handle_intent_classification(
-            input_data=_make_input("Write tests for the API"),
-            config=_DEFAULT_CONFIG,
+        result = HandlerIntentClassification(_DEFAULT_CONFIG).handle(
+            _make_input("Write tests for the API")
         )
         assert result.success is True
         assert result.metadata is not None
@@ -147,9 +138,8 @@ class TestHandleIntentClassificationIntegration:
 
     def test_metadata_contains_raw_scores(self) -> None:
         """Successful classification includes raw_scores in metadata."""
-        result = handle_intent_classification(
-            input_data=_make_input("Generate a Python class"),
-            config=_DEFAULT_CONFIG,
+        result = HandlerIntentClassification(_DEFAULT_CONFIG).handle(
+            _make_input("Generate a Python class")
         )
         assert result.metadata is not None
         raw_scores = result.metadata.get("raw_scores", {})
@@ -158,17 +148,15 @@ class TestHandleIntentClassificationIntegration:
 
     def test_secondary_intents_is_list(self) -> None:
         """secondary_intents is always a list (never None)."""
-        result = handle_intent_classification(
-            input_data=_make_input("Create REST API with tests"),
-            config=_DEFAULT_CONFIG,
+        result = HandlerIntentClassification(_DEFAULT_CONFIG).handle(
+            _make_input("Create REST API with tests")
         )
         assert isinstance(result.secondary_intents, list)
 
     def test_keywords_is_list(self) -> None:
         """keywords is always a list (never None)."""
-        result = handle_intent_classification(
-            input_data=_make_input("Fix the bug in error handling"),
-            config=_DEFAULT_CONFIG,
+        result = HandlerIntentClassification(_DEFAULT_CONFIG).handle(
+            _make_input("Fix the bug in error handling")
         )
         assert isinstance(result.keywords, list)
 
@@ -192,17 +180,16 @@ class TestLangextractBoostIntegration:
     def test_semantic_boost_is_called_during_handle(self) -> None:
         """analyze_semantics is called inside handle_intent_classification."""
         from omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_langextract import (
-            analyze_semantics as real_analyze_semantics,
+            HandlerSemanticAnalysis,
         )
 
         with patch(
             "omniintelligence.nodes.node_intent_classifier_compute.handlers"
-            ".handler_intent_classification.analyze_semantics",
-            wraps=real_analyze_semantics,
+            ".handler_intent_classification.HandlerSemanticAnalysis.handle",
+            wraps=HandlerSemanticAnalysis().handle,
         ) as mock_analyze:
-            handle_intent_classification(
-                input_data=_make_input("Generate Python code"),
-                config=_DEFAULT_CONFIG,
+            HandlerIntentClassification(_DEFAULT_CONFIG).handle(
+                _make_input("Generate Python code")
             )
             assert mock_analyze.call_count >= 1
 
@@ -210,15 +197,16 @@ class TestLangextractBoostIntegration:
         """map_semantic_to_intent_boost is called when analyze_semantics succeeds."""
         with patch(
             "omniintelligence.nodes.node_intent_classifier_compute.handlers"
-            ".handler_intent_classification.map_semantic_to_intent_boost",
+            ".handler_intent_classification.HandlerSemanticIntentBoost.handle",
             wraps=__import__(
                 "omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_langextract",
-                fromlist=["map_semantic_to_intent_boost"],
-            ).map_semantic_to_intent_boost,
+                fromlist=["HandlerSemanticIntentBoost"],
+            )
+            .HandlerSemanticIntentBoost()
+            .handle,
         ) as mock_boost:
-            handle_intent_classification(
-                input_data=_make_input("Create REST API endpoint with authentication"),
-                config=_DEFAULT_CONFIG,
+            HandlerIntentClassification(_DEFAULT_CONFIG).handle(
+                _make_input("Create REST API endpoint with authentication")
             )
             mock_boost.assert_called_once()
 
@@ -230,12 +218,11 @@ class TestLangextractBoostIntegration:
         """
         with patch(
             "omniintelligence.nodes.node_intent_classifier_compute.handlers"
-            ".handler_intent_classification.analyze_semantics",
+            ".handler_intent_classification.HandlerSemanticAnalysis.handle",
             side_effect=RuntimeError("simulated semantic analysis failure"),
         ):
-            result = handle_intent_classification(
-                input_data=_make_input("Generate a Python function"),
-                config=_DEFAULT_CONFIG,
+            result = HandlerIntentClassification(_DEFAULT_CONFIG).handle(
+                _make_input("Generate a Python function")
             )
             # Must still succeed — fallback to TF-IDF-only
             assert result.success is True
@@ -243,22 +230,23 @@ class TestLangextractBoostIntegration:
 
     def test_semantic_error_result_skips_boost_mapping(self) -> None:
         """When analyze_semantics returns error, map_semantic_to_intent_boost is not called."""
-        error_result = create_empty_semantic_result(error="forced error")
+        error_result = HandlerSemanticAnalysis.create_empty_semantic_result(
+            error="forced error"
+        )
 
         with (
             patch(
                 "omniintelligence.nodes.node_intent_classifier_compute.handlers"
-                ".handler_intent_classification.analyze_semantics",
+                ".handler_intent_classification.HandlerSemanticAnalysis.handle",
                 return_value=error_result,
             ),
             patch(
                 "omniintelligence.nodes.node_intent_classifier_compute.handlers"
-                ".handler_intent_classification.map_semantic_to_intent_boost",
+                ".handler_intent_classification.HandlerSemanticIntentBoost.handle",
             ) as mock_boost,
         ):
-            result = handle_intent_classification(
-                input_data=_make_input("Generate Python code"),
-                config=_DEFAULT_CONFIG,
+            result = HandlerIntentClassification(_DEFAULT_CONFIG).handle(
+                _make_input("Generate Python code")
             )
             # Boost mapping should NOT be called when semantic analysis has error
             mock_boost.assert_not_called()
@@ -277,13 +265,11 @@ class TestLangextractBoostIntegration:
 
         with patch(
             "omniintelligence.nodes.node_intent_classifier_compute.handlers"
-            ".handler_intent_classification.map_semantic_to_intent_boost",
+            ".handler_intent_classification.HandlerSemanticIntentBoost.handle",
             return_value=large_boost,
         ):
-            result = handle_intent_classification(
-                # Content strongly suggests code_generation without boost
-                input_data=_make_input("generate implement create build develop"),
-                config=_DEFAULT_CONFIG,
+            result = HandlerIntentClassification(_DEFAULT_CONFIG).handle(
+                _make_input("generate implement create build develop")
             )
             # With a massive boost of 999.0 on 'testing', it should win
             assert result.intent_category == "testing"
@@ -292,51 +278,57 @@ class TestLangextractBoostIntegration:
         """classify_intent is called with score_boosts from langextract."""
         captured_kwargs: dict[str, object] = {}
 
-        original_classify = __import__(
-            "omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_intent_classification",
-            fromlist=["classify_intent"],
-        ).classify_intent
+        original_classify = (
+            __import__(
+                "omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_intent_classification",
+                fromlist=["HandlerIntentClassifier"],
+            )
+            .HandlerIntentClassifier()
+            .handle
+        )
 
-        def capture_classify(*args: object, **kwargs: object) -> object:
-            captured_kwargs.update(kwargs)
-            return original_classify(*args, **kwargs)
+        def capture_classify(request: ModelClassifyIntentRequest) -> object:
+            captured_kwargs.update(request.model_dump())
+            return original_classify(request)
 
         with patch(
             "omniintelligence.nodes.node_intent_classifier_compute.handlers"
-            ".handler_intent_classification.classify_intent",
+            ".handler_intent_classification.HandlerIntentClassifier.handle",
             side_effect=capture_classify,
         ):
-            handle_intent_classification(
-                input_data=_make_input("Create REST API endpoint"),
-                config=_DEFAULT_CONFIG,
+            HandlerIntentClassification(_DEFAULT_CONFIG).handle(
+                _make_input("Create REST API endpoint")
             )
 
-        # score_boosts kwarg must have been passed to classify_intent
+        # The request must carry score_boosts to the classifier
         assert "score_boosts" in captured_kwargs
-        # And it should be a dict (could be empty if no boosts mapped)
+        # It should be a dict (could be empty if no boosts mapped)
         assert isinstance(captured_kwargs["score_boosts"], dict)
 
     def test_multi_label_always_enabled_in_handler(self) -> None:
         """handle_intent_classification always passes multi_label=True to classify_intent."""
         captured_kwargs: dict[str, object] = {}
 
-        original_classify = __import__(
-            "omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_intent_classification",
-            fromlist=["classify_intent"],
-        ).classify_intent
+        original_classify = (
+            __import__(
+                "omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_intent_classification",
+                fromlist=["HandlerIntentClassifier"],
+            )
+            .HandlerIntentClassifier()
+            .handle
+        )
 
-        def capture_classify(*args: object, **kwargs: object) -> object:
-            captured_kwargs.update(kwargs)
-            return original_classify(*args, **kwargs)
+        def capture_classify(request: ModelClassifyIntentRequest) -> object:
+            captured_kwargs.update(request.model_dump())
+            return original_classify(request)
 
         with patch(
             "omniintelligence.nodes.node_intent_classifier_compute.handlers"
-            ".handler_intent_classification.classify_intent",
+            ".handler_intent_classification.HandlerIntentClassifier.handle",
             side_effect=capture_classify,
         ):
-            handle_intent_classification(
-                input_data=_make_input("Write unit tests"),
-                config=_DEFAULT_CONFIG,
+            HandlerIntentClassification(_DEFAULT_CONFIG).handle(
+                _make_input("Write unit tests")
             )
 
         assert captured_kwargs.get("multi_label") is True

@@ -24,7 +24,8 @@ import pytest
 pytestmark = pytest.mark.unit
 
 from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
-    score_code_quality,
+    HandlerQualityScoring,
+    ModelScoreCodeQualityRequest,
 )
 
 
@@ -33,7 +34,9 @@ class TestEdgeCases:
 
     def test_single_character_code(self) -> None:
         """Single character valid Python should be scored."""
-        result = score_code_quality("1", "python")
+        result = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content="1", language="python")
+        )
         assert result["success"] is True
 
     def test_only_comments(self) -> None:
@@ -42,7 +45,9 @@ class TestEdgeCases:
 # This is a comment
 # Another comment
 """
-        result = score_code_quality(code, "python")
+        result = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=code, language="python")
+        )
         assert result["success"] is True
 
     def test_unicode_content(self) -> None:
@@ -52,7 +57,9 @@ def greet(name: str) -> str:
     """Return greeting message."""
     return f"Hello, {name}!"
 '''
-        result = score_code_quality(code, "python")
+        result = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=code, language="python")
+        )
         assert result["success"] is True
 
     def test_very_long_function(self) -> None:
@@ -61,8 +68,12 @@ def greet(name: str) -> str:
         long_func = "def long_func():\n" + "    x = 1\n" * 100 + "    return x"
         short_func = "def short_func():\n    return 1"
 
-        result_long = score_code_quality(long_func, "python")
-        result_short = score_code_quality(short_func, "python")
+        result_long = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=long_func, language="python")
+        )
+        result_short = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=short_func, language="python")
+        )
 
         assert (
             result_short["dimensions"]["maintainability"]
@@ -86,8 +97,12 @@ def deep():
 def flat():
     return 42
 """
-        result_nested = score_code_quality(nested, "python")
-        result_flat = score_code_quality(flat, "python")
+        result_nested = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=nested, language="python")
+        )
+        result_flat = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=flat, language="python")
+        )
 
         assert (
             result_flat["dimensions"]["complexity"]
@@ -101,7 +116,9 @@ async def fetch_data(url: str) -> dict:
     """Fetch data from URL."""
     return {}
 '''
-        result = score_code_quality(async_code, "python")
+        result = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=async_code, language="python")
+        )
 
         assert result["success"] is True
         # Async function should have reasonable complexity (simple code scores well)
@@ -122,7 +139,9 @@ class Example:
         """Class method."""
         return value * 3
 '''
-        result = score_code_quality(code, "python")
+        result = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=code, language="python")
+        )
 
         # Well-named class with proper method conventions should score high on maintainability
         assert result["dimensions"]["maintainability"] >= 0.8
@@ -131,9 +150,15 @@ class Example:
         """Language parameter should be case insensitive."""
         code = "x = 1"
 
-        result_lower = score_code_quality(code, "python")
-        result_upper = score_code_quality(code, "PYTHON")
-        result_mixed = score_code_quality(code, "Python")
+        result_lower = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=code, language="python")
+        )
+        result_upper = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=code, language="PYTHON")
+        )
+        result_mixed = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=code, language="Python")
+        )
 
         assert result_lower["quality_score"] == result_upper["quality_score"]
         assert result_lower["quality_score"] == result_mixed["quality_score"]
@@ -142,8 +167,12 @@ class Example:
         """'py' should be accepted as alias for 'python'."""
         code = "x = 1"
 
-        result_py = score_code_quality(code, "py")
-        result_python = score_code_quality(code, "python")
+        result_py = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=code, language="py")
+        )
+        result_python = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=code, language="python")
+        )
 
         # Both should be analyzed as Python, not unsupported
         assert result_py["source_language"] == "py"
@@ -158,7 +187,9 @@ class Example:
 CONSTANT = 42
 data = {"key": "value"}
 """
-        result = score_code_quality(code, "python")
+        result = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=code, language="python")
+        )
 
         # No TODO/FIXME/deprecated markers means high temporal relevance (1.0)
         assert result["dimensions"]["temporal_relevance"] == 1.0
@@ -177,7 +208,9 @@ class AnotherGoodClass:
     """Another good class."""
     pass
 '''
-        result = score_code_quality(code, "python")
+        result = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=code, language="python")
+        )
 
         # Mix of good and bad naming should result in moderate score
         assert 0.5 <= result["dimensions"]["maintainability"] <= 0.9
@@ -192,8 +225,14 @@ def simple(items: list) -> list:
 def complex_comprehension(items: list) -> list:
     return [x for x in items if x > 0 for y in x if y != 0]
 """
-        result_simple = score_code_quality(without_comprehension, "python")
-        result_complex = score_code_quality(with_comprehension, "python")
+        result_simple = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(
+                content=without_comprehension, language="python"
+            )
+        )
+        result_complex = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=with_comprehension, language="python")
+        )
 
         # Comprehensions add complexity
         assert (
@@ -209,7 +248,11 @@ def complex_comprehension(items: list) -> list:
         """
         # Mock ast.parse to raise an unexpected exception (not SyntaxError)
         with patch("ast.parse", side_effect=MemoryError("Simulated memory exhaustion")):
-            result = score_code_quality("valid_code = 1", "python")
+            result = HandlerQualityScoring().handle(
+                ModelScoreCodeQualityRequest(
+                    content="valid_code = 1", language="python"
+                )
+            )
             assert result["success"] is False
             assert result["quality_score"] == 0.0
             assert any("unexpected" in r.lower() for r in result["recommendations"])

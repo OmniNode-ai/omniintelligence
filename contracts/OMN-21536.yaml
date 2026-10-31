@@ -82,6 +82,13 @@ requirements:
           -- falsifier: uv run pytest tests/unit/nodes/node_gmail_intent_evaluator_effect tests/unit/nodes/node_code_crawler_effect
           src/omniintelligence/nodes/node_git_repo_crawler_effect tests/unit/review_pairing/test_claude_code_pool_voter.py
           -q'
+  - id: "req-handler-classes-quality-intent"
+    statement: |-
+      node_quality_scoring_compute and node_intent_classifier_compute bind handler classes exposing handle(request); no public module-level handler function remains in their handler modules.
+    acceptance:
+      - id: "AC3"
+        statement: |-
+          AC3: the unit and parity tests of the quality scoring and intent classifier nodes call the handler classes and pass -- falsifier: uv run pytest tests/unit/nodes/node_quality_scoring_compute tests/unit/nodes/node_intent_classifier_compute tests/unit/nodes/node_dispatch_outcome_eval_effect -q
 evidence_requirements:
   - kind: tests
     description: Handler-class unit tests for the six nodes pass.
@@ -190,3 +197,12 @@ dod_evidence:
           NON_CANONICAL as n; ids = [\"ci_failure_tracker_effect\", \"pattern_compliance_effect\", \"pattern_promotion_effect\"];
           assert not [i for i in ids if \"omniintelligence.nodes.node_\" + i in n]'"
     binds_ac: ["AC9"]
+  - id: "dod-omn21536-ac3-quality-intent-handler-classes"
+    description: "The quality scoring and intent classifier handler classes are exercised by their unit
+      and parity tests."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/nodes/node_quality_scoring_compute tests/unit/nodes/node_intent_classifier_compute
+          -q"
+    binds_ac: ["AC3"]

@@ -25,10 +25,11 @@ from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
     STANDARD_WEIGHTS,
     STRICT_THRESHOLD,
     STRICT_WEIGHTS,
+    HandlerQualityScoring,
+    ModelScoreCodeQualityRequest,
     OnexStrictnessLevel,
     get_threshold_for_preset,
     get_weights_for_preset,
-    score_code_quality,
 )
 
 
@@ -97,11 +98,20 @@ class TestOnexPresets:
         }
 
         # Without preset - uses custom weights
-        result_custom = score_code_quality(code, "python", weights=custom_weights)
+        result_custom = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(
+                content=code, language="python", weights=custom_weights
+            )
+        )
 
         # With preset - should override custom weights
-        result_preset = score_code_quality(
-            code, "python", weights=custom_weights, preset=OnexStrictnessLevel.STANDARD
+        result_preset = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(
+                content=code,
+                language="python",
+                weights=custom_weights,
+                preset=OnexStrictnessLevel.STANDARD,
+            )
         )
 
         # Scores should be different because preset overrides custom weights
@@ -118,13 +128,23 @@ class Example:
 '''
 
         # With LENIENT preset (threshold 0.5) - should be compliant
-        result_lenient = score_code_quality(
-            code, "python", onex_threshold=0.95, preset=OnexStrictnessLevel.LENIENT
+        result_lenient = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(
+                content=code,
+                language="python",
+                onex_threshold=0.95,
+                preset=OnexStrictnessLevel.LENIENT,
+            )
         )
 
         # With STRICT preset (threshold 0.8) - threshold from preset overrides 0.95
-        result_strict = score_code_quality(
-            code, "python", onex_threshold=0.1, preset=OnexStrictnessLevel.STRICT
+        result_strict = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(
+                content=code,
+                language="python",
+                onex_threshold=0.1,
+                preset=OnexStrictnessLevel.STRICT,
+            )
         )
 
         # LENIENT uses 0.5 threshold regardless of onex_threshold=0.95
@@ -146,14 +166,20 @@ class DataProcessor:
         return list(data.values())
 """
 
-        result_strict = score_code_quality(
-            code, "python", preset=OnexStrictnessLevel.STRICT
+        result_strict = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(
+                content=code, language="python", preset=OnexStrictnessLevel.STRICT
+            )
         )
-        result_standard = score_code_quality(
-            code, "python", preset=OnexStrictnessLevel.STANDARD
+        result_standard = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(
+                content=code, language="python", preset=OnexStrictnessLevel.STANDARD
+            )
         )
-        result_lenient = score_code_quality(
-            code, "python", preset=OnexStrictnessLevel.LENIENT
+        result_lenient = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(
+                content=code, language="python", preset=OnexStrictnessLevel.LENIENT
+            )
         )
 
         # Different presets have different weights, so scores should differ
@@ -170,9 +196,16 @@ class DataProcessor:
         """Without preset, default weights and threshold should be used."""
         code = "x = 1"
 
-        result_no_preset = score_code_quality(code, "python")
-        result_explicit_default = score_code_quality(
-            code, "python", weights=DEFAULT_WEIGHTS, onex_threshold=0.7
+        result_no_preset = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=code, language="python")
+        )
+        result_explicit_default = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(
+                content=code,
+                language="python",
+                weights=DEFAULT_WEIGHTS,
+                onex_threshold=0.7,
+            )
         )
 
         # Should produce identical results
@@ -186,11 +219,15 @@ class DataProcessor:
         """Preset should still work (for threshold) with unsupported languages."""
         code = 'fn main() { println!("Hello"); }'
 
-        result_strict = score_code_quality(
-            code, "rust", preset=OnexStrictnessLevel.STRICT
+        result_strict = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(
+                content=code, language="rust", preset=OnexStrictnessLevel.STRICT
+            )
         )
-        result_lenient = score_code_quality(
-            code, "rust", preset=OnexStrictnessLevel.LENIENT
+        result_lenient = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(
+                content=code, language="rust", preset=OnexStrictnessLevel.LENIENT
+            )
         )
 
         # Both get baseline 0.5 score for unsupported language
@@ -234,10 +271,10 @@ class DataProcessor:
     def test_preset_in_score_code_quality_signature(self) -> None:
         """score_code_quality should accept preset parameter."""
         # This should not raise any errors
-        result = score_code_quality(
-            content="x = 1",
-            language="python",
-            preset=OnexStrictnessLevel.STANDARD,
+        result = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(
+                content="x = 1", language="python", preset=OnexStrictnessLevel.STANDARD
+            )
         )
 
         assert result["success"] is True

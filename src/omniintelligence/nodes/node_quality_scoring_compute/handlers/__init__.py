@@ -3,13 +3,13 @@
 
 """Quality Scoring Compute Handlers.
 
-Pure handler functions for quality scoring operations.
+Pure handler classes for quality scoring operations.
 Handlers implement the computation logic following the ONEX "pure shell pattern"
-where nodes delegate to side-effect-free handler functions.
+where nodes delegate to side-effect-free handler methods.
 
 Handler Pattern:
-    Each handler is a pure function that:
-    - Accepts source code content and configuration parameters
+    Each handler exposes a pure handle method that:
+    - Accepts a typed request with source code content and configuration
     - Computes quality scores across multiple dimensions
     - Returns a typed QualityScoringResult dictionary
     - Has no side effects (pure computation)
@@ -30,7 +30,8 @@ ONEX Presets:
 
 Usage:
     from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
-        score_code_quality,
+        HandlerQualityScoring,
+        ModelScoreCodeQualityRequest,
         QualityScoringResult,
         DimensionScores,
         DEFAULT_WEIGHTS,
@@ -38,19 +39,19 @@ Usage:
     )
 
     # Using default configuration
-    result: QualityScoringResult = score_code_quality(
+    result: QualityScoringResult = HandlerQualityScoring().handle(ModelScoreCodeQualityRequest(
         content="class MyModel(BaseModel): x: int",
         language="python",
         weights=DEFAULT_WEIGHTS,
         onex_threshold=0.7,
-    )
+    ))
 
     # Using a preset (recommended)
-    result = score_code_quality(
+    result = HandlerQualityScoring().handle(ModelScoreCodeQualityRequest(
         content="class MyModel(BaseModel): x: int",
         language="python",
         preset=OnexStrictnessLevel.STRICT,
-    )
+    ))
 
     if result["success"]:
         print(f"Quality score: {result['quality_score']}")
@@ -62,7 +63,8 @@ Usage:
 
 Example:
     >>> from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
-    ...     score_code_quality,
+    ...     HandlerQualityScoring,
+    ...     ModelScoreCodeQualityRequest,
     ...     OnexStrictnessLevel,
     ... )
     >>> code = '''
@@ -74,13 +76,13 @@ Example:
     ...
     ...     model_config = {"frozen": True, "extra": "forbid"}
     ... '''
-    >>> result = score_code_quality(code, "python")
+    >>> result = HandlerQualityScoring().handle(ModelScoreCodeQualityRequest(content=code, language="python"))
     >>> result["success"]
     True
     >>> result["quality_score"] > 0.5
     True
     >>> # Using strict preset for production
-    >>> result = score_code_quality(code, "python", preset=OnexStrictnessLevel.STRICT)
+    >>> result = HandlerQualityScoring().handle(ModelScoreCodeQualityRequest(content=code, language="python", preset=OnexStrictnessLevel.STRICT))
     >>> result["success"]
     True
 """
@@ -93,13 +95,15 @@ from omniintelligence.nodes.node_quality_scoring_compute.handlers.exceptions imp
     QualityScoringValidationError,
 )
 from omniintelligence.nodes.node_quality_scoring_compute.handlers.handler_compute import (
-    handle_quality_scoring_compute,
+    HandlerQualityScoringCompute,
 )
 from omniintelligence.nodes.node_quality_scoring_compute.handlers.handler_quality_scoring import (
     ANALYSIS_VERSION,
     DEFAULT_WEIGHTS,
-    radon_available,
-    score_code_quality,
+    HandlerQualityScoring,
+)
+from omniintelligence.nodes.node_quality_scoring_compute.handlers.model_score_code_quality_request import (
+    ModelScoreCodeQualityRequest,
 )
 from omniintelligence.nodes.node_quality_scoring_compute.handlers.presets import (
     LENIENT_THRESHOLD,
@@ -134,7 +138,7 @@ __all__ = [
     "create_error_dimensions",
     "get_threshold_for_preset",
     "get_weights_for_preset",
-    "handle_quality_scoring_compute",
-    "radon_available",
-    "score_code_quality",
+    "HandlerQualityScoringCompute",
+    "HandlerQualityScoring",
+    "ModelScoreCodeQualityRequest",
 ]

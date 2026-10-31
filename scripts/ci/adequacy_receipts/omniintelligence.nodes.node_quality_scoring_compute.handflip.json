@@ -1,0 +1,37 @@
+{
+  "base_ref": "978c264",
+  "canonical_handler_module": "omniintelligence.nodes.node_quality_scoring_compute.handlers.handler_compute",
+  "legacy_handler_module": "omniintelligence.nodes.node_quality_scoring_compute.handlers.handler_compute",
+  "node_id": "omniintelligence.nodes.node_quality_scoring_compute",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:58ee73e51462a9065915b67fc959d945838c59ad3f261b5cd60259feca4d1ca2",
+      "sha256:983758336a1cb2d6f5f76d834d83d3e512df12ef2a6444697cfd778ab26fd8fb",
+      "sha256:6f7fbb16c6ba35cf54996631662e225ddc3b5552e9de8f45270cd76669f3d3c8",
+      "sha256:a5a58cc1e87f392ed5586aa7cea0d816bd2f1e4f038a3d98031014e38beb2895",
+      "sha256:547973d24b9dc6b56fae46b943bc58595338b6664a08f943988c11fdbaf21488",
+      "sha256:dad0b6aa45ca6667a46a5ecd5bbcb54c019cf21df23b099a9150cd37d7e7e08b",
+      "sha256:6362d6f5bc29e24057aa31030c746e11ea977960537da55801b10b201732e316",
+      "sha256:a729a67007a745c0631c3123baca88e1dceb7104f53a49aca25b7031f4638b15"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_quality_scoring_compute/test_canonical_parity.py::test_canonical_dispatch_matches_preserved_core[python_success]",
+      "tests/unit/nodes/node_quality_scoring_compute/test_canonical_parity.py::test_canonical_dispatch_matches_preserved_core[below_threshold]",
+      "tests/unit/nodes/node_quality_scoring_compute/test_canonical_parity.py::test_canonical_dispatch_matches_preserved_core[preset]",
+      "tests/unit/nodes/node_quality_scoring_compute/test_canonical_parity.py::test_canonical_dispatch_matches_preserved_core[custom_weights]",
+      "tests/unit/nodes/node_quality_scoring_compute/test_canonical_parity.py::test_canonical_dispatch_matches_preserved_core[empty_content]",
+      "tests/unit/nodes/node_quality_scoring_compute/test_canonical_parity.py::test_canonical_dispatch_matches_preserved_core[syntax_error]",
+      "tests/unit/nodes/node_quality_scoring_compute/test_canonical_parity.py::test_canonical_dispatch_matches_preserved_core[unsupported_language]",
+      "tests/unit/nodes/node_quality_scoring_compute/test_canonical_parity.py::test_canonical_dispatch_matches_preserved_core[compute_error]"
+    ]
+  },
+  "preserved_symbols": [
+    "_extract_weights_dict",
+    "_create_validation_error_output",
+    "_create_compute_error_output",
+    "_safe_elapsed_time_ms",
+    "_create_safe_error_output"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

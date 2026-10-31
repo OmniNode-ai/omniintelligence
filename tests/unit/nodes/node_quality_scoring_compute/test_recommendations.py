@@ -18,7 +18,8 @@ import pytest
 pytestmark = pytest.mark.unit
 
 from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
-    score_code_quality,
+    HandlerQualityScoring,
+    ModelScoreCodeQualityRequest,
 )
 
 
@@ -30,21 +31,27 @@ class TestRecommendations:
         # Code lacking documentation
         no_docs = "def f(x): return x * 2"
 
-        result = score_code_quality(no_docs, "python")
+        result = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=no_docs, language="python")
+        )
 
         assert len(result["recommendations"]) > 0
 
     def test_recommendations_are_strings(self) -> None:
         """All recommendations should be strings."""
         code = "x = 1"
-        result = score_code_quality(code, "python")
+        result = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=code, language="python")
+        )
 
         assert all(isinstance(r, str) for r in result["recommendations"])
 
     def test_recommendations_include_dimension_tags(self) -> None:
         """Recommendations should include dimension tags in brackets."""
         code = "def f(x): return x"  # Missing types, docs, patterns
-        result = score_code_quality(code, "python")
+        result = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=code, language="python")
+        )
 
         # Should have recommendations with dimension tags
         for rec in result["recommendations"]:
@@ -54,7 +61,9 @@ class TestRecommendations:
     def test_syntax_error_produces_low_scores(self) -> None:
         """Syntax errors should produce low baseline scores due to AST parse failures."""
         bad_code = "def broken(:"
-        result = score_code_quality(bad_code, "python")
+        result = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=bad_code, language="python")
+        )
 
         # Syntax error code gets baseline low scores for dimensions using AST
         # Each dimension that fails to parse returns 0.3
@@ -65,7 +74,9 @@ class TestRecommendations:
 
     def test_unsupported_language_recommendation(self) -> None:
         """Unsupported languages should produce unsupported_language recommendation."""
-        result = score_code_quality("let x = 5;", "javascript")
+        result = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content="let x = 5;", language="javascript")
+        )
 
         assert any("[unsupported_language]" in r for r in result["recommendations"])
 
@@ -102,7 +113,11 @@ class DataProcessor(BaseModel):
 '''
         low_quality = "def f(x, **kwargs): return x"
 
-        result_high = score_code_quality(high_quality, "python")
-        result_low = score_code_quality(low_quality, "python")
+        result_high = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=high_quality, language="python")
+        )
+        result_low = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=low_quality, language="python")
+        )
 
         assert len(result_high["recommendations"]) <= len(result_low["recommendations"])
