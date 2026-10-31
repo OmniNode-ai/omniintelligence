@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from omniintelligence.models.runtime_timeouts import runtime_timeouts
 from omniintelligence.nodes.node_navigation_retriever_effect.models.model_contract_graph import (
     ContractGraph,
 )
@@ -22,7 +23,7 @@ from omniintelligence.nodes.node_navigation_retriever_effect.models.model_goal_c
 )
 
 _DEFAULT_TOP_K = 3
-_DEFAULT_TIMEOUT_SECONDS = 2.0
+_DEFAULT_TIMEOUT_SECONDS = runtime_timeouts().navigation_retrieve_s
 _DEFAULT_COLLECTION = "navigation_paths"
 
 

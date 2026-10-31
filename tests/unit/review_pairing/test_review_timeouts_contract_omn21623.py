@@ -25,6 +25,7 @@ from omniintelligence.review_pairing.adapters import (
     adapter_ai_reviewer,
     adapter_codex_reviewer,
 )
+from omniintelligence.review_pairing.codemod import generator
 
 pytestmark = pytest.mark.unit
 
@@ -36,6 +37,7 @@ _FLOAT_FIELDS = (
     "git_show_seconds",
     "gh_api_seconds",
     "gh_pr_diff_seconds",
+    "codemod_sandbox_seconds",
 )
 _ALL_FIELDS = (*_FLOAT_FIELDS, "codex_fallback_dirs")
 
@@ -100,3 +102,5 @@ def test_modules_read_their_budgets_from_the_contract() -> None:
     assert budgets.codex_fallback_dirs == adapter_codex_reviewer._CODEX_FALLBACK_DIRS
     probe = inspect.signature(served_model_resolver.resolve_served_model_id)
     assert probe.parameters["timeout_seconds"].default == budgets.model_probe_seconds
+    sandbox = inspect.signature(generator.CodemodReplayValidator.validate)
+    assert sandbox.parameters["timeout"].default == budgets.codemod_sandbox_seconds

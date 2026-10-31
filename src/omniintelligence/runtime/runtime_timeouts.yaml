@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# Timeout and poll budgets of the runtime, the code projection, the node defaults
+# and the contract linter, in seconds (OMN-21623).
+#
+# Code holds none of these values: every consumer reads them from here through
+# ModelRuntimeTimeouts, and a file that omits a field, or names one the model
+# does not know, fails to load rather than falling back to a value in code.
+# A caller that needs a different value injects it through the consumer's own
+# argument or config; this file is the default when it does not.
+
+# code_projection: AsyncQdrantClient request timeout (live projection and live
+# context search).
+qdrant_request_s: 30.0
+
+# code_projection: embedding client request timeout, shared by the live projection
+# and the live context search (the retry delay is the client config's own default).
+embedding_request_s: 60.0
+
+# code_projection: asyncpg command timeout of the live projection pool.
+projection_pg_command_s: 30.0
+
+# node_navigation_retriever_effect: retrieval wait when the input names none.
+navigation_retrieve_s: 2.0
+
+# node_pattern_assembler_orchestrator: workflow timeout when the caller names none.
+pattern_assembly_workflow_s: 120.0
+
+# node_pattern_matching_compute: per-pattern regex execution budget (ReDoS guard).
+regex_match_s: 2.0
+
+# node_watchdog_effect: polling interval of the fallback observer.
+watchdog_poll_s: 5.0
+
+# runtime dispatch_handler_pattern_learning: session enrichment DB query.
+session_query_s: 2.0
+
+# validators contract_linter: --watch poll interval.
+contract_linter_watch_poll_s: 1.0

@@ -18,8 +18,10 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from omniintelligence.models.runtime_timeouts import runtime_timeouts
+
 # Default polling interval in seconds for the fallback observer
-_DEFAULT_POLLING_INTERVAL_SECONDS: int = 5
+_DEFAULT_POLLING_INTERVAL_SECONDS: int = int(runtime_timeouts().watchdog_poll_s)
 
 # File suffixes/names that are always skipped (editor swap files, temps)
 _DEFAULT_IGNORED_SUFFIXES: frozenset[str] = frozenset(

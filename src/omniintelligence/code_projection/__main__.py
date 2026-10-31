@@ -75,6 +75,7 @@ from omniintelligence.code_projection.qdrant import (
     ProtocolCodeProjectionCurrentGenerationResolver,
 )
 from omniintelligence.models.code_projection import artifact_digest, artifact_ref_for
+from omniintelligence.models.runtime_timeouts import runtime_timeouts
 from omniintelligence.nodes.node_embedding_generation_effect.models.model_embedding_client_config import (
     ModelEmbeddingClientConfig,
 )
@@ -470,7 +471,7 @@ async def _live_qdrant_store(
     qdrant_client = AsyncQdrantClient(
         url=configuration.qdrant_url,
         api_key=configuration.qdrant_api_key,
-        timeout=30,
+        timeout=int(runtime_timeouts().qdrant_request_s),
         prefer_grpc=False,
         cloud_inference=False,
     )
@@ -478,9 +479,8 @@ async def _live_qdrant_store(
         ModelEmbeddingClientConfig(
             base_url=configuration.embedding_url,
             embedding_dimension=1024,
-            timeout_seconds=60.0,
+            timeout_seconds=runtime_timeouts().embedding_request_s,
             max_retries=2,
-            retry_base_delay=0.5,
             max_concurrency=4,
         ),
         model_name=configuration.embedding_model,
@@ -522,7 +522,7 @@ async def _live_clients(
         configuration.postgres_url,
         min_size=1,
         max_size=2,
-        command_timeout=30,
+        command_timeout=runtime_timeouts().projection_pg_command_s,
     )
     graph_driver = AsyncGraphDatabase.driver(configuration.graph_uri)
     try:

@@ -40,14 +40,14 @@ from datetime import UTC, datetime
 from enum import Enum, unique
 from uuid import UUID, uuid4
 
+from omniintelligence.models.review.model_review_budgets import shipped_review_budgets
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 
-SANDBOX_TIMEOUT_SECONDS: int = 10
-"""Maximum wall-clock time for a single codemod replay run."""
 MIN_REPLAY_PASS_FRACTION: float = 1.0
 """All historical cases must pass for a codemod to be marked ``validated``."""
 # ---------------------------------------------------------------------------
@@ -282,7 +282,7 @@ class CodemodReplayValidator:
         codemod: CodemodDefinition,
         replay_cases: list[ReplayCase],
         *,
-        timeout: int = SANDBOX_TIMEOUT_SECONDS,
+        timeout: float = shipped_review_budgets().codemod_sandbox_seconds,
     ) -> CodemodDefinition:
         """Run replay validation for a codemod.
 
@@ -394,7 +394,7 @@ class CodemodReplayValidator:
         *,
         codemod_source: str,
         case: ReplayCase,
-        timeout: int,
+        timeout: float,
     ) -> tuple[bool, str]:
         """Run a single replay case in a sandboxed subprocess.
 
