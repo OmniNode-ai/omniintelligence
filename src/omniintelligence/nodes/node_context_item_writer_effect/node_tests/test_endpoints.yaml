@@ -1,0 +1,7 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# Endpoint URLs the context item writer node tests hand to the handler (OMN-21770).
+# Test code holds no URL literal: it reads this file, so a file that omits a field
+# fails to load. The tests inject an in-memory store, so no request leaves the process.
+qdrant_url: http://localhost:6333

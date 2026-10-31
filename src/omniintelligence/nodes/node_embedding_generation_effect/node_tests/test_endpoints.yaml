@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# Endpoint URLs the embedding generation node tests hand to the client and the
+# handler (OMN-21770). Test code holds no URL literal: it reads this file, so a
+# file that omits a field fails to load. No request leaves the process; the tests
+# replace the transport, so the value only has to be a well-formed URL.
+embedding_url: http://localhost:8100
