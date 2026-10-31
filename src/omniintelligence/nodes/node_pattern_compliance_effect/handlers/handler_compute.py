@@ -40,6 +40,7 @@ from typing import Final
 from uuid import UUID
 
 from omniintelligence.constants import TOPIC_COMPLIANCE_EVALUATED_V1
+from omniintelligence.models.llm_routing import llm_routing
 from omniintelligence.nodes.node_pattern_compliance_effect.handlers.exceptions import (
     ComplianceValidationError,
 )
@@ -67,8 +68,8 @@ from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
 logger = logging.getLogger(__name__)
 
-# Default model identifier for Coder-14B.
-DEFAULT_MODEL: Final[str] = "Qwen/Qwen2.5-Coder-14B-Instruct"
+# Default compliance evaluation model, supplied by the deployment overlay.
+DEFAULT_MODEL: Final[str] = llm_routing().compliance_model
 
 # Status constants for metadata.
 STATUS_COMPLETED: Final[str] = "completed"

@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Any
 import httpx
 
 from omniintelligence.models.adapters import adapter_settings
+from omniintelligence.models.llm_routing import llm_routing
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -38,27 +39,18 @@ _DEFAULT_MODEL = "default"
 _HTTP_CLIENT_ERR_MIN = 400
 _HTTP_CLIENT_ERR_MAX = 500
 
-# Per-token cost rates in USD. Local self-hosted models have $0.00 infra-cost
-# rates so they appear in Cost Trends token charts as estimated usage.
-# Cloud API models should be added here as needed.
-# Format: model_id_prefix -> (input_rate_per_token, output_rate_per_token)
-_MODEL_COST_RATES: dict[str, tuple[float, float]] = {
-    # Local models — no per-token billing, infra cost only
-    "qwen3": (0.0, 0.0),
-    "deepseek": (0.0, 0.0),
-    "default": (0.0, 0.0),
-}
-
 
 def _compute_cost_usd(model_id: str, input_tokens: int, output_tokens: int) -> float:
-    """Compute estimated cost from token counts and per-model rate table.
+    """Compute estimated cost from token counts and the overlay's per-model rates.
 
-    Matches on model_id prefix (case-insensitive). Falls back to "default"
-    rates (0.0) when the model is not in the table.
+    Matches on model_id prefix (case-insensitive) against the rates
+    ``OMNIINTELLIGENCE_EVAL_COST_RATES`` supplies, as (input, output) USD per token.
+    Local self-hosted models have no per-token billing, so a model that matches no
+    prefix costs nothing.
     """
     lower = model_id.lower()
-    for prefix, (in_rate, out_rate) in _MODEL_COST_RATES.items():
-        if lower.startswith(prefix):
+    for prefix, (in_rate, out_rate) in llm_routing().eval_cost_rates.items():
+        if lower.startswith(prefix.lower()):
             return input_tokens * in_rate + output_tokens * out_rate
     return 0.0
 

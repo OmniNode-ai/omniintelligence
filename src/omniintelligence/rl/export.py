@@ -40,6 +40,7 @@ from uuid import UUID, uuid5
 import torch
 import yaml
 
+from omniintelligence.models.llm_routing import llm_routing
 from omniintelligence.rl.checkpoint import load_checkpoint
 from omniintelligence.rl.contracts.actions import NUM_ROUTING_ACTIONS, RoutingAction
 from omniintelligence.rl.contracts.observations import _TASK_TYPES, RoutingObservation
@@ -56,29 +57,30 @@ logger = logging.getLogger(__name__)
 # Constants: action-to-backend mapping
 # ---------------------------------------------------------------------------
 
-#: Maps RoutingAction enum values to Bifrost backend_id slugs.
+#: Maps RoutingAction enum values to Bifrost backend_id slugs: the member name,
+#: lower-cased with hyphens.
 ACTION_TO_BACKEND: dict[RoutingAction, str] = {
-    RoutingAction.QWEN3_30B: "qwen3-30b",
-    RoutingAction.QWEN3_14B: "qwen3-14b",
-    RoutingAction.DEEPSEEK_R1: "deepseek-r1",
-    RoutingAction.EMBEDDING: "embedding",
+    action: action.name.lower().replace("_", "-") for action in RoutingAction
+}
+
+#: Environment variable that holds each backend's base URL.
+_BACKEND_URL_ENV: dict[RoutingAction, str] = {
+    RoutingAction.QWEN3_30B: "LLM_CODER_URL",
+    RoutingAction.QWEN3_14B: "LLM_CODER_FAST_URL",
+    RoutingAction.DEEPSEEK_R1: "LLM_DEEPSEEK_R1_URL",
+    RoutingAction.EMBEDDING: "LLM_EMBEDDING_URL",
 }
 
 #: Default backend URLs — resolved from env vars at import time.
 BACKEND_URLS: dict[str, str] = {
-    "qwen3-30b": os.environ.get("LLM_CODER_URL", ""),
-    "qwen3-14b": os.environ.get("LLM_CODER_FAST_URL", ""),
-    "deepseek-r1": os.environ.get("LLM_DEEPSEEK_R1_URL", ""),
-    "embedding": os.environ.get("LLM_EMBEDDING_URL", ""),
+    ACTION_TO_BACKEND[action]: os.environ.get(url_env, "")
+    for action, url_env in _BACKEND_URL_ENV.items()
 }
 
-#: Model names for each backend.
-BACKEND_MODELS: dict[str, str] = {
-    "qwen3-30b": "qwen3-coder-30b-a3b-awq",
-    "qwen3-14b": "qwen3-14b-awq",
-    "deepseek-r1": "deepseek-r1-distill-qwen-32b",
-    "embedding": "qwen3-embedding-8b",
-}
+#: Model names for each backend, supplied by the deployment overlay
+#: (``OMNIINTELLIGENCE_RL_EXPORT_MODELS``); a backend it does not name exports
+#: without a model field.
+BACKEND_MODELS: dict[str, str] = dict(llm_routing().rl_export_models)
 
 #: Namespace UUID for deterministic rule_id generation.
 _RULE_NAMESPACE = UUID("a1b2c3d4-e5f6-7890-abcd-ef1234567890")
