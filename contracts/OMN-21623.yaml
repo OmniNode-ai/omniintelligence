@@ -10,7 +10,16 @@ summary: >-
   budget, git show, two gh api reads, gh pr diff, the served-model resolver default, the voter probe)
   and two literal_path findings (the codex search directories). The values now sit in review_pairing/review_budgets.yaml,
   read through ModelReviewBudgets; a file missing a field, or naming an unknown one, fails to load. The
-  checker work is the umbrella's own and is merged; this change is the omniintelligence burn-down.
+  checker work is the umbrella's own and is merged; this change is the omniintelligence burn-down. The
+  read-only contracts_and_di scan of omniintelligence src/, pyproject.toml and .github (omnibase_core
+  dev e3433152a, validator ValidatorContractsAndDi) reported 307 findings before this change and 295 after
+  it. This slice removes 12 of them from src/omniintelligence/adapters, all literal_timeout: the HTTP,
+  Postgres and Kafka handler defaults, the two Kafka flush budgets, the eval client timeout and retry
+  delay, three Gmail intent calls and the Gemini and Z.AI plan-reviewer config defaults. The values now
+  sit in adapters/adapter_settings.yaml, read through ModelAdapterSettings; a file missing a field, or
+  naming an unknown one, fails to load. Model ids and endpoint URLs in the same files are left in place:
+  the hardcoded-model-config and url-authority gates send them to the config-store overlay. The checker
+  work is the umbrella's own and is merged; this change is the omniintelligence burn-down.
 is_seam_ticket: false
 interface_change: false
 interfaces_touched: []
@@ -23,11 +32,24 @@ requirements:
         statement: 'AC1: review_budgets.yaml declares the budgets and codex_fallback_dirs, each consuming
           module constant equals the contract value, and a file without one field fails to load -- falsifier:
           `uv run pytest tests/unit/review_pairing/test_review_timeouts_contract_omn21623.py -q` passes'
+  - id: req-omn21623-adapter-settings-contract
+    statement: The client adapters' timeout and retry budgets are declared in adapter_settings.yaml, read
+      from it by every covered adapter, and every field is required.
+    acceptance:
+      - id: AC2
+        statement: 'AC2: adapter_settings.yaml declares the timeout budgets, each adapter default reads
+          the contract value, and a file without one field fails to load -- falsifier: `uv run pytest
+          tests/unit/adapters/test_adapter_settings_contract_omn21623.py -q` passes'
 evidence_requirements:
   - kind: tests
     description: Contract tests for the required budget fields, codex_fallback_dirs and the module constants
       that read them, plus the existing review_pairing unit tests.
     command: uv run pytest tests/unit/review_pairing -q -n 0
+  - kind: tests
+    description: Contract tests for the required settings fields and the adapters that read them, plus
+      the existing client and Gmail intent unit tests.
+    command: uv run pytest tests/unit/adapters tests/unit/clients tests/unit/nodes/node_gmail_intent_evaluator_effect
+      -q -n 0
 emergency_bypass:
   enabled: false
   justification: ''
@@ -51,3 +73,23 @@ dod_evidence:
         cwd: ${OMNI_HOME}/omniintelligence
     binds_ac:
       - AC1
+  - id: dod-omn21623-ac1-adapter-settings-contract
+    description: The adapter settings contract tests pass, and no timeout literal remains in the adapter
+      modules the settings cover.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/adapters/test_adapter_settings_contract_omn21623.py -q -n
+          0
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: command
+        check_value: >-
+          grep -q '^http_timeout_s:' src/omniintelligence/adapters/adapter_settings.yaml && grep -q '^zai_timeout_s:'
+          src/omniintelligence/adapters/adapter_settings.yaml && ! grep -nE '(DEFAULT_TIMEOUT = |DEFAULT_COMMAND_TIMEOUT
+          = |DEFAULT_POLL_TIMEOUT = |_RETRY_BASE_DELAY = |_URL_FETCH_TIMEOUT_SECONDS: |_LLM_TIMEOUT_SECONDS:
+          )' src/omniintelligence/adapters/adapter_http_rest.py src/omniintelligence/adapters/adapter_postgres.py
+          src/omniintelligence/adapters/adapter_kafka.py src/omniintelligence/adapters/eval_llm_client.py
+          src/omniintelligence/adapters/gmail_intent_http_client.py
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC2

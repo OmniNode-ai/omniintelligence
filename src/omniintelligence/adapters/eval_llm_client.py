@@ -24,6 +24,8 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
+from omniintelligence.models.adapters import adapter_settings
+
 if TYPE_CHECKING:
     from types import TracebackType
 
@@ -31,10 +33,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_TIMEOUT_SECONDS = 30.0
 _DEFAULT_MAX_RETRIES = 2
 _DEFAULT_MODEL = "default"
-_RETRY_BASE_DELAY = 1.0
 _HTTP_CLIENT_ERR_MIN = 400
 _HTTP_CLIENT_ERR_MAX = 500
 
@@ -91,7 +91,7 @@ class EvalLLMClient:
         generator_url: str,
         judge_url: str,
         *,
-        timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS,
+        timeout_seconds: float | None = None,
         max_retries: int = _DEFAULT_MAX_RETRIES,
         event_publisher: AdapterKafkaPublisher | None = None,
         correlation_id: str | None = None,
@@ -99,7 +99,7 @@ class EvalLLMClient:
     ) -> None:
         self._generator_url = generator_url.rstrip("/")
         self._judge_url = judge_url.rstrip("/")
-        self._timeout_seconds = timeout_seconds
+        self._timeout_seconds = timeout_seconds or adapter_settings().eval_timeout_s
         self._max_retries = max_retries
         self._client: httpx.AsyncClient | None = None
         self._connected = False
@@ -316,7 +316,7 @@ class EvalLLMClient:
                 )
 
             if attempt < self._max_retries:
-                await asyncio.sleep(_RETRY_BASE_DELAY * (2**attempt))
+                await asyncio.sleep(adapter_settings().eval_retry_s * (2**attempt))
 
         if last_exception is not None:
             raise last_exception

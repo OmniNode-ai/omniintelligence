@@ -40,6 +40,8 @@ from typing import TYPE_CHECKING, Any
 import httpx
 from pydantic import BaseModel, Field
 
+from omniintelligence.models.adapters import adapter_settings
+
 if TYPE_CHECKING:
     from types import TracebackType
 
@@ -53,7 +55,6 @@ _GEMINI_CHAT_URL = (
     "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
 )
 _DEFAULT_MODEL = "gemini-2.0-flash"
-_DEFAULT_TIMEOUT_SECONDS = 60.0
 _DEFAULT_MAX_TOKENS = 2048
 _HTTP_CLIENT_ERROR_MIN = 400
 _HTTP_CLIENT_ERROR_MAX = 500  # exclusive (4xx range)
@@ -88,7 +89,7 @@ class ModelPlanReviewerGeminiConfig(BaseModel):
         description="Full URL for the Gemini OpenAI-compat chat completions endpoint.",
     )
     timeout_seconds: float = Field(
-        default=_DEFAULT_TIMEOUT_SECONDS,
+        default_factory=lambda: adapter_settings().gemini_timeout_s,
         description="HTTP request timeout in seconds.",
     )
     max_tokens: int = Field(

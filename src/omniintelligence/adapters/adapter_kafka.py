@@ -27,7 +27,7 @@ Params Keys:
 
     For consume:
         - topics (list[str], required): Topics to subscribe to
-        - timeout (float, optional): Poll timeout in seconds (default: 1.0)
+        - timeout (float, optional): Poll timeout in seconds (default: adapter_settings.yaml)
         - max_messages (int, optional): Maximum messages to consume (default: 1)
 
 Reference:
@@ -42,6 +42,8 @@ from typing import Any, cast
 
 from confluent_kafka import Consumer, KafkaError, KafkaException, Producer
 
+from omniintelligence.models.adapters import adapter_settings
+
 # =============================================================================
 # Logging
 # =============================================================================
@@ -54,7 +56,6 @@ logger = logging.getLogger(__name__)
 
 VALID_OPERATIONS = frozenset({"produce", "consume"})
 DEFAULT_CLIENT_ID = "onex-protocol-handler"
-DEFAULT_POLL_TIMEOUT = 1.0
 DEFAULT_MAX_MESSAGES = 1
 
 
@@ -245,7 +246,7 @@ class KafkaHandler:
         )
 
         # Flush to ensure delivery callback fires
-        self._producer.flush(timeout=10.0)
+        self._producer.flush(timeout=adapter_settings().kafka_produce_flush_s)
 
         logger.debug(
             "Kafka produce completed",
@@ -282,7 +283,7 @@ class KafkaHandler:
         if not topics:
             raise ValueError("KafkaHandler consume requires 'topics' in params")
 
-        timeout = params.get("timeout", DEFAULT_POLL_TIMEOUT)
+        timeout = params.get("timeout", adapter_settings().kafka_poll_s)
         max_messages = params.get("max_messages", DEFAULT_MAX_MESSAGES)
 
         self._consumer.subscribe(topics)
@@ -338,7 +339,7 @@ class KafkaHandler:
             self._consumer = None
 
         if self._producer is not None:
-            self._producer.flush(timeout=5.0)
+            self._producer.flush(timeout=adapter_settings().kafka_close_flush_s)
             self._producer = None
 
         self._connected = False
