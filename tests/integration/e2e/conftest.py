@@ -4,8 +4,8 @@
 # Copyright (c) 2025 OmniNode Team
 """Fixtures for E2E integration tests of the pattern learning pipeline.
 
-This module provides pytest fixtures for end-to-end testing of the pattern
-learning pipeline using:
+Pytest fixtures for end-to-end testing of the pattern learning pipeline,
+backed by:
 - Real PostgreSQL (configured via OMNIINTELLIGENCE_DB_URL) for data integrity
 - Real Kafka/Redpanda (configured via KAFKA_BOOTSTRAP_SERVERS) for event emission and verification
 
@@ -171,8 +171,8 @@ async def delete_kafka_topics(
 ) -> tuple[list[str], list[tuple[str, str]]]:
     """Delete Kafka topics using the admin client.
 
-    This function provides graceful cleanup of test topics. It handles errors
-    gracefully and logs the results for debugging.
+    Cleans up test topics, tolerating per-topic errors and logging the
+    results for debugging.
 
     Args:
         topics: Set or list of topic names to delete.
@@ -1008,7 +1008,7 @@ def pattern_learning_handler() -> Any:
 
     Example:
         >>> def test_pattern_learning(pattern_learning_handler):
-        ...     result = pattern_learning_handler.handle(training_data)
+        ...     result = pattern_learning_handler.handle(ModelPatternLearningRequest(training_data=training_data))
         ...     assert result.success
     """
     from omniintelligence.nodes.node_pattern_learning_compute.handlers import (
@@ -1245,7 +1245,7 @@ def create_e2e_training_data() -> Any:
     Example:
         >>> def test_learning(create_e2e_training_data, pattern_learning_handler):
         ...     data = create_e2e_training_data(count=5)
-        ...     result = pattern_learning_handler.handle(data)
+        ...     result = pattern_learning_handler.handle(ModelPatternLearningRequest(training_data=data))
     """
 
     def _factory(

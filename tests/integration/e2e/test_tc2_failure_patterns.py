@@ -33,6 +33,9 @@ from omnibase_core.enums.pattern_learning import (
     EnumPatternType,
 )
 
+from omniintelligence.nodes.node_pattern_learning_compute.models import (
+    ModelPatternLearningRequest,
+)
 from tests.integration.e2e.fixtures import sample_failed_session_data
 
 if TYPE_CHECKING:
@@ -72,8 +75,10 @@ class TestTC2FailedSessionPatternsExtraction:
 
         # Act
         result: PatternLearningResult = pattern_learning_handler.handle(
-            training_data=training_data,
-            promotion_threshold=0.7,  # Standard threshold
+            ModelPatternLearningRequest(
+                training_data=training_data,
+                promotion_threshold=0.7,  # Standard threshold
+            )
         )
 
         # Assert - Pipeline completed successfully
@@ -110,8 +115,10 @@ class TestTC2FailedSessionPatternsExtraction:
 
         # Act
         result: PatternLearningResult = pattern_learning_handler.handle(
-            training_data=training_data,
-            promotion_threshold=0.7,
+            ModelPatternLearningRequest(
+                training_data=training_data,
+                promotion_threshold=0.7,
+            )
         )
 
         # Assert - Most patterns should be candidates (below threshold)
@@ -161,8 +168,10 @@ class TestTC2FailedSessionPatternsExtraction:
 
         # Act
         result: PatternLearningResult = pattern_learning_handler.handle(
-            training_data=training_data,
-            promotion_threshold=low_threshold,
+            ModelPatternLearningRequest(
+                training_data=training_data,
+                promotion_threshold=low_threshold,
+            )
         )
 
         # Assert
@@ -211,8 +220,10 @@ class TestTC2FailurePatternsHaveDebuggingDomain:
 
         # Act
         result: PatternLearningResult = pattern_learning_handler.handle(
-            training_data=training_data,
-            promotion_threshold=0.3,  # Low threshold to get learned patterns
+            ModelPatternLearningRequest(
+                training_data=training_data,
+                promotion_threshold=0.3,  # Low threshold to get learned patterns
+            )
         )
 
         # Assert
@@ -247,8 +258,10 @@ class TestTC2FailurePatternsHaveDebuggingDomain:
 
         # Act
         result: PatternLearningResult = pattern_learning_handler.handle(
-            training_data=training_data,
-            promotion_threshold=0.3,
+            ModelPatternLearningRequest(
+                training_data=training_data,
+                promotion_threshold=0.3,
+            )
         )
 
         # Assert
@@ -277,8 +290,10 @@ class TestTC2FailurePatternsHaveDebuggingDomain:
 
         # Act with moderate threshold
         result: PatternLearningResult = pattern_learning_handler.handle(
-            training_data=training_data,
-            promotion_threshold=0.4,  # Some patterns above, some below
+            ModelPatternLearningRequest(
+                training_data=training_data,
+                promotion_threshold=0.4,  # Some patterns above, some below
+            )
         )
 
         # Assert
@@ -327,8 +342,10 @@ class TestTC2FailurePatternsIncludeErrorContext:
 
         # Act
         result: PatternLearningResult = pattern_learning_handler.handle(
-            training_data=training_data,
-            promotion_threshold=0.3,
+            ModelPatternLearningRequest(
+                training_data=training_data,
+                promotion_threshold=0.3,
+            )
         )
 
         # Assert
@@ -364,8 +381,10 @@ class TestTC2FailurePatternsIncludeErrorContext:
 
         # Act
         result: PatternLearningResult = pattern_learning_handler.handle(
-            training_data=training_data,
-            promotion_threshold=0.3,
+            ModelPatternLearningRequest(
+                training_data=training_data,
+                promotion_threshold=0.3,
+            )
         )
 
         # Assert
@@ -394,8 +413,10 @@ class TestTC2FailurePatternsIncludeErrorContext:
 
         # Act
         result: PatternLearningResult = pattern_learning_handler.handle(
-            training_data=training_data,
-            promotion_threshold=0.3,
+            ModelPatternLearningRequest(
+                training_data=training_data,
+                promotion_threshold=0.3,
+            )
         )
 
         # Assert
@@ -438,8 +459,10 @@ class TestTC2FailureSessionMetrics:
 
         # Act
         result: PatternLearningResult = pattern_learning_handler.handle(
-            training_data=training_data,
-            promotion_threshold=0.5,
+            ModelPatternLearningRequest(
+                training_data=training_data,
+                promotion_threshold=0.5,
+            )
         )
 
         # Assert
@@ -480,8 +503,10 @@ class TestTC2FailureSessionMetrics:
 
         # Act
         result: PatternLearningResult = pattern_learning_handler.handle(
-            training_data=training_data,
-            promotion_threshold=custom_threshold,
+            ModelPatternLearningRequest(
+                training_data=training_data,
+                promotion_threshold=custom_threshold,
+            )
         )
 
         # Assert

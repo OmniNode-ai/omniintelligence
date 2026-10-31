@@ -20,11 +20,17 @@ from __future__ import annotations
 
 import pytest
 
-from omniintelligence.nodes.node_pattern_learning_compute.handlers import (
-    extract_features,
-    extract_features_batch,
+from omniintelligence.nodes.node_pattern_learning_compute.handlers.feature_extraction_core import (
+    _extract_features,
+    _extract_features_batch,
+)
+from omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_feature_extraction import (
+    HandlerFeatureExtraction,
+    HandlerFeatureExtractionItem,
 )
 from omniintelligence.nodes.node_pattern_learning_compute.models import (
+    ModelFeatureExtractionItemRequest,
+    ModelFeatureExtractionRequest,
     TrainingDataItemDict,
 )
 
@@ -78,7 +84,7 @@ class TestBatchDeterministicOrdering:
         ]
 
         # Call extract_features_batch
-        result = extract_features_batch(items)
+        result = _extract_features_batch(items)
 
         # Assert output is sorted by item_id
         assert len(result) == 3
@@ -95,22 +101,22 @@ class TestBatchDeterministicOrdering:
         ]
 
         # Call twice with same input
-        result1 = extract_features_batch(items)
-        result2 = extract_features_batch(items)
+        result1 = _extract_features_batch(items)
+        result2 = _extract_features_batch(items)
 
         # Assert same output
         assert result1 == result2
 
     def test_batch_empty_input_returns_empty_list(self) -> None:
         """Empty input should return empty list."""
-        result = extract_features_batch([])
+        result = _extract_features_batch([])
         assert result == []
 
     def test_batch_single_item(self) -> None:
         """Single item batch returns list with one result."""
         items = [make_training_item("only_item", "x = 1", "python")]
 
-        result = extract_features_batch(items)
+        result = _extract_features_batch(items)
 
         assert len(result) == 1
         assert result[0]["item_id"] == "only_item"
@@ -147,7 +153,7 @@ def my_function(x: int) -> int:
 '''
         item = make_training_item("python_item", code, "python", ["test_label"])
 
-        result = extract_features(item)
+        result = _extract_features(item)
 
         # Assert all required fields are present
         assert result["item_id"] == "python_item"
@@ -173,7 +179,7 @@ def standalone_function():
 """
         item = make_training_item("names_test", code, "python")
 
-        result = extract_features(item)
+        result = _extract_features(item)
 
         # Keywords should include class and function names (lowercased)
         assert "myclass" in result["keywords"]
@@ -201,7 +207,7 @@ def func_two(a: str, b: str) -> str:
 '''
         item = make_training_item("structural_test", code, "python")
 
-        result = extract_features(item)
+        result = _extract_features(item)
         structural = result["structural"]
 
         assert structural["class_count"] == 2
@@ -222,7 +228,7 @@ class AnotherChild(BaseModel):
 """
         item = make_training_item("base_class_test", code, "python")
 
-        result = extract_features(item)
+        result = _extract_features(item)
 
         # Base classes should be extracted (not normalized - preserves case)
         assert "ParentClass" in result["base_classes"]
@@ -244,7 +250,7 @@ def cached_property(self):
 """
         item = make_training_item("decorator_test", code, "python")
 
-        result = extract_features(item)
+        result = _extract_features(item)
 
         # Decorators should be extracted (normalized)
         assert "dataclass" in result["decorators"]
@@ -256,7 +262,7 @@ def cached_property(self):
         """Python3 language variant is recognized."""
         item = make_training_item("py3_test", "x = 1", "python3")
 
-        result = extract_features(item)
+        result = _extract_features(item)
 
         assert result["extraction_quality"] == "full"
 
@@ -264,7 +270,7 @@ def cached_property(self):
         """'py' language variant is recognized."""
         item = make_training_item("py_test", "x = 1", "py")
 
-        result = extract_features(item)
+        result = _extract_features(item)
 
         assert result["extraction_quality"] == "full"
 
@@ -272,7 +278,7 @@ def cached_property(self):
         """Python2 language variant is recognized."""
         item = make_training_item("py2_test", "x = 1", "python2")
 
-        result = extract_features(item)
+        result = _extract_features(item)
 
         assert result["extraction_quality"] == "full"
 
@@ -295,7 +301,7 @@ function hello() {
 """
         item = make_training_item("js_item", code, "javascript", ["js_label"])
 
-        result = extract_features(item)
+        result = _extract_features(item)
 
         # Assert minimal features
         assert result["item_id"] == "js_item"
@@ -310,7 +316,7 @@ function hello() {
         """Non-Python explicitly sets extraction_quality to 'minimal'."""
         item = make_training_item("go_item", "package main", "go")
 
-        result = extract_features(item)
+        result = _extract_features(item)
 
         assert result["extraction_quality"] == "minimal"
 
@@ -318,7 +324,7 @@ function hello() {
         """Non-Python structural features have zeros/False values."""
         item = make_training_item("rust_item", "fn main() {}", "rust")
 
-        result = extract_features(item)
+        result = _extract_features(item)
         structural = result["structural"]
 
         assert structural["class_count"] == 0
@@ -335,7 +341,7 @@ function hello() {
 
         for lang in languages:
             item = make_training_item(f"{lang}_item", "code here", lang)
-            result = extract_features(item)
+            result = _extract_features(item)
 
             assert result["extraction_quality"] == "minimal", f"Failed for {lang}"
             assert result["keywords"] == (), f"Failed for {lang}"
@@ -344,7 +350,7 @@ function hello() {
         """Empty language string returns minimal features."""
         item = make_training_item("empty_lang", "x = 1", "")
 
-        result = extract_features(item)
+        result = _extract_features(item)
 
         assert result["extraction_quality"] == "minimal"
 
@@ -365,7 +371,7 @@ class TestSyntaxErrorHandling:
         item = make_training_item("broken_item", code, "python", ["broken_label"])
 
         # Should not raise
-        result = extract_features(item)
+        result = _extract_features(item)
 
         # Assert minimal features returned
         assert result["item_id"] == "broken_item"
@@ -390,7 +396,7 @@ class TestSyntaxErrorHandling:
         for snippet in invalid_snippets:
             item = make_training_item("error_item", snippet, "python")
             # Should not raise any exception
-            result = extract_features(item)
+            result = _extract_features(item)
             assert result["extraction_quality"] == "minimal"
 
     def test_syntax_error_preserves_provenance(self) -> None:
@@ -402,7 +408,7 @@ class TestSyntaxErrorHandling:
             ["label_a", "label_b"],
         )
 
-        result = extract_features(item)
+        result = _extract_features(item)
 
         assert result["item_id"] == "provenance_test"
         assert result["labels"] == ("label_a", "label_b")
@@ -435,7 +441,7 @@ def ANOTHER_FUNC():
 """
         item = make_training_item("norm_test", code, "python")
 
-        result = extract_features(item)
+        result = _extract_features(item)
 
         # Keywords should be lowercase
         for keyword in result["keywords"]:
@@ -462,7 +468,7 @@ def mango():
 """
         item = make_training_item("sort_test", code, "python")
 
-        result = extract_features(item)
+        result = _extract_features(item)
 
         # Check that function names appear in sorted order within keywords
         keywords = result["keywords"]
@@ -485,7 +491,7 @@ myVariable = 2
 """
         item = make_training_item("case_test", code, "python")
 
-        result = extract_features(item)
+        result = _extract_features(item)
 
         # All keywords should be lowercase
         assert "myclassname" in result["keywords"]
@@ -522,7 +528,7 @@ class NodeMyCompute(NodeCompute):
 '''
         item = make_training_item("onex_test", code, "python")
 
-        result = extract_features(item)
+        result = _extract_features(item)
 
         # ONEX base class should be in pattern_indicators
         assert "nodecompute" in result["pattern_indicators"]
@@ -544,7 +550,7 @@ class MyOrchestrator(NodeOrchestrator):
 """
         item = make_training_item("onex_bases_test", code, "python")
 
-        result = extract_features(item)
+        result = _extract_features(item)
 
         # All ONEX base classes should be detected
         indicators = result["pattern_indicators"]
@@ -565,7 +571,7 @@ class MyModel:
 """
         item = make_training_item("onex_keywords_test", code, "python")
 
-        result = extract_features(item)
+        result = _extract_features(item)
 
         indicators = result["pattern_indicators"]
         # At least some ONEX keywords should be detected
@@ -582,7 +588,7 @@ class MyModel(BaseModel):
 """
         item = make_training_item("basemodel_test", code, "python")
 
-        result = extract_features(item)
+        result = _extract_features(item)
 
         # BaseModel should be in pattern_indicators
         assert "basemodel" in result["pattern_indicators"]
@@ -599,7 +605,7 @@ class RegularClass:
 """
         item = make_training_item("no_onex_test", code, "python")
 
-        result = extract_features(item)
+        result = _extract_features(item)
 
         # No ONEX patterns detected
         assert len(result["pattern_indicators"]) == 0
@@ -618,7 +624,7 @@ class TestEdgeCases:
         """Empty code snippet returns minimal features."""
         item = make_training_item("empty_code", "", "python")
 
-        result = extract_features(item)
+        result = _extract_features(item)
 
         # Empty Python is valid syntax
         assert result["extraction_quality"] == "full"
@@ -629,7 +635,7 @@ class TestEdgeCases:
         """Whitespace-only code is valid Python."""
         item = make_training_item("whitespace_code", "   \n\t\n   ", "python")
 
-        result = extract_features(item)
+        result = _extract_features(item)
 
         assert result["extraction_quality"] == "full"
         assert result["keywords"] == ()
@@ -641,7 +647,7 @@ class TestEdgeCases:
 """
         item = make_training_item("comment_only", code, "python")
 
-        result = extract_features(item)
+        result = _extract_features(item)
 
         assert result["extraction_quality"] == "full"
 
@@ -653,7 +659,7 @@ class TestEdgeCases:
             "labels": [],
         }
 
-        result = extract_features(item)
+        result = _extract_features(item)
 
         assert result["item_id"] == ""
 
@@ -665,7 +671,7 @@ class TestEdgeCases:
             "language": "python",
         }
 
-        result = extract_features(item)
+        result = _extract_features(item)
 
         assert result["labels"] == ()
 
@@ -673,7 +679,7 @@ class TestEdgeCases:
         """Labels list is converted to tuple for immutability."""
         item = make_training_item("tuple_test", "x = 1", "python", ["a", "b", "c"])
 
-        result = extract_features(item)
+        result = _extract_features(item)
 
         assert isinstance(result["labels"], tuple)
         assert result["labels"] == ("a", "b", "c")
@@ -688,7 +694,7 @@ class TestEdgeCases:
             "labels": ("pre", "existing", "tuple"),  # Already a tuple
         }
 
-        result = extract_features(item)
+        result = _extract_features(item)
 
         # Should be preserved as-is, not wrapped: (("pre", "existing", "tuple"),)
         assert isinstance(result["labels"], tuple)
@@ -703,7 +709,7 @@ class TestEdgeCases:
 
         item = make_training_item("large_code", code, "python")
 
-        result = extract_features(item)
+        result = _extract_features(item)
 
         assert result["extraction_quality"] == "full"
         assert result["structural"]["function_count"] == 100
@@ -724,7 +730,28 @@ def deeply_nested():
 """
         item = make_training_item("nested_code", code, "python")
 
-        result = extract_features(item)
+        result = _extract_features(item)
 
         assert result["extraction_quality"] == "full"
         assert result["structural"]["max_nesting_depth"] >= 5
+
+
+@pytest.mark.unit
+def test_feature_extraction_item_typed_entry_point() -> None:
+    item = make_training_item(
+        "typed-item", "def compute(value: int) -> int:\n    return value + 1"
+    )
+    assert HandlerFeatureExtractionItem().handle(
+        ModelFeatureExtractionItemRequest(item=item)
+    ) == _extract_features(item)
+
+
+@pytest.mark.unit
+def test_feature_extraction_typed_entry_point() -> None:
+    items = (
+        make_training_item("typed-b", "class NodeCompute:\n    pass"),
+        make_training_item("typed-a", "def compute():\n    return 1"),
+    )
+    assert HandlerFeatureExtraction().handle(
+        ModelFeatureExtractionRequest(items=items)
+    ) == _extract_features_batch(items)

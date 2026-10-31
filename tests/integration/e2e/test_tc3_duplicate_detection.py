@@ -22,7 +22,7 @@ Key Assertions:
 
 Reference:
     - OMN-1800: E2E integration tests for pattern learning pipeline
-    - handler_deduplication.py: Pattern deduplication with versioned signatures
+    - deduplication_core.py: Pattern deduplication with versioned signatures
 """
 
 from __future__ import annotations
@@ -34,6 +34,9 @@ import pytest
 
 logger = logging.getLogger(__name__)
 
+from omniintelligence.nodes.node_pattern_learning_compute.models import (
+    ModelPatternLearningRequest,
+)
 from tests.integration.e2e.fixtures import (
     sample_duplicate_session_data,
 )
@@ -76,12 +79,18 @@ class TestTC3DuplicateDetection:
         session_a_data, session_b_data = sample_duplicate_session_data()
 
         # Act - Run each session through the pipeline
-        result_a = pattern_learning_handler.handle(session_a_data)
-        result_b = pattern_learning_handler.handle(session_b_data)
+        result_a = pattern_learning_handler.handle(
+            ModelPatternLearningRequest(training_data=session_a_data)
+        )
+        result_b = pattern_learning_handler.handle(
+            ModelPatternLearningRequest(training_data=session_b_data)
+        )
 
         # Act - Run combined data through the pipeline
         combined_data = session_a_data + session_b_data
-        result_combined = pattern_learning_handler.handle(combined_data)
+        result_combined = pattern_learning_handler.handle(
+            ModelPatternLearningRequest(training_data=combined_data)
+        )
 
         # Assert - All operations should succeed
         assert result_a["success"], "Session A pattern learning should succeed"
@@ -142,8 +151,12 @@ class TestTC3DuplicateDetection:
         combined_data = session_a_data + session_b_data
 
         # Act - Run combined data twice to verify determinism
-        result_1 = pattern_learning_handler.handle(combined_data)
-        result_2 = pattern_learning_handler.handle(combined_data)
+        result_1 = pattern_learning_handler.handle(
+            ModelPatternLearningRequest(training_data=combined_data)
+        )
+        result_2 = pattern_learning_handler.handle(
+            ModelPatternLearningRequest(training_data=combined_data)
+        )
 
         # Assert - Both runs should produce same patterns
         assert result_1["success"] and result_2["success"]
@@ -210,12 +223,18 @@ class TestTC3DuplicateDetection:
         session_a_data, session_b_data = sample_duplicate_session_data()
 
         # Get individual session results
-        result_a = pattern_learning_handler.handle(session_a_data)
-        result_b = pattern_learning_handler.handle(session_b_data)
+        result_a = pattern_learning_handler.handle(
+            ModelPatternLearningRequest(training_data=session_a_data)
+        )
+        result_b = pattern_learning_handler.handle(
+            ModelPatternLearningRequest(training_data=session_b_data)
+        )
 
         # Run combined
         combined_data = session_a_data + session_b_data
-        result_combined = pattern_learning_handler.handle(combined_data)
+        result_combined = pattern_learning_handler.handle(
+            ModelPatternLearningRequest(training_data=combined_data)
+        )
 
         # Assert - All should succeed
         assert (
@@ -274,10 +293,10 @@ class TestTC3DuplicateDetection:
         which would catch regressions in threshold logic.
         """
         from omniintelligence.nodes.node_pattern_learning_compute.handlers import (
-            handler_confidence_scoring,
-            handler_deduplication,
-            handler_feature_extraction,
-            handler_pattern_clustering,
+            confidence_scoring_core,
+            deduplication_core,
+            feature_extraction_core,
+            pattern_clustering_core,
             presets,
         )
 
@@ -289,8 +308,8 @@ class TestTC3DuplicateDetection:
         combined_data = list(session_a_data + session_b_data)
 
         # Extract features and cluster patterns
-        features_list = handler_feature_extraction.extract_features_batch(combined_data)
-        clusters = handler_pattern_clustering.cluster_patterns(
+        features_list = feature_extraction_core._extract_features_batch(combined_data)
+        clusters = pattern_clustering_core._cluster_patterns(
             features_list=features_list,
             weights=DEFAULT_SIMILARITY_WEIGHTS,
         )
@@ -302,12 +321,12 @@ class TestTC3DuplicateDetection:
         # Compute confidence scores for deduplication
         confidence_scores: dict[str, float] = {}
         for cluster in clusters:
-            scores = handler_confidence_scoring.compute_cluster_scores(cluster)
+            scores = confidence_scoring_core._compute_cluster_scores(cluster)
             confidence_scores[cluster["cluster_id"]] = scores["confidence"]
 
         # Act - Test with different thresholds
         # Very low threshold (0.3) - should merge very aggressively
-        result_low = handler_deduplication.deduplicate_patterns(
+        result_low = deduplication_core._deduplicate_patterns(
             clusters=clusters,
             confidence_scores=confidence_scores,
             similarity_threshold=0.3,
@@ -315,7 +334,7 @@ class TestTC3DuplicateDetection:
         )
 
         # Default threshold (0.85) - moderate merging
-        result_default = handler_deduplication.deduplicate_patterns(
+        result_default = deduplication_core._deduplicate_patterns(
             clusters=clusters,
             confidence_scores=confidence_scores,
             similarity_threshold=DEFAULT_DEDUPLICATION_THRESHOLD,
@@ -323,7 +342,7 @@ class TestTC3DuplicateDetection:
         )
 
         # Very high threshold (0.99) - almost no merging
-        result_high = handler_deduplication.deduplicate_patterns(
+        result_high = deduplication_core._deduplicate_patterns(
             clusters=clusters,
             confidence_scores=confidence_scores,
             similarity_threshold=0.99,
@@ -429,7 +448,9 @@ class TestTC3DuplicateDetection:
         combined_data = session_a_data + session_b_data
 
         # Act
-        result = pattern_learning_handler.handle(combined_data)
+        result = pattern_learning_handler.handle(
+            ModelPatternLearningRequest(training_data=combined_data)
+        )
 
         # Assert - Operation should succeed
         assert result["success"]
@@ -474,7 +495,9 @@ class TestTC3SignatureStability:
         session_a_data, _ = sample_duplicate_session_data()
 
         # Act
-        result = pattern_learning_handler.handle(session_a_data)
+        result = pattern_learning_handler.handle(
+            ModelPatternLearningRequest(training_data=session_a_data)
+        )
 
         # Assert
         assert result["success"]
@@ -520,7 +543,9 @@ class TestTC3SignatureStability:
         session_a_data, _ = sample_duplicate_session_data()
 
         # Act
-        result = pattern_learning_handler.handle(session_a_data)
+        result = pattern_learning_handler.handle(
+            ModelPatternLearningRequest(training_data=session_a_data)
+        )
 
         # Assert
         assert result["success"]
@@ -572,7 +597,12 @@ class TestTC3DeterminismGuarantees:
         combined_data = session_a_data + session_b_data
 
         # Act - Run 5 times
-        results = [pattern_learning_handler.handle(combined_data) for _ in range(5)]
+        results = [
+            pattern_learning_handler.handle(
+                ModelPatternLearningRequest(training_data=combined_data)
+            )
+            for _ in range(5)
+        ]
 
         # Assert - All runs should succeed
         for i, result in enumerate(results):
@@ -627,9 +657,15 @@ class TestTC3DeterminismGuarantees:
         ]
 
         # Act
-        result_1 = pattern_learning_handler.handle(ordering_1)
-        result_2 = pattern_learning_handler.handle(ordering_2)
-        result_3 = pattern_learning_handler.handle(ordering_3)
+        result_1 = pattern_learning_handler.handle(
+            ModelPatternLearningRequest(training_data=ordering_1)
+        )
+        result_2 = pattern_learning_handler.handle(
+            ModelPatternLearningRequest(training_data=ordering_2)
+        )
+        result_3 = pattern_learning_handler.handle(
+            ModelPatternLearningRequest(training_data=ordering_3)
+        )
 
         # Assert - All should succeed
         assert result_1["success"] and result_2["success"] and result_3["success"]

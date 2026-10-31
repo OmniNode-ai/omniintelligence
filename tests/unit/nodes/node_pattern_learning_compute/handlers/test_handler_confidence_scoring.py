@@ -21,11 +21,14 @@ from __future__ import annotations
 
 import pytest
 
+from omniintelligence.nodes.node_pattern_learning_compute.handlers.confidence_scoring_core import (
+    _compute_cluster_scores,
+)
 from omniintelligence.nodes.node_pattern_learning_compute.handlers.exceptions import (
     PatternLearningValidationError,
 )
 from omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_confidence_scoring import (
-    compute_cluster_scores,
+    HandlerConfidenceScoring,
 )
 from omniintelligence.nodes.node_pattern_learning_compute.handlers.presets import (
     DEFAULT_MIN_FREQUENCY,
@@ -34,6 +37,9 @@ from omniintelligence.nodes.node_pattern_learning_compute.handlers.protocols imp
     ExtractedFeaturesDict,
     PatternClusterDict,
     StructuralFeaturesDict,
+)
+from omniintelligence.nodes.node_pattern_learning_compute.models import (
+    ModelConfidenceScoringRequest,
 )
 
 # =============================================================================
@@ -106,7 +112,7 @@ class TestComputeClusterScoresBasic:
     def test_returns_all_components(self) -> None:
         """Result should contain all required component fields."""
         cluster = make_cluster()
-        result = compute_cluster_scores(cluster)
+        result = _compute_cluster_scores(cluster)
 
         assert "label_agreement" in result
         assert "cluster_cohesion" in result
@@ -116,14 +122,14 @@ class TestComputeClusterScoresBasic:
     def test_reads_label_agreement_from_cluster(self) -> None:
         """label_agreement should be read directly from cluster."""
         cluster = make_cluster(label_agreement=0.75)
-        result = compute_cluster_scores(cluster)
+        result = _compute_cluster_scores(cluster)
 
         assert result["label_agreement"] == 0.75
 
     def test_reads_cluster_cohesion_from_internal_similarity(self) -> None:
         """cluster_cohesion should equal cluster's internal_similarity."""
         cluster = make_cluster(internal_similarity=0.92)
-        result = compute_cluster_scores(cluster)
+        result = _compute_cluster_scores(cluster)
 
         assert result["cluster_cohesion"] == 0.92
 
@@ -140,7 +146,7 @@ class TestComputeClusterScoresFrequencyFactor:
     def test_frequency_factor_below_min(self) -> None:
         """frequency_factor should be < 1.0 when member_count < min_frequency."""
         cluster = make_cluster(member_count=3)
-        result = compute_cluster_scores(cluster, min_frequency=5)
+        result = _compute_cluster_scores(cluster, min_frequency=5)
 
         expected = 3 / 5  # 0.6
         assert result["frequency_factor"] == pytest.approx(expected)
@@ -148,21 +154,21 @@ class TestComputeClusterScoresFrequencyFactor:
     def test_frequency_factor_at_min(self) -> None:
         """frequency_factor should be 1.0 when member_count == min_frequency."""
         cluster = make_cluster(member_count=5)
-        result = compute_cluster_scores(cluster, min_frequency=5)
+        result = _compute_cluster_scores(cluster, min_frequency=5)
 
         assert result["frequency_factor"] == 1.0
 
     def test_frequency_factor_above_min_caps_at_one(self) -> None:
         """frequency_factor should cap at 1.0 when member_count > min_frequency."""
         cluster = make_cluster(member_count=10)
-        result = compute_cluster_scores(cluster, min_frequency=5)
+        result = _compute_cluster_scores(cluster, min_frequency=5)
 
         assert result["frequency_factor"] == 1.0
 
     def test_frequency_factor_uses_default_min_frequency(self) -> None:
         """Default min_frequency should be DEFAULT_MIN_FREQUENCY (5)."""
         cluster = make_cluster(member_count=3)
-        result = compute_cluster_scores(cluster)
+        result = _compute_cluster_scores(cluster)
 
         expected = 3 / DEFAULT_MIN_FREQUENCY
         assert result["frequency_factor"] == pytest.approx(expected)
@@ -174,7 +180,7 @@ class TestComputeClusterScoresFrequencyFactor:
             member_count=1,
             member_pattern_indicators=(("NodeCompute",),),
         )
-        result = compute_cluster_scores(cluster, min_frequency=5)
+        result = _compute_cluster_scores(cluster, min_frequency=5)
 
         expected = 1 / 5  # 0.2
         assert result["frequency_factor"] == pytest.approx(expected)
@@ -184,7 +190,7 @@ class TestComputeClusterScoresFrequencyFactor:
         cluster = make_cluster()
 
         with pytest.raises(PatternLearningValidationError) as exc_info:
-            compute_cluster_scores(cluster, min_frequency=0)
+            _compute_cluster_scores(cluster, min_frequency=0)
 
         assert "min_frequency" in str(exc_info.value)
 
@@ -193,7 +199,7 @@ class TestComputeClusterScoresFrequencyFactor:
         cluster = make_cluster()
 
         with pytest.raises(PatternLearningValidationError) as exc_info:
-            compute_cluster_scores(cluster, min_frequency=-5)
+            _compute_cluster_scores(cluster, min_frequency=-5)
 
         assert "min_frequency" in str(exc_info.value)
 
@@ -214,7 +220,7 @@ class TestComputeClusterScoresConfidence:
             internal_similarity=0.8,
             label_agreement=0.9,
         )
-        result = compute_cluster_scores(cluster, min_frequency=5)
+        result = _compute_cluster_scores(cluster, min_frequency=5)
 
         # frequency_factor = 5/5 = 1.0
         # confidence = 0.40 * 0.9 + 0.30 * 0.8 + 0.30 * 1.0
@@ -232,7 +238,7 @@ class TestComputeClusterScoresConfidence:
             member_pattern_indicators=(("NodeCompute",),),
         )
         # min_frequency very high to make frequency_factor near 0
-        result = compute_cluster_scores(cluster, min_frequency=1000)
+        result = _compute_cluster_scores(cluster, min_frequency=1000)
 
         # frequency_factor = 1/1000 = 0.001
         # confidence = 0.40 * 0 + 0.30 * 0 + 0.30 * 0.001 ≈ 0.0003
@@ -245,7 +251,7 @@ class TestComputeClusterScoresConfidence:
             internal_similarity=1.0,
             label_agreement=1.0,
         )
-        result = compute_cluster_scores(cluster, min_frequency=5)
+        result = _compute_cluster_scores(cluster, min_frequency=5)
 
         # frequency_factor = min(1.0, 10/5) = 1.0
         # confidence = 0.40 * 1.0 + 0.30 * 1.0 + 0.30 * 1.0 = 1.0
@@ -275,7 +281,7 @@ class TestComputeClusterScoresEmptyCluster:
         )
 
         with pytest.raises(PatternLearningValidationError) as exc_info:
-            compute_cluster_scores(cluster)
+            _compute_cluster_scores(cluster)
 
         assert "empty cluster" in str(exc_info.value).lower()
         assert "cluster-0001" in str(exc_info.value)
@@ -290,7 +296,7 @@ class TestComputeClusterScoresEmptyCluster:
         )
 
         with pytest.raises(PatternLearningValidationError) as exc_info:
-            compute_cluster_scores(cluster)
+            _compute_cluster_scores(cluster)
 
         assert "cluster-0042" in str(exc_info.value)
 
@@ -321,7 +327,7 @@ class TestComputeClusterScoresNoRecompute:
             label_agreement=0.5,
         )
 
-        result = compute_cluster_scores(cluster)
+        result = _compute_cluster_scores(cluster)
 
         # Should read the 0.5, not recompute 0.667
         assert result["label_agreement"] == 0.5
@@ -329,7 +335,7 @@ class TestComputeClusterScoresNoRecompute:
     def test_does_not_recompute_internal_similarity(self) -> None:
         """cluster_cohesion should equal internal_similarity, not recomputed."""
         cluster = make_cluster(internal_similarity=0.123)
-        result = compute_cluster_scores(cluster)
+        result = _compute_cluster_scores(cluster)
 
         assert result["cluster_cohesion"] == 0.123
 
@@ -350,7 +356,7 @@ class TestComputeClusterScoresRanges:
             internal_similarity=0.7,
             label_agreement=0.8,
         )
-        result = compute_cluster_scores(cluster)
+        result = _compute_cluster_scores(cluster)
 
         assert 0.0 <= result["label_agreement"] <= 1.0
         assert 0.0 <= result["cluster_cohesion"] <= 1.0
@@ -360,7 +366,7 @@ class TestComputeClusterScoresRanges:
     def test_frequency_factor_never_exceeds_one(self) -> None:
         """frequency_factor should never exceed 1.0 even with huge clusters."""
         cluster = make_cluster(member_count=1000)
-        result = compute_cluster_scores(cluster, min_frequency=5)
+        result = _compute_cluster_scores(cluster, min_frequency=5)
 
         assert result["frequency_factor"] == 1.0
 
@@ -379,7 +385,7 @@ class TestComputeClusterScoresPrecomputedValidation:
         cluster = make_cluster(label_agreement=1.5)
 
         with pytest.raises(PatternLearningValidationError) as exc_info:
-            compute_cluster_scores(cluster)
+            _compute_cluster_scores(cluster)
 
         error_message = str(exc_info.value)
         assert "label_agreement" in error_message
@@ -391,7 +397,7 @@ class TestComputeClusterScoresPrecomputedValidation:
         cluster = make_cluster(label_agreement=-0.1)
 
         with pytest.raises(PatternLearningValidationError) as exc_info:
-            compute_cluster_scores(cluster)
+            _compute_cluster_scores(cluster)
 
         error_message = str(exc_info.value)
         assert "label_agreement" in error_message
@@ -403,7 +409,7 @@ class TestComputeClusterScoresPrecomputedValidation:
         cluster = make_cluster(internal_similarity=1.2)
 
         with pytest.raises(PatternLearningValidationError) as exc_info:
-            compute_cluster_scores(cluster)
+            _compute_cluster_scores(cluster)
 
         error_message = str(exc_info.value)
         assert "internal_similarity" in error_message
@@ -415,7 +421,7 @@ class TestComputeClusterScoresPrecomputedValidation:
         cluster = make_cluster(internal_similarity=-0.2)
 
         with pytest.raises(PatternLearningValidationError) as exc_info:
-            compute_cluster_scores(cluster)
+            _compute_cluster_scores(cluster)
 
         error_message = str(exc_info.value)
         assert "internal_similarity" in error_message
@@ -430,34 +436,43 @@ class TestComputeClusterScoresPrecomputedValidation:
         )
 
         with pytest.raises(PatternLearningValidationError) as exc_info:
-            compute_cluster_scores(cluster)
+            _compute_cluster_scores(cluster)
 
         assert "cluster-debug-123" in str(exc_info.value)
 
     def test_label_agreement_at_boundary_zero_is_valid(self) -> None:
         """label_agreement = 0.0 (boundary) should be accepted."""
         cluster = make_cluster(label_agreement=0.0)
-        result = compute_cluster_scores(cluster)
+        result = _compute_cluster_scores(cluster)
 
         assert result["label_agreement"] == 0.0
 
     def test_label_agreement_at_boundary_one_is_valid(self) -> None:
         """label_agreement = 1.0 (boundary) should be accepted."""
         cluster = make_cluster(label_agreement=1.0)
-        result = compute_cluster_scores(cluster)
+        result = _compute_cluster_scores(cluster)
 
         assert result["label_agreement"] == 1.0
 
     def test_internal_similarity_at_boundary_zero_is_valid(self) -> None:
         """internal_similarity = 0.0 (boundary) should be accepted."""
         cluster = make_cluster(internal_similarity=0.0)
-        result = compute_cluster_scores(cluster)
+        result = _compute_cluster_scores(cluster)
 
         assert result["cluster_cohesion"] == 0.0
 
     def test_internal_similarity_at_boundary_one_is_valid(self) -> None:
         """internal_similarity = 1.0 (boundary) should be accepted."""
         cluster = make_cluster(internal_similarity=1.0)
-        result = compute_cluster_scores(cluster)
+        result = _compute_cluster_scores(cluster)
 
         assert result["cluster_cohesion"] == 1.0
+
+
+@pytest.mark.unit
+def test_confidence_scoring_typed_entry_point() -> None:
+    cluster = make_cluster()
+    request = ModelConfidenceScoringRequest(cluster=cluster, min_frequency=5)
+    assert HandlerConfidenceScoring().handle(request) == _compute_cluster_scores(
+        cluster, 5
+    )

@@ -22,6 +22,7 @@ Test philosophy:
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from unittest import mock
 
 import pytest
@@ -34,6 +35,9 @@ from omnibase_infra.enums import (
     EnumHandlerTypeCategory,
 )
 
+from omniintelligence.nodes.node_pattern_learning_compute.handlers import (
+    handler_pattern_learning as learning_core,
+)
 from omniintelligence.nodes.node_pattern_learning_compute.handlers.exceptions import (
     PatternLearningValidationError,
 )
@@ -43,6 +47,7 @@ from omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_patte
 )
 from omniintelligence.nodes.node_pattern_learning_compute.models import (
     LearningParametersDict,
+    ModelPatternLearningRequest,
     TrainingDataItemDict,
 )
 from tests.unit.nodes.node_pattern_learning_compute.handlers.conftest import (
@@ -819,7 +824,9 @@ class TestHandlerPatternLearningLifecycle:
                 code_snippet="class LifecycleTest:\n    pass",
             ),
         ]
-        result = handler.handle(training_data=training_data)
+        result = handler.handle(
+            ModelPatternLearningRequest(training_data=training_data)
+        )
         assert result["success"] is True
 
         # Shutdown
@@ -1035,7 +1042,9 @@ class TestHandlerPatternLearningHandle:
             ),
         ]
 
-        result = handler.handle(training_data=training_data)
+        result = handler.handle(
+            ModelPatternLearningRequest(training_data=training_data)
+        )
         assert result["success"] is True
 
     def test_handle_with_all_parameters(self) -> None:
@@ -1051,16 +1060,18 @@ class TestHandlerPatternLearningHandle:
         ]
 
         result = handler.handle(
-            training_data=training_data,
-            parameters={"algorithm": "clustering"},
-            similarity_weights={
-                "keyword": 0.30,
-                "pattern": 0.25,
-                "structural": 0.20,
-                "label": 0.15,
-                "context": 0.10,
-            },
-            promotion_threshold=0.80,
+            ModelPatternLearningRequest(
+                training_data=training_data,
+                parameters={"algorithm": "clustering"},
+                similarity_weights={
+                    "keyword": 0.30,
+                    "pattern": 0.25,
+                    "structural": 0.20,
+                    "label": 0.15,
+                    "context": 0.10,
+                },
+                promotion_threshold=0.80,
+            )
         )
 
         assert result["success"] is True
@@ -1099,7 +1110,9 @@ class TestCreateEmptyResult:
             ),
         ]
 
-        result = handler.handle(training_data=training_data)
+        result = handler.handle(
+            ModelPatternLearningRequest(training_data=training_data)
+        )
 
         # Verify all required fields exist
         assert "success" in result
@@ -1127,7 +1140,9 @@ class TestCreateEmptyResult:
             ),
         ]
 
-        result = handler.handle(training_data=training_data)
+        result = handler.handle(
+            ModelPatternLearningRequest(training_data=training_data)
+        )
         metrics = result["metrics"]
 
         # All metric fields should exist
@@ -1154,7 +1169,9 @@ class TestCreateEmptyResult:
             ),
         ]
 
-        result = handler.handle(training_data=training_data)
+        result = handler.handle(
+            ModelPatternLearningRequest(training_data=training_data)
+        )
         metadata = result["metadata"]
 
         # All metadata fields should exist
@@ -1177,7 +1194,9 @@ class TestCreateEmptyResult:
             ),
         ]
 
-        result = handler.handle(training_data=training_data)
+        result = handler.handle(
+            ModelPatternLearningRequest(training_data=training_data)
+        )
         warnings = result["warnings"]
 
         assert isinstance(warnings, list)
@@ -1216,7 +1235,9 @@ class TestHandlerInitializationIntegration:
         ]
 
         # Should still work (stateless compute)
-        result = handler.handle(training_data=training_data)
+        result = handler.handle(
+            ModelPatternLearningRequest(training_data=training_data)
+        )
         assert result["success"] is True
 
     def test_execute_works_without_initialize(self) -> None:
@@ -1253,13 +1274,17 @@ class TestHandlerInitializationIntegration:
                 code_snippet="class ReuseTest:\n    pass",
             ),
         ]
-        result1 = handler.handle(training_data=training_data)
+        result1 = handler.handle(
+            ModelPatternLearningRequest(training_data=training_data)
+        )
         assert result1["success"] is True
         handler.shutdown()
 
         # Second lifecycle
         handler.initialize()
-        result2 = handler.handle(training_data=training_data)
+        result2 = handler.handle(
+            ModelPatternLearningRequest(training_data=training_data)
+        )
         assert result2["success"] is True
         handler.shutdown()
 
@@ -1280,7 +1305,7 @@ class TestEmptyClusterResult:
     def test_empty_clusters_returns_empty_result(self) -> None:
         """When clustering returns empty list, _create_empty_result is called."""
         with mock.patch(
-            "omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_pattern_learning.cluster_patterns"
+            "omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_pattern_learning._cluster_patterns"
         ) as mock_cluster:
             # Mock cluster_patterns to return empty list
             mock_cluster.return_value = []
@@ -1295,7 +1320,9 @@ class TestEmptyClusterResult:
                 ),
             ]
 
-            result = handler.handle(training_data=training_data)
+            result = handler.handle(
+                ModelPatternLearningRequest(training_data=training_data)
+            )
 
             # Should still succeed but with empty patterns
             assert result["success"] is True
@@ -1315,7 +1342,7 @@ class TestEmptyClusterResult:
     def test_empty_result_metadata_is_valid(self) -> None:
         """Empty result has valid metadata."""
         with mock.patch(
-            "omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_pattern_learning.cluster_patterns"
+            "omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_pattern_learning._cluster_patterns"
         ) as mock_cluster:
             mock_cluster.return_value = []
 
@@ -1330,8 +1357,10 @@ class TestEmptyClusterResult:
             ]
 
             result = handler.handle(
-                training_data=training_data,
-                promotion_threshold=0.85,
+                ModelPatternLearningRequest(
+                    training_data=training_data,
+                    promotion_threshold=0.85,
+                )
             )
 
             # Verify metadata
@@ -1345,7 +1374,7 @@ class TestEmptyClusterResult:
     def test_empty_result_metrics_are_zeroed(self) -> None:
         """Empty result metrics are properly zeroed."""
         with mock.patch(
-            "omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_pattern_learning.cluster_patterns"
+            "omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_pattern_learning._cluster_patterns"
         ) as mock_cluster:
             mock_cluster.return_value = []
 
@@ -1363,7 +1392,9 @@ class TestEmptyClusterResult:
                 ),
             ]
 
-            result = handler.handle(training_data=training_data)
+            result = handler.handle(
+                ModelPatternLearningRequest(training_data=training_data)
+            )
 
             metrics = result["metrics"]
             assert metrics.input_count == 2  # Input count is preserved
@@ -1380,7 +1411,7 @@ class TestEmptyClusterResult:
     def test_empty_result_via_execute_envelope(self) -> None:
         """Empty result path works via execute() envelope interface."""
         with mock.patch(
-            "omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_pattern_learning.cluster_patterns"
+            "omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_pattern_learning._cluster_patterns"
         ) as mock_cluster:
             mock_cluster.return_value = []
 
@@ -1406,3 +1437,63 @@ class TestEmptyClusterResult:
             assert result["learned_patterns"] == []
             assert result["candidate_patterns"] == []
             assert "No clusters formed" in result["warnings"][0]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("training_data", "promotion_threshold", "expected_error"),
+    [
+        (
+            [make_training_item("typed-normal", "class NodeCompute:\n    pass")],
+            0.0,
+            False,
+        ),
+        ([], 0.7, True),
+        (
+            [make_training_item("typed-candidate", "def compute():\n    return 1")],
+            1.0,
+            False,
+        ),
+    ],
+    ids=["normal_success", "empty_input", "candidate_patterns"],
+)
+def test_canonical_dispatch_matches_preserved_core(
+    training_data: list[TrainingDataItemDict],
+    promotion_threshold: float,
+    expected_error: bool,
+) -> None:
+    request = ModelPatternLearningRequest(
+        training_data=training_data,
+        parameters={"max_patterns": 2},
+        promotion_threshold=promotion_threshold,
+    )
+    with (
+        mock.patch.object(learning_core.time, "perf_counter", return_value=1.0),
+        mock.patch.object(learning_core, "datetime", wraps=datetime) as clock,
+    ):
+        clock.now.return_value = datetime(2026, 1, 1, tzinfo=UTC)
+        if expected_error:
+            with pytest.raises(PatternLearningValidationError) as preserved:
+                learning_core._execute_pipeline(
+                    training_data,
+                    {"max_patterns": 2},
+                    None,
+                    promotion_threshold,
+                )
+            with pytest.raises(PatternLearningValidationError) as dispatched:
+                HandlerPatternLearning().handle(request)
+            assert str(dispatched.value) == str(preserved.value)
+        else:
+            expected = learning_core._execute_pipeline(
+                training_data,
+                {"max_patterns": 2},
+                None,
+                promotion_threshold,
+            )
+            actual = HandlerPatternLearning().handle(request)
+            assert actual == expected
+            assert actual["success"] is True
+            if promotion_threshold == 0.0:
+                assert actual["learned_patterns"]
+            else:
+                assert actual["candidate_patterns"]

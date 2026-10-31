@@ -28,16 +28,28 @@ from omniintelligence.nodes.node_pattern_learning_compute.handlers.exceptions im
     PatternLearningValidationError,
 )
 from omniintelligence.nodes.node_pattern_learning_compute.handlers.handler_pattern_clustering import (
-    cluster_patterns,
-    compute_similarity,
+    HandlerPatternClustering,
+    HandlerSimilarity,
+)
+from omniintelligence.nodes.node_pattern_learning_compute.handlers.pattern_clustering_core import (
+    _cluster_patterns,
+    _compute_similarity,
 )
 from omniintelligence.nodes.node_pattern_learning_compute.handlers.presets import (
+    DEFAULT_SIMILARITY_WEIGHTS,
     ONEX_PATTERN_KEYWORDS,
 )
 from omniintelligence.nodes.node_pattern_learning_compute.handlers.protocols import (
     ExtractedFeaturesDict,
     SimilarityWeightsDict,
     StructuralFeaturesDict,
+)
+from omniintelligence.nodes.node_pattern_learning_compute.handlers.replay import (
+    NULL_EMITTER,
+)
+from omniintelligence.nodes.node_pattern_learning_compute.models import (
+    ModelPatternClusteringRequest,
+    ModelSimilarityRequest,
 )
 
 # =============================================================================
@@ -208,7 +220,7 @@ class TestComputeSimilarityIdentical:
         self, sample_features_python: ExtractedFeaturesDict
     ) -> None:
         """Identical features should return similarity of 1.0."""
-        result = compute_similarity(sample_features_python, sample_features_python)
+        result = _compute_similarity(sample_features_python, sample_features_python)
 
         assert result["similarity"] == 1.0
         assert result["keyword_similarity"] == 1.0
@@ -222,7 +234,7 @@ class TestComputeSimilarityIdentical:
         self, sample_features_python: ExtractedFeaturesDict
     ) -> None:
         """Result should contain all component scores and weights used."""
-        result = compute_similarity(sample_features_python, sample_features_python)
+        result = _compute_similarity(sample_features_python, sample_features_python)
 
         # Verify all expected keys are present
         assert "similarity" in result
@@ -252,7 +264,7 @@ class TestComputeSimilarityDisjoint:
         sample_features_different: ExtractedFeaturesDict,
     ) -> None:
         """Completely different features should have similarity near 0.0."""
-        result = compute_similarity(sample_features_python, sample_features_different)
+        result = _compute_similarity(sample_features_python, sample_features_different)
 
         # Keywords are disjoint
         assert result["keyword_similarity"] == 0.0
@@ -272,7 +284,7 @@ class TestComputeSimilarityDisjoint:
         sample_features_different: ExtractedFeaturesDict,
     ) -> None:
         """Structural differences reduce similarity."""
-        result = compute_similarity(sample_features_python, sample_features_different)
+        result = _compute_similarity(sample_features_python, sample_features_different)
 
         # Structural features are quite different (different counts, depths, etc.)
         # But not necessarily 0.0 due to normalization
@@ -289,7 +301,7 @@ class TestComputeSimilarityPartialOverlap:
         sample_features_similar: ExtractedFeaturesDict,
     ) -> None:
         """Similar features with partial overlap should have intermediate similarity."""
-        result = compute_similarity(sample_features_python, sample_features_similar)
+        result = _compute_similarity(sample_features_python, sample_features_similar)
 
         # Should be between 0 and 1
         assert 0.0 < result["similarity"] < 1.0
@@ -303,7 +315,7 @@ class TestComputeSimilarityPartialOverlap:
         sample_features_similar: ExtractedFeaturesDict,
     ) -> None:
         """Similar features should have relatively high overall similarity."""
-        result = compute_similarity(sample_features_python, sample_features_similar)
+        result = _compute_similarity(sample_features_python, sample_features_similar)
 
         # These features are intentionally similar
         assert result["similarity"] > 0.5
@@ -328,10 +340,10 @@ class TestComputeSimilarityCustomWeights:
             "context": 0.10,
         }
 
-        result_default = compute_similarity(
+        result_default = _compute_similarity(
             sample_features_python, sample_features_similar
         )
-        result_custom = compute_similarity(
+        result_custom = _compute_similarity(
             sample_features_python, sample_features_similar, weights=custom_weights
         )
 
@@ -376,7 +388,7 @@ class TestComputeSimilarityCustomWeights:
             "context": 0.20,
         }
 
-        result = compute_similarity(features_a, features_b, weights=equal_weights)
+        result = _compute_similarity(features_a, features_b, weights=equal_weights)
 
         # keyword = 1.0 (identical)
         assert result["keyword_similarity"] == 1.0
@@ -408,7 +420,7 @@ class TestComputeSimilarityReturnsAllComponents:
         sample_features_different: ExtractedFeaturesDict,
     ) -> None:
         """Verify SimilarityResultDict contains all raw component scores."""
-        result = compute_similarity(sample_features_python, sample_features_different)
+        result = _compute_similarity(sample_features_python, sample_features_different)
 
         # All component scores should be floats in [0.0, 1.0]
         assert isinstance(result["similarity"], float)
@@ -443,7 +455,7 @@ class TestContextSimilarity:
             keywords=("alpha", "beta", "gamma"),  # No ONEX keywords
         )
 
-        result = compute_similarity(sample_features_no_context, features_b)
+        result = _compute_similarity(sample_features_no_context, features_b)
 
         # Both empty context -> neutral 0.5
         assert result["context_similarity"] == 0.5
@@ -457,7 +469,7 @@ class TestContextSimilarity:
         # sample_features_python has ONEX keywords (frozen, Field)
         # sample_features_no_context has none
 
-        result = compute_similarity(sample_features_python, sample_features_no_context)
+        result = _compute_similarity(sample_features_python, sample_features_no_context)
 
         # One empty -> asymmetric penalty of 0.0
         assert result["context_similarity"] == 0.0
@@ -472,7 +484,7 @@ class TestContextSimilarity:
             keywords=("frozen", "TypedDict", "other"),  # Some ONEX keywords
         )
 
-        result = compute_similarity(sample_features_python, features_b)
+        result = _compute_similarity(sample_features_python, features_b)
 
         # Both have ONEX keywords, so Jaccard is computed
         # sample_features_python has: frozen, Field
@@ -492,7 +504,7 @@ class TestContextSimilarity:
         features_a = make_features(item_id="a", keywords=onex_keywords)
         features_b = make_features(item_id="b", keywords=onex_keywords)
 
-        result = compute_similarity(features_a, features_b)
+        result = _compute_similarity(features_a, features_b)
 
         assert result["context_similarity"] == 1.0
 
@@ -519,9 +531,9 @@ class TestClusterPatternsDeterminism:
             sample_features_different,
         ]
 
-        result1 = cluster_patterns(features_list, threshold=0.5)
-        result2 = cluster_patterns(features_list, threshold=0.5)
-        result3 = cluster_patterns(features_list, threshold=0.5)
+        result1 = _cluster_patterns(features_list, threshold=0.5)
+        result2 = _cluster_patterns(features_list, threshold=0.5)
+        result3 = _cluster_patterns(features_list, threshold=0.5)
 
         # Same number of clusters
         assert len(result1) == len(result2) == len(result3)
@@ -555,9 +567,9 @@ class TestClusterPatternsDeterminism:
             sample_features_python,
         ]
 
-        result_forward = cluster_patterns(features_forward, threshold=0.5)
-        result_reverse = cluster_patterns(features_reverse, threshold=0.5)
-        result_scrambled = cluster_patterns(features_scrambled, threshold=0.5)
+        result_forward = _cluster_patterns(features_forward, threshold=0.5)
+        result_reverse = _cluster_patterns(features_reverse, threshold=0.5)
+        result_scrambled = _cluster_patterns(features_scrambled, threshold=0.5)
 
         # Same number of clusters
         assert len(result_forward) == len(result_reverse) == len(result_scrambled)
@@ -648,7 +660,7 @@ class TestClusterPatternsDeterminismContract:
         ]
 
         # Get canonical result from sorted input
-        canonical_result = cluster_patterns(
+        canonical_result = _cluster_patterns(
             sorted(features_list, key=lambda f: f["item_id"]),
             threshold=0.5,
         )
@@ -658,7 +670,7 @@ class TestClusterPatternsDeterminismContract:
             shuffled_features = features_list.copy()
             random.shuffle(shuffled_features)
 
-            shuffled_result = cluster_patterns(shuffled_features, threshold=0.5)
+            shuffled_result = _cluster_patterns(shuffled_features, threshold=0.5)
 
             # Assert same number of clusters
             assert len(shuffled_result) == len(canonical_result), (
@@ -731,7 +743,7 @@ class TestClusterPatternsDeterminismContract:
             ),
         ]
 
-        result = cluster_patterns(features_list, threshold=0.5)
+        result = _cluster_patterns(features_list, threshold=0.5)
 
         # Verify invariant for every cluster
         for cluster in result:
@@ -796,7 +808,7 @@ class TestClusterPatternsDeterminismContract:
             ),
         ]
 
-        result = cluster_patterns(features_list, threshold=0.5)
+        result = _cluster_patterns(features_list, threshold=0.5)
 
         # Verify clusters are ordered by cluster_id
         for i in range(len(result) - 1):
@@ -836,7 +848,7 @@ class TestClusterPatternsBasic:
         self, sample_features_python: ExtractedFeaturesDict
     ) -> None:
         """Single item should result in one cluster containing that item."""
-        result = cluster_patterns([sample_features_python])
+        result = _cluster_patterns([sample_features_python])
 
         assert len(result) == 1
         assert result[0]["cluster_id"] == "cluster-0001"
@@ -869,7 +881,7 @@ class TestClusterPatternsBasic:
         )
 
         # Very low threshold to ensure they cluster together
-        result = cluster_patterns([features_a, features_b, features_c], threshold=0.5)
+        result = _cluster_patterns([features_a, features_b, features_c], threshold=0.5)
 
         assert len(result) == 1
         assert result[0]["member_count"] == 3
@@ -900,7 +912,7 @@ class TestClusterPatternsBasic:
         )
 
         # High threshold so they don't cluster
-        result = cluster_patterns([features_a, features_b, features_c], threshold=0.99)
+        result = _cluster_patterns([features_a, features_b, features_c], threshold=0.99)
 
         assert len(result) == 3
         assert all(c["member_count"] == 1 for c in result)
@@ -937,7 +949,7 @@ class TestClusterPatternsBasic:
             labels=("effect",),
         )
 
-        result = cluster_patterns(
+        result = _cluster_patterns(
             [g1_a, g1_b, g2_a, g2_b],
             threshold=0.5,
         )
@@ -976,7 +988,7 @@ class TestClusterPatternsClusterIdAssignment:
         )
 
         # High threshold so each is its own cluster
-        result = cluster_patterns([features_z, features_a, features_m], threshold=0.99)
+        result = _cluster_patterns([features_z, features_a, features_m], threshold=0.99)
 
         assert len(result) == 3
 
@@ -1031,7 +1043,7 @@ class TestClusterPatternsMedoidSelection:
         )
 
         # Low threshold to cluster all together
-        result = cluster_patterns(
+        result = _cluster_patterns(
             [features_a, features_b, features_c],
             threshold=0.3,
         )
@@ -1061,7 +1073,7 @@ class TestClusterPatternsMedoidSelection:
         ]
 
         # Low threshold to cluster all together
-        result = cluster_patterns(features, threshold=0.3)
+        result = _cluster_patterns(features, threshold=0.3)
 
         assert len(result) == 1
         cluster = result[0]
@@ -1087,7 +1099,7 @@ class TestClusterPatternsInputValidation:
         features_list = [make_features(item_id=f"item-{i}") for i in range(10)]
 
         with pytest.raises(PatternLearningValidationError) as exc_info:
-            cluster_patterns(features_list, max_input_items=5)
+            _cluster_patterns(features_list, max_input_items=5)
 
         assert "Input size 10 exceeds maximum allowed 5" in str(exc_info.value)
         assert "O(n^2)" in str(exc_info.value)
@@ -1097,7 +1109,7 @@ class TestClusterPatternsInputValidation:
         mock_replay_emitter: MagicMock,
     ) -> None:
         """Empty input should return empty output without crashing."""
-        result = cluster_patterns([], replay_emitter=mock_replay_emitter)
+        result = _cluster_patterns([], replay_emitter=mock_replay_emitter)
 
         assert result == []
 
@@ -1127,7 +1139,7 @@ class TestClusterPatternsReplayArtifact:
         mock_replay_emitter: MagicMock,
     ) -> None:
         """Replay emitter should be called with correct payload shape."""
-        cluster_patterns(
+        _cluster_patterns(
             [sample_features_python, sample_features_similar],
             threshold=0.5,
             replay_emitter=mock_replay_emitter,
@@ -1151,7 +1163,7 @@ class TestClusterPatternsReplayArtifact:
         mock_replay_emitter: MagicMock,
     ) -> None:
         """Replay payload should have correct structure."""
-        cluster_patterns(
+        _cluster_patterns(
             [
                 sample_features_python,
                 sample_features_similar,
@@ -1201,7 +1213,7 @@ class TestClusterPatternsReplayArtifact:
         """Every input item should appear in cluster_assignment_map."""
         features = [make_features(item_id=f"item-{i}") for i in range(5)]
 
-        cluster_patterns(features, threshold=0.99, replay_emitter=mock_replay_emitter)
+        _cluster_patterns(features, threshold=0.99, replay_emitter=mock_replay_emitter)
 
         payload = mock_replay_emitter.emit.call_args[0][1]
         assignment_map = payload["cluster_assignment_map"]
@@ -1225,7 +1237,7 @@ class TestClusterPatternsInternalSimilarity:
         sample_features_python: ExtractedFeaturesDict,
     ) -> None:
         """Single-member cluster should have internal_similarity = 1.0."""
-        result = cluster_patterns([sample_features_python], threshold=0.99)
+        result = _cluster_patterns([sample_features_python], threshold=0.99)
 
         assert len(result) == 1
         assert result[0]["internal_similarity"] == 1.0
@@ -1245,7 +1257,7 @@ class TestClusterPatternsInternalSimilarity:
             for i in range(3)
         ]
 
-        result = cluster_patterns(features, threshold=0.5)
+        result = _cluster_patterns(features, threshold=0.5)
 
         assert len(result) == 1
         # Internal similarity should be high since items are similar
@@ -1272,7 +1284,7 @@ class TestClusterPatternsPatternType:
             make_features(item_id="c", pattern_indicators=("NodeEffect",)),
         ]
 
-        result = cluster_patterns(features, threshold=0.3)
+        result = _cluster_patterns(features, threshold=0.3)
 
         # Assuming they cluster together (adjust threshold if needed)
         # The pattern_type should be "NodeCompute" (most frequent)
@@ -1287,7 +1299,7 @@ class TestClusterPatternsPatternType:
         """Pattern type should be 'unknown' when no pattern indicators."""
         features = make_features(item_id="a", pattern_indicators=())
 
-        result = cluster_patterns([features])
+        result = _cluster_patterns([features])
 
         assert len(result) == 1
         assert result[0]["pattern_type"] == "unknown"
@@ -1311,15 +1323,15 @@ class TestClusterPatternsEdgeCases:
         features_b = make_features(item_id="b", keywords=("x",))
 
         # These should be very similar
-        sim_result = compute_similarity(features_a, features_b)
+        sim_result = _compute_similarity(features_a, features_b)
         threshold = sim_result["similarity"]
 
         # At exact threshold, should cluster (>= threshold)
-        result = cluster_patterns([features_a, features_b], threshold=threshold)
+        result = _cluster_patterns([features_a, features_b], threshold=threshold)
         assert len(result) == 1
 
         # Just above threshold, should NOT cluster
-        result_higher = cluster_patterns(
+        result_higher = _cluster_patterns(
             [features_a, features_b], threshold=threshold + 0.001
         )
         assert len(result_higher) == 2
@@ -1331,7 +1343,7 @@ class TestClusterPatternsEdgeCases:
         features = [make_features(item_id=f"item-{i}") for i in range(3)]
 
         # Should not raise and should use DEFAULT_CLUSTERING_THRESHOLD
-        result = cluster_patterns(features)
+        result = _cluster_patterns(features)
 
         # Just verify it runs without error
         assert isinstance(result, list)
@@ -1342,7 +1354,7 @@ class TestClusterPatternsEdgeCases:
         """Default weights should be applied when not specified."""
         features = [make_features(item_id=f"item-{i}") for i in range(2)]
 
-        result = cluster_patterns(features, threshold=0.5)
+        result = _cluster_patterns(features, threshold=0.5)
 
         # Just verify it runs without error - default weights are used internally
         assert isinstance(result, list)
@@ -1358,7 +1370,7 @@ class TestClusterPatternsEdgeCases:
         ]
 
         # Low threshold to cluster all together
-        result = cluster_patterns(features, threshold=0.0)
+        result = _cluster_patterns(features, threshold=0.0)
 
         assert len(result) == 1
         member_ids = result[0]["member_ids"]
@@ -1388,7 +1400,7 @@ class TestClusterPatternsMemberPatternIndicators:
         ]
 
         # Low threshold to cluster all together
-        result = cluster_patterns(features, threshold=0.0)
+        result = _cluster_patterns(features, threshold=0.0)
 
         assert len(result) == 1
         cluster = result[0]
@@ -1404,7 +1416,7 @@ class TestClusterPatternsMemberPatternIndicators:
             make_features(item_id="b", pattern_indicators=("Indicator_B",)),
         ]
 
-        result = cluster_patterns(features, threshold=0.0)
+        result = _cluster_patterns(features, threshold=0.0)
 
         assert len(result) == 1
         cluster = result[0]
@@ -1425,7 +1437,7 @@ class TestClusterPatternsMemberPatternIndicators:
             make_features(item_id="a", pattern_indicators=("NodeCompute", "frozen")),
         ]
 
-        result = cluster_patterns(features, threshold=0.99)
+        result = _cluster_patterns(features, threshold=0.99)
 
         assert len(result) == 1
         assert result[0]["member_pattern_indicators"][0] == ("NodeCompute", "frozen")
@@ -1438,7 +1450,7 @@ class TestClusterPatternsMemberPatternIndicators:
             make_features(item_id="a", pattern_indicators=()),
         ]
 
-        result = cluster_patterns(features)
+        result = _cluster_patterns(features)
 
         assert len(result) == 1
         assert result[0]["member_pattern_indicators"][0] == ()
@@ -1463,7 +1475,7 @@ class TestClusterPatternsLabelAgreement:
             make_features(item_id="c", pattern_indicators=("NodeCompute",)),
         ]
 
-        result = cluster_patterns(features, threshold=0.0)
+        result = _cluster_patterns(features, threshold=0.0)
 
         assert len(result) == 1
         assert result[0]["pattern_type"] == "NodeCompute"
@@ -1479,7 +1491,7 @@ class TestClusterPatternsLabelAgreement:
             make_features(item_id="c", pattern_indicators=("NodeEffect",)),  # different
         ]
 
-        result = cluster_patterns(features, threshold=0.0)
+        result = _cluster_patterns(features, threshold=0.0)
 
         assert len(result) == 1
         # NodeCompute appears 2x, NodeEffect 1x -> dominant is NodeCompute
@@ -1499,7 +1511,7 @@ class TestClusterPatternsLabelAgreement:
             make_features(item_id="c", pattern_indicators=("Gamma",)),
         ]
 
-        result = cluster_patterns(features, threshold=0.0)
+        result = _cluster_patterns(features, threshold=0.0)
 
         assert len(result) == 1
         # All have 1 count, alphabetically "Alpha" wins
@@ -1516,7 +1528,7 @@ class TestClusterPatternsLabelAgreement:
             make_features(item_id="b", pattern_indicators=()),
         ]
 
-        result = cluster_patterns(features, threshold=0.0)
+        result = _cluster_patterns(features, threshold=0.0)
 
         assert len(result) == 1
         assert result[0]["pattern_type"] == "unknown"
@@ -1530,7 +1542,7 @@ class TestClusterPatternsLabelAgreement:
             make_features(item_id="a", pattern_indicators=("NodeCompute",)),
         ]
 
-        result = cluster_patterns(features)
+        result = _cluster_patterns(features)
 
         assert len(result) == 1
         assert result[0]["pattern_type"] == "NodeCompute"
@@ -1549,7 +1561,7 @@ class TestClusterPatternsLabelAgreement:
             ),  # no NodeCompute
         ]
 
-        result = cluster_patterns(features, threshold=0.0)
+        result = _cluster_patterns(features, threshold=0.0)
 
         assert len(result) == 1
         # NodeCompute appears 2x (in a and b), frozen appears 2x (in a and c)
@@ -1574,7 +1586,7 @@ class TestClusterPatternsInvariants:
         """member_count should equal len(member_ids)."""
         features = [make_features(item_id=f"item-{i}") for i in range(5)]
 
-        result = cluster_patterns(features, threshold=0.0)
+        result = _cluster_patterns(features, threshold=0.0)
 
         for cluster in result:
             assert cluster["member_count"] == len(cluster["member_ids"])
@@ -1585,7 +1597,7 @@ class TestClusterPatternsInvariants:
         """len(member_pattern_indicators) should equal len(member_ids)."""
         features = [make_features(item_id=f"item-{i}") for i in range(5)]
 
-        result = cluster_patterns(features, threshold=0.0)
+        result = _cluster_patterns(features, threshold=0.0)
 
         for cluster in result:
             assert len(cluster["member_pattern_indicators"]) == len(
@@ -1627,7 +1639,7 @@ class TestClusterPatternsReplayInvariants:
         ]
 
         emitter = MagicMock()
-        cluster_patterns(features, threshold=0.5, replay_emitter=emitter)
+        _cluster_patterns(features, threshold=0.5, replay_emitter=emitter)
 
         # Extract replay artifact payload
         emitter.emit.assert_called_once()
@@ -1698,7 +1710,7 @@ class TestClusterPatternsReplayInvariants:
         ]
 
         emitter = MagicMock()
-        cluster_patterns(features, threshold=0.5, replay_emitter=emitter)
+        _cluster_patterns(features, threshold=0.5, replay_emitter=emitter)
 
         # Extract replay artifact
         payload = emitter.emit.call_args[0][1]
@@ -1744,7 +1756,7 @@ class TestClusterPatternsReplayInvariants:
         ]
 
         emitter = MagicMock()
-        cluster_patterns(features, threshold=0.5, replay_emitter=emitter)
+        _cluster_patterns(features, threshold=0.5, replay_emitter=emitter)
 
         # Extract replay artifact
         payload = emitter.emit.call_args[0][1]
@@ -1836,7 +1848,7 @@ class TestClusterPatternsReplayInvariants:
         )
 
         emitter = MagicMock()
-        result = cluster_patterns(
+        result = _cluster_patterns(
             [features_a, features_b, features_c],
             threshold=0.5,
             replay_emitter=emitter,
@@ -1876,3 +1888,42 @@ class TestClusterPatternsReplayInvariants:
             f"Expected: {expected_leaders}\n"
             f"Actual: {cluster_leaders}"
         )
+
+
+@pytest.mark.unit
+def test_similarity_typed_entry_point(
+    sample_features_python: ExtractedFeaturesDict,
+    sample_features_similar: ExtractedFeaturesDict,
+) -> None:
+    request = ModelSimilarityRequest(
+        features_a=sample_features_python,
+        features_b=sample_features_similar,
+        weights=DEFAULT_SIMILARITY_WEIGHTS,
+    )
+    assert HandlerSimilarity().handle(request) == _compute_similarity(
+        sample_features_python,
+        sample_features_similar,
+        DEFAULT_SIMILARITY_WEIGHTS,
+    )
+
+
+@pytest.mark.unit
+def test_pattern_clustering_typed_entry_point(
+    sample_features_python: ExtractedFeaturesDict,
+    sample_features_similar: ExtractedFeaturesDict,
+) -> None:
+    features = [sample_features_python, sample_features_similar]
+    request = ModelPatternClusteringRequest(
+        features_list=features,
+        threshold=0.5,
+        weights=DEFAULT_SIMILARITY_WEIGHTS,
+        max_input_items=10,
+        replay_emitter=NULL_EMITTER,
+    )
+    assert HandlerPatternClustering().handle(request) == _cluster_patterns(
+        features,
+        0.5,
+        DEFAULT_SIMILARITY_WEIGHTS,
+        10,
+        NULL_EMITTER,
+    )

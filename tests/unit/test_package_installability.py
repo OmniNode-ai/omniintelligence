@@ -190,7 +190,7 @@ HANDLER_ENTRY_POINTS = [
     # --- Orchestrator (with handler routing) ---
     (
         "omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers",
-        "handle_pattern_assembly_orchestrate",
+        "HandlerPatternAssemblyOrchestrate",
     ),
     # --- Effect nodes (continued) ---
     (

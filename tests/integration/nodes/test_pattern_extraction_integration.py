@@ -4,7 +4,7 @@
 """Integration Tests for Pattern Assembly Orchestration.
 
 Tests the complete pattern assembly orchestrator pipeline with real-world
-scenarios. Calls handle_pattern_assembly_orchestrate directly (without
+scenarios. Calls HandlerPatternAssemblyOrchestrate directly (without
 injected compute nodes) to verify orchestration workflow, input validation,
 output structure, correlation ID propagation, and performance.
 
@@ -24,10 +24,11 @@ import uuid
 import pytest
 
 from omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers.handler_orchestrate import (
-    handle_pattern_assembly_orchestrate,
+    HandlerPatternAssemblyOrchestrate,
 )
 from omniintelligence.nodes.node_pattern_assembler_orchestrator.models import (
     ModelPatternAssemblyInput,
+    ModelPatternAssemblyOrchestrateRequest,
     SuccessCriterionDict,
 )
 
@@ -109,7 +110,9 @@ async def test_code_generation_scenario() -> None:
         correlation_id=correlation_id,
     )
 
-    result = await handle_pattern_assembly_orchestrate(input_data)
+    result = await HandlerPatternAssemblyOrchestrate().handle(
+        ModelPatternAssemblyOrchestrateRequest(input_data=input_data)
+    )
 
     # Verify success
     assert result.success is True, f"Expected success, got metadata: {result.metadata}"
@@ -193,7 +196,9 @@ async def test_debugging_scenario() -> None:
         correlation_id=str(uuid.uuid4()),
     )
 
-    result = await handle_pattern_assembly_orchestrate(input_data)
+    result = await HandlerPatternAssemblyOrchestrate().handle(
+        ModelPatternAssemblyOrchestrateRequest(input_data=input_data)
+    )
 
     # Verify success (orchestration succeeded even if debugging scenario found issues)
     assert result.success is True, f"Expected success, got metadata: {result.metadata}"
@@ -269,7 +274,9 @@ async def test_testing_scenario() -> None:
         correlation_id=str(uuid.uuid4()),
     )
 
-    result = await handle_pattern_assembly_orchestrate(input_data)
+    result = await HandlerPatternAssemblyOrchestrate().handle(
+        ModelPatternAssemblyOrchestrateRequest(input_data=input_data)
+    )
 
     # Verify success
     assert result.success is True, f"Expected success, got metadata: {result.metadata}"
@@ -296,7 +303,9 @@ async def test_empty_input_handling() -> None:
         success_criteria=[],
     )
 
-    result = await handle_pattern_assembly_orchestrate(input_data)
+    result = await HandlerPatternAssemblyOrchestrate().handle(
+        ModelPatternAssemblyOrchestrateRequest(input_data=input_data)
+    )
 
     # Should return structured error (never raises)
     assert result.success is False, "Expected failure for empty input"
@@ -357,7 +366,9 @@ async def test_parallel_execution_performance() -> None:
     # Run multiple times for average
     times: list[int] = []
     for _ in range(5):
-        result = await handle_pattern_assembly_orchestrate(input_data)
+        result = await HandlerPatternAssemblyOrchestrate().handle(
+            ModelPatternAssemblyOrchestrateRequest(input_data=input_data)
+        )
         assert result.success is True, (
             f"Expected success, got metadata: {result.metadata}"
         )
@@ -392,7 +403,9 @@ async def test_correlation_id_propagation() -> None:
         correlation_id=test_correlation_id,
     )
 
-    result = await handle_pattern_assembly_orchestrate(input_data)
+    result = await HandlerPatternAssemblyOrchestrate().handle(
+        ModelPatternAssemblyOrchestrateRequest(input_data=input_data)
+    )
 
     # Verify correlation ID preserved
     assert result.correlation_id == test_correlation_id, (

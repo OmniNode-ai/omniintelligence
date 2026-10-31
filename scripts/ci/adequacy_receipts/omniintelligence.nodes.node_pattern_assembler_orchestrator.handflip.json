@@ -1,0 +1,28 @@
+{
+  "base_ref": "dbd04de5b",
+  "canonical_handler_module": "omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers.handler_orchestrate",
+  "legacy_handler_module": "omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers.handler_orchestrate",
+  "node_id": "omniintelligence.nodes.node_pattern_assembler_orchestrator",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:85cab38a48b7bf9bb3c57ae03196233d60fb896697f3d743a8ae1dceb64e0892",
+      "sha256:3160bd21cac2ba26459dfee28d36470dba55eef77132b48bac7a923c86801a52",
+      "sha256:ace855b892da0194cebb7c4054f5ce14182ff3aea3dd2f817237121044d98279"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_pattern_assembler_orchestrator/test_handler_orchestrate.py::test_canonical_dispatch_matches_preserved_core[normal_success]",
+      "tests/unit/nodes/node_pattern_assembler_orchestrator/test_handler_orchestrate.py::test_canonical_dispatch_matches_preserved_core[empty_input]",
+      "tests/unit/nodes/node_pattern_assembler_orchestrator/test_handler_orchestrate.py::test_canonical_dispatch_matches_preserved_core[invalid_schema]"
+    ]
+  },
+  "preserved_symbols": [
+    "_validate_input",
+    "_create_workflow_error_output",
+    "_create_validation_error_output",
+    "_create_timeout_error_output",
+    "_create_domain_error_output",
+    "_create_safe_error_output"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

@@ -14,6 +14,21 @@ from omnibase_core.models.pattern_learning import (
     ModelPatternSignature,
 )
 
+from omniintelligence.nodes.node_pattern_learning_compute.models.model_confidence_scoring_request import (
+    ModelConfidenceScoringRequest,
+)
+from omniintelligence.nodes.node_pattern_learning_compute.models.model_deduplication_request import (
+    ModelDeduplicationRequest,
+)
+from omniintelligence.nodes.node_pattern_learning_compute.models.model_feature_extraction_item_request import (
+    ModelFeatureExtractionItemRequest,
+)
+from omniintelligence.nodes.node_pattern_learning_compute.models.model_feature_extraction_request import (
+    ModelFeatureExtractionRequest,
+)
+from omniintelligence.nodes.node_pattern_learning_compute.models.model_pattern_clustering_request import (
+    ModelPatternClusteringRequest,
+)
 from omniintelligence.nodes.node_pattern_learning_compute.models.model_pattern_learning_input import (
     LearningParametersDict,
     ModelPatternLearningInput,
@@ -22,8 +37,25 @@ from omniintelligence.nodes.node_pattern_learning_compute.models.model_pattern_l
 from omniintelligence.nodes.node_pattern_learning_compute.models.model_pattern_learning_output import (
     ModelPatternLearningOutput,
 )
+from omniintelligence.nodes.node_pattern_learning_compute.models.model_pattern_learning_request import (
+    ModelPatternLearningRequest,
+)
+from omniintelligence.nodes.node_pattern_learning_compute.models.model_pattern_signature_request import (
+    ModelPatternSignatureRequest,
+)
+from omniintelligence.nodes.node_pattern_learning_compute.models.model_similarity_request import (
+    ModelSimilarityRequest,
+)
 
 __all__ = [
+    "ModelPatternLearningRequest",
+    "ModelPatternClusteringRequest",
+    "ModelSimilarityRequest",
+    "ModelFeatureExtractionRequest",
+    "ModelFeatureExtractionItemRequest",
+    "ModelDeduplicationRequest",
+    "ModelPatternSignatureRequest",
+    "ModelConfidenceScoringRequest",
     "LearningParametersDict",
     "ModelLearnedPattern",
     "ModelPatternLearningInput",

@@ -37,12 +37,12 @@ from omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers.excepti
     PatternAssemblerOrchestratorError,
     WorkflowTimeoutError,
 )
-from omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers.handler_pattern_assembly import (
-    assemble_pattern,
-)
 from omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers.handler_workflow_coordination import (
-    build_assembly_context,
-    execute_workflow_async,
+    _build_assembly_context,
+    _execute_workflow_async,
+)
+from omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers.pattern_assembly_core import (
+    _assemble_pattern,
 )
 from omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers.protocols import (
     ProtocolComputeNode,
@@ -55,6 +55,9 @@ from omniintelligence.nodes.node_pattern_assembler_orchestrator.models import (
     ModelPatternAssemblyInput,
     ModelPatternAssemblyOutput,
 )
+from omniintelligence.nodes.node_pattern_assembler_orchestrator.models.model_pattern_assembly_orchestrate_request import (
+    ModelPatternAssemblyOrchestrateRequest,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +65,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_TIMEOUT_SECONDS = 120
 
 
-async def handle_pattern_assembly_orchestrate(
+async def _handle_pattern_assembly_orchestrate(
     input_data: ModelPatternAssemblyInput
     | dict[str, Any],  # any-ok: unpacked into Pydantic model constructor
     trace_parser_node: ProtocolComputeNode | None = None,
@@ -110,7 +113,7 @@ async def handle_pattern_assembly_orchestrate(
         # Execute the workflow with enforced timeout
         try:
             workflow_result = await asyncio.wait_for(
-                execute_workflow_async(
+                _execute_workflow_async(
                     input_data=input_data,
                     trace_parser_node=trace_parser_node,
                     intent_classifier_node=intent_classifier_node,
@@ -133,10 +136,10 @@ async def handle_pattern_assembly_orchestrate(
             )
 
         # Build assembly context from results
-        assembly_context = build_assembly_context(input_data, workflow_result)
+        assembly_context = _build_assembly_context(input_data, workflow_result)
 
         # Assemble the final pattern
-        assembled_pattern, component_results, metadata = assemble_pattern(
+        assembled_pattern, component_results, metadata = _assemble_pattern(
             context=assembly_context,
             workflow_result=workflow_result,
             _input_data=input_data,
@@ -384,6 +387,22 @@ def _create_safe_error_output(
     )
 
 
+class HandlerPatternAssemblyOrchestrate:
+    """Typed entry point for _handle_pattern_assembly_orchestrate."""
+
+    async def handle(
+        self, request: ModelPatternAssemblyOrchestrateRequest
+    ) -> ModelPatternAssemblyOutput:
+        """Delegate to the preserved computation."""
+        return await _handle_pattern_assembly_orchestrate(
+            request.input_data,
+            request.trace_parser_node,
+            request.intent_classifier_node,
+            request.criteria_matcher_node,
+            request.timeout_seconds,
+        )
+
+
 __all__ = [
-    "handle_pattern_assembly_orchestrate",
+    "HandlerPatternAssemblyOrchestrate",
 ]

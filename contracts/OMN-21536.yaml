@@ -17,10 +17,21 @@ requirements:
       - id: "AC1"
         statement: |-
           AC1: the unit tests of the six converted handlers call the handler classes and pass -- falsifier: uv run pytest tests/unit/nodes/node_ci_error_classifier_compute tests/unit/nodes/node_semantic_analysis_compute tests/unit/nodes/node_success_criteria_matcher_compute tests/unit/nodes/node_execution_trace_parser_compute tests/unit/nodes/node_pattern_matching_compute tests/unit/nodes/node_code_entity_bridge_compute -q
+  - id: "req-pattern-handler-classes"
+    statement: |-
+      Each handler module of node_pattern_learning_compute and node_pattern_assembler_orchestrator holds a handler class exposing handle(request) with a typed request model, and no bare public handler function remains.
+    acceptance:
+      - id: "AC2"
+        statement: |-
+          AC2: the unit tests of the pattern learning and pattern assembler nodes call the handler classes and pass, and the canonical-dispatch parity tests of the two contract-bound handlers pass -- falsifier: uv run pytest tests/unit/nodes/node_pattern_learning_compute tests/unit/nodes/node_pattern_assembler_orchestrator tests/unit/test_node_purity.py -q
 evidence_requirements:
   - kind: "tests"
     description: "Handler-class unit tests for the six nodes pass."
     command: "uv run pytest tests/unit/nodes/node_ci_error_classifier_compute tests/unit/nodes/node_semantic_analysis_compute
+      -q"
+  - kind: "tests"
+    description: "Handler-class unit tests of the pattern learning and pattern assembler nodes pass."
+    command: "uv run pytest tests/unit/nodes/node_pattern_learning_compute tests/unit/nodes/node_pattern_assembler_orchestrator
       -q"
 emergency_bypass:
   enabled: false
@@ -35,3 +46,12 @@ dod_evidence:
         check_value: "uv run pytest tests/unit/nodes/node_ci_error_classifier_compute tests/unit/nodes/node_semantic_analysis_compute
           -q"
     binds_ac: ["AC1"]
+  - id: "dod-omn21536-ac2-pattern-handler-classes"
+    description: "The converted pattern learning and pattern assembler handler classes are exercised by
+      the unit tests of the two nodes."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/nodes/node_pattern_learning_compute tests/unit/nodes/node_pattern_assembler_orchestrator
+          -q"
+    binds_ac: ["AC2"]
