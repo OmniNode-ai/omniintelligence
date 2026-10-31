@@ -29,12 +29,11 @@ summary: >-
   prefix of the code projection leaves nine modules for code_projection/artifact_ref.yaml, the Gemini
   and Z.AI plan-reviewer chat endpoints move into adapters/adapter_settings.yaml, the review-bot client
   takes its API base URL from the caller, and the two webhook redaction patterns of the log sanitizer
-  move into utils/log_sanitizer_webhooks.yaml.
-  A fifth slice removes 14 more literal_timeout findings (30
-  to 16 over src at dev 2f753f65, all rules 290 to 276): the code projection Qdrant, embedding and Postgres
-  timeouts, the navigation, pattern assembly, regex and watchdog node defaults, the session query budget,
-  the contract linter poll and the codemod sandbox budget. They sit in runtime/runtime_timeouts.yaml (ModelRuntimeTimeouts)
-  and review_pairing/review_budgets.yaml.
+  move into utils/log_sanitizer_webhooks.yaml. A fifth slice removes 14 more literal_timeout findings
+  (30 to 16 over src at dev 2f753f65, all rules 290 to 276): the code projection Qdrant, embedding and
+  Postgres timeouts, the navigation, pattern assembly, regex and watchdog node defaults, the session query
+  budget, the contract linter poll and the codemod sandbox budget. They sit in runtime/runtime_timeouts.yaml
+  (ModelRuntimeTimeouts) and review_pairing/review_budgets.yaml.
 is_seam_ticket: false
 interface_change: false
 interfaces_touched: []
