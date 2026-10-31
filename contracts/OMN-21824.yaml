@@ -1,0 +1,72 @@
+---
+schema_version: 1.0.0
+ticket_id: OMN-21824
+title: Update the locked pyasn1 dependency to 0.6.5
+summary: >-
+  Update pyasn1 from 0.6.4 to 0.6.5 in uv.lock, including the source distribution and wheel metadata.
+  Verify the selected version, lock consistency and basic BER and DER encoding and decoding with the installed
+  dependency.
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: req-omn21824-pyasn1-upgrade
+    statement: The project resolves pyasn1 0.6.5 from its lockfile.
+    acceptance:
+      - id: AC1
+        statement: The unique pyasn1 lock entry and its distribution URLs select version 0.6.5.
+      - id: AC2
+        statement: The lockfile remains consistent with the project dependency declarations.
+      - id: AC3
+        statement: The installed pyasn1 version is 0.6.5 and BER and DER integer round trips pass.
+evidence_requirements:
+  - kind: tests
+    description: Run the lockfile assertions, lock consistency check and installed codec smoke check.
+    command: uv lock --check
+emergency_bypass:
+  enabled: false
+  justification: ''
+  follow_up_ticket_id: ''
+dod_evidence:
+  - id: dod-omn21824-ac1-lock-version
+    description: Reject a missing, duplicate or stale pyasn1 lock entry or distribution URL.
+    source: manual
+    checks:
+      - check_type: command
+        check_value: >-
+          env PYTHONDONTWRITEBYTECODE=1 python3 -c 'import tomllib; from pathlib import Path; packages
+          = tomllib.loads(Path("uv.lock").read_text())["package"]; matches = [p for p in packages if p["name"]
+          == "pyasn1"]; assert len(matches) == 1, matches; package = matches[0]; assert package["version"]
+          == "0.6.5", package["version"]; assert package["sdist"]["url"].endswith("/pyasn1-0.6.5.tar.gz");
+          assert package["wheels"] and all(w["url"].endswith("/pyasn1-0.6.5-py3-none-any.whl") for w in
+          package["wheels"]); print("pyasn1 lock entry and artifacts select 0.6.5")'
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC1
+  - id: dod-omn21824-ac2-lock-consistency
+    description: Reject a lockfile that needs updating for the project dependency declarations.
+    source: manual
+    checks:
+      - check_type: command
+        check_value: env PYTHONDONTWRITEBYTECODE=1 uv lock --check
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC2
+  - id: dod-omn21824-ac3-codec-smoke
+    description: Check the installed version and decode BER and DER encoded integers without trailing
+      data.
+    source: manual
+    checks:
+      - check_type: command
+        check_value: >-
+          env PYTHONDONTWRITEBYTECODE=1 uv run --locked --no-dev python -c 'import pyasn1; from pyasn1.type.univ
+          import Integer; from pyasn1.codec.ber import encoder as ber_encoder, decoder as ber_decoder;
+          from pyasn1.codec.der import encoder as der_encoder, decoder as der_decoder; assert pyasn1.__version__
+          == "0.6.5", pyasn1.__version__; pairs = [(ber_encoder, ber_decoder), (der_encoder, der_decoder)];
+          results = [decoder.decode(encoder.encode(Integer(value)), asn1Spec=Integer()) for encoder, decoder
+          in pairs for value in (-129, 0, 127, 128, 65536)]; assert [(int(value), rest) for value, rest
+          in results] == [(value, b"") for _ in pairs for value in (-129, 0, 127, 128, 65536)]; print("pyasn1
+          0.6.5 BER and DER round trips passed")'
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC3
