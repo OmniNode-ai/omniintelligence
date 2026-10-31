@@ -44,8 +44,8 @@ handler_routing:
   handlers:
     - operation: "analyze_semantics"
       handler:
-        function: "handle_semantic_analysis_compute"
-        module: "omniintelligence.nodes.node_semantic_analysis_compute.handlers"
+        class: "HandlerSemanticAnalysisCompute"
+        module: "omniintelligence.nodes.node_semantic_analysis_compute.handlers.handler_compute_semantic_analysis"
         type: "sync"
 dependencies: []
 # Future protocol dependency (uncomment when protocols module exists):

@@ -59,64 +59,65 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def handle_trace_parsing_compute(
-    input_data: ModelTraceParsingInput,
-) -> ModelTraceParsingOutput:
-    """Handle trace parsing compute operation.
+class HandlerTraceParsingCompute:
+    """Typed entry point for the trace parsing compute orchestration."""
 
-    This function orchestrates the trace parsing workflow:
-    1. Validates input data
-    2. Builds span tree from trace data
-    3. Correlates external logs with spans
-    4. Extracts span lifecycle events
-    5. Detects error events
-    6. Computes timing metrics
-    7. Constructs output model with metadata
+    def handle(self, request: ModelTraceParsingInput) -> ModelTraceParsingOutput:
+        """Handle trace parsing compute operation.
 
-    Args:
-        input_data: Input containing trace data and parsing options.
+        This function orchestrates the trace parsing workflow:
+        1. Validates input data
+        2. Builds span tree from trace data
+        3. Correlates external logs with spans
+        4. Extracts span lifecycle events
+        5. Detects error events
+        6. Computes timing metrics
+        7. Constructs output model with metadata
 
-    Returns:
-        ModelTraceParsingOutput with parsed events, errors, and timing.
+        Args:
+            request: Input containing trace data and parsing options.
 
-    Note:
-        This function never raises exceptions. All errors are captured
-        and returned as structured output with success=False.
-    """
-    start_time = time.perf_counter()
-    correlation_id = input_data.correlation_id
+        Returns:
+            ModelTraceParsingOutput with parsed events, errors, and timing.
 
-    logger.debug(
-        "Starting trace parsing compute",
-        extra={"correlation_id": correlation_id},
-    )
+        Note:
+            This function never raises exceptions. All errors are captured
+            and returned as structured output with success=False.
+        """
+        start_time = time.perf_counter()
+        correlation_id = request.correlation_id
 
-    try:
-        return _execute_parsing(input_data, start_time, correlation_id)
-
-    except TraceParsingComputeError as e:
-        processing_time = _elapsed_time_ms(start_time)
-        logger.error(
-            "Trace parsing compute error: %s",
-            str(e),
+        logger.debug(
+            "Starting trace parsing compute",
             extra={"correlation_id": correlation_id},
         )
-        return _create_compute_error_output(
-            str(e), processing_time, input_data.trace_format
-        )
 
-    except Exception as e:
-        processing_time = _safe_elapsed_time_ms(start_time)
-        # Log with exception info, but suppress logging failures
-        with contextlib.suppress(Exception):
-            logger.exception(
-                "Unhandled exception in trace parsing: %s",
+        try:
+            return _execute_parsing(request, start_time, correlation_id)
+
+        except TraceParsingComputeError as e:
+            processing_time = _elapsed_time_ms(start_time)
+            logger.error(
+                "Trace parsing compute error: %s",
                 str(e),
                 extra={"correlation_id": correlation_id},
             )
-        return _create_safe_error_output(
-            f"Unhandled error: {e}", processing_time, input_data.trace_format
-        )
+            return _create_compute_error_output(
+                str(e), processing_time, request.trace_format
+            )
+
+        except Exception as e:
+            processing_time = _safe_elapsed_time_ms(start_time)
+            # Log with exception info, but suppress logging failures
+            with contextlib.suppress(Exception):
+                logger.exception(
+                    "Unhandled exception in trace parsing: %s",
+                    str(e),
+                    extra={"correlation_id": correlation_id},
+                )
+            return _create_safe_error_output(
+                f"Unhandled error: {e}", processing_time, request.trace_format
+            )
 
 
 def _execute_parsing(
@@ -451,5 +452,5 @@ def _create_safe_error_output(
 
 
 __all__ = [
-    "handle_trace_parsing_compute",
+    "HandlerTraceParsingCompute",
 ]

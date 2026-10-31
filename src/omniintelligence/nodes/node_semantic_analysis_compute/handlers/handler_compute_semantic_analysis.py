@@ -15,10 +15,10 @@ Design Decisions:
 
 Usage:
     from omniintelligence.nodes.node_semantic_analysis_compute.handlers import (
-        handle_semantic_analysis_compute,
+        HandlerSemanticAnalysisCompute,
     )
 
-    output = handle_semantic_analysis_compute(input_data)
+    output = HandlerSemanticAnalysisCompute().handle(input_data)
 """
 
 from __future__ import annotations
@@ -51,73 +51,79 @@ from omniintelligence.nodes.node_semantic_analysis_compute.models.model_semantic
 logger = logging.getLogger(__name__)
 
 
-def handle_semantic_analysis_compute(
-    input_data: ModelSemanticAnalysisInput,
-) -> ModelSemanticAnalysisOutput:
-    """Compute semantic analysis from input and return typed output.
+class HandlerSemanticAnalysisCompute:
+    """Typed entry point for the semantic analysis computation."""
 
-    This is the main handler function for semantic analysis. It:
-    1. Extracts parameters from the input model
-    2. Calls the pure analyze_semantics function
-    3. Converts TypedDict results to Pydantic models
-    4. Handles all error cases with logging
+    def handle(
+        self, request: ModelSemanticAnalysisInput
+    ) -> ModelSemanticAnalysisOutput:
+        """Compute semantic analysis from input and return typed output.
 
-    Args:
-        input_data: Typed input model containing code snippet and context.
+        This is the main handler method for semantic analysis. It:
+        1. Extracts parameters from the input model
+        2. Calls the pure analyze_semantics function
+        3. Converts TypedDict results to Pydantic models
+        4. Handles all error cases with logging
 
-    Returns:
-        ModelSemanticAnalysisOutput with extracted entities, relations,
-        semantic features, and metadata.
+        Args:
+            request: Typed input model containing code snippet and context.
 
-    Note:
-        All error cases internally. Unknown enum values
-        are mapped to safe defaults with warnings logged.
-    """
-    # Extract parameters from input
-    content = input_data.code_snippet
-    language = input_data.context.get("source_language", "python")
+        Returns:
+            ModelSemanticAnalysisOutput with extracted entities, relations,
+            semantic features, and metadata.
 
-    # Call the pure handler function
-    result = analyze_semantics(
-        content=content,
-        language=language,
-        include_call_graph=True,
-        include_import_graph=True,
-    )
+        Note:
+            All error cases internally. Unknown enum values
+            are mapped to safe defaults with warnings logged.
+        """
+        # Extract parameters from input
+        content = request.code_snippet
+        language = request.context.get("source_language", "python")
 
-    # Convert handler TypedDicts to Pydantic models
-    entities = [_convert_entity_dict_to_model(entity) for entity in result["entities"]]
-    relations = [
-        _convert_relation_dict_to_model(relation) for relation in result["relations"]
-    ]
+        # Call the pure handler function
+        result = analyze_semantics(
+            content=content,
+            language=language,
+            include_call_graph=True,
+            include_import_graph=True,
+        )
 
-    # Build metadata
-    metadata: SemanticAnalysisMetadataDict = {
-        "status": "completed",
-        "algorithm_version": ANALYSIS_VERSION_STR,
-        "processing_time_ms": result["metadata"].get("processing_time_ms", 0.0),
-        "input_length": result["metadata"].get("input_length", len(content)),
-        "input_line_count": result["metadata"].get("input_line_count", 0),
-    }
+        # Convert handler TypedDicts to Pydantic models
+        entities = [
+            _convert_entity_dict_to_model(entity) for entity in result["entities"]
+        ]
+        relations = [
+            _convert_relation_dict_to_model(relation)
+            for relation in result["relations"]
+        ]
 
-    # Add correlation ID if provided in context
-    correlation_id = input_data.context.get("correlation_id")
-    if correlation_id:
-        metadata["correlation_id"] = correlation_id
+        # Build metadata
+        metadata: SemanticAnalysisMetadataDict = {
+            "status": "completed",
+            "algorithm_version": ANALYSIS_VERSION_STR,
+            "processing_time_ms": result["metadata"].get("processing_time_ms", 0.0),
+            "input_length": result["metadata"].get("input_length", len(content)),
+            "input_line_count": result["metadata"].get("input_line_count", 0),
+        }
 
-    return ModelSemanticAnalysisOutput(
-        success=result["success"],
-        parse_ok=result["parse_ok"],
-        entities=entities,
-        relations=relations,
-        warnings=result["warnings"],
-        # Cast handler's SemanticFeaturesDict to model's SemanticFeaturesDict
-        # Both have identical fields but different total= settings
-        semantic_features=cast(SemanticFeaturesDict, result["semantic_features"]),
-        embeddings=[],  # Embeddings require external service, not handled here
-        similarity_scores={},  # Similarity requires embeddings
-        metadata=metadata,
-    )
+        # Add correlation ID if provided in context
+        correlation_id = request.context.get("correlation_id")
+        if correlation_id:
+            metadata["correlation_id"] = correlation_id
+
+        return ModelSemanticAnalysisOutput(
+            success=result["success"],
+            parse_ok=result["parse_ok"],
+            entities=entities,
+            relations=relations,
+            warnings=result["warnings"],
+            # Cast handler's SemanticFeaturesDict to model's SemanticFeaturesDict
+            # Both have identical fields but different total= settings
+            semantic_features=cast(SemanticFeaturesDict, result["semantic_features"]),
+            embeddings=[],  # Embeddings require external service, not handled here
+            similarity_scores={},  # Similarity requires embeddings
+            metadata=metadata,
+        )
 
 
 def _convert_entity_dict_to_model(entity: EntityDict) -> ModelSemanticEntity:
@@ -189,4 +195,4 @@ def _convert_relation_dict_to_model(relation: RelationDict) -> ModelSemanticRela
     )
 
 
-__all__ = ["handle_semantic_analysis_compute"]
+__all__ = ["HandlerSemanticAnalysisCompute"]

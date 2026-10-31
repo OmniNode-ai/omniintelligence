@@ -88,29 +88,32 @@ def _parse_failure_output(failure_output: str) -> dict[str, Any]:
     return {"classification": failure_output.strip()}
 
 
-def handle_classify_ci_error(
-    input_data: ModelCiErrorClassifierInput,
-) -> ModelCiErrorClassifierOutput:
-    """Normalize and validate a CI error classification from raw LLM output.
+class HandlerCiErrorClassifier:
+    """Typed entry point for the unchanged CI error classification logic."""
 
-    Parses ``input_data.failure_output`` (which may be a JSON object from the
-    LLM or a plain-text classification hint) and normalises the result through
-    ``_parse_llm_response``.
+    def handle(
+        self, request: ModelCiErrorClassifierInput
+    ) -> ModelCiErrorClassifierOutput:
+        """Normalize and validate a CI error classification from raw LLM output.
 
-    Args:
-        input_data: Input containing the raw LLM response and error fingerprint.
+        Parses ``request.failure_output`` (which may be a JSON object from the
+        LLM or a plain-text classification hint) and normalises the result through
+        ``_parse_llm_response``.
 
-    Returns:
-        Normalised classification output with clamped confidence and coerced lists.
-    """
-    raw_dict = _parse_failure_output(input_data.failure_output)
-    parsed = _parse_llm_response(raw_dict)
-    return ModelCiErrorClassifierOutput(**parsed)
+        Args:
+            request: Input containing the raw LLM response and error fingerprint.
+
+        Returns:
+            Normalised classification output with clamped confidence and coerced lists.
+        """
+        raw_dict = _parse_failure_output(request.failure_output)
+        parsed = _parse_llm_response(raw_dict)
+        return ModelCiErrorClassifierOutput(**parsed)
 
 
 __all__ = [
     "_coerce_to_list",
     "_parse_failure_output",
     "_parse_llm_response",
-    "handle_classify_ci_error",
+    "HandlerCiErrorClassifier",
 ]

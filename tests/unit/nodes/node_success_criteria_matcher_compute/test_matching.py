@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
 
-"""Unit tests for match_criteria() and handle_success_criteria_compute().
+"""Unit tests for match_criteria() and HandlerSuccessCriteriaCompute().handle().
 
 This module tests the core matching logic and handler orchestration including:
     - Single and multiple criterion matching
@@ -20,7 +20,7 @@ pytestmark = pytest.mark.unit
 
 from omniintelligence.nodes.node_success_criteria_matcher_compute.handlers import (
     CriteriaMatchingValidationError,
-    handle_success_criteria_compute,
+    HandlerSuccessCriteriaCompute,
     match_criteria,
 )
 from omniintelligence.nodes.node_success_criteria_matcher_compute.models import (
@@ -611,7 +611,7 @@ class TestHandleSuccessCriteriaComputeSuccess:
             ],
         )
 
-        output = handle_success_criteria_compute(input_data)
+        output = HandlerSuccessCriteriaCompute().handle(input_data)
 
         assert output.success is True
         assert "c1" in output.matched_criteria
@@ -633,7 +633,7 @@ class TestHandleSuccessCriteriaComputeSuccess:
             ],
         )
 
-        output = handle_success_criteria_compute(input_data)
+        output = HandlerSuccessCriteriaCompute().handle(input_data)
 
         assert output.metadata is not None
         assert "processing_time_ms" in output.metadata
@@ -663,7 +663,7 @@ class TestHandleSuccessCriteriaComputeSuccess:
             ],
         )
 
-        output = handle_success_criteria_compute(input_data)
+        output = HandlerSuccessCriteriaCompute().handle(input_data)
 
         assert output.metadata is not None
         assert output.metadata["total_criteria"] == 2
@@ -691,7 +691,7 @@ class TestHandleSuccessCriteriaComputeErrors:
         )
 
         # Should not raise - returns structured error
-        output = handle_success_criteria_compute(input_data)
+        output = HandlerSuccessCriteriaCompute().handle(input_data)
 
         assert output.success is False
         assert output.match_score == 0.0
@@ -716,7 +716,7 @@ class TestHandleSuccessCriteriaComputeErrors:
             ],
         )
 
-        output = handle_success_criteria_compute(input_data)
+        output = HandlerSuccessCriteriaCompute().handle(input_data)
 
         assert output.success is False
         assert output.metadata is not None
@@ -735,7 +735,7 @@ class TestHandleSuccessCriteriaComputeEdgeCases:
             criteria_set=[],
         )
 
-        output = handle_success_criteria_compute(input_data)
+        output = HandlerSuccessCriteriaCompute().handle(input_data)
 
         assert output.success is True
         assert output.match_score == 1.0
@@ -759,7 +759,7 @@ class TestHandleSuccessCriteriaComputeEdgeCases:
             ],
         )
 
-        output = handle_success_criteria_compute(input_data)
+        output = HandlerSuccessCriteriaCompute().handle(input_data)
 
         assert output.success is True
 
@@ -799,7 +799,7 @@ class TestHandleSuccessCriteriaComputeEdgeCases:
             ],
         )
 
-        output = handle_success_criteria_compute(input_data)
+        output = HandlerSuccessCriteriaCompute().handle(input_data)
 
         assert output.success is True  # All required passed
         assert set(output.matched_criteria) == {"status_ok", "exit_ok"}

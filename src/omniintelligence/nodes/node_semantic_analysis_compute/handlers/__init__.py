@@ -61,7 +61,7 @@ from omniintelligence.nodes.node_semantic_analysis_compute.handlers.exceptions i
     SemanticAnalysisValidationError,
 )
 from omniintelligence.nodes.node_semantic_analysis_compute.handlers.handler_compute_semantic_analysis import (
-    handle_semantic_analysis_compute,
+    HandlerSemanticAnalysisCompute,
 )
 from omniintelligence.nodes.node_semantic_analysis_compute.handlers.handler_semantic_analysis import (
     ANALYSIS_VERSION,
@@ -87,6 +87,7 @@ __all__ = [
     "ANALYSIS_VERSION",
     "ANALYSIS_VERSION_STR",
     "EntityDict",
+    "HandlerSemanticAnalysisCompute",
     "RelationDict",
     "SemanticAnalysisComputeError",
     "SemanticAnalysisMetadataDict",
@@ -102,5 +103,4 @@ __all__ = [
     "analyze_semantics",
     "create_empty_features",
     "create_error_result",
-    "handle_semantic_analysis_compute",
 ]

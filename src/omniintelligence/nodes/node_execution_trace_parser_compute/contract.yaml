@@ -44,8 +44,8 @@ handler_routing:
   handlers:
     - operation: "parse_trace"
       handler:
-        function: "handle_trace_parsing_compute"
-        module: "omniintelligence.nodes.node_execution_trace_parser_compute.handlers"
+        class: "HandlerTraceParsingCompute"
+        module: "omniintelligence.nodes.node_execution_trace_parser_compute.handlers.handler_compute"
         type: "sync"
 # Protocol Dependencies (Future)
 # ==============================

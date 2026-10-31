@@ -9,7 +9,7 @@ import pytest
 
 from omniintelligence.nodes.node_execution_trace_parser_compute.handlers import (
     PARSER_VERSION,
-    handle_trace_parsing_compute,
+    HandlerTraceParsingCompute,
 )
 from omniintelligence.nodes.node_execution_trace_parser_compute.models import (
     ModelTraceData,
@@ -21,7 +21,7 @@ pytestmark = pytest.mark.unit
 
 
 class TestHandleTraceParsingCompute:
-    """Tests for handle_trace_parsing_compute orchestrator."""
+    """Tests for HandlerTraceParsingCompute orchestrator."""
 
     def test_parse_basic_trace(self) -> None:
         """Parse a basic trace and verify output structure."""
@@ -42,7 +42,7 @@ class TestHandleTraceParsingCompute:
             extract_timing=True,
         )
 
-        result = handle_trace_parsing_compute(input_data)
+        result = HandlerTraceParsingCompute().handle(input_data)
 
         assert result.success is True
         assert result.metadata is not None
@@ -61,7 +61,7 @@ class TestHandleTraceParsingCompute:
             extract_timing=True,
         )
 
-        result = handle_trace_parsing_compute(input_data)
+        result = HandlerTraceParsingCompute().handle(input_data)
 
         assert result.success is True
         assert len(result.parsed_events) == 2
@@ -80,7 +80,7 @@ class TestHandleTraceParsingCompute:
             extract_timing=False,
         )
 
-        result = handle_trace_parsing_compute(input_data)
+        result = HandlerTraceParsingCompute().handle(input_data)
 
         assert result.success is True
         assert len(result.parsed_events) == 0
@@ -96,7 +96,7 @@ class TestHandleTraceParsingCompute:
             extract_errors=True,
         )
 
-        result = handle_trace_parsing_compute(input_data)
+        result = HandlerTraceParsingCompute().handle(input_data)
 
         assert result.success is True
         assert len(result.error_events) >= 1
@@ -112,7 +112,7 @@ class TestHandleTraceParsingCompute:
             extract_errors=False,
         )
 
-        result = handle_trace_parsing_compute(input_data)
+        result = HandlerTraceParsingCompute().handle(input_data)
 
         assert result.success is True
         assert len(result.error_events) == 0
@@ -129,7 +129,7 @@ class TestHandleTraceParsingCompute:
             ),
         )
 
-        result = handle_trace_parsing_compute(input_data)
+        result = HandlerTraceParsingCompute().handle(input_data)
 
         assert result.success is True
         assert result.timing_data.total_duration_ms == 500.0
@@ -149,7 +149,7 @@ class TestHandleTraceParsingCompute:
             extract_timing=True,
         )
 
-        result = handle_trace_parsing_compute(input_data)
+        result = HandlerTraceParsingCompute().handle(input_data)
 
         assert result.success is True
         assert result.metadata is not None
@@ -165,7 +165,7 @@ class TestHandleTraceParsingCompute:
             ),
         )
 
-        result = handle_trace_parsing_compute(input_data)
+        result = HandlerTraceParsingCompute().handle(input_data)
 
         assert result.success is False
         assert result.metadata is not None
@@ -181,7 +181,7 @@ class TestHandleTraceParsingCompute:
             ),
         )
 
-        result = handle_trace_parsing_compute(input_data)
+        result = HandlerTraceParsingCompute().handle(input_data)
 
         # Even on error, output should be valid
         assert result.success is False
@@ -219,7 +219,7 @@ class TestHandleTraceParsingComputeWithLogs:
             extract_errors=True,
         )
 
-        result = handle_trace_parsing_compute(input_data)
+        result = HandlerTraceParsingCompute().handle(input_data)
 
         assert result.success is True
         # Should detect log-level error
@@ -240,7 +240,7 @@ class TestHandleTraceParsingComputeWithLogs:
             extract_errors=True,
         )
 
-        result = handle_trace_parsing_compute(input_data)
+        result = HandlerTraceParsingCompute().handle(input_data)
 
         assert result.success is True
         assert len(result.error_events) >= 1

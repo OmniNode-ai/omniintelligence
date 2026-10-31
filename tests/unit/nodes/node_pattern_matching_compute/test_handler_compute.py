@@ -11,7 +11,7 @@ from __future__ import annotations
 import pytest
 
 from omniintelligence.nodes.node_pattern_matching_compute.handlers import (
-    handle_pattern_matching_compute,
+    HandlerPatternMatchingCompute,
 )
 from omniintelligence.nodes.node_pattern_matching_compute.models import (
     ModelPatternContext,
@@ -22,7 +22,7 @@ from omniintelligence.nodes.node_pattern_matching_compute.models import (
 
 @pytest.mark.unit
 class TestHandlePatternMatchingCompute:
-    """Tests for handle_pattern_matching_compute function."""
+    """Tests for HandlerPatternMatchingCompute handler."""
 
     def test_successful_matching_with_patterns(self) -> None:
         """Should return successful result with matched patterns."""
@@ -53,7 +53,7 @@ class TestHandlePatternMatchingCompute:
             ),
         )
 
-        result = handle_pattern_matching_compute(input_data)
+        result = HandlerPatternMatchingCompute().handle(input_data)
 
         assert result.success is True
         assert result.metadata is not None
@@ -70,7 +70,7 @@ class TestHandlePatternMatchingCompute:
             operation="match",
         )
 
-        result = handle_pattern_matching_compute(input_data)
+        result = HandlerPatternMatchingCompute().handle(input_data)
 
         assert result.success is True
         assert result.patterns_matched == []
@@ -94,7 +94,7 @@ class TestHandlePatternMatchingCompute:
             context=ModelPatternContext(min_confidence=0.0),
         )
 
-        result = handle_pattern_matching_compute(input_data)
+        result = HandlerPatternMatchingCompute().handle(input_data)
 
         assert result.success is True
         assert len(result.matches) > 0
@@ -121,7 +121,7 @@ class TestHandlePatternMatchingCompute:
             context=ModelPatternContext(min_confidence=0.0),
         )
 
-        result = handle_pattern_matching_compute(input_data)
+        result = HandlerPatternMatchingCompute().handle(input_data)
 
         assert result.success is True
         # Both simple and rich representations should be populated
@@ -155,7 +155,7 @@ class TestHandlePatternMatchingCompute:
             ),
         )
 
-        result = handle_pattern_matching_compute(input_data)
+        result = HandlerPatternMatchingCompute().handle(input_data)
 
         assert result.metadata is not None
         assert result.metadata.patterns_analyzed is not None
@@ -181,7 +181,7 @@ class TestHandlePatternMatchingCompute:
         )
 
         # Handler should return structured error, not raise
-        result = handle_pattern_matching_compute(input_data)
+        result = HandlerPatternMatchingCompute().handle(input_data)
         assert result.success is False
         assert result.metadata is not None
         assert result.metadata.status == "validation_error"
@@ -206,7 +206,7 @@ class TestHandlePatternMatchingCompute:
             context=ModelPatternContext(min_confidence=0.5),
         )
 
-        result = handle_pattern_matching_compute(input_data)
+        result = HandlerPatternMatchingCompute().handle(input_data)
 
         assert result.success is True
         if result.matches:
@@ -239,7 +239,7 @@ class TestHandlePatternMatchingCompute:
             ),
         )
 
-        result = handle_pattern_matching_compute(input_data)
+        result = HandlerPatternMatchingCompute().handle(input_data)
 
         assert result.success is True
         # Only anti_pattern should be analyzed
@@ -260,7 +260,7 @@ class TestHandlePatternMatchingCompute:
             ),
         )
 
-        result = handle_pattern_matching_compute(input_data)
+        result = HandlerPatternMatchingCompute().handle(input_data)
 
         assert result.metadata is not None
         assert result.metadata.correlation_id == str(correlation_id)
@@ -272,7 +272,7 @@ class TestHandlePatternMatchingCompute:
             patterns=[],
         )
 
-        result = handle_pattern_matching_compute(input_data)
+        result = HandlerPatternMatchingCompute().handle(input_data)
 
         assert result.metadata is not None
         assert result.metadata.timestamp_utc is not None

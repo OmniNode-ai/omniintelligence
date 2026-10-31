@@ -11,9 +11,9 @@ import json
 import pytest
 
 from omniintelligence.nodes.node_ci_error_classifier_compute.handlers.handler_classifier import (
+    HandlerCiErrorClassifier,
     _parse_failure_output,
     _parse_llm_response,
-    handle_classify_ci_error,
 )
 from omniintelligence.nodes.node_ci_error_classifier_compute.models.model_input import (
     ModelCiErrorClassifierInput,
@@ -131,12 +131,12 @@ def test_parse_failure_output_strips_whitespace() -> None:
 
 
 # ---------------------------------------------------------------------------
-# handle_classify_ci_error
+# HandlerCiErrorClassifier
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.unit
-def test_handle_classify_ci_error_json_input() -> None:
+def test_handler_ci_error_classifier_json_input() -> None:
     """JSON failure_output is parsed and normalised to a typed output model."""
     payload = json.dumps(
         {
@@ -150,7 +150,7 @@ def test_handle_classify_ci_error_json_input() -> None:
         error_fingerprint="abc" * 10 + "ab",  # 32 hex chars
         failure_output=payload,
     )
-    out = handle_classify_ci_error(inp)
+    out = HandlerCiErrorClassifier().handle(inp)
     assert isinstance(out, ModelCiErrorClassifierOutput)
     assert out.classification == "type_error"
     assert out.confidence == 0.92
@@ -159,35 +159,35 @@ def test_handle_classify_ci_error_json_input() -> None:
 
 
 @pytest.mark.unit
-def test_handle_classify_ci_error_plain_text_falls_back_to_unknown() -> None:
+def test_handler_ci_error_classifier_plain_text_falls_back_to_unknown() -> None:
     """Plain-text failure_output that isn't a taxonomy value → 'unknown'."""
     inp = ModelCiErrorClassifierInput(
         error_fingerprint="deadbeef" * 8,
         failure_output="Something went very wrong during the build",
     )
-    out = handle_classify_ci_error(inp)
+    out = HandlerCiErrorClassifier().handle(inp)
     assert out.classification == "unknown"
     assert out.confidence == 0.0
 
 
 @pytest.mark.unit
-def test_handle_classify_ci_error_plain_text_known_taxonomy() -> None:
+def test_handler_ci_error_classifier_plain_text_known_taxonomy() -> None:
     """Plain-text failure_output matching a taxonomy value is accepted."""
     inp = ModelCiErrorClassifierInput(
         error_fingerprint="cafebabe" * 8,
         failure_output="linting_failure",
     )
-    out = handle_classify_ci_error(inp)
+    out = HandlerCiErrorClassifier().handle(inp)
     assert out.classification == "linting_failure"
 
 
 @pytest.mark.unit
-def test_handle_classify_ci_error_confidence_clamped() -> None:
+def test_handler_ci_error_classifier_confidence_clamped() -> None:
     """Confidence values outside [0, 1] in JSON are clamped."""
     payload = json.dumps({"classification": "build_failure", "confidence": 2.5})
     inp = ModelCiErrorClassifierInput(
         error_fingerprint="feedface" * 8,
         failure_output=payload,
     )
-    out = handle_classify_ci_error(inp)
+    out = HandlerCiErrorClassifier().handle(inp)
     assert out.confidence == 1.0

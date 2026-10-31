@@ -16,10 +16,10 @@ from omniintelligence.nodes.node_ast_extraction_compute.models.model_code_entity
     ModelCodeEntity,
 )
 from omniintelligence.nodes.node_code_entity_bridge_compute.handlers.handler_bridge import (
+    HandlerCodeEntityBridge,
     _build_signature,
     _extract_keywords,
     _sha256,
-    handle_code_entity_bridge,
 )
 from omniintelligence.nodes.node_code_entity_bridge_compute.models.model_input import (
     ModelCodeEntityBridgeInput,
@@ -173,7 +173,7 @@ def test_extract_keywords_no_duplicates() -> None:
 @pytest.mark.unit
 def test_import_entities_are_skipped() -> None:
     entities = [_make_import_entity("asyncio"), _make_class_entity()]
-    result = handle_code_entity_bridge(_make_bridge_input(entities))
+    result = HandlerCodeEntityBridge().handle(_make_bridge_input(entities))
     assert result.skipped_count == 1
     assert len(result.derived_patterns) == 1
 
@@ -184,7 +184,9 @@ def test_low_confidence_entities_are_skipped() -> None:
         _make_class_entity(confidence=0.4),
         _make_class_entity(name="HighConf", qualified="foo.HighConf", confidence=1.0),
     ]
-    result = handle_code_entity_bridge(_make_bridge_input(entities, min_confidence=0.7))
+    result = HandlerCodeEntityBridge().handle(
+        _make_bridge_input(entities, min_confidence=0.7)
+    )
     assert result.skipped_count == 1
     assert len(result.derived_patterns) == 1
 
@@ -215,7 +217,7 @@ def test_all_supported_entity_types_are_derived() -> None:
             confidence=1.0,
         ),
     ]
-    result = handle_code_entity_bridge(_make_bridge_input(entities))
+    result = HandlerCodeEntityBridge().handle(_make_bridge_input(entities))
     assert len(result.derived_patterns) == 4
     assert result.skipped_count == 0
 
@@ -233,7 +235,7 @@ def test_derived_pattern_has_correct_fields() -> None:
         bases=["NodeCompute"],
         docstring="Thin shell.",
     )
-    result = handle_code_entity_bridge(_make_bridge_input([entity]))
+    result = HandlerCodeEntityBridge().handle(_make_bridge_input([entity]))
     assert len(result.derived_patterns) == 1
     p = result.derived_patterns[0]
 
@@ -250,7 +252,7 @@ def test_derived_pattern_has_correct_fields() -> None:
 @pytest.mark.unit
 def test_canary_id_propagated() -> None:
     entity = _make_class_entity()
-    result = handle_code_entity_bridge(
+    result = HandlerCodeEntityBridge().handle(
         _make_bridge_input([entity], canary_id="canary-v1")
     )
     assert result.derived_patterns[0].canary_id == "canary-v1"
@@ -259,19 +261,21 @@ def test_canary_id_propagated() -> None:
 @pytest.mark.unit
 def test_source_entity_id_is_recorded() -> None:
     entity = _make_class_entity()
-    result = handle_code_entity_bridge(_make_bridge_input([entity]))
+    result = HandlerCodeEntityBridge().handle(_make_bridge_input([entity]))
     assert entity.id in result.derived_patterns[0].source_entity_ids
 
 
 @pytest.mark.unit
 def test_duration_ms_is_positive() -> None:
-    result = handle_code_entity_bridge(_make_bridge_input([_make_class_entity()]))
+    result = HandlerCodeEntityBridge().handle(
+        _make_bridge_input([_make_class_entity()])
+    )
     assert result.duration_ms >= 0.0
 
 
 @pytest.mark.unit
 def test_empty_entities_returns_empty_output() -> None:
-    result = handle_code_entity_bridge(_make_bridge_input([]))
+    result = HandlerCodeEntityBridge().handle(_make_bridge_input([]))
     assert len(result.derived_patterns) == 0
     assert result.skipped_count == 0
     assert result.error_count == 0
@@ -286,7 +290,7 @@ def test_empty_entities_returns_empty_output() -> None:
 def test_different_entities_produce_different_signatures() -> None:
     e1 = _make_class_entity(name="Foo", qualified="m.Foo")
     e2 = _make_class_entity(name="Bar", qualified="m.Bar")
-    result = handle_code_entity_bridge(_make_bridge_input([e1, e2]))
+    result = HandlerCodeEntityBridge().handle(_make_bridge_input([e1, e2]))
     sigs = {p.pattern_signature for p in result.derived_patterns}
     hashes = {p.signature_hash for p in result.derived_patterns}
     assert len(sigs) == 2

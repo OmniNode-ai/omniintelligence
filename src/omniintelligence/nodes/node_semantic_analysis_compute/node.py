@@ -22,7 +22,7 @@ from __future__ import annotations
 from omnibase_core.nodes.node_compute import NodeCompute
 
 from omniintelligence.nodes.node_semantic_analysis_compute.handlers import (
-    handle_semantic_analysis_compute,
+    HandlerSemanticAnalysisCompute,
 )
 from omniintelligence.nodes.node_semantic_analysis_compute.models import (
     ModelSemanticAnalysisInput,
@@ -44,7 +44,7 @@ class NodeSemanticAnalysisCompute(
     ) -> ModelSemanticAnalysisOutput:
         """Compute semantic analysis on source code.
 
-        Delegates to handle_semantic_analysis_compute handler.
+        Delegates to HandlerSemanticAnalysisCompute handler.
 
         Args:
             input_data: Typed input model containing code snippet and context.
@@ -53,7 +53,7 @@ class NodeSemanticAnalysisCompute(
             ModelSemanticAnalysisOutput with extracted entities, relations,
             semantic features, and metadata.
         """
-        return handle_semantic_analysis_compute(input_data)
+        return HandlerSemanticAnalysisCompute().handle(input_data)
 
 
 __all__ = ["NodeSemanticAnalysisCompute"]

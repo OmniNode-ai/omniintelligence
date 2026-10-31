@@ -18,7 +18,7 @@ to this handler, following the ONEX declarative pattern.
 
 Example:
     from omniintelligence.nodes.node_success_criteria_matcher_compute.handlers.handler_compute import (
-        handle_success_criteria_compute,
+        HandlerSuccessCriteriaCompute,
     )
     from omniintelligence.nodes.node_success_criteria_matcher_compute.models import (
         ModelSuccessCriteriaInput,
@@ -31,7 +31,7 @@ Example:
             {"criterion_id": "exit_ok", "field": "exit_code", "operator": "equals", "expected_value": 0}
         ],
     )
-    output: ModelSuccessCriteriaOutput = handle_success_criteria_compute(input_data)
+    output: ModelSuccessCriteriaOutput = HandlerSuccessCriteriaCompute().handle(input_data)
 """
 
 from __future__ import annotations
@@ -66,87 +66,96 @@ STATUS_VALIDATION_ERROR: Final[str] = "validation_error"
 STATUS_COMPUTE_ERROR: Final[str] = "compute_error"
 
 
-def handle_success_criteria_compute(
-    input_data: ModelSuccessCriteriaInput,
-) -> ModelSuccessCriteriaOutput:
-    """Handle success criteria matching compute operation.
+class HandlerSuccessCriteriaCompute:
+    """Typed entry point for the success criteria matching compute handler."""
 
-    This function orchestrates the criteria matching workflow:
-    1. Extracts execution outcome and criteria from input
-    2. Calls the pure matching function
-    3. Constructs the output model with metadata
+    def handle(self, request: ModelSuccessCriteriaInput) -> ModelSuccessCriteriaOutput:
+        """Handle success criteria matching compute operation.
 
-    Error Handling:
-        - CriteriaMatchingValidationError: Returns output with validation_error status
-        - CriteriaMatchingComputeError: Returns output with compute_error status
-        - All errors are caught and returned as structured output (no exceptions raised)
+        This method orchestrates the criteria matching workflow:
+        1. Extracts execution outcome and criteria from input
+        2. Calls the pure matching function
+        3. Constructs the output model with metadata
 
-    Args:
-        input_data: Typed input model containing execution outcome and criteria.
+        Error Handling:
+            - CriteriaMatchingValidationError: Returns output with validation_error status
+            - CriteriaMatchingComputeError: Returns output with compute_error status
+            - All errors are caught and returned as structured output (no exceptions raised)
 
-    Returns:
-        ModelSuccessCriteriaOutput with match results, scores, and metadata.
-        Always returns a valid output, even on errors.
-    """
-    start_time = time.perf_counter()
-    correlation_id = input_data.correlation_id
+        Args:
+            request: Typed input model containing execution outcome and criteria.
 
-    try:
-        return _execute_matching(input_data, start_time, correlation_id)
+        Returns:
+            ModelSuccessCriteriaOutput with match results, scores, and metadata.
+            Always returns a valid output, even on errors.
+        """
+        start_time = time.perf_counter()
+        correlation_id = request.correlation_id
 
-    except CriteriaMatchingValidationError as e:
-        processing_time = (time.perf_counter() - start_time) * 1000
-        logger.warning(
-            "Validation error in criteria matching: %s",
-            str(e),
-            extra={"correlation_id": str(correlation_id) if correlation_id else None},
-        )
-        return _create_validation_error_output(str(e), processing_time, correlation_id)
-
-    except CriteriaMatchingComputeError as e:
-        processing_time = (time.perf_counter() - start_time) * 1000
-        logger.warning(
-            "Compute error in criteria matching: %s",
-            str(e),
-            extra={"correlation_id": str(correlation_id) if correlation_id else None},
-        )
-        return _create_compute_error_output(str(e), processing_time, correlation_id)
-
-    except Exception as e:
-        # Catch-all for any unhandled exceptions.
-        # This block MUST NOT raise - use nested try/except for all operations.
-        processing_time = _safe_elapsed_time_ms(start_time)
-
-        # Safe logging - failures here must not propagate
         try:
-            logger.exception(
-                "Unhandled exception in success criteria matching compute. "
-                "criteria_count=%d, processing_time_ms=%.2f",
-                len(getattr(input_data, "criteria_set", [])),
-                processing_time,
+            return _execute_matching(request, start_time, correlation_id)
+
+        except CriteriaMatchingValidationError as e:
+            processing_time = (time.perf_counter() - start_time) * 1000
+            logger.warning(
+                "Validation error in criteria matching: %s",
+                str(e),
                 extra={
                     "correlation_id": str(correlation_id) if correlation_id else None
                 },
             )
-        except Exception:
-            # If logging itself fails, try minimal logging
-            with contextlib.suppress(Exception):
-                logger.error(
-                    "Success criteria matching compute failed: %s",
-                    e,
+            return _create_validation_error_output(
+                str(e), processing_time, correlation_id
+            )
+
+        except CriteriaMatchingComputeError as e:
+            processing_time = (time.perf_counter() - start_time) * 1000
+            logger.warning(
+                "Compute error in criteria matching: %s",
+                str(e),
+                extra={
+                    "correlation_id": str(correlation_id) if correlation_id else None
+                },
+            )
+            return _create_compute_error_output(str(e), processing_time, correlation_id)
+
+        except Exception as e:
+            # Catch-all for any unhandled exceptions.
+            # This block MUST NOT raise - use nested try/except for all operations.
+            processing_time = _safe_elapsed_time_ms(start_time)
+
+            # Safe logging - failures here must not propagate
+            try:
+                logger.exception(
+                    "Unhandled exception in success criteria matching compute. "
+                    "criteria_count=%d, processing_time_ms=%.2f",
+                    len(getattr(request, "criteria_set", [])),
+                    processing_time,
                     extra={
                         "correlation_id": str(correlation_id)
                         if correlation_id
                         else None
                     },
                 )
+            except Exception:
+                # If logging itself fails, try minimal logging
+                with contextlib.suppress(Exception):
+                    logger.error(
+                        "Success criteria matching compute failed: %s",
+                        e,
+                        extra={
+                            "correlation_id": str(correlation_id)
+                            if correlation_id
+                            else None
+                        },
+                    )
 
-        # Safe error response creation
-        return _create_safe_error_output(
-            f"Unhandled error: {e}",
-            processing_time,
-            correlation_id,
-        )
+            # Safe error response creation
+            return _create_safe_error_output(
+                f"Unhandled error: {e}",
+                processing_time,
+                correlation_id,
+            )
 
 
 def _execute_matching(
@@ -360,4 +369,4 @@ def _create_safe_error_output(
             )
 
 
-__all__ = ["handle_success_criteria_compute"]
+__all__ = ["HandlerSuccessCriteriaCompute"]

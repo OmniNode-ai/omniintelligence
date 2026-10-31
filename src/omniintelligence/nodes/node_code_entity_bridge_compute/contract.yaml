@@ -75,7 +75,7 @@ handler_routing:
   handlers:
     - operation: "derive_patterns"
       handler:
-        function: "handle_code_entity_bridge"
+        class: "HandlerCodeEntityBridge"
         module: "omniintelligence.nodes.node_code_entity_bridge_compute.handlers.handler_bridge"
         type: "sync"
 
