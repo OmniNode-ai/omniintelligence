@@ -9,8 +9,20 @@ All models use strong typing with Pydantic BaseModel for type safety.
 from omniintelligence.nodes.node_execution_trace_parser_compute.models.model_error_event import (
     ModelErrorEvent,
 )
+from omniintelligence.nodes.node_execution_trace_parser_compute.models.model_event_extraction_request import (
+    ModelEventExtractionRequest,
+)
+from omniintelligence.nodes.node_execution_trace_parser_compute.models.model_event_extraction_response import (
+    ModelEventExtractionResponse,
+)
 from omniintelligence.nodes.node_execution_trace_parser_compute.models.model_parsed_event import (
     ModelParsedEvent,
+)
+from omniintelligence.nodes.node_execution_trace_parser_compute.models.model_span_tree_request import (
+    ModelSpanTreeRequest,
+)
+from omniintelligence.nodes.node_execution_trace_parser_compute.models.model_span_tree_response import (
+    ModelSpanTreeResponse,
 )
 from omniintelligence.nodes.node_execution_trace_parser_compute.models.model_timing_data import (
     ModelTimingData,
@@ -32,6 +44,10 @@ from omniintelligence.nodes.node_execution_trace_parser_compute.models.model_tra
 )
 
 __all__ = [
+    "ModelSpanTreeResponse",
+    "ModelSpanTreeRequest",
+    "ModelEventExtractionResponse",
+    "ModelEventExtractionRequest",
     "ModelErrorEvent",
     "ModelParsedEvent",
     "ModelTimingData",

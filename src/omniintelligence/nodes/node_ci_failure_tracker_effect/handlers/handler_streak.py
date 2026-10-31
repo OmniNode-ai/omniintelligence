@@ -14,6 +14,11 @@ from __future__ import annotations
 from typing import Any
 
 from omniintelligence.debug_intel.protocols import ProtocolDebugStore
+from omniintelligence.nodes.node_ci_failure_tracker_effect.models import (
+    ModelStreakIncrementRequest,
+    ModelStreakQueryRequest,
+    ModelStreakResetRequest,
+)
 
 
 async def increment_streak(
@@ -47,7 +52,34 @@ async def get_current_streak(
     return int(row["streak_count"])
 
 
+class HandlerStreak:
+    """Typed entry points for the preserved streak management functions."""
+
+    def __init__(self, store: ProtocolDebugStore) -> None:
+        self._store = store
+
+    async def handle(self, request: ModelStreakIncrementRequest) -> dict[str, Any]:
+        """Increment the failure streak using the injected store."""
+        return await increment_streak(
+            repo=request.repo,
+            branch=request.branch,
+            sha=request.sha,
+            store=self._store,
+        )
+
+    async def reset(self, request: ModelStreakResetRequest) -> None:
+        """Reset the failure streak on recovery."""
+        await reset_streak(repo=request.repo, branch=request.branch, store=self._store)
+
+    async def current(self, request: ModelStreakQueryRequest) -> int:
+        """Read the current failure streak."""
+        return await get_current_streak(
+            repo=request.repo, branch=request.branch, store=self._store
+        )
+
+
 __all__ = [
+    "HandlerStreak",
     "get_current_streak",
     "increment_streak",
     "reset_streak",

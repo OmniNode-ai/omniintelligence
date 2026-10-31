@@ -22,6 +22,7 @@ from omniintelligence.nodes.node_execution_trace_parser_compute.handlers.handler
     HandlerTraceParsingCompute,
 )
 from omniintelligence.nodes.node_execution_trace_parser_compute.handlers.handler_event_extraction import (
+    HandlerEventExtraction,
     detect_log_errors,
     detect_span_errors,
     detect_timeout_errors,
@@ -29,6 +30,7 @@ from omniintelligence.nodes.node_execution_trace_parser_compute.handlers.handler
 )
 from omniintelligence.nodes.node_execution_trace_parser_compute.handlers.handler_trace_parsing import (
     PARSER_VERSION,
+    HandlerTraceParsing,
     build_span_tree,
     compute_timing_metrics,
     correlate_logs_with_span,
@@ -52,6 +54,8 @@ from omniintelligence.nodes.node_execution_trace_parser_compute.handlers.protoco
 __all__ = [
     "PARSER_VERSION",
     "ErrorEventDict",
+    "HandlerEventExtraction",
+    "HandlerTraceParsing",
     "HandlerTraceParsingCompute",
     "ParsedEventDict",
     "SpanNodeDict",

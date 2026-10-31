@@ -28,6 +28,15 @@ from omniintelligence.nodes.node_pattern_compliance_effect.handlers.protocols im
     ComplianceViolationDict,
     SeverityLiteral,
 )
+from omniintelligence.nodes.node_pattern_compliance_effect.models.model_compliance_parse_request import (
+    ModelComplianceParseRequest,
+)
+from omniintelligence.nodes.node_pattern_compliance_effect.models.model_compliance_parse_result import (
+    ModelComplianceParseResult,
+)
+from omniintelligence.nodes.node_pattern_compliance_effect.models.model_compliance_prompt_request import (
+    ModelCompliancePromptRequest,
+)
 from omniintelligence.nodes.node_pattern_compliance_effect.models.model_compliance_request import (
     ModelApplicablePattern,
 )
@@ -266,8 +275,29 @@ def _clamp_float(value: object, min_val: float, max_val: float) -> float:
     return max(min_val, min(max_val, f))
 
 
+class HandlerComplianceParsing:
+    """Expose typed requests over the preserved compliance parsing functions."""
+
+    def build_prompt(self, request: ModelCompliancePromptRequest) -> str:
+        """Build the compliance prompt using the preserved implementation."""
+        return build_compliance_prompt(
+            content=request.content,
+            language=request.language,
+            patterns=request.patterns,
+        )
+
+    def handle(
+        self, request: ModelComplianceParseRequest
+    ) -> ModelComplianceParseResult:
+        """Parse the LLM response into a validated, frozen result."""
+        return ModelComplianceParseResult.model_validate(
+            parse_llm_response(raw_text=request.raw_text, patterns=request.patterns)
+        )
+
+
 __all__ = [
     "COMPLIANCE_PROMPT_VERSION",
+    "HandlerComplianceParsing",
     "build_compliance_prompt",
     "parse_llm_response",
 ]

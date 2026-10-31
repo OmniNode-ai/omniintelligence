@@ -1,0 +1,39 @@
+{
+  "base_ref": "dbd04de5b3fe",
+  "canonical_handler_module": "omniintelligence.nodes.node_pattern_compliance_effect.handlers.handler_compute",
+  "legacy_handler_module": "omniintelligence.nodes.node_pattern_compliance_effect.handlers.handler_compute",
+  "node_id": "omniintelligence.nodes.node_pattern_compliance_effect",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:b924df41772347883b1714e03f90ec900a43b879436dd070ea7213c40d3d9d0f",
+      "sha256:34d124edae80634e1f43bf7d78cbda7bad1d15231f37e7f207778391ef5477ad",
+      "sha256:1925746647234540749806ace41fe82dad536e3dddcefa7138880d2782d6be97",
+      "sha256:86254a405bd146a9a8a385a2bb5f9575479bf52a6c30ea9ac2317557a64d0866",
+      "sha256:ccf50970df30da481f29a71783c04d0d6374dac68ae06297559a76b0b6cac469",
+      "sha256:da8b135d07f5116a1f34a65a1d899a138734b16be96048db48a308b159189248",
+      "sha256:b04d329aab55572f55f3ee1177bf5e2174e139ad1d2f050458fe9799b503a85e"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_pattern_compliance_effect/test_handler_class_shape.py::test_canonical_dispatch_matches_preserved_core[parse_compliant]",
+      "tests/unit/nodes/node_pattern_compliance_effect/test_handler_class_shape.py::test_canonical_dispatch_matches_preserved_core[parse_fenced_violation]",
+      "tests/unit/nodes/node_pattern_compliance_effect/test_handler_class_shape.py::test_canonical_dispatch_matches_preserved_core[parse_empty_fields]",
+      "tests/unit/nodes/node_pattern_compliance_effect/test_handler_class_shape.py::test_canonical_dispatch_matches_preserved_core[parse_invalid_json]",
+      "tests/unit/nodes/node_pattern_compliance_effect/test_handler_class_shape.py::test_canonical_dispatch_matches_preserved_core[parse_nonobject]",
+      "tests/unit/nodes/node_pattern_compliance_effect/test_handler_class_shape.py::test_canonical_dispatch_matches_preserved_core[evaluate_compliant]",
+      "tests/unit/nodes/node_pattern_compliance_effect/test_handler_class_shape.py::test_canonical_dispatch_matches_preserved_core[evaluate_violation]",
+      "tests/unit/nodes/node_pattern_compliance_effect/test_handler_class_shape.py::test_canonical_dispatch_matches_preserved_core[evaluate_parse_error]",
+      "tests/unit/nodes/node_pattern_compliance_effect/test_handler_class_shape.py::test_canonical_dispatch_matches_preserved_core[evaluate_llm_error]",
+      "tests/unit/nodes/node_pattern_compliance_effect/test_handler_class_shape.py::test_canonical_dispatch_matches_preserved_core[evaluate_no_client]",
+      "tests/unit/nodes/node_pattern_compliance_effect/test_handler_class_shape.py::test_canonical_dispatch_matches_preserved_core[evaluate_correlation_override]"
+    ]
+  },
+  "preserved_symbols": [
+    "handle_evaluate_compliance",
+    "_execute_compliance",
+    "_create_error_output",
+    "_safe_elapsed_ms",
+    "_route_to_dlq"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

@@ -1,0 +1,28 @@
+{
+  "branch_coverage_pct": 60.83,
+  "candidate_count": 8,
+  "coverage_target": 80.0,
+  "handler_module": "omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_promotion",
+  "handler_module_sha256": "sha256:8cc63761e4f1805305cf00db285d0405c47b5727471d1dd7c6546aaf7f39d0dd",
+  "meets_target": false,
+  "node_id": "omniintelligence.nodes.node_pattern_promotion_effect",
+  "receipt_schema": "adequacy_receipt.v1",
+  "recorded_at": "2026-10-31T08:43:18.920451+00:00",
+  "recorder_schema": "adequacy_receipt.v1",
+  "selected_count": 8,
+  "selected_input_hashes": [
+    "sha256:a189ba9887218b0aa839a2fee8c427ad133a1b73c6ea845c552aaefef7979170",
+    "sha256:ad44dad03e05577bd803ffe85c4260ea1506dacc0a30b1ff4f045fc1b165888c",
+    "sha256:3931d01ea8fd5f2c7f118d0888f89b2a15dced7d26e59314868af80aa79d9946",
+    "sha256:de304ec19da7c77dd241f9e3048c5121a9fc06fc2c54050df0db44c960b11ffe",
+    "sha256:1192dbce9310da5fa9eba51bb9838836260323bcf543566f609ab56850474631",
+    "sha256:f440713d1551ee4b8f91b53b0554bb55d7839ba877c44c9ca6b46e1b8aff7f27",
+    "sha256:e990389e6875fa7c07848e76c16cfecfbdca8e5a70cb35d7b3fd071b00f9bbc7",
+    "sha256:b1ceb3c03fec449e578b8e39c31eaafd315b11deda19009ad39b1058ca725129"
+  ],
+  "uncovered_waiver": {
+    "reason": "Branch coverage 60.83% over the node's handler_*.py modules is measured from the 10 parity cases in tests/unit/nodes/node_pattern_promotion_effect/test_handler_class_shape.py, which drive the new typed wrapper class and the preserved module function side by side. The business-logic functions are git-re-derived byte-identical to the base commit by the hand-flip proof, so the unexercised branches are unchanged legacy code with their existing unit tests; the parity cases prove the wrapper delegates without altering results.",
+    "uncovered_branch_count": 0
+  },
+  "volatile_mask": []
+}

@@ -65,9 +65,14 @@ handler_routing:
   handlers:
     - operation: "evaluate_compliance"
       handler:
-        function: "handle_evaluate_compliance"
-        module: "omniintelligence.nodes.node_pattern_compliance_effect.handlers"
+        module: "omniintelligence.nodes.node_pattern_compliance_effect.handlers.handler_compute"
+        class: "HandlerEvaluateCompliance"
         type: "async"
+    - operation: "parse_compliance_response"
+      handler:
+        module: "omniintelligence.nodes.node_pattern_compliance_effect.handlers.handler_compliance"
+        class: "HandlerComplianceParsing"
+        type: "sync"
 
 # =============================================================================
 # EVENT BUS SUBCONTRACT

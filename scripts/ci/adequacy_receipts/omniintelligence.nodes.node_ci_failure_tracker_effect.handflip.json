@@ -1,0 +1,31 @@
+{
+  "base_ref": "dbd04de5b3fe",
+  "canonical_handler_module": "omniintelligence.nodes.node_ci_failure_tracker_effect.handlers.handler_trigger_record",
+  "legacy_handler_module": "omniintelligence.nodes.node_ci_failure_tracker_effect.handlers.handler_trigger_record",
+  "node_id": "omniintelligence.nodes.node_ci_failure_tracker_effect",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:70cd432fb8767804ca2c116b4881835b9627f726bc4afb4e2126a3ea0e4db637",
+      "sha256:f5326672defc472fc6d8b939ddbba0043b72778086271b66dc25dc9a8ac31caa",
+      "sha256:2fb910d52c53d6200f76f0ecce4ef396d7ff105ec8694015e9b0d58cc06b657d",
+      "sha256:84e299ab65dde9efe713b1ee0c63b60403e2b1898e6f73a4ed89d4838394ab47"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_ci_failure_tracker_effect/test_handler_class_shape.py::test_canonical_dispatch_matches_preserved_core[streak-new]",
+      "tests/unit/nodes/node_ci_failure_tracker_effect/test_handler_class_shape.py::test_canonical_dispatch_matches_preserved_core[streak-existing]",
+      "tests/unit/nodes/node_ci_failure_tracker_effect/test_handler_class_shape.py::test_canonical_dispatch_matches_preserved_core[trigger-no-streak]",
+      "tests/unit/nodes/node_ci_failure_tracker_effect/test_handler_class_shape.py::test_canonical_dispatch_matches_preserved_core[trigger-below-threshold]",
+      "tests/unit/nodes/node_ci_failure_tracker_effect/test_handler_class_shape.py::test_canonical_dispatch_matches_preserved_core[trigger-at-threshold]",
+      "tests/unit/nodes/node_ci_failure_tracker_effect/test_handler_class_shape.py::test_canonical_dispatch_matches_preserved_core[trigger-above-threshold]",
+      "tests/unit/nodes/node_ci_failure_tracker_effect/test_handler_class_shape.py::test_canonical_dispatch_matches_preserved_core[trigger-empty-classification]",
+      "tests/unit/nodes/node_ci_failure_tracker_effect/test_handler_class_shape.py::test_canonical_dispatch_matches_preserved_core[trigger-publish-failure]",
+      "tests/unit/nodes/node_ci_failure_tracker_effect/test_handler_class_shape.py::test_canonical_dispatch_matches_preserved_core[trigger-store-failure]"
+    ]
+  },
+  "preserved_symbols": [
+    "handle_trigger_record",
+    "_emit_ci_debug_escalation"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

@@ -26,6 +26,8 @@ from omniintelligence.nodes.node_execution_trace_parser_compute.handlers.protoco
 
 if TYPE_CHECKING:
     from omniintelligence.nodes.node_execution_trace_parser_compute.models import (
+        ModelSpanTreeRequest,
+        ModelSpanTreeResponse,
         ModelTraceData,
         ModelTraceLog,
     )
@@ -444,7 +446,24 @@ def is_error_log_level(level: str | None) -> bool:
     return level.lower() in error_levels
 
 
+class HandlerTraceParsing:
+    """Dispatch a typed request to the preserved span tree builder."""
+
+    def handle(self, request: ModelSpanTreeRequest) -> ModelSpanTreeResponse:
+        """Build the span tree, preserving structured validation errors."""
+        from omniintelligence.nodes.node_execution_trace_parser_compute.models import (
+            ModelSpanTreeResponse,
+        )
+
+        return ModelSpanTreeResponse(
+            result=build_span_tree(
+                request.trace_data, correlation_id=request.correlation_id
+            )
+        )
+
+
 __all__ = [
+    "HandlerTraceParsing",
     "PARSER_VERSION",
     "build_span_tree",
     "compute_timing_metrics",
