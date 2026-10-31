@@ -45,18 +45,23 @@ emergency_bypass:
   follow_up_ticket_id: ''
 dod_evidence:
   - id: dod-omn21770-ac1-checker-rerun
-    description: The checker scans both slice test modules and reports no literal_url finding; missing
-      files and parse errors fail.
+    description: The checker scans both slice test modules and reports no literal_url finding; each endpoint
+      mapping must also supply a valid HTTP URL. The control overlays the head's Python tests, so loading
+      their endpoint mappings exercises the product files absent at the merge base.
     source: manual
     checks:
       - check_type: command
         check_value: 'env PYTHONDONTWRITEBYTECODE=1 uv run python -c ''import sys; from pathlib import
-          Path; from omnibase_core.validation.validator_contracts_and_di import ValidatorContractsAndDi;
-          paths = [Path(p) for p in sys.argv[1:]]; assert paths and all(p.is_file() for p in paths), "missing
-          slice path"; result = ValidatorContractsAndDi().validate(paths); assert result.metadata is not
-          None and result.metadata.files_processed == len(paths), "incomplete scan"; findings = [i for
-          i in result.issues if i.rule_name in {"literal_url", "unparseable_file"}]; print(result.summary);
-          [print(i) for i in findings]; sys.exit(bool(findings))'' src/omniintelligence/nodes/node_embedding_generation_effect/node_tests/test_handler_embedding_generate.py
+          Path; from urllib.parse import urlsplit; import yaml; from omnibase_core.validation.validator_contracts_and_di
+          import ValidatorContractsAndDi; paths = [Path(p) for p in sys.argv[1:]]; assert paths and all(p.is_file()
+          for p in paths), "missing slice path"; result = ValidatorContractsAndDi().validate(paths); assert
+          result.metadata is not None and result.metadata.files_processed == len(paths), "incomplete scan";
+          findings = [i for i in result.issues if i.rule_name in {"literal_url", "unparseable_file"}];
+          print(result.summary); [print(i) for i in findings]; values = [yaml.safe_load(p.with_name("test_endpoints.yaml").read_text())[key]
+          for p, key in zip(paths, ("embedding_url", "qdrant_url"), strict=True)]; assert all(isinstance(value,
+          str) and urlsplit(value).scheme in {"http", "https"} and urlsplit(value).netloc for value in
+          values), "invalid contract endpoint"; print("Validated endpoint mappings:", len(values)); sys.exit(bool(findings))''
+          src/omniintelligence/nodes/node_embedding_generation_effect/node_tests/test_handler_embedding_generate.py
           src/omniintelligence/nodes/node_context_item_writer_effect/node_tests/test_handler_context_item_writer.py'
         cwd: ${OMNI_HOME}/omniintelligence
     binds_ac:
