@@ -22,6 +22,8 @@ from typing import Any
 import pytest
 import yaml
 
+from tests.ci.receipt_gate_pin import RECEIPT_GATE_PIN_TAG, RECEIPT_GATE_REUSABLE
+
 pytestmark = pytest.mark.unit
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -29,11 +31,10 @@ WORKFLOWS = REPO_ROOT / ".github" / "workflows"
 CALLER = WORKFLOWS / "call-repo-evidence-gate.yml"
 CONTRACT = REPO_ROOT / "contracts" / "OMN-20074.yaml"
 
-# 8-character prefix of the squash commit of omnibase_core#1932 on that repository's dev branch,
-# a descendant of #1914 (OMN-20032). 0.4.305 is the first omnimarket release carrying
-# omnimarket#3563, the verifier half of the contract-home marker, and it ships the
-# node_dod_verify occ-difference classifier (omnimarket#3277, 0.4.294).
-RECEIPT_GATE_PIN_PREFIX = "4e4f5e04"
+# 0.4.305 is the first omnimarket release carrying omnimarket#3563, the verifier half
+# of the contract-home marker, and it ships the node_dod_verify occ-difference
+# classifier (omnimarket#3277, 0.4.294). The pin is an omnibase_core dev-merge tag held
+# in tests/ci/receipt_gate_pin.py (OMN-20134).
 VERIFIER_FLOOR = (0, 4, 305)
 
 
@@ -73,13 +74,13 @@ def test_caller_job_is_a_bare_call_with_no_secrets() -> None:
     assert "secrets: inherit" not in CALLER.read_text(encoding="utf-8")
 
 
-def test_caller_pins_the_current_receipt_gate_by_full_sha() -> None:
+def test_caller_pins_the_current_receipt_gate_by_dev_merge_tag() -> None:
     uses = _job()["uses"]
     assert re.fullmatch(
-        r"OmniNode-ai/omnibase_core/\.github/workflows/receipt-gate\.yml@[0-9a-f]{40}",
+        r"OmniNode-ai/omnibase_core/\.github/workflows/receipt-gate\.yml@dev-\d{14}-[0-9a-f]{12}",
         uses,
     )
-    assert uses.split("@", 1)[1].startswith(RECEIPT_GATE_PIN_PREFIX)
+    assert uses == f"{RECEIPT_GATE_REUSABLE}@{RECEIPT_GATE_PIN_TAG}"
 
 
 def test_current_receipt_gate_verifier_version_is_at_or_above_the_floor() -> None:

@@ -16,8 +16,9 @@
 # Per-PR concurrency cancels superseded runs so the latest event gets a verdict.
 # Read-only contents and pull-requests permissions are all this caller needs;
 # checkout and verification belong to the reusable, with no caller secrets.
-# The full-SHA pin makes the reusable immutable; verifier-version pins the
-# released verifier used to read the caller's contracts.
+# The dev-merge tag of omnibase_core makes the reusable a fixed ref (the repo's
+# ruling is tags, never full commit shas); verifier-version pins the released
+# verifier used to read the caller's contracts.
 #
 # The job id is the context prefix: repo-evidence / dod-verify carries the
 # verdict, so do not add a job name. The reusable also reports a
@@ -35,9 +36,12 @@
 # Rollback is setting shadow back to "true", which makes every repo-evidence
 # job conclude success again while the cause is found.
 #
-# The reusable is pinned by full SHA to the squash commit of omnibase_core#1932
-# on dev, a descendant of #1914; it carries the `shadow` input. omniintelligence
-# does not host receipt-gate.yml.
+# The reusable is pinned to a dev-merge tag of omnibase_core, a descendant of
+# #1932 (the `shadow` input and the VERIFIER_FLOOR refusal) that also carries
+# the fix-parent control fallback (control_uses_fix_parent). omniintelligence does not
+# host receipt-gate.yml. The pin is advanced by omnimarket's
+# node_receipt_gate_pin_advance_compute (OMN-20134), which edits this line and
+# RECEIPT_GATE_PIN_TAG in tests/ci/receipt_gate_pin.py.
 #
 # The pinned reusable refuses a verifier-version below 0.4.303 before installing
 # it (VERIFIER_FLOOR, omnibase_core#1932; OMN-20032), the first release that
@@ -64,7 +68,7 @@ permissions:
 
 jobs:
   repo-evidence:
-    uses: OmniNode-ai/omnibase_core/.github/workflows/receipt-gate.yml@4e4f5e0404d364e296c5d37db6aa3ab9e07f8ffa # OMN-20032: immutable full-SHA pin, the squash commit of omnibase_core#1932 on that repo's dev branch; descends from #1914 (carries the shadow input) and adds the VERIFIER_FLOOR 0.4.303 refusal to the verifier install step
+    uses: OmniNode-ai/omnibase_core/.github/workflows/receipt-gate.yml@dev-20261030152335-66d35d2283c3 # omnibase_core dev-merge tag; carries the fix-parent control fallback (OMN-20134)
     with:
       evidence-source: caller
       verifier-version: 0.4.310
