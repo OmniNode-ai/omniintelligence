@@ -19,6 +19,7 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
 _TOPIC_FIELDS: tuple[str, ...] = ("subscribe_topics", "publish_topics")
+_EVENT_FIELDS: tuple[str, ...] = ("consumed_events", "published_events")
 
 
 def _load_contract(content: str) -> object:
@@ -30,19 +31,25 @@ def _load_contract(content: str) -> object:
 
 @cache
 def _event_bus_topics(nodes_package: str, node: str) -> tuple[str, ...]:
-    """Every subscribe and publish topic the node's contract declares."""
+    """Every topic the node's contract declares, in ``event_bus`` or its event lists."""
     contract_file = importlib.resources.files(nodes_package).joinpath(
         node, "contract.yaml"
     )
     contract = _load_contract(contract_file.read_text())
-    event_bus = contract.get("event_bus") if isinstance(contract, dict) else None
-    if not isinstance(event_bus, dict):
-        return ()
-    return tuple(
-        topic.removeprefix("{env}.")
+    document = contract if isinstance(contract, dict) else {}
+    event_bus = document.get("event_bus")
+    bus_topics = [
+        topic
         for field in _TOPIC_FIELDS
-        for topic in event_bus.get(field) or []
-    )
+        for topic in (event_bus.get(field) or [] if isinstance(event_bus, dict) else [])
+    ]
+    event_topics = [
+        event["topic"]
+        for field in _EVENT_FIELDS
+        for event in document.get(field) or []
+        if isinstance(event, dict) and isinstance(event.get("topic"), str)
+    ]
+    return tuple(topic.removeprefix("{env}.") for topic in (*bus_topics, *event_topics))
 
 
 class ModelContractTopicReader(BaseModel):
@@ -82,3 +89,11 @@ class ModelContractTopicReader(BaseModel):
                 f"kind={kind!r} event={event_name!r}: {sorted(declared)}"
             )
         return next(iter(declared))
+
+    def event(self, node: str, event_name: str) -> str:
+        """Return the one ``onex.evt`` topic the node contract declares for the event."""
+        return self.read(node, "evt", event_name)
+
+    def command(self, node: str, event_name: str) -> str:
+        """Return the one ``onex.cmd`` topic the node contract declares for the event."""
+        return self.read(node, "cmd", event_name)

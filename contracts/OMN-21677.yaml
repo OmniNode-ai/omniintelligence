@@ -1,0 +1,78 @@
+---
+schema_version: 1.0.0
+ticket_id: OMN-21677
+title: omniintelligence contracts_and_di literal_topic burn-down, slice rf1110 -- the topic registry reads
+  its topics from node contracts
+summary: >-
+  The read-only contracts_and_di scan of omniintelligence src/ (omnibase_core as locked, validator ValidatorContractsAndDi
+  through runtime_validator_run) reported 92 literal_topic findings on dev at 67914815 and 60 after this
+  change; the other rules did not move (handler_hand_construction 51, literal_url 48, literal_model_name
+  30, literal_timeout 30, literal_path 14, literal_port 5, inmemory_outside_injection 4, literal_ip 2,
+  literal_host 1) and nothing new appeared. 32 of the 35 members of IntentTopic and IntelligenceCommandTopic
+  in src/omniintelligence/topics.py no longer hold a topic string: each takes its value from the contract.yaml
+  of the node that declares the topic, through ModelContractTopicReader (event and command read a topic
+  of one kind). The reader now also reads the consumed_events and published_events lists of a contract,
+  which is where node_intelligence_orchestrator declares its code-analysis and document-ingestion topics.
+  The three members no node contract declares (episode boundary, the code-entity bridge dispatch topic
+  and the intent-received command) keep their literal.
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: req-omn21677-topic-registry-from-contracts
+    statement: Every IntentTopic and IntelligenceCommandTopic member that a node contract declares takes
+      its value from that contract through ModelContractTopicReader, the values equal the topics they
+      held before, and the registry module holds no other topic literal than the three listed ones.
+    acceptance:
+      - id: AC1
+        statement: 'AC1: the contracts_and_di literal_topic count over src/omniintelligence/topics.py
+          drops from 35 to 3 and the repo total from 92 to 60 with no baseline entry or suppression added
+          -- falsifier: runtime_validator_run with ValidatorContractsAndDi over src before and after,
+          counts compared per rule'
+      - id: AC2
+        statement: 'AC2: every moved topic is read from a node contract and no string literal of it remains
+          in topics.py -- falsifier: `uv run pytest tests/unit -k topic -q -n 0` passes, including tests/unit/test_topics_from_contracts_omn21677.py'
+      - id: AC3
+        statement: 'AC3: the slice lands as one PR titled with this ticket id and carries lab proof of
+          the tests and the checker re-run -- falsifier: `uv run pytest tests/unit -q` on the lab at the
+          PR head, receipt in the PR body'
+evidence_requirements:
+  - kind: tests
+    description: Golden table of every moved member value, an AST check that only the three listed topic
+      literals remain in topics.py, and reader tests for event and command lookups and for the consumed_events
+      and published_events lists.
+    command: uv run pytest tests/unit/test_topics_from_contracts_omn21677.py tests/unit/test_intent_topics.py
+      tests/unit/test_omnidash_topic_registry.py tests/unit/runtime/test_contract_topics.py -q -n 0
+emergency_bypass:
+  enabled: false
+  justification: ''
+  follow_up_ticket_id: ''
+dod_evidence:
+  - id: dod-omn21677-ac2-topic-registry-from-contracts
+    description: The topic registry tests pass, the reader reads event and command topics, and topics.py
+      names only the three literals no contract declares.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/test_topics_from_contracts_omn21677.py -q -n 0
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: command
+        check_value: >-
+          grep -q 'def event' src/omniintelligence/models/topics/model_contract_topic_reader.py && test
+          "$(grep -c '"onex\.' src/omniintelligence/topics.py)" = 3
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC1
+      - AC2
+  - id: dod-omn21677-ac3-topic-registry-lab-proof
+    description: Replay the focused topic-registry tests cited as lab proof for this slice, including
+      the golden topic values, the remaining-literal check, and the contract-reader and registry consumers.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/test_topics_from_contracts_omn21677.py tests/unit/test_intent_topics.py
+          tests/unit/test_omnidash_topic_registry.py tests/unit/runtime/test_contract_topics.py -q -n
+          0
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC3
