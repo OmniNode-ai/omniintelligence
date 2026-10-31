@@ -24,6 +24,13 @@ requirements:
       - id: "AC2"
         statement: |-
           AC2: the unit tests of the pattern learning and pattern assembler nodes call the handler classes and pass, and the canonical-dispatch parity tests of the two contract-bound handlers pass -- falsifier: uv run pytest tests/unit/nodes/node_pattern_learning_compute tests/unit/nodes/node_pattern_assembler_orchestrator tests/unit/test_node_purity.py -q
+  - id: "req-eval-handler-classes"
+    statement: |-
+      Ten further handler modules (agent_behavior_eval, anti_gaming_guardrails, behavior_scenario_generator, chunk_classifier, debug_retrieval, intent_cost_forecast, intent_drift_detect, memory_eval, objective_ab_framework, review_rubric_check) hold a handler class exposing handle(request) with a typed request model; the module_function_handler findings for them are gone.
+    acceptance:
+      - id: "AC3"
+        statement: |-
+          AC3: the unit tests of the ten converted handlers, including the canonical parity tests, call the handler classes and pass -- falsifier: uv run pytest tests/nodes/node_agent_behavior_eval_compute tests/nodes/node_memory_eval_compute tests/nodes/node_behavior_scenario_generator_compute tests/unit/nodes/node_debug_retrieval_compute tests/unit/nodes/node_review_rubric_check_compute tests/unit/nodes/node_intent_cost_forecast_compute tests/unit/nodes/node_intent_drift_detect_compute src/omniintelligence/nodes/node_chunk_classifier_compute/node_tests src/omniintelligence/nodes/node_anti_gaming_guardrails_compute/node_tests src/omniintelligence/nodes/node_objective_ab_framework_compute/node_tests -q
 evidence_requirements:
   - kind: "tests"
     description: "Handler-class unit tests for the six nodes pass."
@@ -32,6 +39,10 @@ evidence_requirements:
   - kind: "tests"
     description: "Handler-class unit tests of the pattern learning and pattern assembler nodes pass."
     command: "uv run pytest tests/unit/nodes/node_pattern_learning_compute tests/unit/nodes/node_pattern_assembler_orchestrator
+      -q"
+  - kind: "tests"
+    description: "Handler-class unit tests and canonical parity tests for the ten further nodes pass."
+    command: "uv run pytest tests/nodes/node_memory_eval_compute tests/unit/nodes/node_intent_drift_detect_compute
       -q"
 emergency_bypass:
   enabled: false
@@ -55,3 +66,11 @@ dod_evidence:
         check_value: "uv run pytest tests/unit/nodes/node_pattern_learning_compute tests/unit/nodes/node_pattern_assembler_orchestrator
           -q"
     binds_ac: ["AC2"]
+  - id: "dod-omn21536-ac3-eval-handler-classes"
+    description: "The ten further converted handler classes are exercised by their unit and parity tests."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/nodes/node_memory_eval_compute tests/unit/nodes/node_intent_drift_detect_compute
+          -q"
+    binds_ac: ["AC3"]
