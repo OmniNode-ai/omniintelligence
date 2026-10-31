@@ -22,7 +22,7 @@ requirements:
 evidence_requirements:
   - kind: tests
     description: Run the lockfile assertions, lock consistency check and installed codec smoke check.
-    command: uv lock --check
+    command: env PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/unit/test_pyasn1_lock_omn21824.py -q
 emergency_bypass:
   enabled: false
   justification: ''
@@ -32,14 +32,8 @@ dod_evidence:
     description: Reject a missing, duplicate or stale pyasn1 lock entry or distribution URL.
     source: manual
     checks:
-      - check_type: command
-        check_value: >-
-          env PYTHONDONTWRITEBYTECODE=1 python3 -c 'import tomllib; from pathlib import Path; packages
-          = tomllib.loads(Path("uv.lock").read_text())["package"]; matches = [p for p in packages if p["name"]
-          == "pyasn1"]; assert len(matches) == 1, matches; package = matches[0]; assert package["version"]
-          == "0.6.5", package["version"]; assert package["sdist"]["url"].endswith("/pyasn1-0.6.5.tar.gz");
-          assert package["wheels"] and all(w["url"].endswith("/pyasn1-0.6.5-py3-none-any.whl") for w in
-          package["wheels"]); print("pyasn1 lock entry and artifacts select 0.6.5")'
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/test_pyasn1_lock_omn21824.py -q -n 0 --no-cov -k test_lock_selects_pyasn1_0_6_5
         cwd: ${OMNI_HOME}/omniintelligence
     binds_ac:
       - AC1
@@ -57,16 +51,8 @@ dod_evidence:
       data.
     source: manual
     checks:
-      - check_type: command
-        check_value: >-
-          env PYTHONDONTWRITEBYTECODE=1 uv run --locked --no-dev python -c 'import pyasn1; from pyasn1.type.univ
-          import Integer; from pyasn1.codec.ber import encoder as ber_encoder, decoder as ber_decoder;
-          from pyasn1.codec.der import encoder as der_encoder, decoder as der_decoder; assert pyasn1.__version__
-          == "0.6.5", pyasn1.__version__; pairs = [(ber_encoder, ber_decoder), (der_encoder, der_decoder)];
-          results = [decoder.decode(encoder.encode(Integer(value)), asn1Spec=Integer()) for encoder, decoder
-          in pairs for value in (-129, 0, 127, 128, 65536)]; assert [(int(value), rest) for value, rest
-          in results] == [(value, b"") for _ in pairs for value in (-129, 0, 127, 128, 65536)]; print("pyasn1
-          0.6.5 BER and DER round trips passed")'
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/test_pyasn1_lock_omn21824.py -q -n 0 --no-cov -k test_installed_pyasn1_round_trips_ber_and_der
         cwd: ${OMNI_HOME}/omniintelligence
     binds_ac:
       - AC3
