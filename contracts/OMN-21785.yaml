@@ -1,0 +1,89 @@
+---
+schema_version: 1.0.0
+ticket_id: OMN-21785
+title: omniintelligence contracts_and_di handler_hand_construction burn-down, slice rf1505-c2
+summary: >-
+  The read-only contracts_and_di scan of omniintelligence src/ (omnibase_core dev, ValidatorContractsAndDi)
+  reported 110 findings before this change and 106 after it; handler_hand_construction went from 67 to
+  63. This slice removes 4 of them: NodeWatchdogEffect in the watchdog node_tests conftest, NodeIntelligenceReducer
+  in the intelligence reducer lifecycle integration test, NodePolicyStateReducer in the policy lifecycle
+  test and NodeCodeEntityBridgeCompute in the code-entity bridge dispatch handler. Each node is now built
+  in a container module (the binding site the checker allows) and the caller resolves it from there. The
+  other 63 findings sit in files that pushed branches omn-21679-handler-binding-contracts, omn-21536-handler-classes-quality-intent-slice,
+  omn-21536-plan-reviewer-handler-classes and jonah/OMN-21536-shape-omniintelligence-0700 rewrite, so
+  this slice leaves them to those branches.
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: req-omn21785-slice
+    statement: The slice's hand-built nodes leave the touched code and are resolved from a binding module.
+    acceptance:
+      - id: AC1
+        statement: 'AC1: the contracts_and_di count for handler_hand_construction over the slice paths
+          drops to zero and the repo total drops by the slice size, with no baseline entry or suppression
+          added -- falsifier: onex run of runtime_validator_run with the contracts_and_di reference over
+          omniintelligence src before and after, counts compared per rule'
+      - id: AC2
+        statement: 'AC2: every hand-built handler is built by the container through DI from the node contract
+          and none remains hand-constructed in the touched code -- falsifier: uv run pytest tests/unit
+          -q over the touched modules plus the checker re-run on the slice paths'
+      - id: AC3
+        statement: 'AC3: the slice lands as one PR titled with this ticket id and carries lab proof of
+          the tests and the checker re-run -- falsifier: uv run pytest tests/unit -q on the lab through
+          lab-run at the PR head, receipt path in the PR body'
+evidence_requirements:
+  - kind: tests
+    description: Node tests, the code-entity bridge dispatch handler tests and the node purity test.
+    command: env PYTHONDONTWRITEBYTECODE=1 uv run pytest src/omniintelligence/nodes/node_watchdog_effect/node_tests/test_governance_invariants.py
+      src/omniintelligence/nodes/node_intelligence_reducer/node_tests/test_node_pattern_lifecycle_integration.py
+      src/omniintelligence/nodes/node_policy_state_reducer/node_tests tests/unit/runtime/test_dispatch_handler_code_entity_bridge.py
+      tests/unit/test_node_purity.py -q
+emergency_bypass:
+  enabled: false
+  justification: ''
+  follow_up_ticket_id: ''
+dod_evidence:
+  - id: dod-omn21785-ac1-checker-rerun
+    description: The checker scans every slice path and reports no handler_hand_construction or unparseable_file
+      finding; missing files and incomplete scans fail.
+    source: manual
+    checks:
+      - check_type: command
+        check_value: >-
+          env PYTHONDONTWRITEBYTECODE=1 uv run python -c 'import sys; from pathlib import Path; from omnibase_core.validation.validator_contracts_and_di
+          import ValidatorContractsAndDi; paths = [Path(p) for p in sys.argv[1:]]; assert paths and all(p.is_file()
+          for p in paths), "missing slice path"; result = ValidatorContractsAndDi().validate(paths); assert
+          result.metadata is not None and result.metadata.files_processed == len(paths), "incomplete scan";
+          findings = [i for i in result.issues if i.rule_name in {"handler_hand_construction", "unparseable_file"}];
+          print(result.summary); [print(i) for i in findings]; sys.exit(bool(findings))' src/omniintelligence/nodes/node_watchdog_effect/node_tests/conftest.py
+          src/omniintelligence/nodes/node_intelligence_reducer/node_tests/test_node_pattern_lifecycle_integration.py
+          src/omniintelligence/nodes/node_policy_state_reducer/node_tests/test_policy_lifecycle.py src/omniintelligence/runtime/dispatch_handler_code_entity_bridge.py
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC1
+  - id: dod-omn21785-ac2-nodes-resolved
+    description: The touched node tests and the bridge dispatch tests pass with the nodes resolved from
+      the binding modules.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: env PYTHONDONTWRITEBYTECODE=1 uv run pytest src/omniintelligence/nodes/node_watchdog_effect/node_tests/test_governance_invariants.py
+          src/omniintelligence/nodes/node_intelligence_reducer/node_tests/test_node_pattern_lifecycle_integration.py
+          src/omniintelligence/nodes/node_policy_state_reducer/node_tests tests/unit/runtime/test_dispatch_handler_code_entity_bridge.py
+          tests/unit/test_node_purity.py -q
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC2
+  - id: dod-omn21785-ac3-unit-suite
+    description: The slice's focused tests pass at the PR head.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: env PYTHONDONTWRITEBYTECODE=1 uv run pytest src/omniintelligence/nodes/node_watchdog_effect/node_tests/test_governance_invariants.py
+          src/omniintelligence/nodes/node_intelligence_reducer/node_tests/test_node_pattern_lifecycle_integration.py
+          src/omniintelligence/nodes/node_policy_state_reducer/node_tests tests/unit/runtime/test_dispatch_handler_code_entity_bridge.py
+          tests/unit/test_node_purity.py -q
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC3

@@ -54,6 +54,9 @@ from omniintelligence.nodes.node_intelligence_reducer.models.model_reducer_input
 from omniintelligence.nodes.node_intelligence_reducer.node import (
     NodeIntelligenceReducer,
 )
+from omniintelligence.nodes.node_intelligence_reducer.node_tests.container.container_intelligence_reducer import (
+    resolve_intelligence_reducer,
+)
 
 # Type alias for the factory fixture callable
 _ReducerInputFactory = Callable[..., ModelReducerInputPatternLifecycle]
@@ -80,7 +83,7 @@ def reducer_node(onex_container: ModelONEXContainer) -> NodeIntelligenceReducer:
     This fixture provides a real node instance that can be used to test
     the full process() flow.
     """
-    return NodeIntelligenceReducer(container=onex_container)
+    return resolve_intelligence_reducer(onex_container)
 
 
 # =============================================================================
