@@ -1,0 +1,24 @@
+{
+  "branch_coverage_pct": 81.82,
+  "candidate_count": 5,
+  "coverage_target": 80.0,
+  "handler_module": "omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_extract_all_patterns",
+  "handler_module_sha256": "sha256:969010266076714be3a97138eedc302dc49c21a50cb6173190ab2cf70276099b",
+  "meets_target": true,
+  "node_id": "omniintelligence.nodes.node_pattern_extraction_compute",
+  "receipt_schema": "adequacy_receipt.v1",
+  "recorded_at": "2026-10-31T08:55:38.904882+00:00",
+  "recorder_schema": "adequacy_receipt.v1",
+  "selected_count": 5,
+  "selected_input_hashes": [
+    "sha256:39b2a03e9ad807121ed3ea99b8e3732630d118453d0fbbeb4548f12a80d76a78",
+    "sha256:15eb53e26b767ab52ac748d75bd36a2975ab567ea659b31a41cb4fcb491388a4",
+    "sha256:00d39b58f42f0b0a46f589dbae294eb9fa2334487c06a31a29a0125aaad097c8",
+    "sha256:9c47cb88ccf64f746c7231841e5bb0189cc64567de4a8557fd3fa5c12a660b05",
+    "sha256:cfbb0524e3f4556bf7634af11713f8b74d3edadc2a495fd096237104c487e761"
+  ],
+  "volatile_mask": [
+    "insight_id",
+    "pattern_id"
+  ]
+}
