@@ -50,7 +50,7 @@ def _make_finding(
     category: EnumPlanReviewCategory = EnumPlanReviewCategory.R1_COUNTS,
     location: str = "Step 1",
     severity: str = SEVERITY_WARN,
-    source_model: EnumReviewModel = EnumReviewModel.QWEN3_CODER,
+    source_model: EnumReviewModel = EnumReviewModel.CODE_DRAFTER,
 ) -> PlanReviewFinding:
     return PlanReviewFinding.create(
         category=category,
@@ -121,7 +121,7 @@ async def test_s2_specialist_split_dispatched() -> None:
 @pytest.mark.asyncio
 async def test_s3_sequential_critique_dispatched() -> None:
     """S3_SEQUENTIAL_CRITIQUE strategy produces a valid output when critic_caller provided."""
-    drafter_finding = _make_finding(source_model=EnumReviewModel.QWEN3_CODER)
+    drafter_finding = _make_finding(source_model=EnumReviewModel.CODE_DRAFTER)
     callers = _make_callers([drafter_finding])
     critic_caller = AsyncMock(
         return_value={
@@ -190,12 +190,12 @@ async def test_model_ids_filter_limits_active_callers() -> None:
     callers = _make_callers()
     cmd = ModelPlanReviewerMultiCommand(
         plan_text=_PLAN,
-        model_ids=[EnumReviewModel.QWEN3_CODER, EnumReviewModel.DEEPSEEK_R1],
+        model_ids=[EnumReviewModel.CODE_DRAFTER, EnumReviewModel.DEEP_REASONER],
     )
     output = await HandlerPlanReviewerMultiCompute(callers).handle(cmd)
     assert set(output.models_used) == {
-        EnumReviewModel.QWEN3_CODER,
-        EnumReviewModel.DEEPSEEK_R1,
+        EnumReviewModel.CODE_DRAFTER,
+        EnumReviewModel.DEEP_REASONER,
     }
 
 
@@ -204,13 +204,13 @@ async def test_model_ids_filter_limits_active_callers() -> None:
 async def test_findings_count_matches_findings_length() -> None:
     """findings_count is always equal to len(findings)."""
     # Make two models agree on the same finding → panel_vote includes it.
-    f_q = _make_finding(source_model=EnumReviewModel.QWEN3_CODER)
-    f_d = _make_finding(source_model=EnumReviewModel.DEEPSEEK_R1)
+    f_q = _make_finding(source_model=EnumReviewModel.CODE_DRAFTER)
+    f_d = _make_finding(source_model=EnumReviewModel.DEEP_REASONER)
     callers: dict[EnumReviewModel, AsyncMock] = {
-        EnumReviewModel.QWEN3_CODER: AsyncMock(return_value=[f_q]),
-        EnumReviewModel.DEEPSEEK_R1: AsyncMock(return_value=[f_d]),
-        EnumReviewModel.GEMINI_FLASH: AsyncMock(return_value=[]),
-        EnumReviewModel.GLM_4: AsyncMock(return_value=[]),
+        EnumReviewModel.CODE_DRAFTER: AsyncMock(return_value=[f_q]),
+        EnumReviewModel.DEEP_REASONER: AsyncMock(return_value=[f_d]),
+        EnumReviewModel.FAST_REVIEWER: AsyncMock(return_value=[]),
+        EnumReviewModel.TIEBREAKER: AsyncMock(return_value=[]),
     }
     cmd = ModelPlanReviewerMultiCommand(
         plan_text=_PLAN,
@@ -377,7 +377,7 @@ _PARITY_COMMANDS = [
     ModelPlanReviewerMultiCommand(
         plan_text=_PLAN,
         strategy=EnumReviewStrategy.S4_INDEPENDENT_MERGE,
-        model_ids=[EnumReviewModel.QWEN3_CODER],
+        model_ids=[EnumReviewModel.CODE_DRAFTER],
         run_id="parity-empty",
     ),
     ModelPlanReviewerMultiCommand(

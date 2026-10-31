@@ -36,8 +36,8 @@ from omniintelligence.nodes.node_plan_reviewer_multi_compute.models.model_strate
 _PLAN = "Sample plan text for testing."
 _CATEGORIES = list(EnumPlanReviewCategory)
 _EQUAL_WEIGHTS: dict[EnumReviewModel, float] = {
-    EnumReviewModel.QWEN3_CODER: 0.5,
-    EnumReviewModel.DEEPSEEK_R1: 0.5,
+    EnumReviewModel.CODE_DRAFTER: 0.5,
+    EnumReviewModel.DEEP_REASONER: 0.5,
 }
 
 
@@ -46,7 +46,7 @@ def _make_finding(
     category: EnumPlanReviewCategory = EnumPlanReviewCategory.R1_COUNTS,
     location: str = "Step 1",
     severity: str = SEVERITY_WARN,
-    source_model: EnumReviewModel = EnumReviewModel.QWEN3_CODER,
+    source_model: EnumReviewModel = EnumReviewModel.CODE_DRAFTER,
 ) -> PlanReviewFinding:
     return PlanReviewFinding.create(
         category=category,
@@ -237,6 +237,6 @@ async def test_critic_failure_treats_all_drafter_findings_as_confirmed() -> None
 
 @pytest.mark.unit
 def test_drafter_is_qwen3_critic_is_deepseek() -> None:
-    """Fixed role assignment: drafter = qwen3-coder, critic = deepseek-r1."""
-    assert _DRAFTER == EnumReviewModel.QWEN3_CODER
-    assert _CRITIC == EnumReviewModel.DEEPSEEK_R1
+    """Fixed role assignment: drafter = code-drafter, critic = deep-reasoner."""
+    assert _DRAFTER == EnumReviewModel.CODE_DRAFTER
+    assert _CRITIC == EnumReviewModel.DEEP_REASONER

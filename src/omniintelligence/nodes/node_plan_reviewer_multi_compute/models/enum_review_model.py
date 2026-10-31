@@ -23,34 +23,36 @@ from enum import Enum
 
 
 class EnumReviewModel(str, Enum):
-    """LLM model identifiers for the multi-LLM plan reviewer.
+    """Reviewer slot identifiers for the multi-LLM plan reviewer.
 
     Each value matches a row in ``plan_reviewer_model_accuracy`` seeded
-    by migration 020.
+    by migration 020 and renamed to slot names by migration 029.
 
     Attributes:
-        QWEN3_CODER: Qwen3-Coder model (code-optimized, long context).
-        DEEPSEEK_R1: DeepSeek-R1 reasoning model (deep analysis).
-        GEMINI_FLASH: Gemini Flash model (fast, balanced).
-        GLM_4: GLM-4 model (multilingual, general purpose).
+        CODE_DRAFTER: Code-optimized, long-context slot (drafter).
+        DEEP_REASONER: Reasoning slot (deep analysis, critic).
+        FAST_REVIEWER: Fast, balanced slot.
+        TIEBREAKER: Multilingual, general-purpose slot.
 
     Example:
         >>> from omniintelligence.nodes.node_plan_reviewer_multi_compute.models import (
         ...     EnumReviewModel,
         ... )
-        >>> model = EnumReviewModel.QWEN3_CODER
-        >>> assert model.value == "qwen3-coder"
+        >>> model = EnumReviewModel.CODE_DRAFTER
+        >>> assert model.value == "code-drafter"
 
     Note:
+        A value names a reviewer slot, not a model: the model that fills a slot
+        is bound by the deployment overlay, so code names no model.
         Values match the ``model_id`` column in
         ``plan_reviewer_model_accuracy`` (migration 020).
         If you add a value here, add a corresponding INSERT to the migration.
     """
 
-    QWEN3_CODER = "qwen3-coder"
-    DEEPSEEK_R1 = "deepseek-r1"
-    GEMINI_FLASH = "gemini-flash"
-    GLM_4 = "glm-4"
+    CODE_DRAFTER = "code-drafter"
+    DEEP_REASONER = "deep-reasoner"
+    FAST_REVIEWER = "fast-reviewer"
+    TIEBREAKER = "tiebreaker"
 
 
 __all__ = ["EnumReviewModel"]

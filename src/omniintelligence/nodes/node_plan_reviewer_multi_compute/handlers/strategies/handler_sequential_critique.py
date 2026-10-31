@@ -5,9 +5,9 @@
 
 Two-stage drafter → critic pipeline:
 
-1. **Drafter** (``qwen3-coder``) produces an initial set of findings
+1. **Drafter** (``code-drafter``) produces an initial set of findings
    across all requested categories.
-2. **Critic** (``deepseek-r1``) receives both the original plan text and
+2. **Critic** (``deep-reasoner``) receives both the original plan text and
    the drafter's findings.  It returns a structured critique:
 
    * ``confirmed`` — finding IDs the critic agrees with (kept as-is)
@@ -53,8 +53,8 @@ from omniintelligence.nodes.node_plan_reviewer_multi_compute.models.model_strate
 logger = logging.getLogger(__name__)
 
 # Fixed role assignment for S3.
-_DRAFTER = EnumReviewModel.QWEN3_CODER
-_CRITIC = EnumReviewModel.DEEPSEEK_R1
+_DRAFTER = EnumReviewModel.CODE_DRAFTER
+_CRITIC = EnumReviewModel.DEEP_REASONER
 
 
 class HandlerSequentialCritique:
@@ -70,9 +70,9 @@ class HandlerSequentialCritique:
 
             plan_text: The plan content to review.
             categories: Review categories to evaluate.
-            drafter_caller: Async callable for ``qwen3-coder`` (produces
+            drafter_caller: Async callable for ``code-drafter`` (produces
                 initial findings).
-            critic_caller: Async callable for ``deepseek-r1`` (receives plan
+            critic_caller: Async callable for ``deep-reasoner`` (receives plan
                 + drafter findings; returns a ``CritiqueResult``).
             accuracy_weights: Per-model accuracy weight.  Missing keys default
                 to ``0.5``.

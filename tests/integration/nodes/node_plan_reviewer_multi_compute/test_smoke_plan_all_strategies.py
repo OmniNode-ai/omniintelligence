@@ -528,7 +528,7 @@ def _build_openai_compat_caller(
 
 def _build_gemini_caller(
     api_key: str,
-    source_model: EnumReviewModel = EnumReviewModel.GEMINI_FLASH,
+    source_model: EnumReviewModel = EnumReviewModel.FAST_REVIEWER,
     *,
     timeout_seconds: float = 90.0,
 ) -> ModelCaller:
@@ -643,7 +643,7 @@ def _build_openai_compat_critic_caller(
 
 def _build_z_ai_caller(
     api_key: str,
-    source_model: EnumReviewModel = EnumReviewModel.GLM_4,
+    source_model: EnumReviewModel = EnumReviewModel.TIEBREAKER,
     *,
     timeout_seconds: float = 90.0,
 ) -> ModelCaller:
@@ -706,7 +706,7 @@ _DEEPSEEK_REACHABLE: bool = _DEEPSEEK_MODEL_ID is not None
 _GEMINI_REACHABLE: bool = _probe_gemini_api_key(_GEMINI_API_KEY)
 _Z_AI_REACHABLE: bool = bool(_Z_AI_API_KEY) and _is_reachable("https://api.z.ai")
 
-# S3 requires both qwen3-coder (drafter) and deepseek-r1 (critic).
+# S3 requires both code-drafter (drafter) and deep-reasoner (critic).
 _S3_REACHABLE: bool = _QWEN3_REACHABLE and _DEEPSEEK_REACHABLE
 
 # All four endpoints must be reachable for cross-strategy smoke tests.
@@ -756,18 +756,18 @@ def _make_all_callers() -> dict[EnumReviewModel, ModelCaller]:
     qwen3_model = _QWEN3_MODEL_ID or "Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit"
     deepseek_model = _DEEPSEEK_MODEL_ID or "DeepSeek-R1-Distill-Qwen-32B-bf16"
     return {
-        EnumReviewModel.QWEN3_CODER: _build_openai_compat_caller(
+        EnumReviewModel.CODE_DRAFTER: _build_openai_compat_caller(
             _LLM_CODER_URL,
             qwen3_model,
-            EnumReviewModel.QWEN3_CODER,
+            EnumReviewModel.CODE_DRAFTER,
         ),
-        EnumReviewModel.DEEPSEEK_R1: _build_openai_compat_caller(
+        EnumReviewModel.DEEP_REASONER: _build_openai_compat_caller(
             _LLM_DEEPSEEK_URL,
             deepseek_model,
-            EnumReviewModel.DEEPSEEK_R1,
+            EnumReviewModel.DEEP_REASONER,
         ),
-        EnumReviewModel.GEMINI_FLASH: _build_gemini_caller(_GEMINI_API_KEY),
-        EnumReviewModel.GLM_4: _build_z_ai_caller(_Z_AI_API_KEY),
+        EnumReviewModel.FAST_REVIEWER: _build_gemini_caller(_GEMINI_API_KEY),
+        EnumReviewModel.TIEBREAKER: _build_z_ai_caller(_Z_AI_API_KEY),
     }
 
 
@@ -786,21 +786,21 @@ def _make_available_callers() -> dict[EnumReviewModel, ModelCaller]:
     deepseek_model = _DEEPSEEK_MODEL_ID or "DeepSeek-R1-Distill-Qwen-32B-bf16"
 
     if _QWEN3_REACHABLE:
-        callers[EnumReviewModel.QWEN3_CODER] = _build_openai_compat_caller(
+        callers[EnumReviewModel.CODE_DRAFTER] = _build_openai_compat_caller(
             _LLM_CODER_URL,
             qwen3_model,
-            EnumReviewModel.QWEN3_CODER,
+            EnumReviewModel.CODE_DRAFTER,
         )
     if _DEEPSEEK_REACHABLE:
-        callers[EnumReviewModel.DEEPSEEK_R1] = _build_openai_compat_caller(
+        callers[EnumReviewModel.DEEP_REASONER] = _build_openai_compat_caller(
             _LLM_DEEPSEEK_URL,
             deepseek_model,
-            EnumReviewModel.DEEPSEEK_R1,
+            EnumReviewModel.DEEP_REASONER,
         )
     if _GEMINI_REACHABLE:
-        callers[EnumReviewModel.GEMINI_FLASH] = _build_gemini_caller(_GEMINI_API_KEY)
+        callers[EnumReviewModel.FAST_REVIEWER] = _build_gemini_caller(_GEMINI_API_KEY)
     if _Z_AI_REACHABLE:
-        callers[EnumReviewModel.GLM_4] = _build_z_ai_caller(_Z_AI_API_KEY)
+        callers[EnumReviewModel.TIEBREAKER] = _build_z_ai_caller(_Z_AI_API_KEY)
     return callers
 
 
@@ -809,16 +809,16 @@ def _make_s3_callers() -> tuple[dict[EnumReviewModel, ModelCaller], CriticCaller
     qwen3_model = _QWEN3_MODEL_ID or "Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit"
     deepseek_model = _DEEPSEEK_MODEL_ID or "DeepSeek-R1-Distill-Qwen-32B-bf16"
     callers: dict[EnumReviewModel, ModelCaller] = {
-        EnumReviewModel.QWEN3_CODER: _build_openai_compat_caller(
+        EnumReviewModel.CODE_DRAFTER: _build_openai_compat_caller(
             _LLM_CODER_URL,
             qwen3_model,
-            EnumReviewModel.QWEN3_CODER,
+            EnumReviewModel.CODE_DRAFTER,
         ),
     }
     critic: CriticCaller = _build_openai_compat_critic_caller(
         _LLM_DEEPSEEK_URL,
         deepseek_model,
-        EnumReviewModel.DEEPSEEK_R1,
+        EnumReviewModel.DEEP_REASONER,
     )
     return callers, critic
 
@@ -942,7 +942,7 @@ def _assert_category_coverage(
 async def test_s1_panel_vote_smoke_plan() -> None:
     """S1_PANEL_VOTE: smoke plan triggers R1/R2/R3/R4/R6, R5 is clean.
 
-    Uses all reachable LLM endpoints — at minimum qwen3-coder + deepseek-r1.
+    Uses all reachable LLM endpoints — at minimum code-drafter + deep-reasoner.
     S1 requires >= 2 models to agree on a finding; with 2 models, this means
     both must agree. 3+ categories with findings expected.
     """
@@ -976,7 +976,7 @@ async def test_s1_panel_vote_smoke_plan() -> None:
 async def test_s2_specialist_split_smoke_plan() -> None:
     """S2_SPECIALIST_SPLIT: smoke plan triggers R1/R2/R3/R4/R6, R5 is clean.
 
-    Uses all reachable LLM endpoints — at minimum qwen3-coder + deepseek-r1.
+    Uses all reachable LLM endpoints — at minimum code-drafter + deep-reasoner.
     S2 assigns categories to specialists; with fewer models, the GLM-4
     tiebreaker role is skipped.
     """
@@ -1040,7 +1040,7 @@ async def test_s3_sequential_critique_smoke_plan() -> None:
 async def test_s4_independent_merge_smoke_plan() -> None:
     """S4_INDEPENDENT_MERGE: smoke plan triggers R1/R2/R3/R4/R6, R5 is clean.
 
-    Uses all reachable LLM endpoints — at minimum qwen3-coder + deepseek-r1.
+    Uses all reachable LLM endpoints — at minimum code-drafter + deep-reasoner.
     S4 includes every finding from every model (union-merge) so it produces
     the most findings across all strategies.
     """
@@ -1072,62 +1072,62 @@ async def test_s4_independent_merge_smoke_plan() -> None:
 @pytest.mark.asyncio
 @requires_qwen3
 async def test_qwen3_coder_returns_valid_findings() -> None:
-    """qwen3-coder caller parses its response into valid PlanReviewFinding objects."""
+    """code-drafter caller parses its response into valid PlanReviewFinding objects."""
     qwen3_model = _QWEN3_MODEL_ID or "Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit"
     caller = _build_openai_compat_caller(
         _LLM_CODER_URL,
         qwen3_model,
-        EnumReviewModel.QWEN3_CODER,
+        EnumReviewModel.CODE_DRAFTER,
     )
     findings = await caller(SMOKE_PLAN, list(EnumPlanReviewCategory))
     assert isinstance(findings, list)
     for f in findings:
         assert isinstance(f, PlanReviewFinding)
         assert f.severity in ("BLOCK", "WARN")
-        assert f.source_model == EnumReviewModel.QWEN3_CODER
-    logger.info("qwen3-coder: %d findings", len(findings))
+        assert f.source_model == EnumReviewModel.CODE_DRAFTER
+    logger.info("code-drafter: %d findings", len(findings))
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
 @requires_deepseek
 async def test_deepseek_r1_returns_valid_findings() -> None:
-    """deepseek-r1 caller parses its response into valid PlanReviewFinding objects."""
+    """deep-reasoner caller parses its response into valid PlanReviewFinding objects."""
     deepseek_model = _DEEPSEEK_MODEL_ID or "DeepSeek-R1-Distill-Qwen-32B-bf16"
     caller = _build_openai_compat_caller(
         _LLM_DEEPSEEK_URL,
         deepseek_model,
-        EnumReviewModel.DEEPSEEK_R1,
+        EnumReviewModel.DEEP_REASONER,
     )
     findings = await caller(SMOKE_PLAN, list(EnumPlanReviewCategory))
     assert isinstance(findings, list)
     for f in findings:
         assert isinstance(f, PlanReviewFinding)
         assert f.severity in ("BLOCK", "WARN")
-        assert f.source_model == EnumReviewModel.DEEPSEEK_R1
-    logger.info("deepseek-r1: %d findings", len(findings))
+        assert f.source_model == EnumReviewModel.DEEP_REASONER
+    logger.info("deep-reasoner: %d findings", len(findings))
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
 @requires_gemini
 async def test_gemini_flash_returns_valid_findings() -> None:
-    """gemini-flash caller parses its response into valid PlanReviewFinding objects."""
+    """fast-reviewer caller parses its response into valid PlanReviewFinding objects."""
     caller = _build_gemini_caller(_GEMINI_API_KEY)
     findings = await caller(SMOKE_PLAN, list(EnumPlanReviewCategory))
     assert isinstance(findings, list)
     for f in findings:
         assert isinstance(f, PlanReviewFinding)
         assert f.severity in ("BLOCK", "WARN")
-        assert f.source_model == EnumReviewModel.GEMINI_FLASH
-    logger.info("gemini-flash: %d findings", len(findings))
+        assert f.source_model == EnumReviewModel.FAST_REVIEWER
+    logger.info("fast-reviewer: %d findings", len(findings))
 
 
 @pytest.mark.integration
 @pytest.mark.asyncio
 @requires_z_ai
 async def test_glm4_returns_valid_findings() -> None:
-    """glm-4 caller parses its response into valid PlanReviewFinding objects."""
+    """tiebreaker caller parses its response into valid PlanReviewFinding objects."""
     caller = _build_z_ai_caller(_Z_AI_API_KEY)
     try:
         findings = await caller(SMOKE_PLAN, list(EnumPlanReviewCategory))
@@ -1139,8 +1139,8 @@ async def test_glm4_returns_valid_findings() -> None:
     for f in findings:
         assert isinstance(f, PlanReviewFinding)
         assert f.severity in ("BLOCK", "WARN")
-        assert f.source_model == EnumReviewModel.GLM_4
-    logger.info("glm-4: %d findings", len(findings))
+        assert f.source_model == EnumReviewModel.TIEBREAKER
+    logger.info("tiebreaker: %d findings", len(findings))
 
 
 # ---------------------------------------------------------------------------
@@ -1155,16 +1155,16 @@ async def test_categories_disjoint_after_merge() -> None:
     """categories_with_findings and categories_clean are always disjoint."""
     qwen3_model = _QWEN3_MODEL_ID or "Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit"
     callers: dict[EnumReviewModel, ModelCaller] = {
-        EnumReviewModel.QWEN3_CODER: _build_openai_compat_caller(
+        EnumReviewModel.CODE_DRAFTER: _build_openai_compat_caller(
             _LLM_CODER_URL,
             qwen3_model,
-            EnumReviewModel.QWEN3_CODER,
+            EnumReviewModel.CODE_DRAFTER,
         ),
     }
     cmd = ModelPlanReviewerMultiCommand(
         plan_text=SMOKE_PLAN,
         strategy=EnumReviewStrategy.S4_INDEPENDENT_MERGE,
-        model_ids=[EnumReviewModel.QWEN3_CODER],
+        model_ids=[EnumReviewModel.CODE_DRAFTER],
         run_id="OMN-3292-disjoint-check",
     )
     output = await HandlerPlanReviewerMultiCompute(callers, db_conn=None).handle(cmd)

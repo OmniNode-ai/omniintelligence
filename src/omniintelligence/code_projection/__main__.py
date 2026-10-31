@@ -75,6 +75,7 @@ from omniintelligence.code_projection.qdrant import (
     ProtocolCodeProjectionCurrentGenerationResolver,
 )
 from omniintelligence.models.code_projection import artifact_digest, artifact_ref_for
+from omniintelligence.models.llm_routing import ModelLlmRoutingSettings
 from omniintelligence.models.runtime_timeouts import runtime_timeouts
 from omniintelligence.nodes.node_embedding_generation_effect.models.model_embedding_client_config import (
     ModelEmbeddingClientConfig,
@@ -85,8 +86,6 @@ _PRODUCER_VERSION = "2.0.0"
 _LAB_REPOSITORY_PREFIX = "lab/"
 _DEFAULT_REPOSITORY_INSTANCE_ID = "canonical"
 _DEFAULT_QDRANT_COLLECTION = "code_semantic_v2"
-_DEFAULT_EMBEDDING_MODEL = "text-embedding-qwen3"
-_DEFAULT_EMBEDDING_MODEL_VERSION = "qwen3-embedding-0.6b-lab-2026-08-14"
 
 
 @dataclass(frozen=True, slots=True)
@@ -232,14 +231,9 @@ def _live_client_configuration() -> _LiveClientConfiguration:
     embedding_url = os.environ.get(
         "LLM_EMBEDDING_URL", ""
     ).strip()  # url-authority-ok: injected runtime-overlay binding
-    embedding_model = os.environ.get(
-        "CODE_PROJECTION_EMBEDDING_MODEL",
-        _DEFAULT_EMBEDDING_MODEL,
-    )
-    embedding_model_version = os.environ.get(
-        "CODE_PROJECTION_EMBEDDING_MODEL_VERSION",
-        _DEFAULT_EMBEDDING_MODEL_VERSION,
-    )
+    routing = ModelLlmRoutingSettings()
+    embedding_model = routing.code_projection_embedding_model
+    embedding_model_version = routing.code_projection_embedding_model_version
     if not postgres_url:
         raise ValueError(
             "OMNIINTELLIGENCE_DB_URL is not bound by the active runtime overlay"

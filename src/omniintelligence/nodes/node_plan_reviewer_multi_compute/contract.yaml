@@ -77,10 +77,10 @@ environment:
 #
 # | EnumReviewModel  | Client class                 | Env vars         |
 # |------------------|------------------------------|------------------|
-# | qwen3-coder      | (existing vLLM client)       | LLM_CODER_URL    |
-# | deepseek-r1      | (existing vLLM client)       | LLM_DEEPSEEK_R1_URL |
-# | gemini-flash     | PlanReviewerGeminiClient     | GEMINI_API_KEY   |
-# | glm-4            | PlanReviewerZAIClient        | Z_AI_API_KEY     |
+# | code-drafter     | (existing vLLM client)       | LLM_CODER_URL    |
+# | deep-reasoner    | (existing vLLM client)       | LLM_DEEPSEEK_R1_URL |
+# | fast-reviewer    | PlanReviewerGeminiClient     | GEMINI_API_KEY   |
+# | tiebreaker       | PlanReviewerZAIClient        | Z_AI_API_KEY     |
 # =============================================================================
 
 # =============================================================================

@@ -35,10 +35,10 @@ from omniintelligence.nodes.node_plan_reviewer_multi_compute.models.model_strate
 _PLAN = "Sample plan text for testing."
 _CATEGORIES = list(EnumPlanReviewCategory)
 _EQUAL_WEIGHTS: dict[EnumReviewModel, float] = {
-    EnumReviewModel.QWEN3_CODER: 0.5,
-    EnumReviewModel.DEEPSEEK_R1: 0.5,
-    EnumReviewModel.GEMINI_FLASH: 0.5,
-    EnumReviewModel.GLM_4: 0.5,
+    EnumReviewModel.CODE_DRAFTER: 0.5,
+    EnumReviewModel.DEEP_REASONER: 0.5,
+    EnumReviewModel.FAST_REVIEWER: 0.5,
+    EnumReviewModel.TIEBREAKER: 0.5,
 }
 
 
@@ -47,7 +47,7 @@ def _make_finding(
     category: EnumPlanReviewCategory = EnumPlanReviewCategory.R1_COUNTS,
     location: str = "Step 3",
     severity: str = SEVERITY_WARN,
-    source_model: EnumReviewModel = EnumReviewModel.QWEN3_CODER,
+    source_model: EnumReviewModel = EnumReviewModel.CODE_DRAFTER,
 ) -> PlanReviewFinding:
     return PlanReviewFinding.create(
         category=category,
@@ -63,13 +63,13 @@ def _make_finding(
 @pytest.mark.asyncio
 async def test_finding_raised_by_one_model_excluded() -> None:
     """A finding raised by exactly 1 model must NOT appear in output."""
-    sole_finding = _make_finding(source_model=EnumReviewModel.QWEN3_CODER)
+    sole_finding = _make_finding(source_model=EnumReviewModel.CODE_DRAFTER)
 
     callers = {
-        EnumReviewModel.QWEN3_CODER: AsyncMock(return_value=[sole_finding]),
-        EnumReviewModel.DEEPSEEK_R1: AsyncMock(return_value=[]),
-        EnumReviewModel.GEMINI_FLASH: AsyncMock(return_value=[]),
-        EnumReviewModel.GLM_4: AsyncMock(return_value=[]),
+        EnumReviewModel.CODE_DRAFTER: AsyncMock(return_value=[sole_finding]),
+        EnumReviewModel.DEEP_REASONER: AsyncMock(return_value=[]),
+        EnumReviewModel.FAST_REVIEWER: AsyncMock(return_value=[]),
+        EnumReviewModel.TIEBREAKER: AsyncMock(return_value=[]),
     }
 
     result = await HandlerPanelVote().handle(
@@ -90,14 +90,14 @@ async def test_finding_raised_by_one_model_excluded() -> None:
 @pytest.mark.asyncio
 async def test_finding_raised_by_two_models_included() -> None:
     """A finding raised by 2 models on the same (category, location) IS included."""
-    f_qwen = _make_finding(source_model=EnumReviewModel.QWEN3_CODER)
-    f_deepseek = _make_finding(source_model=EnumReviewModel.DEEPSEEK_R1)
+    f_qwen = _make_finding(source_model=EnumReviewModel.CODE_DRAFTER)
+    f_deepseek = _make_finding(source_model=EnumReviewModel.DEEP_REASONER)
 
     callers = {
-        EnumReviewModel.QWEN3_CODER: AsyncMock(return_value=[f_qwen]),
-        EnumReviewModel.DEEPSEEK_R1: AsyncMock(return_value=[f_deepseek]),
-        EnumReviewModel.GEMINI_FLASH: AsyncMock(return_value=[]),
-        EnumReviewModel.GLM_4: AsyncMock(return_value=[]),
+        EnumReviewModel.CODE_DRAFTER: AsyncMock(return_value=[f_qwen]),
+        EnumReviewModel.DEEP_REASONER: AsyncMock(return_value=[f_deepseek]),
+        EnumReviewModel.FAST_REVIEWER: AsyncMock(return_value=[]),
+        EnumReviewModel.TIEBREAKER: AsyncMock(return_value=[]),
     }
 
     result = await HandlerPanelVote().handle(
@@ -112,8 +112,8 @@ async def test_finding_raised_by_two_models_included() -> None:
     assert len(result) == 1
     merged = result[0]
     assert merged.category == EnumPlanReviewCategory.R1_COUNTS
-    assert EnumReviewModel.QWEN3_CODER in merged.sources
-    assert EnumReviewModel.DEEPSEEK_R1 in merged.sources
+    assert EnumReviewModel.CODE_DRAFTER in merged.sources
+    assert EnumReviewModel.DEEP_REASONER in merged.sources
 
 
 @pytest.mark.unit
@@ -124,14 +124,14 @@ async def test_confidence_weighted_fraction_two_of_four() -> None:
     Two models agree out of four, all equal weight 0.5:
     confidence = (0.5 + 0.5) / (4 * 0.5) = 1.0 / 2.0 = 0.5
     """
-    f_qwen = _make_finding(source_model=EnumReviewModel.QWEN3_CODER)
-    f_deepseek = _make_finding(source_model=EnumReviewModel.DEEPSEEK_R1)
+    f_qwen = _make_finding(source_model=EnumReviewModel.CODE_DRAFTER)
+    f_deepseek = _make_finding(source_model=EnumReviewModel.DEEP_REASONER)
 
     callers = {
-        EnumReviewModel.QWEN3_CODER: AsyncMock(return_value=[f_qwen]),
-        EnumReviewModel.DEEPSEEK_R1: AsyncMock(return_value=[f_deepseek]),
-        EnumReviewModel.GEMINI_FLASH: AsyncMock(return_value=[]),
-        EnumReviewModel.GLM_4: AsyncMock(return_value=[]),
+        EnumReviewModel.CODE_DRAFTER: AsyncMock(return_value=[f_qwen]),
+        EnumReviewModel.DEEP_REASONER: AsyncMock(return_value=[f_deepseek]),
+        EnumReviewModel.FAST_REVIEWER: AsyncMock(return_value=[]),
+        EnumReviewModel.TIEBREAKER: AsyncMock(return_value=[]),
     }
 
     result = await HandlerPanelVote().handle(
@@ -175,18 +175,18 @@ async def test_severity_escalates_to_block_if_any_source_blocks() -> None:
     """Severity must be BLOCK if any agreeing model says BLOCK."""
     f_warn = _make_finding(
         severity=SEVERITY_WARN,
-        source_model=EnumReviewModel.QWEN3_CODER,
+        source_model=EnumReviewModel.CODE_DRAFTER,
     )
     f_block = _make_finding(
         severity=SEVERITY_BLOCK,
-        source_model=EnumReviewModel.DEEPSEEK_R1,
+        source_model=EnumReviewModel.DEEP_REASONER,
     )
 
     callers = {
-        EnumReviewModel.QWEN3_CODER: AsyncMock(return_value=[f_warn]),
-        EnumReviewModel.DEEPSEEK_R1: AsyncMock(return_value=[f_block]),
-        EnumReviewModel.GEMINI_FLASH: AsyncMock(return_value=[]),
-        EnumReviewModel.GLM_4: AsyncMock(return_value=[]),
+        EnumReviewModel.CODE_DRAFTER: AsyncMock(return_value=[f_warn]),
+        EnumReviewModel.DEEP_REASONER: AsyncMock(return_value=[f_block]),
+        EnumReviewModel.FAST_REVIEWER: AsyncMock(return_value=[]),
+        EnumReviewModel.TIEBREAKER: AsyncMock(return_value=[]),
     }
 
     result = await HandlerPanelVote().handle(
@@ -227,13 +227,13 @@ async def test_failed_model_treated_as_empty() -> None:
     ) -> list[PlanReviewFinding]:
         raise RuntimeError("network error")
 
-    good_finding = _make_finding(source_model=EnumReviewModel.DEEPSEEK_R1)
+    good_finding = _make_finding(source_model=EnumReviewModel.DEEP_REASONER)
 
     callers = {
-        EnumReviewModel.QWEN3_CODER: _fail,
-        EnumReviewModel.DEEPSEEK_R1: AsyncMock(return_value=[good_finding]),
-        EnumReviewModel.GEMINI_FLASH: AsyncMock(return_value=[]),
-        EnumReviewModel.GLM_4: AsyncMock(return_value=[]),
+        EnumReviewModel.CODE_DRAFTER: _fail,
+        EnumReviewModel.DEEP_REASONER: AsyncMock(return_value=[good_finding]),
+        EnumReviewModel.FAST_REVIEWER: AsyncMock(return_value=[]),
+        EnumReviewModel.TIEBREAKER: AsyncMock(return_value=[]),
     }
 
     # Only deepseek raised the finding — 1/4 agreement → excluded.
@@ -254,18 +254,18 @@ async def test_distinct_locations_not_merged() -> None:
     """Findings at different locations are not merged even if same category."""
     f1 = _make_finding(
         location="Step 1",
-        source_model=EnumReviewModel.QWEN3_CODER,
+        source_model=EnumReviewModel.CODE_DRAFTER,
     )
     f2 = _make_finding(
         location="Step 2",
-        source_model=EnumReviewModel.DEEPSEEK_R1,
+        source_model=EnumReviewModel.DEEP_REASONER,
     )
     # Each location only has 1 model agreeing → neither should appear.
     callers = {
-        EnumReviewModel.QWEN3_CODER: AsyncMock(return_value=[f1]),
-        EnumReviewModel.DEEPSEEK_R1: AsyncMock(return_value=[f2]),
-        EnumReviewModel.GEMINI_FLASH: AsyncMock(return_value=[]),
-        EnumReviewModel.GLM_4: AsyncMock(return_value=[]),
+        EnumReviewModel.CODE_DRAFTER: AsyncMock(return_value=[f1]),
+        EnumReviewModel.DEEP_REASONER: AsyncMock(return_value=[f2]),
+        EnumReviewModel.FAST_REVIEWER: AsyncMock(return_value=[]),
+        EnumReviewModel.TIEBREAKER: AsyncMock(return_value=[]),
     }
 
     result = await HandlerPanelVote().handle(

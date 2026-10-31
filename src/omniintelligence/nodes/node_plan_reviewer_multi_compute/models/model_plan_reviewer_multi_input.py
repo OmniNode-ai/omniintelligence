@@ -73,7 +73,7 @@ class ModelPlanReviewerMultiCommand(BaseModel):
         default=None,
         description=(
             "Explicit model list.  ``None`` = all four registered models "
-            "(qwen3-coder, deepseek-r1, gemini-flash, glm-4)."
+            "(code-drafter, deep-reasoner, fast-reviewer, tiebreaker)."
         ),
     )
     run_id: str | None = Field(

@@ -20,6 +20,7 @@ Reference:
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 
@@ -67,6 +68,7 @@ class TestFirstTriggerAllowed:
     @pytest.mark.asyncio
     async def test_schedule_crawl_tick_first_trigger_emitted(
         self,
+        tmp_path: Path,
         debounce_state: DebounceStateManager,
         fresh_config: ModelCrawlSchedulerConfig,
         mock_kafka_publisher: MockKafkaPublisher,
@@ -76,14 +78,14 @@ class TestFirstTriggerAllowed:
         result = await schedule_crawl_tick(
             crawl_type=CrawlerType.FILESYSTEM,
             crawl_scope="omninode/test",
-            source_ref="/tmp/test-repo",
+            source_ref=str(tmp_path / "test-repo"),
             debounce_state=debounce_state,
             config=fresh_config,
             kafka_publisher=mock_kafka_publisher,
             now=now_utc,
         )
         assert result.status == EnumCrawlSchedulerStatus.EMITTED
-        assert result.source_ref == "/tmp/test-repo"
+        assert result.source_ref == str(tmp_path / "test-repo")
         assert result.crawl_type == CrawlerType.FILESYSTEM
 
     @pytest.mark.asyncio
@@ -123,13 +125,14 @@ class TestDuplicateWithinWindowDebounced:
     @pytest.mark.asyncio
     async def test_second_trigger_within_window_is_debounced(
         self,
+        tmp_path: Path,
         debounce_state: DebounceStateManager,
         fresh_config: ModelCrawlSchedulerConfig,
         mock_kafka_publisher: MockKafkaPublisher,
         now_utc: datetime,
     ) -> None:
         """Second trigger 1 second after first must return DEBOUNCED."""
-        source = "/tmp/debounce-test"
+        source = str(tmp_path / "debounce-test")
 
         # First trigger — should emit
         first = await schedule_crawl_tick(
@@ -161,13 +164,14 @@ class TestDuplicateWithinWindowDebounced:
     @pytest.mark.asyncio
     async def test_trigger_after_window_expires_is_emitted(
         self,
+        tmp_path: Path,
         debounce_state: DebounceStateManager,
         fresh_config: ModelCrawlSchedulerConfig,
         mock_kafka_publisher: MockKafkaPublisher,
         now_utc: datetime,
     ) -> None:
         """A trigger after the debounce window expires must return EMITTED."""
-        source = "/tmp/window-expiry-test"
+        source = str(tmp_path / "window-expiry-test")
         window = fresh_config.get_window_seconds(CrawlerType.FILESYSTEM)
 
         await schedule_crawl_tick(
@@ -195,13 +199,14 @@ class TestDuplicateWithinWindowDebounced:
     @pytest.mark.asyncio
     async def test_different_crawler_types_do_not_debounce_each_other(
         self,
+        tmp_path: Path,
         debounce_state: DebounceStateManager,
         fresh_config: ModelCrawlSchedulerConfig,
         mock_kafka_publisher: MockKafkaPublisher,
         now_utc: datetime,
     ) -> None:
         """FILESYSTEM and GIT_REPO triggers for same source_ref are independent."""
-        source = "/tmp/multi-crawler-test"
+        source = str(tmp_path / "multi-crawler-test")
 
         fs_result = await schedule_crawl_tick(
             crawl_type=CrawlerType.FILESYSTEM,
@@ -239,13 +244,14 @@ class TestDebounceReset:
     @pytest.mark.asyncio
     async def test_clear_debounce_allows_next_trigger(
         self,
+        tmp_path: Path,
         debounce_state: DebounceStateManager,
         fresh_config: ModelCrawlSchedulerConfig,
         mock_kafka_publisher: MockKafkaPublisher,
         now_utc: datetime,
     ) -> None:
         """After clear_debounce(), the next trigger within window must be EMITTED."""
-        source = "/tmp/reset-test"
+        source = str(tmp_path / "reset-test")
         crawler = CrawlerType.FILESYSTEM
 
         # First trigger — emits and sets debounce
@@ -359,6 +365,7 @@ class TestKafkaPublisherNone:
     @pytest.mark.asyncio
     async def test_no_publisher_returns_error(
         self,
+        tmp_path: Path,
         debounce_state: DebounceStateManager,
         fresh_config: ModelCrawlSchedulerConfig,
         now_utc: datetime,
@@ -367,7 +374,7 @@ class TestKafkaPublisherNone:
         result = await schedule_crawl_tick(
             crawl_type=CrawlerType.FILESYSTEM,
             crawl_scope="scope",
-            source_ref="/tmp/no-publisher-test",
+            source_ref=str(tmp_path / "no-publisher-test"),
             debounce_state=debounce_state,
             config=fresh_config,
             kafka_publisher=None,
@@ -379,12 +386,13 @@ class TestKafkaPublisherNone:
     @pytest.mark.asyncio
     async def test_no_publisher_still_records_debounce_entry(
         self,
+        tmp_path: Path,
         debounce_state: DebounceStateManager,
         fresh_config: ModelCrawlSchedulerConfig,
         now_utc: datetime,
     ) -> None:
         """ERROR result must still record debounce entry to prevent retry bursts."""
-        source = "/tmp/debounce-on-error-test"
+        source = str(tmp_path / "debounce-on-error-test")
         crawler = CrawlerType.FILESYSTEM
 
         # Trigger with no publisher — returns ERROR
@@ -412,12 +420,13 @@ class TestKafkaPublisherNone:
     @pytest.mark.asyncio
     async def test_retry_after_error_is_debounced(
         self,
+        tmp_path: Path,
         debounce_state: DebounceStateManager,
         fresh_config: ModelCrawlSchedulerConfig,
         now_utc: datetime,
     ) -> None:
         """A caller retrying after ERROR within the window must receive DEBOUNCED."""
-        source = "/tmp/retry-debounced-test"
+        source = str(tmp_path / "retry-debounced-test")
 
         # First call — ERROR (no publisher)
         await schedule_crawl_tick(
@@ -462,6 +471,7 @@ class TestTimezoneGuard:
 
     def test_naive_datetime_raises_value_error(
         self,
+        tmp_path: Path,
         debounce_state: DebounceStateManager,
         fresh_config: ModelCrawlSchedulerConfig,
     ) -> None:
@@ -470,7 +480,7 @@ class TestTimezoneGuard:
 
         with pytest.raises(ValueError, match="UTC-aware"):
             debounce_state.is_allowed(
-                source_ref="/tmp/tz-test",
+                source_ref=str(tmp_path / "tz-test"),
                 crawler_type=CrawlerType.FILESYSTEM,
                 window_seconds=30,
                 now=naive_now,
@@ -478,13 +488,14 @@ class TestTimezoneGuard:
 
     def test_utc_aware_datetime_does_not_raise(
         self,
+        tmp_path: Path,
         debounce_state: DebounceStateManager,
     ) -> None:
         """UTC-aware datetime must not raise."""
         utc_now = datetime(2026, 2, 20, 12, 0, 0, tzinfo=UTC)
         # Should not raise
         result = debounce_state.is_allowed(
-            source_ref="/tmp/tz-ok-test",
+            source_ref=str(tmp_path / "tz-ok-test"),
             crawler_type=CrawlerType.FILESYSTEM,
             window_seconds=30,
             now=utc_now,
@@ -493,13 +504,14 @@ class TestTimezoneGuard:
 
     def test_non_utc_aware_datetime_does_not_raise(
         self,
+        tmp_path: Path,
         debounce_state: DebounceStateManager,
     ) -> None:
         """Any timezone-aware datetime (not just UTC) must be accepted."""
         # The guard only requires tzinfo to be non-None
         tz_aware_now = datetime(2026, 2, 20, 12, 0, 0, tzinfo=UTC)
         result = debounce_state.is_allowed(
-            source_ref="/tmp/tz-nz-test",
+            source_ref=str(tmp_path / "tz-nz-test"),
             crawler_type=CrawlerType.FILESYSTEM,
             window_seconds=30,
             now=tz_aware_now,

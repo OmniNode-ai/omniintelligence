@@ -19,12 +19,26 @@ def test_local_search_configuration_requires_no_postgres_memgraph_or_api_key() -
             "QDRANT_HOST": "omnimemory-qdrant",
             "QDRANT_PORT": "6333",
             "LLM_EMBEDDING_URL": "http://embedding:8000/v1",
+            "CODE_PROJECTION_EMBEDDING_MODEL": "bound-embedding-model",
+            "CODE_PROJECTION_EMBEDDING_MODEL_VERSION": "bound-embedding-version",
         }
     )
 
     assert configuration.qdrant_url == "http://omnimemory-qdrant:6333"
     assert configuration.qdrant_api_key is None
     assert configuration.qdrant_collection == "code_semantic_v2"
+    assert configuration.embedding_model == "bound-embedding-model"
+    assert configuration.embedding_model_version == "bound-embedding-version"
+
+
+def test_search_configuration_requires_the_embedding_model_binding() -> None:
+    with pytest.raises(ValueError, match="CODE_PROJECTION_EMBEDDING_MODEL must be"):
+        live.load_live_code_context_search_configuration(
+            {
+                "QDRANT_HOST": "omnimemory-qdrant",
+                "LLM_EMBEDDING_URL": "http://embedding:8000/v1",
+            }
+        )
 
 
 def test_cloud_search_configuration_accepts_https_database_key() -> None:
@@ -33,6 +47,8 @@ def test_cloud_search_configuration_accepts_https_database_key() -> None:
             "QDRANT_URL": "https://cluster.example.qdrant.io:6333",
             "QDRANT_API_KEY": "test-only-database-key",
             "LLM_EMBEDDING_URL": "https://embedding.example.test/v1",
+            "CODE_PROJECTION_EMBEDDING_MODEL": "bound-embedding-model",
+            "CODE_PROJECTION_EMBEDDING_MODEL_VERSION": "bound-embedding-version",
         }
     )
 
@@ -47,6 +63,8 @@ def test_search_configuration_rejects_key_over_plaintext() -> None:
                 "QDRANT_URL": "http://cluster.example.test:6333",
                 "QDRANT_API_KEY": "test-only-database-key",
                 "LLM_EMBEDDING_URL": "http://embedding:8000/v1",
+                "CODE_PROJECTION_EMBEDDING_MODEL": "bound-embedding-model",
+                "CODE_PROJECTION_EMBEDDING_MODEL_VERSION": "bound-embedding-version",
             }
         )
 
@@ -59,6 +77,8 @@ def test_qdrant_transport_is_bounded_and_does_not_reuse_idle_connections(
             "QDRANT_HOST": "omnimemory-qdrant",
             "QDRANT_PORT": "6333",
             "LLM_EMBEDDING_URL": "http://embedding:8000/v1",
+            "CODE_PROJECTION_EMBEDDING_MODEL": "bound-embedding-model",
+            "CODE_PROJECTION_EMBEDDING_MODEL_VERSION": "bound-embedding-version",
         }
     )
     captured: dict[str, object] = {}

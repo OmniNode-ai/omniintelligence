@@ -35,6 +35,14 @@ class ModelLlmRoutingSettings(BaseSettings):
             utilization.
         OMNIINTELLIGENCE_PATTERN_COMPLIANCE_MODEL: Default pattern compliance
             evaluation model.
+        OMNIINTELLIGENCE_PLAN_REVIEWER_GEMINI_MODEL: Model the Gemini plan-reviewer
+            client sends.
+        OMNIINTELLIGENCE_PLAN_REVIEWER_Z_AI_MODEL: Model the Z.AI plan-reviewer
+            client sends.
+        CODE_PROJECTION_EMBEDDING_MODEL: Embedding model of the code projection; empty
+            when the overlay binds none, which the code projection refuses.
+        CODE_PROJECTION_EMBEDDING_MODEL_VERSION: Version tag of that embedding model,
+            empty when unbound.
         OMNIINTELLIGENCE_EVAL_COST_RATES: JSON object, case-insensitive model id
             prefix -> [input USD per token, output USD per token] for the eval LLM
             client; a model that matches no prefix costs nothing.
@@ -71,6 +79,26 @@ class ModelLlmRoutingSettings(BaseSettings):
         default=DEFAULT_MODEL_NAME,
         description="Default pattern compliance evaluation model",
         alias="OMNIINTELLIGENCE_PATTERN_COMPLIANCE_MODEL",
+    )
+    plan_reviewer_gemini_model: str = Field(
+        default=DEFAULT_MODEL_NAME,
+        description="Model the Gemini plan-reviewer client sends",
+        alias="OMNIINTELLIGENCE_PLAN_REVIEWER_GEMINI_MODEL",
+    )
+    plan_reviewer_z_ai_model: str = Field(
+        default=DEFAULT_MODEL_NAME,
+        description="Model the Z.AI plan-reviewer client sends",
+        alias="OMNIINTELLIGENCE_PLAN_REVIEWER_Z_AI_MODEL",
+    )
+    code_projection_embedding_model: str = Field(
+        default="",
+        description="Embedding model of the code projection; empty when unbound",
+        alias="CODE_PROJECTION_EMBEDDING_MODEL",
+    )
+    code_projection_embedding_model_version: str = Field(
+        default="",
+        description="Version tag of the code projection embedding model; empty when unbound",
+        alias="CODE_PROJECTION_EMBEDDING_MODEL_VERSION",
     )
     eval_cost_rates: dict[str, tuple[float, float]] = Field(
         default_factory=dict,

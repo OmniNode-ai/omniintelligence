@@ -55,7 +55,7 @@ class ModelPlanReviewerMultiOutput(BaseModel):
         output = ModelPlanReviewerMultiOutput(
             strategy_run_id=uuid4(),
             strategy=EnumReviewStrategy.S1_PANEL_VOTE,
-            models_used=[EnumReviewModel.QWEN3_CODER, EnumReviewModel.DEEPSEEK_R1],
+            models_used=[EnumReviewModel.CODE_DRAFTER, EnumReviewModel.DEEP_REASONER],
             findings=[...],
             findings_count=3,
             strategy_run_stored=True,

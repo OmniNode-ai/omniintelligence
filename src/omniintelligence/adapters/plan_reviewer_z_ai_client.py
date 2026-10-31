@@ -40,6 +40,7 @@ import httpx
 from pydantic import BaseModel, Field
 
 from omniintelligence.models.adapters import adapter_settings
+from omniintelligence.models.llm_routing import llm_routing
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -50,7 +51,6 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-_DEFAULT_MODEL = "glm-4-plus"
 _DEFAULT_MAX_TOKENS = 2048
 _HTTP_CLIENT_ERROR_MIN = 400
 _HTTP_CLIENT_ERROR_MAX = 500  # exclusive (4xx range)
@@ -85,7 +85,7 @@ class ModelPlanReviewerZAIConfig(BaseModel):
         ),
     )
     model: str = Field(
-        default=_DEFAULT_MODEL,
+        default_factory=lambda: llm_routing().plan_reviewer_z_ai_model,
         description="GLM model name.",
     )
     timeout_seconds: float = Field(

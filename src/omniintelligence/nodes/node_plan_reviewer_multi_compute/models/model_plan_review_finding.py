@@ -74,7 +74,7 @@ class PlanReviewFinding(BaseModel):
             severity="BLOCK",
             description="Step 3 lists 4 sub-tasks but the summary says 3.",
             suggested_fix="Update the summary count to 4.",
-            source_model=EnumReviewModel.QWEN3_CODER,
+            source_model=EnumReviewModel.CODE_DRAFTER,
         )
     """
 
@@ -180,7 +180,7 @@ class PlanReviewFindingWithConfidence(BaseModel):
             description="Step count mismatch.",
             suggested_fix="Fix the count.",
             confidence=0.75,
-            sources=[EnumReviewModel.QWEN3_CODER, EnumReviewModel.DEEPSEEK_R1],
+            sources=[EnumReviewModel.CODE_DRAFTER, EnumReviewModel.DEEP_REASONER],
         )
     """
 

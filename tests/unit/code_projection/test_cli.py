@@ -1099,6 +1099,10 @@ def _bind_required_runtime_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     monkeypatch.setenv("ARCH_GRAPH_BOLT_URI", "bolt://projection-graph:7687")
     monkeypatch.setenv("LLM_EMBEDDING_URL", "http://embedding-runtime:8000/v1")
+    monkeypatch.setenv("CODE_PROJECTION_EMBEDDING_MODEL", "bound-embedding-model")
+    monkeypatch.setenv(
+        "CODE_PROJECTION_EMBEDDING_MODEL_VERSION", "bound-embedding-version"
+    )
 
 
 def test_live_client_configuration_supports_local_qdrant_without_api_key(
@@ -1110,18 +1114,25 @@ def test_live_client_configuration_supports_local_qdrant_without_api_key(
     monkeypatch.delenv("QDRANT_PORT", raising=False)
     monkeypatch.delenv("QDRANT_API_KEY", raising=False)
     monkeypatch.delenv("CODE_PROJECTION_QDRANT_COLLECTION", raising=False)
-    monkeypatch.delenv("CODE_PROJECTION_EMBEDDING_MODEL", raising=False)
-    monkeypatch.delenv("CODE_PROJECTION_EMBEDDING_MODEL_VERSION", raising=False)
 
     configuration = cli._live_client_configuration()
 
     assert configuration.qdrant_url == "http://qdrant:6333"
     assert configuration.qdrant_api_key is None
     assert configuration.qdrant_collection == "code_semantic_v2"
-    assert configuration.embedding_model == "text-embedding-qwen3"
-    assert (
-        configuration.embedding_model_version == "qwen3-embedding-0.6b-lab-2026-08-14"
-    )
+    assert configuration.embedding_model == "bound-embedding-model"
+    assert configuration.embedding_model_version == "bound-embedding-version"
+
+
+def test_live_client_configuration_requires_the_embedding_model_binding(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _bind_required_runtime_environment(monkeypatch)
+    monkeypatch.setenv("QDRANT_HOST", "qdrant")
+    monkeypatch.delenv("CODE_PROJECTION_EMBEDDING_MODEL", raising=False)
+
+    with pytest.raises(ValueError, match="CODE_PROJECTION_EMBEDDING_MODEL must be"):
+        cli._live_client_configuration()
 
 
 def test_live_client_configuration_treats_empty_qdrant_api_key_as_unset(
