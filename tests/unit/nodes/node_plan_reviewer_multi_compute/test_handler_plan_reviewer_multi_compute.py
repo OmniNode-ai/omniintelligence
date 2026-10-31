@@ -19,7 +19,7 @@ from omniintelligence.nodes.node_plan_reviewer_multi_compute.handlers.handler_co
     ProtocolDBConnection,
 )
 from omniintelligence.nodes.node_plan_reviewer_multi_compute.handlers.handler_plan_reviewer_multi_compute import (
-    handle_plan_reviewer_multi_compute,
+    HandlerPlanReviewerMultiCompute,
 )
 from omniintelligence.nodes.node_plan_reviewer_multi_compute.models.enum_plan_review_category import (
     EnumPlanReviewCategory,
@@ -100,7 +100,7 @@ async def test_s1_panel_vote_dispatched() -> None:
         plan_text=_PLAN,
         strategy=EnumReviewStrategy.S1_PANEL_VOTE,
     )
-    output = await handle_plan_reviewer_multi_compute(cmd, callers)
+    output = await HandlerPlanReviewerMultiCompute(callers).handle(cmd)
     assert output.strategy == EnumReviewStrategy.S1_PANEL_VOTE
 
 
@@ -113,7 +113,7 @@ async def test_s2_specialist_split_dispatched() -> None:
         plan_text=_PLAN,
         strategy=EnumReviewStrategy.S2_SPECIALIST_SPLIT,
     )
-    output = await handle_plan_reviewer_multi_compute(cmd, callers)
+    output = await HandlerPlanReviewerMultiCompute(callers).handle(cmd)
     assert output.strategy == EnumReviewStrategy.S2_SPECIALIST_SPLIT
 
 
@@ -134,9 +134,9 @@ async def test_s3_sequential_critique_dispatched() -> None:
         plan_text=_PLAN,
         strategy=EnumReviewStrategy.S3_SEQUENTIAL_CRITIQUE,
     )
-    output = await handle_plan_reviewer_multi_compute(
-        cmd, callers, critic_caller=critic_caller
-    )
+    output = await HandlerPlanReviewerMultiCompute(
+        callers, critic_caller=critic_caller
+    ).handle(cmd)
     assert output.strategy == EnumReviewStrategy.S3_SEQUENTIAL_CRITIQUE
 
 
@@ -150,7 +150,7 @@ async def test_s3_fallback_to_s4_when_critic_caller_missing() -> None:
         strategy=EnumReviewStrategy.S3_SEQUENTIAL_CRITIQUE,
     )
     # No critic_caller passed.
-    output = await handle_plan_reviewer_multi_compute(cmd, callers)
+    output = await HandlerPlanReviewerMultiCompute(callers).handle(cmd)
     # Falls back to S4 — output strategy is still S3 (command echo).
     assert output.strategy == EnumReviewStrategy.S3_SEQUENTIAL_CRITIQUE
 
@@ -164,7 +164,7 @@ async def test_s4_independent_merge_dispatched() -> None:
         plan_text=_PLAN,
         strategy=EnumReviewStrategy.S4_INDEPENDENT_MERGE,
     )
-    output = await handle_plan_reviewer_multi_compute(cmd, callers)
+    output = await HandlerPlanReviewerMultiCompute(callers).handle(cmd)
     assert output.strategy == EnumReviewStrategy.S4_INDEPENDENT_MERGE
 
 
@@ -179,7 +179,7 @@ async def test_models_used_reflects_active_callers() -> None:
     """models_used in output matches the keys of model_callers."""
     callers = _make_callers()
     cmd = ModelPlanReviewerMultiCommand(plan_text=_PLAN)
-    output = await handle_plan_reviewer_multi_compute(cmd, callers)
+    output = await HandlerPlanReviewerMultiCompute(callers).handle(cmd)
     assert set(output.models_used) == set(EnumReviewModel)
 
 
@@ -192,7 +192,7 @@ async def test_model_ids_filter_limits_active_callers() -> None:
         plan_text=_PLAN,
         model_ids=[EnumReviewModel.QWEN3_CODER, EnumReviewModel.DEEPSEEK_R1],
     )
-    output = await handle_plan_reviewer_multi_compute(cmd, callers)
+    output = await HandlerPlanReviewerMultiCompute(callers).handle(cmd)
     assert set(output.models_used) == {
         EnumReviewModel.QWEN3_CODER,
         EnumReviewModel.DEEPSEEK_R1,
@@ -216,7 +216,7 @@ async def test_findings_count_matches_findings_length() -> None:
         plan_text=_PLAN,
         strategy=EnumReviewStrategy.S1_PANEL_VOTE,
     )
-    output = await handle_plan_reviewer_multi_compute(cmd, callers)
+    output = await HandlerPlanReviewerMultiCompute(callers).handle(cmd)
     assert output.findings_count == len(output.findings)
 
 
@@ -229,7 +229,7 @@ async def test_run_id_echoed_in_output() -> None:
         plan_text=_PLAN,
         run_id="OMN-1234",
     )
-    output = await handle_plan_reviewer_multi_compute(cmd, callers)
+    output = await HandlerPlanReviewerMultiCompute(callers).handle(cmd)
     assert output.run_id == "OMN-1234"
 
 
@@ -239,7 +239,7 @@ async def test_run_id_none_echoed_in_output() -> None:
     """run_id=None from the command is echoed as None in output."""
     callers = _make_callers()
     cmd = ModelPlanReviewerMultiCommand(plan_text=_PLAN, run_id=None)
-    output = await handle_plan_reviewer_multi_compute(cmd, callers)
+    output = await HandlerPlanReviewerMultiCompute(callers).handle(cmd)
     assert output.run_id is None
 
 
@@ -257,7 +257,7 @@ async def test_db_write_success_strategy_run_stored_true() -> None:
     callers = _make_callers()
     db = _make_db_conn_success()
     cmd = ModelPlanReviewerMultiCommand(plan_text=_PLAN)
-    output = await handle_plan_reviewer_multi_compute(cmd, callers, db_conn=db)
+    output = await HandlerPlanReviewerMultiCompute(callers, db_conn=db).handle(cmd)
     assert output.strategy_run_stored is True
     assert isinstance(output.strategy_run_id, UUID)
 
@@ -269,7 +269,7 @@ async def test_db_unavailable_strategy_run_stored_false() -> None:
     callers = _make_callers()
     db = _make_db_conn_failing()
     cmd = ModelPlanReviewerMultiCommand(plan_text=_PLAN)
-    output = await handle_plan_reviewer_multi_compute(cmd, callers, db_conn=db)
+    output = await HandlerPlanReviewerMultiCompute(callers, db_conn=db).handle(cmd)
     assert output.strategy_run_stored is False
     assert output.strategy_run_id is None
 
@@ -280,7 +280,7 @@ async def test_no_db_conn_strategy_run_stored_false() -> None:
     """With db_conn=None, strategy_run_stored=False and result is still valid."""
     callers = _make_callers()
     cmd = ModelPlanReviewerMultiCommand(plan_text=_PLAN)
-    output = await handle_plan_reviewer_multi_compute(cmd, callers, db_conn=None)
+    output = await HandlerPlanReviewerMultiCompute(callers, db_conn=None).handle(cmd)
     assert output.strategy_run_stored is False
     assert isinstance(output.findings, list)
 
@@ -302,7 +302,7 @@ async def test_kafka_emit_called_with_correct_topic_and_key() -> None:
     producer = AsyncMock()
     producer.publish = AsyncMock()
     cmd = ModelPlanReviewerMultiCommand(plan_text=_PLAN, run_id="OMN-3323-test")
-    await handle_plan_reviewer_multi_compute(cmd, callers, producer=producer)
+    await HandlerPlanReviewerMultiCompute(callers, producer=producer).handle(cmd)
 
     producer.publish.assert_awaited_once()
     call_kwargs = producer.publish.call_args
@@ -317,7 +317,7 @@ async def test_kafka_emit_skipped_when_producer_none() -> None:
     callers = _make_callers()
     cmd = ModelPlanReviewerMultiCommand(plan_text=_PLAN)
     # Should not raise — producer=None is the default and must be a no-op.
-    output = await handle_plan_reviewer_multi_compute(cmd, callers, producer=None)
+    output = await HandlerPlanReviewerMultiCompute(callers, producer=None).handle(cmd)
     assert isinstance(output.findings, list)
 
 
@@ -332,7 +332,9 @@ async def test_kafka_emit_failure_does_not_raise() -> None:
     producer.publish = AsyncMock(side_effect=RuntimeError("Kafka unavailable"))
     cmd = ModelPlanReviewerMultiCommand(plan_text=_PLAN)
     # Must NOT raise despite publish failing.
-    output = await handle_plan_reviewer_multi_compute(cmd, callers, producer=producer)
+    output = await HandlerPlanReviewerMultiCompute(callers, producer=producer).handle(
+        cmd
+    )
     assert isinstance(output.findings, list)
 
 
@@ -357,7 +359,7 @@ async def test_kafka_event_fields_event_id_and_node_id() -> None:
     producer = AsyncMock()
     producer.publish = AsyncMock(side_effect=capture_publish)
     cmd = ModelPlanReviewerMultiCommand(plan_text=_PLAN, run_id="test-run")
-    await handle_plan_reviewer_multi_compute(cmd, callers, producer=producer)
+    await HandlerPlanReviewerMultiCompute(callers, producer=producer).handle(cmd)
 
     assert len(captured) == 1
     payload = captured[0]

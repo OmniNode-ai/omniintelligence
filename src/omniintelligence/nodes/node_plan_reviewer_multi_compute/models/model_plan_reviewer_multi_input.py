@@ -28,7 +28,7 @@ class ModelPlanReviewerMultiCommand(BaseModel):
     """Input command for the multi-LLM plan reviewer node.
 
     Callers build one of these and pass it to
-    ``handle_plan_reviewer_multi_compute`` (or the node shell's ``compute``
+    ``HandlerPlanReviewerMultiCompute.handle`` (or the node shell's ``compute``
     method).  The model is frozen so handlers can safely pass it between
     async tasks without mutation risk.
 

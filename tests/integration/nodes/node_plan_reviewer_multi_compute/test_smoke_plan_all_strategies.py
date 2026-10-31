@@ -47,8 +47,8 @@ import httpx
 import pytest
 
 from omniintelligence.nodes.node_plan_reviewer_multi_compute.handlers.handler_plan_reviewer_multi_compute import (
+    HandlerPlanReviewerMultiCompute,
     ModelCaller,
-    handle_plan_reviewer_multi_compute,
 )
 from omniintelligence.nodes.node_plan_reviewer_multi_compute.handlers.strategies.handler_sequential_critique import (
     CriticCaller,
@@ -952,7 +952,7 @@ async def test_s1_panel_vote_smoke_plan() -> None:
         strategy=EnumReviewStrategy.S1_PANEL_VOTE,
         run_id="OMN-3292-smoke-s1",
     )
-    output = await handle_plan_reviewer_multi_compute(cmd, callers, db_conn=None)
+    output = await HandlerPlanReviewerMultiCompute(callers, db_conn=None).handle(cmd)
 
     _assert_output_invariants(output, EnumReviewStrategy.S1_PANEL_VOTE)
     _assert_category_coverage(output, EnumReviewStrategy.S1_PANEL_VOTE)
@@ -986,7 +986,7 @@ async def test_s2_specialist_split_smoke_plan() -> None:
         strategy=EnumReviewStrategy.S2_SPECIALIST_SPLIT,
         run_id="OMN-3292-smoke-s2",
     )
-    output = await handle_plan_reviewer_multi_compute(cmd, callers, db_conn=None)
+    output = await HandlerPlanReviewerMultiCompute(callers, db_conn=None).handle(cmd)
 
     _assert_output_invariants(output, EnumReviewStrategy.S2_SPECIALIST_SPLIT)
     _assert_category_coverage(output, EnumReviewStrategy.S2_SPECIALIST_SPLIT)
@@ -1015,9 +1015,9 @@ async def test_s3_sequential_critique_smoke_plan() -> None:
         strategy=EnumReviewStrategy.S3_SEQUENTIAL_CRITIQUE,
         run_id="OMN-3292-smoke-s3",
     )
-    output = await handle_plan_reviewer_multi_compute(
-        cmd, callers, db_conn=None, critic_caller=critic_caller
-    )
+    output = await HandlerPlanReviewerMultiCompute(
+        callers, db_conn=None, critic_caller=critic_caller
+    ).handle(cmd)
 
     _assert_output_invariants(output, EnumReviewStrategy.S3_SEQUENTIAL_CRITIQUE)
     _assert_category_coverage(output, EnumReviewStrategy.S3_SEQUENTIAL_CRITIQUE)
@@ -1050,7 +1050,7 @@ async def test_s4_independent_merge_smoke_plan() -> None:
         strategy=EnumReviewStrategy.S4_INDEPENDENT_MERGE,
         run_id="OMN-3292-smoke-s4",
     )
-    output = await handle_plan_reviewer_multi_compute(cmd, callers, db_conn=None)
+    output = await HandlerPlanReviewerMultiCompute(callers, db_conn=None).handle(cmd)
 
     _assert_output_invariants(output, EnumReviewStrategy.S4_INDEPENDENT_MERGE)
     _assert_category_coverage(output, EnumReviewStrategy.S4_INDEPENDENT_MERGE)
@@ -1167,7 +1167,7 @@ async def test_categories_disjoint_after_merge() -> None:
         model_ids=[EnumReviewModel.QWEN3_CODER],
         run_id="OMN-3292-disjoint-check",
     )
-    output = await handle_plan_reviewer_multi_compute(cmd, callers, db_conn=None)
+    output = await HandlerPlanReviewerMultiCompute(callers, db_conn=None).handle(cmd)
 
     findings_categories = {f.category.value for f in output.findings}
     all_values = {c.value for c in EnumPlanReviewCategory}

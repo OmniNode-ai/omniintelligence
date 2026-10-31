@@ -34,18 +34,20 @@ Ticket: OMN-3288
 from __future__ import annotations
 
 import logging
-from collections.abc import Awaitable, Callable
 from uuid import UUID
 
-from omniintelligence.nodes.node_plan_reviewer_multi_compute.models.enum_plan_review_category import (
-    EnumPlanReviewCategory,
-)
 from omniintelligence.nodes.node_plan_reviewer_multi_compute.models.enum_review_model import (
     EnumReviewModel,
 )
 from omniintelligence.nodes.node_plan_reviewer_multi_compute.models.model_plan_review_finding import (
     PlanReviewFinding,
     PlanReviewFindingWithConfidence,
+)
+from omniintelligence.nodes.node_plan_reviewer_multi_compute.models.model_strategy_review_request import (
+    CriticCaller,
+    CritiqueResult,
+    ModelCaller,
+    ModelSequentialCritiqueRequest,
 )
 
 logger = logging.getLogger(__name__)
@@ -54,131 +56,120 @@ logger = logging.getLogger(__name__)
 _DRAFTER = EnumReviewModel.QWEN3_CODER
 _CRITIC = EnumReviewModel.DEEPSEEK_R1
 
-# Type alias: standard model caller.
-ModelCaller = Callable[
-    [str, list[EnumPlanReviewCategory]],
-    Awaitable[list[PlanReviewFinding]],
-]
 
-# Type alias: critic caller receives (plan_text, drafter_findings) and returns
-# a CritiqueResult dict.
-CritiqueResult = dict[str, list[UUID] | list[PlanReviewFinding]]
-CriticCaller = Callable[
-    [str, list[PlanReviewFinding]],
-    Awaitable[CritiqueResult],
-]
+class HandlerSequentialCritique:
+    """Typed entry point for the sequential_critique strategy."""
 
+    async def handle(
+        self, request: ModelSequentialCritiqueRequest
+    ) -> list[PlanReviewFindingWithConfidence]:
+        """Run S3 sequential_critique strategy.
 
-async def handle_sequential_critique(
-    plan_text: str,
-    categories: list[EnumPlanReviewCategory],
-    drafter_caller: ModelCaller,
-    critic_caller: CriticCaller,
-    accuracy_weights: dict[EnumReviewModel, float],
-) -> list[PlanReviewFindingWithConfidence]:
-    """Run S3 sequential_critique strategy.
+        Args:
+            request: Typed request; its fields are:
 
-    Args:
-        plan_text: The plan content to review.
-        categories: Review categories to evaluate.
-        drafter_caller: Async callable for ``qwen3-coder`` (produces
-            initial findings).
-        critic_caller: Async callable for ``deepseek-r1`` (receives plan
-            + drafter findings; returns a ``CritiqueResult``).
-        accuracy_weights: Per-model accuracy weight.  Missing keys default
-            to ``0.5``.
+            plan_text: The plan content to review.
+            categories: Review categories to evaluate.
+            drafter_caller: Async callable for ``qwen3-coder`` (produces
+                initial findings).
+            critic_caller: Async callable for ``deepseek-r1`` (receives plan
+                + drafter findings; returns a ``CritiqueResult``).
+            accuracy_weights: Per-model accuracy weight.  Missing keys default
+                to ``0.5``.
 
-    Returns:
-        List of ``PlanReviewFindingWithConfidence``:
-        - confirmed drafter findings (critic agreed)
-        - critic-added findings (drafter missed)
-        - rejected drafter findings are **not** present
-    """
-    drafter_weight = accuracy_weights.get(_DRAFTER, 0.5)
-    critic_weight = accuracy_weights.get(_CRITIC, 0.5)
-    combined_weight = drafter_weight + critic_weight
-    if combined_weight == 0.0:
-        combined_weight = 1.0
+        Returns:
+            List of ``PlanReviewFindingWithConfidence``:
+            - confirmed drafter findings (critic agreed)
+            - critic-added findings (drafter missed)
+            - rejected drafter findings are **not** present
+        """
+        plan_text = request.plan_text
+        categories = request.categories
+        drafter_caller = request.drafter_caller
+        critic_caller = request.critic_caller
+        accuracy_weights = request.weights
+        drafter_weight = accuracy_weights.get(_DRAFTER, 0.5)
+        critic_weight = accuracy_weights.get(_CRITIC, 0.5)
+        combined_weight = drafter_weight + critic_weight
+        if combined_weight == 0.0:
+            combined_weight = 1.0
 
-    # Stage 1: drafter produces initial findings.
-    try:
-        drafter_findings = await drafter_caller(plan_text, categories)
-    except Exception:
-        logger.exception("sequential_critique: drafter call failed — empty findings")
-        drafter_findings = []
+        # Stage 1: drafter produces initial findings.
+        try:
+            drafter_findings = await drafter_caller(plan_text, categories)
+        except Exception:
+            logger.exception(
+                "sequential_critique: drafter call failed — empty findings"
+            )
+            drafter_findings = []
 
-    # Stage 2: critic reviews plan + drafter findings.
-    critique: CritiqueResult = {"confirmed": [], "rejected": [], "added": []}
-    try:
-        critique = await critic_caller(plan_text, drafter_findings)
-    except Exception:
-        logger.exception(
-            "sequential_critique: critic call failed — treating all drafter findings as confirmed"
-        )
-        critique = {
-            "confirmed": [f.finding_id for f in drafter_findings],
-            "rejected": [],
-            "added": [],
+        # Stage 2: critic reviews plan + drafter findings.
+        critique: CritiqueResult = {"confirmed": [], "rejected": [], "added": []}
+        try:
+            critique = await critic_caller(plan_text, drafter_findings)
+        except Exception:
+            logger.exception(
+                "sequential_critique: critic call failed — treating all drafter findings as confirmed"
+            )
+            critique = {
+                "confirmed": [f.finding_id for f in drafter_findings],
+                "rejected": [],
+                "added": [],
+            }
+
+        confirmed_ids: set[UUID] = {
+            uid for uid in critique.get("confirmed", []) if isinstance(uid, UUID)
         }
+        added_findings: list[PlanReviewFinding] = [
+            f for f in critique.get("added", []) if isinstance(f, PlanReviewFinding)
+        ]
 
-    confirmed_ids: set[UUID] = {
-        uid for uid in critique.get("confirmed", []) if isinstance(uid, UUID)
-    }
-    added_findings: list[PlanReviewFinding] = [
-        f for f in critique.get("added", []) if isinstance(f, PlanReviewFinding)
-    ]
+        output: list[PlanReviewFindingWithConfidence] = []
 
-    output: list[PlanReviewFindingWithConfidence] = []
-
-    # Confirmed drafter findings.
-    for finding in drafter_findings:
-        if finding.finding_id not in confirmed_ids:
-            continue
-        confidence = (drafter_weight * critic_weight) / (combined_weight / 2.0)
-        confidence = min(confidence / combined_weight, 1.0)
-        output.append(
-            PlanReviewFindingWithConfidence(
-                category=finding.category,
-                location=finding.location,
-                location_normalized=finding.location_normalized,
-                severity=finding.severity,
-                description=finding.description,
-                suggested_fix=finding.suggested_fix,
-                patch=finding.patch,
-                confidence=confidence,
-                sources=[_DRAFTER],
+        # Confirmed drafter findings.
+        for finding in drafter_findings:
+            if finding.finding_id not in confirmed_ids:
+                continue
+            confidence = (drafter_weight * critic_weight) / (combined_weight / 2.0)
+            confidence = min(confidence / combined_weight, 1.0)
+            output.append(
+                PlanReviewFindingWithConfidence(
+                    category=finding.category,
+                    location=finding.location,
+                    location_normalized=finding.location_normalized,
+                    severity=finding.severity,
+                    description=finding.description,
+                    suggested_fix=finding.suggested_fix,
+                    patch=finding.patch,
+                    confidence=confidence,
+                    sources=[_DRAFTER],
+                )
             )
-        )
 
-    # Critic-added findings.
-    for finding in added_findings:
-        confidence = min(critic_weight / combined_weight, 1.0)
-        output.append(
-            PlanReviewFindingWithConfidence(
-                category=finding.category,
-                location=finding.location,
-                location_normalized=finding.location_normalized,
-                severity=finding.severity,
-                description=finding.description,
-                suggested_fix=finding.suggested_fix,
-                patch=finding.patch,
-                confidence=confidence,
-                sources=[_CRITIC],
+        # Critic-added findings.
+        for finding in added_findings:
+            confidence = min(critic_weight / combined_weight, 1.0)
+            output.append(
+                PlanReviewFindingWithConfidence(
+                    category=finding.category,
+                    location=finding.location,
+                    location_normalized=finding.location_normalized,
+                    severity=finding.severity,
+                    description=finding.description,
+                    suggested_fix=finding.suggested_fix,
+                    patch=finding.patch,
+                    confidence=confidence,
+                    sources=[_CRITIC],
+                )
             )
+
+        logger.debug(
+            "sequential_critique: %d drafter, %d confirmed, %d added",
+            len(drafter_findings),
+            len(confirmed_ids),
+            len(added_findings),
         )
-
-    logger.debug(
-        "sequential_critique: %d drafter, %d confirmed, %d added",
-        len(drafter_findings),
-        len(confirmed_ids),
-        len(added_findings),
-    )
-    return output
+        return output
 
 
-__all__ = [
-    "CriticCaller",
-    "CritiqueResult",
-    "ModelCaller",
-    "handle_sequential_critique",
-]
+__all__ = ["CriticCaller", "CritiqueResult", "HandlerSequentialCritique", "ModelCaller"]

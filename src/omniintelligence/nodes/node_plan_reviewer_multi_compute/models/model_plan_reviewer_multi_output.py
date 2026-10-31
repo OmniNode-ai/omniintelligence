@@ -30,7 +30,7 @@ from omniintelligence.nodes.node_plan_reviewer_multi_compute.models.model_plan_r
 class ModelPlanReviewerMultiOutput(BaseModel):
     """Output of the multi-LLM plan reviewer node.
 
-    Returned by ``handle_plan_reviewer_multi_compute`` after all strategy
+    Returned by ``HandlerPlanReviewerMultiCompute.handle`` after all strategy
     handlers complete.  The model is frozen so it can be safely cached or
     passed between threads.
 

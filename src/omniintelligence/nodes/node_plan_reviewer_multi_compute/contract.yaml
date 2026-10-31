@@ -32,7 +32,7 @@ description: >
 # plan_reviewer_z_ai_client.py) and is injected.
 # =============================================================================
 input_model:
-  name: "ModelPlanReviewerMultiInput"
+  name: "ModelPlanReviewerMultiCommand"
   module: "omniintelligence.nodes.node_plan_reviewer_multi_compute.models"
   description: "Input containing plan text, review strategy, and model selection."
 output_model:
@@ -82,6 +82,18 @@ environment:
 # | gemini-flash     | PlanReviewerGeminiClient     | GEMINI_API_KEY   |
 # | glm-4            | PlanReviewerZAIClient        | Z_AI_API_KEY     |
 # =============================================================================
+
+# =============================================================================
+# HANDLER ROUTING
+# =============================================================================
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    - operation: "review_plan"
+      handler:
+        class: "HandlerPlanReviewerMultiCompute"
+        module: "omniintelligence.nodes.node_plan_reviewer_multi_compute.handlers.handler_plan_reviewer_multi_compute"
+        type: "async"
 
 # =============================================================================
 # EVENT BUS

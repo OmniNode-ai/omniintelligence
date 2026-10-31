@@ -5,26 +5,27 @@
 
 This node follows the ONEX thin-shell pattern: it contains no logic,
 no error handling beyond what the framework provides, no logging.
-All computation is delegated to ``handle_plan_reviewer_multi_compute``.
+All computation is delegated to ``HandlerPlanReviewerMultiCompute.handle``.
 
 Usage (direct handler invocation — recommended for callers)::
 
     from omniintelligence.nodes.node_plan_reviewer_multi_compute.handlers import (
-        handle_plan_reviewer_multi_compute,
+        HandlerPlanReviewerMultiCompute,
     )
     from omniintelligence.nodes.node_plan_reviewer_multi_compute.models import (
         ModelPlanReviewerMultiCommand,
         EnumReviewStrategy,
     )
 
-    output = await handle_plan_reviewer_multi_compute(
-        command=ModelPlanReviewerMultiCommand(
+    output = await HandlerPlanReviewerMultiCompute(
+        model_callers={...},
+        db_conn=pool_conn,
+    ).handle(
+        ModelPlanReviewerMultiCommand(
             plan_text="## Plan\\n1. Step one\\n2. Step two",
             strategy=EnumReviewStrategy.S4_INDEPENDENT_MERGE,
             run_id="OMN-1234",
-        ),
-        model_callers={...},
-        db_conn=pool_conn,
+        )
     )
 
 Ticket: OMN-3290
@@ -41,8 +42,8 @@ from omniintelligence.nodes.node_plan_reviewer_multi_compute.handlers.handler_co
     ProtocolDBConnection,
 )
 from omniintelligence.nodes.node_plan_reviewer_multi_compute.handlers.handler_plan_reviewer_multi_compute import (
+    HandlerPlanReviewerMultiCompute,
     ModelCaller,
-    handle_plan_reviewer_multi_compute,
 )
 from omniintelligence.nodes.node_plan_reviewer_multi_compute.handlers.strategies.handler_sequential_critique import (
     CriticCaller,
@@ -63,7 +64,7 @@ class NodePlanReviewerMultiCompute(
 ):
     """Thin shell for the multi-LLM plan reviewer compute node.
 
-    Delegates all logic to ``handle_plan_reviewer_multi_compute``.
+    Delegates all logic to ``HandlerPlanReviewerMultiCompute.handle``.
     Model callers and the optional DB connection are injected at
     construction time via ``set_model_callers`` / ``set_db_conn``.
 
@@ -132,12 +133,11 @@ class NodePlanReviewerMultiCompute(
         Returns:
             ``ModelPlanReviewerMultiOutput`` with findings and DB status.
         """
-        return await handle_plan_reviewer_multi_compute(
-            command=input_data,
+        return await HandlerPlanReviewerMultiCompute(
             model_callers=self._model_callers,
             db_conn=self._db_conn,
             critic_caller=self._critic_caller,
-        )
+        ).handle(input_data)
 
 
 __all__ = ["NodePlanReviewerMultiCompute"]
