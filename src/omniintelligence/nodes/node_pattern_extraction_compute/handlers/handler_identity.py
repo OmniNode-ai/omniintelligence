@@ -38,12 +38,6 @@ def insight_identity_key(insight: ModelCodebaseInsight) -> str:
         - ENTRY_POINT_PATTERN: First 3 sorted evidence files
         - MODIFICATION_CLUSTER: First 5 sorted evidence files
 
-    Args:
-        insight: The codebase insight to generate a key for.
-
-    Returns:
-        A unique identity key string for deduplication.
-
     Example:
         >>> from datetime import datetime
         >>> insight = ModelCodebaseInsight(
@@ -106,4 +100,11 @@ def insight_identity_key(insight: ModelCodebaseInsight) -> str:
             return f"{base}unknown:{desc_hash}"
 
 
-__all__ = ["insight_identity_key"]
+class HandlerInsightIdentity:
+    """Compute the identity key of an insight."""
+
+    def handle(self, request: ModelCodebaseInsight) -> str:
+        return insight_identity_key(request)
+
+
+__all__ = ["HandlerInsightIdentity", "insight_identity_key"]

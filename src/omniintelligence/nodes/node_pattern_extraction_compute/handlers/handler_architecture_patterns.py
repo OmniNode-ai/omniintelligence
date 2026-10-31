@@ -43,6 +43,9 @@ from omniintelligence.nodes.node_pattern_extraction_compute.handlers.protocols i
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers.utils import (
     normalize_path,
 )
+from omniintelligence.nodes.node_pattern_extraction_compute.models.model_session_pattern_request import (
+    ModelSessionPatternRequest,
+)
 
 if TYPE_CHECKING:
     from omniintelligence.nodes.node_pattern_extraction_compute.models import (
@@ -99,26 +102,6 @@ def extract_architecture_patterns(
             - member_files: Tuple of files belonging to the pattern (max 10)
             - occurrences: Number of sessions where pattern was observed
             - confidence: Confidence score (0.0-1.0)
-
-    Examples:
-        >>> from dataclasses import dataclass
-        >>> @dataclass
-        ... class MockSession:
-        ...     files_accessed: tuple[str, ...]
-        ...     files_modified: tuple[str, ...]
-        >>> sessions = [
-        ...     MockSession(
-        ...         files_accessed=("src/api/routes.py", "src/api/handlers.py"),
-        ...         files_modified=(),
-        ...     ),
-        ...     MockSession(
-        ...         files_accessed=("src/api/routes.py", "src/api/models.py"),
-        ...         files_modified=(),
-        ...     ),
-        ... ]
-        >>> patterns = extract_architecture_patterns(sessions, min_occurrences=1)
-        >>> len(patterns) > 0
-        True
 
     Notes:
         - Empty sessions are gracefully skipped
@@ -290,6 +273,19 @@ def extract_architecture_patterns(
 # Module Exports
 # =============================================================================
 
+
+class HandlerArchitecturePatterns:
+    """Extract architecture patterns from a typed request."""
+
+    def handle(
+        self, request: ModelSessionPatternRequest
+    ) -> list[ArchitecturePatternResult]:
+        return extract_architecture_patterns(
+            request.sessions, **request.model_dump(exclude={"sessions"})
+        )
+
+
 __all__ = [
+    "HandlerArchitecturePatterns",
     "extract_architecture_patterns",
 ]

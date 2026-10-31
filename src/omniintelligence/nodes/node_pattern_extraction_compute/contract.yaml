@@ -150,28 +150,28 @@ handler_routing:
   handlers:
     - operation: "extract_patterns"
       handler:
-        function: "extract_all_patterns"
-        module: "omniintelligence.nodes.node_pattern_extraction_compute.handlers"
+        class: "HandlerExtractAllPatterns"
+        module: "omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_extract_all_patterns"
         type: "sync"
     - operation: "extract_file_patterns"
       handler:
-        function: "extract_file_access_patterns"
-        module: "omniintelligence.nodes.node_pattern_extraction_compute.handlers"
+        class: "HandlerFilePatterns"
+        module: "omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_file_patterns"
         type: "sync"
     - operation: "extract_error_patterns"
       handler:
-        function: "extract_error_patterns"
-        module: "omniintelligence.nodes.node_pattern_extraction_compute.handlers"
+        class: "HandlerErrorPatterns"
+        module: "omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_error_patterns"
         type: "sync"
     - operation: "extract_architecture_patterns"
       handler:
-        function: "extract_architecture_patterns"
-        module: "omniintelligence.nodes.node_pattern_extraction_compute.handlers"
+        class: "HandlerArchitecturePatterns"
+        module: "omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_architecture_patterns"
         type: "sync"
     - operation: "extract_tool_patterns"
       handler:
-        function: "extract_tool_patterns"
-        module: "omniintelligence.nodes.node_pattern_extraction_compute.handlers"
+        class: "HandlerToolPatterns"
+        module: "omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_tool_patterns"
         type: "sync"
 dependencies: []
 # Future dependency (when protocol is implemented):

@@ -35,6 +35,9 @@ if TYPE_CHECKING:
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers.protocols import (
     ErrorPatternResult,
 )
+from omniintelligence.nodes.node_pattern_extraction_compute.models.model_session_pattern_request import (
+    ModelSessionPatternRequest,
+)
 
 
 def extract_error_patterns(
@@ -79,20 +82,6 @@ def extract_error_patterns(
         - Error-prone files (sorted by confidence descending)
         - Common error patterns (sorted by confidence descending)
 
-    Examples:
-        >>> sessions = [
-        ...     MockSession(
-        ...         session_id="s1",
-        ...         files_accessed=("api.py",),
-        ...         files_modified=(),
-        ...         errors_encountered=("FileNotFoundError",),
-        ...         outcome="failure",
-        ...     ),
-        ... ]
-        >>> patterns = extract_error_patterns(sessions)
-        >>> for p in patterns:
-        ...     ptype, summary = p['pattern_type'], p['error_summary']
-        ...     print(f"{ptype}: {summary} ({p['confidence']:.2f})")
     """
     results: list[ErrorPatternResult] = []
 
@@ -226,4 +215,13 @@ def _summarize_errors(contexts: list[str]) -> str:
     return f"{most_common} (and {len(error_types) - 1} other error types)"
 
 
-__all__ = ["extract_error_patterns"]
+class HandlerErrorPatterns:
+    """Extract error patterns from a typed request."""
+
+    def handle(self, request: ModelSessionPatternRequest) -> list[ErrorPatternResult]:
+        return extract_error_patterns(
+            request.sessions, **request.model_dump(exclude={"sessions"})
+        )
+
+
+__all__ = ["HandlerErrorPatterns", "extract_error_patterns"]

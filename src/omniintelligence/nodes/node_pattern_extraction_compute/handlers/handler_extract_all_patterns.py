@@ -178,15 +178,6 @@ def extract_all_patterns(
 ) -> ModelPatternExtractionOutput:
     """Main handler that performs all pattern extraction.
 
-    This handler:
-    - Validates input
-    - Resolves reference time
-    - Runs all extractors based on config flags
-    - Converts results to insights
-    - Deduplicates and merges with existing
-    - Builds metrics and metadata
-    - Handles errors
-
     Args:
         input_data: Input containing session snapshots, config, and existing insights.
 
@@ -404,4 +395,13 @@ def _deduplicate_and_merge(
     return limited_new, updated_insights
 
 
-__all__ = ["extract_all_patterns"]
+class HandlerExtractAllPatterns:
+    """Extract all patterns from a typed request."""
+
+    def handle(
+        self, request: ModelPatternExtractionInput
+    ) -> ModelPatternExtractionOutput:
+        return extract_all_patterns(request)
+
+
+__all__ = ["HandlerExtractAllPatterns", "extract_all_patterns"]

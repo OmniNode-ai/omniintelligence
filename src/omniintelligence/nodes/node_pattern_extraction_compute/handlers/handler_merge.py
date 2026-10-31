@@ -1,17 +1,15 @@
 # SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
 
-"""Insight merging for deduplication.
-
-Functions for merging duplicate insights,
-combining evidence and updating metadata when the same pattern
-is observed multiple times.
-"""
+"""Insight merging for deduplication."""
 
 from __future__ import annotations
 
 from omniintelligence.nodes.node_pattern_extraction_compute.models import (
     ModelCodebaseInsight,
+)
+from omniintelligence.nodes.node_pattern_extraction_compute.models.model_merge_insights_request import (
+    ModelMergeInsightsRequest,
 )
 
 
@@ -37,13 +35,6 @@ def merge_insights(
         - last_observed: Takes the later timestamp
         - working_directory: Preserved from existing
         - metadata: Merged from both (existing values take precedence)
-
-    Args:
-        new: The newly observed insight to merge.
-        existing: The existing insight to merge into.
-
-    Returns:
-        A new ModelCodebaseInsight with merged data.
 
     Example:
         >>> from datetime import datetime, timedelta
@@ -108,4 +99,11 @@ def merge_insights(
     )
 
 
-__all__ = ["merge_insights"]
+class HandlerMergeInsights:
+    """Merge insights from a typed request."""
+
+    def handle(self, request: ModelMergeInsightsRequest) -> ModelCodebaseInsight:
+        return merge_insights(request.new, request.existing)
+
+
+__all__ = ["HandlerMergeInsights", "merge_insights"]

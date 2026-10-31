@@ -4,7 +4,7 @@
 """Pattern Extraction Compute - Thin declarative COMPUTE node shell.
 
 This node follows the ONEX declarative pattern where the node is a thin shell
-that delegates ALL business logic to handler functions. The node contains
+that delegates ALL business logic to handler classes. The node contains
 no custom routing, iteration, or computation logic.
 
 Pattern: "Thin shell, fat handler"
@@ -13,7 +13,7 @@ All extraction logic is implemented in:
     handlers/handler_extract_all_patterns.py  (local models)
     handlers/handler_core_models.py           (core models - OMN-1594)
 
-Tickets: OMN-1402, OMN-1594
+Tickets: OMN-1402, OMN-1594, OMN-21536
 """
 
 from __future__ import annotations
@@ -28,10 +28,11 @@ from omnibase_core.models.intelligence.model_pattern_extraction_output import (
 from omnibase_core.nodes.node_compute import NodeCompute
 
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers import (
-    extract_all_patterns,
-    handle_pattern_extraction_core,
+    HandlerExtractAllPatterns,
+    HandlerPatternExtractionCore,
 )
 from omniintelligence.nodes.node_pattern_extraction_compute.models import (
+    ModelCoreExtractionRequest,
     ModelPatternExtractionInput,
     ModelPatternExtractionOutput,
 )
@@ -42,7 +43,7 @@ class NodePatternExtractionCompute(
 ):
     """Thin declarative shell for pattern extraction.
 
-    All business logic is delegated to handler functions.
+    All business logic is delegated to handler classes.
     This node only provides the ONEX container interface.
 
     Two compute paths are available:
@@ -58,7 +59,7 @@ class NodePatternExtractionCompute(
         self, input_data: ModelPatternExtractionInput
     ) -> ModelPatternExtractionOutput:
         """Extract patterns using local models by delegating to handler."""
-        return extract_all_patterns(input_data)
+        return HandlerExtractAllPatterns().handle(input_data)
 
     async def compute_core(self, input_data: CorePatternInput) -> CorePatternOutput:
         """Extract patterns using core models by delegating to handler.
@@ -84,7 +85,9 @@ class NodePatternExtractionCompute(
         Returns:
             Core output with patterns_by_kind structure.
         """
-        return handle_pattern_extraction_core(input_data)
+        return HandlerPatternExtractionCore().handle(
+            ModelCoreExtractionRequest(input_data=input_data)
+        )
 
 
 __all__ = ["NodePatternExtractionCompute"]

@@ -47,6 +47,9 @@ if TYPE_CHECKING:
 from omniintelligence.nodes.node_pattern_extraction_compute.handlers.protocols import (
     FileAccessPatternResult,
 )
+from omniintelligence.nodes.node_pattern_extraction_compute.models.model_file_pattern_request import (
+    ModelFilePatternRequest,
+)
 
 # Confidence calculation significance factors
 # These control how occurrence counts translate to confidence scores.
@@ -151,22 +154,6 @@ def extract_file_access_patterns(
         List of detected file access patterns, sorted by confidence descending.
         Returns empty list if no patterns meet the thresholds.
 
-    Examples:
-        >>> sessions = [
-        ...     MockSession(
-        ...         session_id="s1",
-        ...         files_accessed=("api.py", "models.py"),
-        ...         files_modified=(),
-        ...     ),
-        ...     MockSession(
-        ...         session_id="s2",
-        ...         files_accessed=("api.py", "models.py"),
-        ...         files_modified=(),
-        ...     ),
-        ... ]
-        >>> patterns = extract_file_access_patterns(sessions, min_occurrences=2)
-        >>> len(patterns) > 0
-        True
     """
     results: list[FileAccessPatternResult] = []
 
@@ -320,4 +307,13 @@ def extract_file_access_patterns(
     return results
 
 
-__all__ = ["extract_file_access_patterns"]
+class HandlerFilePatterns:
+    """Extract file patterns from a typed request."""
+
+    def handle(self, request: ModelFilePatternRequest) -> list[FileAccessPatternResult]:
+        return extract_file_access_patterns(
+            request.sessions, **request.model_dump(exclude={"sessions"})
+        )
+
+
+__all__ = ["HandlerFilePatterns", "extract_file_access_patterns"]

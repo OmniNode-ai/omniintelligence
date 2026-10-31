@@ -63,6 +63,9 @@ from omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_too
 from omniintelligence.nodes.node_pattern_extraction_compute.models.enum_insight_type import (
     EnumInsightType,
 )
+from omniintelligence.nodes.node_pattern_extraction_compute.models.model_core_extraction_request import (
+    ModelCoreExtractionRequest,
+)
 from omniintelligence.nodes.node_pattern_extraction_compute.models.model_extraction_config import (
     ModelExtractionConfig,
 )
@@ -561,26 +564,12 @@ def _stable_uuid(insight_id: str) -> UUID:
 
 
 def _count_events(sessions: Sequence[ModelSessionSnapshot]) -> int:
-    """Count total tool executions across sessions.
-
-    Args:
-        sessions: Sessions to count events from.
-
-    Returns:
-        Total number of tool executions.
-    """
+    """Count total tool executions across sessions."""
     return sum(len(s.tool_executions) for s in sessions)
 
 
 def _elapsed_ms(start: float) -> float:
-    """Calculate elapsed milliseconds since start.
-
-    Args:
-        start: perf_counter start time.
-
-    Returns:
-        Elapsed milliseconds.
-    """
+    """Calculate elapsed milliseconds since start."""
     return (time.perf_counter() - start) * 1000
 
 
@@ -619,4 +608,13 @@ def _error_output(
     )
 
 
-__all__ = ["handle_pattern_extraction_core"]
+class HandlerPatternExtractionCore:
+    """Extract patterns using core models from a typed request."""
+
+    def handle(self, request: ModelCoreExtractionRequest) -> CoreOutput:
+        return handle_pattern_extraction_core(
+            request.input_data, request.extraction_config
+        )
+
+
+__all__ = ["HandlerPatternExtractionCore", "handle_pattern_extraction_core"]
