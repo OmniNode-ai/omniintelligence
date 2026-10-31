@@ -19,8 +19,8 @@ from typing import Any
 import httpx
 
 from omniintelligence.adapters.eval_llm_client import _compute_cost_usd
-from omniintelligence.models.adapters import adapter_settings
 from omniintelligence.models.llm_routing import llm_routing
+from omniintelligence.models.runtime_timeouts import runtime_timeouts
 from omniintelligence.protocols import ProtocolKafkaPublisher
 
 logger = logging.getLogger(__name__)
@@ -40,10 +40,9 @@ class UtilizationLLMClient:
         event_publisher: ProtocolKafkaPublisher | None = None,
         correlation_id: str = "unknown",
         session_id: str = "unknown",
-        timeout_s: float = adapter_settings().utilization_timeout_s,
     ) -> None:
         self._base_url: str = base_url if base_url else os.environ["LLM_CODER_FAST_URL"]
-        self._client = httpx.AsyncClient(timeout=timeout_s)
+        self._client = httpx.AsyncClient(timeout=runtime_timeouts().utilization_llm_s)
         self._event_publisher = event_publisher
         self._correlation_id = correlation_id
         self._session_id = session_id
@@ -76,15 +75,16 @@ class UtilizationLLMClient:
         response_data: dict[str, Any] = dict(response.json())
 
         # OMN-6129: Fire-and-forget LLM call telemetry emission
-        await self._emit_call_completed(response_data, model, latency_ms)
+        await self._emit_call_completed(
+            response_data=response_data,
+            model_id=model,
+            latency_ms=latency_ms,
+        )
 
         return str(response_data["choices"][0]["message"]["content"])
 
     async def _emit_call_completed(
-        self,
-        response_data: dict[str, Any],
-        model_id: str,
-        latency_ms: int,
+        self, *, response_data: dict[str, Any], model_id: str, latency_ms: int
     ) -> None:
         """Fire-and-forget emission of LLM call telemetry event."""
         if self._event_publisher is None:

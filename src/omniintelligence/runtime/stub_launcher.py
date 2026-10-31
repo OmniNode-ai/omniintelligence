@@ -97,9 +97,7 @@ async def run_stub(  # stub-ok: stub-launcher-name-not-unimplemented
     """Run stub node process with health check endpoint."""
     service_name = f"intelligence-{node_name or node_type}"
 
-    logger.info("=" * 60)
     logger.info("Starting %s (stub mode)", service_name)
-    logger.info("=" * 60)
     logger.warning(
         "STUB MODE: Awaiting RuntimeHostProcess integration from omnibase_infra. "
         "This process responds to health checks but does not process requests."
@@ -133,7 +131,7 @@ async def run_stub(  # stub-ok: stub-launcher-name-not-unimplemented
         logger.info("Shutting down health server...")
         shutdown_thread = threading.Thread(target=health_server.shutdown)
         shutdown_thread.start()
-        shutdown_thread.join(timeout=runtime_timeouts().stub_shutdown_join_s)
+        shutdown_thread.join(timeout=runtime_timeouts().health_shutdown_s)
         if shutdown_thread.is_alive():
             logger.warning("Health server shutdown timed out")
         logger.info("%s shutdown complete", service_name)

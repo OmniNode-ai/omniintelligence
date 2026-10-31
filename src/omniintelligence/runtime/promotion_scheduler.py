@@ -23,14 +23,13 @@ logger = logging.getLogger(__name__)
 PROMOTION_CHECK_TOPIC = read_contract_topic(
     "node_pattern_promotion_effect", "cmd", "promotion-check-requested"
 )
-DEFAULT_INTERVAL_SECONDS: float = runtime_timeouts().promotion_interval_s
 
 
 async def run_promotion_scheduler(
     *,
     publisher: ProtocolKafkaPublisher,
     topic: str = PROMOTION_CHECK_TOPIC,
-    interval_seconds: float = DEFAULT_INTERVAL_SECONDS,
+    interval_seconds: float | None = None,
 ) -> None:
     """Emit promotion-check commands on a periodic interval.
 
@@ -39,8 +38,10 @@ async def run_promotion_scheduler(
     Args:
         publisher: Kafka publisher for emitting commands.
         topic: Target topic for promotion-check commands.
-        interval_seconds: Interval between emissions (default: 300s / 5 minutes).
+        interval_seconds: Interval between emissions (default: promotion_interval_s of
+            runtime_timeouts.yaml).
     """
+    interval_seconds = interval_seconds or runtime_timeouts().promotion_interval_s
     logger.info(
         "Promotion scheduler started",
         extra={"interval_seconds": interval_seconds, "topic": topic},
@@ -66,7 +67,6 @@ async def run_promotion_scheduler(
 
 
 __all__ = [
-    "DEFAULT_INTERVAL_SECONDS",
     "PROMOTION_CHECK_TOPIC",
     "run_promotion_scheduler",
 ]

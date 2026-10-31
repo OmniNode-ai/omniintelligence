@@ -53,6 +53,7 @@ from omnibase_core.protocols.handler.protocol_handler_context import (
 from omnibase_infra.runtime.message_dispatch_engine import MessageDispatchEngine
 from pydantic import ValidationError
 
+from omniintelligence.models.runtime_timeouts import runtime_timeouts
 from omniintelligence.models.topics import read_contract_topic
 from omniintelligence.nodes.node_claude_hook_event_effect.models import (
     ModelClaudeCodeHookEvent,
@@ -1862,7 +1863,10 @@ def create_compliance_evaluate_dispatch_handler(
 # =============================================================================
 
 
-_PROJECTION_THROTTLE_SECONDS: float = 60.0
+_PROJECTION_THROTTLE_SECONDS: float = float(
+    os.environ.get("INTELLIGENCE_PROJECTION_THROTTLE_SECONDS")
+    or runtime_timeouts().projection_throttle_s
+)
 """Minimum interval between projection snapshots triggered by pattern-stored events.
 
 Pattern-stored events can arrive in rapid succession during bulk extraction.
@@ -1872,12 +1876,6 @@ bypass the throttle since they represent significant state changes.
 
 Configurable via INTELLIGENCE_PROJECTION_THROTTLE_SECONDS environment variable.
 """
-try:
-    _PROJECTION_THROTTLE_SECONDS = float(
-        os.environ.get("INTELLIGENCE_PROJECTION_THROTTLE_SECONDS", "60.0")
-    )
-except ValueError:
-    _PROJECTION_THROTTLE_SECONDS = 60.0
 
 
 def create_pattern_projection_dispatch_handler(

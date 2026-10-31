@@ -22,6 +22,7 @@ from datetime import datetime
 
 from omnibase_core.enums.intelligence.enum_intent_class import EnumIntentClass
 
+from omniintelligence.models.runtime_timeouts import runtime_timeouts
 from omniintelligence.nodes.node_intent_cost_forecast_compute.models.model_cost_baseline import (
     ModelCostBaseline,
     build_seeded_baseline,
@@ -31,10 +32,6 @@ from omniintelligence.nodes.node_intent_cost_forecast_compute.models.model_inten
     ModelIntentCostForecast,
     ModelIntentCostForecastInput,
 )
-
-# Maximum confidence interval width. Multiplied by (1 - classification_confidence)
-# to produce the final confidence_interval in the forecast.
-_MAX_CONFIDENCE_INTERVAL: float = 0.8
 
 
 async def compute_forecast(
@@ -62,7 +59,7 @@ async def compute_forecast(
 
     # Widen confidence interval inversely with classification confidence
     confidence_interval = round(
-        (1.0 - input_data.confidence) * _MAX_CONFIDENCE_INTERVAL, 4
+        (1.0 - input_data.confidence) * runtime_timeouts().forecast_max_ci_width, 4
     )
 
     return ModelIntentCostForecast(

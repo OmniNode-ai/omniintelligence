@@ -40,7 +40,6 @@ class ModelAdapterSettings(BaseModel):
         gmail_fetch_s: Gmail intent URL content fetch timeout.
         gmail_embed_s: Gmail intent embedding call timeout.
         gmail_llm_s: Gmail intent reasoning-model call timeout.
-        utilization_timeout_s: ``UtilizationLLMClient`` request timeout.
         gemini_timeout_s: Gemini plan-reviewer config default timeout.
         gemini_chat_url: Gemini plan-reviewer config default chat endpoint.
         zai_timeout_s: Z.AI plan-reviewer config default timeout.
@@ -59,7 +58,6 @@ class ModelAdapterSettings(BaseModel):
     gmail_fetch_s: float = Field(gt=0)
     gmail_embed_s: float = Field(gt=0)
     gmail_llm_s: float = Field(gt=0)
-    utilization_timeout_s: float = Field(gt=0)
     gemini_timeout_s: float = Field(gt=0)
     gemini_chat_url: str = Field(min_length=1)
     zai_timeout_s: float = Field(gt=0)

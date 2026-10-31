@@ -36,9 +36,6 @@ gmail_fetch_s: 10.0  # URL content fetch
 gmail_embed_s: 20.0  # embedding call
 gmail_llm_s: 30.0  # reasoning-model call
 
-# utilization_llm_client.UtilizationLLMClient: request timeout.
-utilization_timeout_s: 30.0
-
 # plan_reviewer_gemini_client.ModelPlanReviewerGeminiConfig default.
 gemini_timeout_s: 60.0
 gemini_chat_url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"

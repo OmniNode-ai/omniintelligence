@@ -23,6 +23,8 @@ from typing import Any, cast
 
 from omniintelligence.models.runtime_timeouts import runtime_timeouts
 
+_REQUEST_TIMEOUT_S = runtime_timeouts().github_api_s
+
 _BOT_MARKER = "<!-- omni-review-bot -->"
 
 
@@ -46,10 +48,8 @@ class GitHubClient:
         token: str,
         repo: str,
         base_url: str,
-        timeout_s: float = runtime_timeouts().github_request_s,
     ) -> None:
         self._token = token
-        self._timeout_s = timeout_s
         self._repo = repo
         self._base_url = base_url.rstrip("/")
 
@@ -83,7 +83,7 @@ class GitHubClient:
         try:
             while url:
                 req = urllib.request.Request(url, headers=self._headers())
-                with urllib.request.urlopen(req, timeout=self._timeout_s) as resp:
+                with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT_S) as resp:
                     if resp.status != 200:
                         print(
                             f"WARNING: GitHub API GET {url} returned {resp.status}",
@@ -126,7 +126,7 @@ class GitHubClient:
                 headers={**self._headers(), "Content-Type": "application/json"},
                 method="POST",
             )
-            with urllib.request.urlopen(req, timeout=self._timeout_s) as resp:
+            with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT_S) as resp:
                 if resp.status not in (200, 201):
                     body_text = resp.read().decode("utf-8")[:200]
                     print(
@@ -155,7 +155,7 @@ class GitHubClient:
         url = f"{self._base_url}{path}"
         try:
             req = urllib.request.Request(url, headers=self._headers(), method="DELETE")
-            with urllib.request.urlopen(req, timeout=self._timeout_s) as resp:
+            with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT_S) as resp:
                 return resp.status in (200, 204)
         except urllib.error.HTTPError as exc:
             print(f"WARNING: GitHub API HTTP error: {exc}", file=sys.stderr)

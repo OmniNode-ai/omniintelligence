@@ -39,11 +39,14 @@ class ModelRuntimeTimeouts(BaseModel):
         watchdog_poll_s: Watchdog fallback observer polling interval.
         session_query_s: Session enrichment DB query budget.
         contract_linter_watch_poll_s: Contract linter ``--watch`` poll interval.
-        github_request_s: Review bot GitHub REST request timeout.
-        code_embed_request_s: Code embed-graph embedding request timeout.
-        introspection_heartbeat_s: Introspection heartbeat interval.
-        promotion_interval_s: Promotion scheduler check interval.
-        stub_shutdown_join_s: Stub launcher health server shutdown wait.
+        utilization_llm_s: Utilization LLM client request timeout.
+        github_api_s: Review bot GitHub REST request timeout.
+        code_embed_s: Code embed graph embedding request timeout.
+        projection_throttle_s: Minimum gap between pattern projection snapshots.
+        heartbeat_s: Introspection heartbeat interval.
+        promotion_interval_s: Promotion scheduler interval default.
+        health_shutdown_s: Health server thread join wait at shutdown.
+        forecast_max_ci_width: Cost forecast widest confidence interval.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
@@ -57,11 +60,14 @@ class ModelRuntimeTimeouts(BaseModel):
     watchdog_poll_s: float = Field(gt=0)
     session_query_s: float = Field(gt=0)
     contract_linter_watch_poll_s: float = Field(gt=0)
-    github_request_s: float = Field(gt=0)
-    code_embed_request_s: float = Field(gt=0)
-    introspection_heartbeat_s: float = Field(gt=0)
+    utilization_llm_s: float = Field(gt=0)
+    github_api_s: float = Field(gt=0)
+    code_embed_s: float = Field(gt=0)
+    projection_throttle_s: float = Field(gt=0)
+    heartbeat_s: float = Field(gt=0)
     promotion_interval_s: float = Field(gt=0)
-    stub_shutdown_join_s: float = Field(gt=0)
+    health_shutdown_s: float = Field(gt=0)
+    forecast_max_ci_width: float = Field(gt=0)
 
     @classmethod
     def load(cls, path: Path | None = None) -> ModelRuntimeTimeouts:
