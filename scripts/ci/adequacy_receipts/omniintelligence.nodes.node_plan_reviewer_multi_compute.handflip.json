@@ -1,0 +1,26 @@
+{
+  "base_ref": "2f753f65",
+  "canonical_handler_module": "omniintelligence.nodes.node_plan_reviewer_multi_compute.handlers.handler_plan_reviewer_multi_compute",
+  "legacy_handler_module": "omniintelligence.nodes.node_plan_reviewer_multi_compute.handlers.handler_plan_reviewer_multi_compute",
+  "node_id": "omniintelligence.nodes.node_plan_reviewer_multi_compute",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:4a702f6c3e8eda14cd79111f4f5efb637ac86e94029147218b7001873b8a0996",
+      "sha256:72949bcd997811036e083a538d281959de300fcfd0c682ea89388e9798cb5c2d",
+      "sha256:a1c2e1de5dbf8ad158c33d149c971ba6d0bdb3b0b659e2bc08b26313ad423dc8",
+      "sha256:3e1821013e1c17b13a878960f06ec300f0d52332ff952e5015f212abb7d4404f"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_plan_reviewer_multi_compute/test_handler_plan_reviewer_multi_compute.py::test_typed_dispatch_matches_strategy_handler[normal_success]",
+      "tests/unit/nodes/node_plan_reviewer_multi_compute/test_handler_plan_reviewer_multi_compute.py::test_typed_dispatch_matches_strategy_handler[empty_input]",
+      "tests/unit/nodes/node_plan_reviewer_multi_compute/test_handler_plan_reviewer_multi_compute.py::test_typed_dispatch_matches_strategy_handler[s3_fallback]"
+    ]
+  },
+  "preserved_symbols": [
+    "_sha256_hex",
+    "_avg_confidence",
+    "_write_strategy_run"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

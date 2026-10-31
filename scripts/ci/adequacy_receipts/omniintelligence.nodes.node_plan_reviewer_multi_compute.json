@@ -1,0 +1,24 @@
+{
+  "branch_coverage_pct": 64.55,
+  "candidate_count": 5,
+  "coverage_target": 80.0,
+  "handler_module": "omniintelligence.nodes.node_plan_reviewer_multi_compute.handlers.handler_plan_reviewer_multi_compute",
+  "handler_module_sha256": "sha256:7c0dcba09f9b2873a52086bb02b0a87cd76628e32d435bfff770b0066ec00db5",
+  "meets_target": false,
+  "node_id": "omniintelligence.nodes.node_plan_reviewer_multi_compute",
+  "receipt_schema": "adequacy_receipt.v1",
+  "recorded_at": "2026-10-31T10:14:34.290640+00:00",
+  "recorder_schema": "adequacy_receipt.v1",
+  "selected_count": 4,
+  "selected_input_hashes": [
+    "sha256:4a702f6c3e8eda14cd79111f4f5efb637ac86e94029147218b7001873b8a0996",
+    "sha256:72949bcd997811036e083a538d281959de300fcfd0c682ea89388e9798cb5c2d",
+    "sha256:a1c2e1de5dbf8ad158c33d149c971ba6d0bdb3b0b659e2bc08b26313ad423dc8",
+    "sha256:3e1821013e1c17b13a878960f06ec300f0d52332ff952e5015f212abb7d4404f"
+  ],
+  "uncovered_waiver": {
+    "reason": "The parity corpus drives the typed entry point across all four strategies with DB and producer present. Branches not taken are the DB-write and Kafka-emit failure paths, which the existing unit tests of the module cover and the verbatim-preservation check keeps byte-identical.",
+    "uncovered_branch_count": 0
+  },
+  "volatile_mask": []
+}

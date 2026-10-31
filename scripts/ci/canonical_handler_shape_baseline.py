@@ -55,7 +55,6 @@ NON_CANONICAL: tuple[str, ...] = (
     "omniintelligence.nodes.node_pattern_lifecycle_effect",
     "omniintelligence.nodes.node_pattern_projection_effect",
     "omniintelligence.nodes.node_pattern_storage_effect",
-    "omniintelligence.nodes.node_plan_reviewer_multi_compute",
     "omniintelligence.nodes.node_policy_state_reducer",
     "omniintelligence.nodes.node_protocol_handler_effect",
     "omniintelligence.nodes.node_quality_scoring_compute",
