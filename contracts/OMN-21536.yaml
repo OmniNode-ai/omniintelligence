@@ -1,0 +1,37 @@
+---
+schema_version: "1.0.0"
+ticket_id: "OMN-21536"
+title: "Six single-request compute handlers become handler classes with handle(request)"
+summary: "The six compute nodes whose handler is one function of one typed request (ci_error_classifier,
+  semantic_analysis, success_criteria_matcher, execution_trace_parser, pattern_matching, code_entity_bridge)
+  now bind a handler class with handle(self, request) in their contracts, and the old function names are
+  removed."
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: "req-handler-classes"
+    statement: |-
+      Each of the six compute nodes delegates to a handler class exposing handle(request); no module-level handler function remains.
+    acceptance:
+      - id: "AC1"
+        statement: |-
+          AC1: the unit tests of the six converted handlers call the handler classes and pass -- falsifier: uv run pytest tests/unit/nodes/node_ci_error_classifier_compute tests/unit/nodes/node_semantic_analysis_compute tests/unit/nodes/node_success_criteria_matcher_compute tests/unit/nodes/node_execution_trace_parser_compute tests/unit/nodes/node_pattern_matching_compute tests/unit/nodes/node_code_entity_bridge_compute -q
+evidence_requirements:
+  - kind: "tests"
+    description: "Handler-class unit tests for the six nodes pass."
+    command: "uv run pytest tests/unit/nodes/node_ci_error_classifier_compute tests/unit/nodes/node_semantic_analysis_compute
+      -q"
+emergency_bypass:
+  enabled: false
+  justification: ""
+  follow_up_ticket_id: ""
+dod_evidence:
+  - id: "dod-omn21536-ac1-handler-classes"
+    description: "The converted handler classes are exercised by their unit tests."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/nodes/node_ci_error_classifier_compute tests/unit/nodes/node_semantic_analysis_compute
+          -q"
+    binds_ac: ["AC1"]
