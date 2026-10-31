@@ -22,6 +22,7 @@ from omniintelligence.code_projection._canonical import (
     normalize_tenant_id,
     normalize_text,
 )
+from omniintelligence.models.code_projection import ArtifactRef, artifact_ref_for
 
 CODE_PROJECTION_SCHEMA_ID: Final[Literal["com.omninode.code-projection-batch"]] = (
     "com.omninode.code-projection-batch"
@@ -86,9 +87,6 @@ NodeId = Annotated[str, StringConstraints(pattern=r"^cnode_v2_[0-9a-f]{64}$")]
 EdgeId = Annotated[str, StringConstraints(pattern=r"^cedge_v2_[0-9a-f]{64}$")]
 DocumentId = Annotated[str, StringConstraints(pattern=r"^cdoc_v2_[0-9a-f]{64}$")]
 BatchId = Annotated[str, StringConstraints(pattern=r"^cbatch_v2_[0-9a-f]{64}$")]
-ArtifactRef = Annotated[
-    str, StringConstraints(pattern=r"^artifact://sha256/[0-9a-f]{64}$")
-]
 BoundedText = Annotated[str, StringConstraints(min_length=1, max_length=512)]
 BoundedVersion = Annotated[str, StringConstraints(min_length=1, max_length=128)]
 
@@ -165,7 +163,7 @@ class ModelCodeProjectionSource(_FrozenWireModel):
 
     @model_validator(mode="after")
     def _require_content_addressed_source(self) -> Self:
-        expected = f"artifact://sha256/{self.raw_content_hash_sha256}"
+        expected = artifact_ref_for(self.raw_content_hash_sha256)
         if self.artifact_ref != expected:
             msg = "source artifact_ref must address raw_content_hash_sha256"
             raise ValueError(msg)
@@ -233,7 +231,7 @@ class ModelCodeProjectionProvenance(_FrozenWireModel):
 
     @model_validator(mode="after")
     def _require_content_addressed_manifest(self) -> Self:
-        expected = f"artifact://sha256/{self.transform_manifest_hash_sha256}"
+        expected = artifact_ref_for(self.transform_manifest_hash_sha256)
         if self.transform_manifest_ref != expected:
             msg = "transform_manifest_ref must address transform_manifest_hash_sha256"
             raise ValueError(msg)
@@ -357,7 +355,7 @@ class ModelCodeProjectionDocument(_FrozenWireModel):
 
     @model_validator(mode="after")
     def _require_content_addressed_document(self) -> Self:
-        expected = f"artifact://sha256/{self.sanitized_content_hash_sha256}"
+        expected = artifact_ref_for(self.sanitized_content_hash_sha256)
         if self.content_ref != expected:
             msg = "document content_ref must address sanitized_content_hash_sha256"
             raise ValueError(msg)

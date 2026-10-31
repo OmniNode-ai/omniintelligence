@@ -39,12 +39,12 @@ from omniintelligence.code_projection.codec import (
     serialize_code_projection_batch,
 )
 from omniintelligence.code_projection.models import ModelCodeProjectionBatch
+from omniintelligence.models.code_projection import artifact_digest_or_none
 
 _STATE_FORMAT_VERSION = "2.0.0"
 _SOURCE_ID_PATTERN = re.compile(r"^csrc_v2_[0-9a-f]{64}$")
 _BATCH_ID_PATTERN = re.compile(r"^cbatch_v2_[0-9a-f]{64}$")
 _SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
-_ARTIFACT_REF_PREFIX = "artifact://sha256/"
 _STATE_KEYS = frozenset(
     {
         "batch_content_hash_sha256",
@@ -458,7 +458,7 @@ class CodeProjectionArtifactStore:
             thread_lock.release()
 
     def stage_content_artifact(self, payload: bytes) -> StagedContentArtifact:
-        """Persist and return a blob addressed by ``artifact://sha256/<digest>``."""
+        """Persist and return a blob addressed by the artifact reference of its digest."""
 
         digest = sha256_hex(payload)
         artifact_path = self._raw_path(digest)
@@ -814,11 +814,8 @@ class CodeProjectionArtifactStore:
         return current.batch if current is not None else None
 
     def _resolve_artifact_ref(self, artifact_ref: str, *, description: str) -> bytes:
-        digest = artifact_ref.removeprefix(_ARTIFACT_REF_PREFIX)
-        if (
-            not artifact_ref.startswith(_ARTIFACT_REF_PREFIX)
-            or _SHA256_PATTERN.fullmatch(digest) is None
-        ):
+        digest = artifact_digest_or_none(artifact_ref)
+        if digest is None or _SHA256_PATTERN.fullmatch(digest) is None:
             raise _integrity_error(f"{description} artifact reference is invalid")
         try:
             return self.read_content_artifact(digest)

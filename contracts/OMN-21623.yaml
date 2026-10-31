@@ -24,7 +24,12 @@ summary: >-
   265, nothing new): 14 topic constants leave constants.py, 12 members leave topics.py, the dead debug_intel/topics.py
   goes, and dispatch_handlers.py, the routing-feedback dispatch handler, the promotion scheduler and the
   runtime topic config read their topics through read_contract_topic, which resolves one topic from the
-  node's contract.yaml event_bus section.
+  node's contract.yaml event_bus section. A fourth slice removes 17 of the 48 literal_url findings (the
+  scan of src goes from 290 findings to 273, literal_url 48 to 31, nothing new): the artifact reference
+  prefix of the code projection leaves nine modules for code_projection/artifact_ref.yaml, the Gemini
+  and Z.AI plan-reviewer chat endpoints move into adapters/adapter_settings.yaml, the review-bot client
+  takes its API base URL from the caller, and the two webhook redaction patterns of the log sanitizer
+  move into utils/log_sanitizer_webhooks.yaml.
 is_seam_ticket: false
 interface_change: false
 interfaces_touched: []
@@ -55,6 +60,16 @@ requirements:
           event name and raises LookupError for none or two, and the dispatch route aliases it feeds still
           match the contracts'' subscribe topics -- falsifier: `uv run pytest tests/unit/runtime/test_contract_topics.py
           tests/unit/test_dispatch_parity.py -q -n 0` passes'
+  - id: req-omn21623-literal-urls-from-contracts
+    statement: The artifact reference prefix, the plan-reviewer chat endpoints and the webhook redaction
+      rows are declared in contract files and read through their models, the review-bot client takes its
+      API base URL from the caller, and a file missing a field fails to load.
+    acceptance:
+      - id: AC4
+        statement: 'AC4: the three contract files declare their values, the consuming modules hold no
+          copy, and a file without a field fails to load -- falsifier: `uv run pytest tests/unit/code_projection/test_artifact_ref_contract_omn21623.py
+          tests/unit/test_log_sanitizer_webhooks_contract_omn21623.py tests/unit/adapters/test_adapter_settings_contract_omn21623.py
+          tests/unit/review_bot/github/test_client_base_url_omn21623.py -q -n 0` passes'
 evidence_requirements:
   - kind: tests
     description: Contract tests for the required budget fields, codex_fallback_dirs and the module constants
@@ -70,6 +85,11 @@ evidence_requirements:
       aliases, and the unit tests of the changed runtime, bloom eval and topic sync modules.
     command: uv run pytest tests/unit/runtime tests/unit/test_dispatch_parity.py tests/unit/test_contract_topic_sync.py
       tests/unit/bloom_eval -q -n 0
+  - kind: tests
+    description: Contract tests for the artifact reference prefix, the webhook rows, the adapter chat
+      endpoints and the review-bot client base URL, plus the unit tests of the changed modules.
+    command: uv run pytest tests/unit/code_projection tests/unit/adapters tests/unit/review_bot tests/unit/test_log_sanitizer.py
+      tests/unit/test_log_sanitizer_webhooks_contract_omn21623.py -q -n 0
 emergency_bypass:
   enabled: false
   justification: ''
@@ -130,3 +150,21 @@ dod_evidence:
         cwd: ${OMNI_HOME}/omniintelligence
     binds_ac:
       - AC3
+  - id: dod-omn21623-ac4-literal-urls-from-contracts
+    description: The contract tests pass, and the artifact reference prefix, the webhook patterns and
+      the plan-reviewer chat URLs are gone from the modules that used them.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/code_projection/test_artifact_ref_contract_omn21623.py tests/unit/test_log_sanitizer_webhooks_contract_omn21623.py
+          tests/unit/adapters/test_adapter_settings_contract_omn21623.py tests/unit/review_bot/github/test_client_base_url_omn21623.py
+          -q -n 0
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: command
+        check_value: >-
+          grep -q '^prefix:' src/omniintelligence/code_projection/artifact_ref.yaml && grep -q '^gemini_chat_url:'
+          src/omniintelligence/adapters/adapter_settings.yaml && ! grep -rn 'artifact://sha256' src/omniintelligence/code_projection
+          --include=*.py && ! grep -n 'api.z.ai' src/omniintelligence/adapters/plan_reviewer_z_ai_client.py
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC4

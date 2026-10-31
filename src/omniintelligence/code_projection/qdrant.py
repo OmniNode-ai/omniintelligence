@@ -42,6 +42,7 @@ from omniintelligence.code_projection.models import (
     ModelCodeProjectionDocument,
     ModelCodeProjectionSpan,
 )
+from omniintelligence.models.code_projection import artifact_ref_for
 
 _STORAGE_SCHEMA_ID: Final = "com.omninode.code-projection-qdrant"
 _STORAGE_SCHEMA_VERSION: Final = "2.0.0"
@@ -90,7 +91,7 @@ class ProtocolCodeProjectionEmbeddingClient(Protocol):
 
 
 class ProtocolCodeProjectionContentResolver(Protocol):
-    """Resolve one immutable ``artifact://sha256`` reference to exact bytes."""
+    """Resolve one immutable content-addressed artifact reference to exact bytes."""
 
     def __call__(self, content_ref: str) -> bytes:
         """Return the bytes addressed by ``content_ref`` or raise."""
@@ -1341,8 +1342,7 @@ class CodeProjectionQdrantStore:
                 chunk_kind=cast(ModelChunkKind, payload["chunk_kind"]),
                 chunker_version=cast(str, payload["chunker_version"]),
                 sanitized_content_hash_sha256=cast(
-                    str,
-                    payload["sanitized_content_hash_sha256"],
+                    str, payload["sanitized_content_hash_sha256"]
                 ),
                 byte_count=cast(int, payload["byte_count"]),
                 anchor_node_id=cast(str | None, payload["anchor_node_id"]),
@@ -1363,8 +1363,8 @@ class CodeProjectionQdrantStore:
                 raise CodeProjectionQdrantIntegrityError(
                     "Qdrant search point identity does not match its tenant"
                 )
-            if payload["content_ref"] != (
-                f"artifact://sha256/{payload['sanitized_content_hash_sha256']}"
+            if payload["content_ref"] != artifact_ref_for(
+                str(payload["sanitized_content_hash_sha256"])
             ):
                 raise CodeProjectionQdrantIntegrityError(
                     "Qdrant search content reference is not content-addressed"

@@ -46,6 +46,7 @@ from omniintelligence.code_projection.qdrant import (
     ModelCodeProjectionSearchHit,
     ProtocolCodeProjectionEmbeddingClient,
 )
+from omniintelligence.models.code_projection import artifact_ref_for
 
 #: Repository-relative location of the frozen OMN-16061 v2 replay vectors.
 #: Resolved from this file rather than an absolute path so the harness works in
@@ -487,11 +488,9 @@ def load_replay_corpus(fixture_root: Path | None = None) -> ModelReplayCorpus:
         for path in sorted((root / "batches").glob("*.json"))
     }
     artifacts: dict[str, bytes] = {}
-    for path in sorted((root / "sanitized").iterdir()):
-        if not path.is_file():
-            continue
+    for path in filter(Path.is_file, sorted((root / "sanitized").iterdir())):
         payload = path.read_bytes()
-        artifacts[f"artifact://sha256/{hashlib.sha256(payload).hexdigest()}"] = payload
+        artifacts[artifact_ref_for(hashlib.sha256(payload).hexdigest())] = payload
     return ModelReplayCorpus(
         fixture_root=root,
         batches=batches,

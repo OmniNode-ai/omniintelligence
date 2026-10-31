@@ -38,6 +38,7 @@ from omniintelligence.code_projection.context_serving.protocols import (
     ProtocolCodeContextSearch,
 )
 from omniintelligence.code_projection.qdrant import ModelCodeProjectionSearchHit
+from omniintelligence.models.code_projection import artifact_ref_for
 from omniintelligence.utils.util_token_counter import count_tokens
 
 # Upper bound on artifact resolutions in flight at once. Resolution is disk
@@ -215,10 +216,9 @@ def _require_candidate_matches_request(
             "artifact resolver result does not match its search candidate"
         )
     if (
-        candidate.source_artifact_ref
-        != f"artifact://sha256/{candidate.source_hash_sha256}"
+        candidate.source_artifact_ref != artifact_ref_for(candidate.source_hash_sha256)
         or candidate.content_ref
-        != f"artifact://sha256/{candidate.sanitized_content_hash_sha256}"
+        != artifact_ref_for(candidate.sanitized_content_hash_sha256)
         or sha256_hex(content_bytes) != candidate.sanitized_content_hash_sha256
         or sha256_hex(canonical_json_bytes(candidate.policy.model_dump(mode="json")))
         != candidate.policy_payload_sha256

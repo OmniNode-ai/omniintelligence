@@ -50,6 +50,7 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from omniintelligence.constants import PERCENTAGE_MULTIPLIER
+from omniintelligence.models.log_sanitizer import webhook_patterns
 
 logger = logging.getLogger(__name__)
 
@@ -207,17 +208,8 @@ class LogSanitizer:
             r"\1://[USERNAME]:[PASSWORD]@[HOST]/[DB]",
             "Database connection string",
         ),
-        # Webhook URLs
-        (
-            r"https://hooks\.slack\.com/services/[A-Z0-9]+/[A-Z0-9]+/[a-zA-Z0-9]+",
-            "[SLACK_WEBHOOK_URL]",
-            "Slack webhook URL",
-        ),
-        (
-            r"https://discord\.com/api/webhooks/[0-9]+/[a-zA-Z0-9\-_]+",
-            "[DISCORD_WEBHOOK_URL]",
-            "Discord webhook URL",
-        ),
+        # Webhook URLs (rows live in utils/log_sanitizer_webhooks.yaml)
+        *webhook_patterns().as_tuples(),
         # JWT tokens
         (
             r"eyJ[a-zA-Z0-9_-]*\.eyJ[a-zA-Z0-9_-]*\.[a-zA-Z0-9_-]*",

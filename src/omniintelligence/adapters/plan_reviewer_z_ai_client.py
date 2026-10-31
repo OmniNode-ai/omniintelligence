@@ -56,7 +56,6 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-_Z_AI_DEFAULT_CHAT_URL = "https://api.z.ai/api/paas/v4/chat/completions"
 _DEFAULT_MODEL = "glm-4-plus"
 _DEFAULT_MAX_TOKENS = 2048
 _HTTP_CLIENT_ERROR_MIN = 400
@@ -85,7 +84,7 @@ class ModelPlanReviewerZAIConfig(BaseModel):
 
     api_key: str = Field(description="Z.AI API key (Z_AI_API_KEY).")
     chat_url: str = Field(
-        default=_Z_AI_DEFAULT_CHAT_URL,
+        default_factory=lambda: adapter_settings().zai_chat_url,
         description=(
             "Full URL for the Z.AI OpenAI-compat chat completions endpoint. "
             "Override with Z_AI_API_URL when deploying to a custom base URL."
