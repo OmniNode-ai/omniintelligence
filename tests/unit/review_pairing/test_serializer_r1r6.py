@@ -41,7 +41,7 @@ class TestSerializePlanFinding:
             severity="BLOCK",
             description="Step count mismatch.",
             suggested_fix="Fix the count.",
-            source_model=EnumReviewModel.QWEN3_CODER,
+            source_model=EnumReviewModel.CODE_DRAFTER,
         )
         result = serialize_plan_finding(finding, "qwen3-coder")
         assert result.category == "R1_counts"
@@ -59,7 +59,7 @@ class TestSerializePlanFinding:
                 severity="WARN",
                 description="Test description",
                 suggested_fix="Fix it",
-                source_model=EnumReviewModel.DEEPSEEK_R1,
+                source_model=EnumReviewModel.DEEP_REASONER,
             )
             result = serialize_plan_finding(finding, "deepseek-r1")
             assert result.category == cat.value
@@ -71,7 +71,7 @@ class TestSerializePlanFinding:
             severity="WARN",
             description="Scope unclear",
             suggested_fix="Clarify scope",
-            source_model=EnumReviewModel.QWEN3_CODER,
+            source_model=EnumReviewModel.CODE_DRAFTER,
         )
         result = serialize_plan_finding(finding, "qwen3-coder")
         assert result.finding_id is not None
@@ -159,12 +159,12 @@ class TestSerializeMergedFinding:
             description="Integration risk",
             suggested_fix="Add integration test",
             confidence=0.8,
-            sources=[EnumReviewModel.QWEN3_CODER, EnumReviewModel.DEEPSEEK_R1],
+            sources=[EnumReviewModel.CODE_DRAFTER, EnumReviewModel.DEEP_REASONER],
         )
         results = serialize_merged_finding(finding)
         assert len(results) == 2
-        assert results[0].source_model == EnumReviewModel.QWEN3_CODER.value
-        assert results[1].source_model == EnumReviewModel.DEEPSEEK_R1.value
+        assert results[0].source_model == EnumReviewModel.CODE_DRAFTER.value
+        assert results[1].source_model == EnumReviewModel.DEEP_REASONER.value
         assert results[0].category == "R4_integration_traps"
         assert results[0].description == "Integration risk"
 
@@ -177,8 +177,8 @@ class TestSerializeMergedFinding:
             description="Missing acceptance criteria",
             suggested_fix="Add criteria",
             confidence=0.6,
-            sources=[EnumReviewModel.QWEN3_CODER],
+            sources=[EnumReviewModel.CODE_DRAFTER],
         )
         results = serialize_merged_finding(finding)
         assert len(results) == 1
-        assert results[0].source_model == EnumReviewModel.QWEN3_CODER.value
+        assert results[0].source_model == EnumReviewModel.CODE_DRAFTER.value
