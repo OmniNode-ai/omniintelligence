@@ -28,6 +28,7 @@ from omniintelligence.code_projection.models import (
     ModelCodeProjectionProvenance,
     ModelCodeProjectionSpan,
 )
+from omniintelligence.models.code_projection import ArtifactRef
 
 CODE_CONTEXT_REQUEST_SCHEMA_ID: Final[Literal["com.omninode.code-context-request"]] = (
     "com.omninode.code-context-request"
@@ -52,9 +53,6 @@ CODE_CONTEXT_TOKEN_ESTIMATOR_VERSION: Final[Literal["tiktoken-cl100k-base-v1"]] 
 
 Sha256Hex = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]
 Sha256Ref = Annotated[str, StringConstraints(pattern=r"^sha256:[0-9a-f]{64}$")]
-ArtifactRef = Annotated[
-    str, StringConstraints(pattern=r"^artifact://sha256/[0-9a-f]{64}$")
-]
 SourceId = Annotated[str, StringConstraints(pattern=r"^csrc_v2_[0-9a-f]{64}$")]
 BatchId = Annotated[str, StringConstraints(pattern=r"^cbatch_v2_[0-9a-f]{64}$")]
 DocumentId = Annotated[str, StringConstraints(pattern=r"^cdoc_v2_[0-9a-f]{64}$")]

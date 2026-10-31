@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
 
-"""Timeout and retry budgets of the client adapters (OMN-21623).
+"""Timeout and retry budgets and default chat endpoints of the client adapters (OMN-21623).
 
 The values live in ``adapters/adapter_settings.yaml``; this model validates that
 contract and is the one way code reads it. Every field is required and unknown
@@ -27,7 +27,7 @@ class ModelAdapterSettingsLoadError(RuntimeError):
 
 
 class ModelAdapterSettings(BaseModel):
-    """The client adapters' timeout and retry budgets, in seconds.
+    """The client adapters' timeout and retry budgets (seconds) and default chat endpoints.
 
     Attributes:
         http_timeout_s: ``HttpRestHandler`` request timeout.
@@ -41,7 +41,9 @@ class ModelAdapterSettings(BaseModel):
         gmail_embed_s: Gmail intent embedding call timeout.
         gmail_llm_s: Gmail intent reasoning-model call timeout.
         gemini_timeout_s: Gemini plan-reviewer config default timeout.
+        gemini_chat_url: Gemini plan-reviewer config default chat endpoint.
         zai_timeout_s: Z.AI plan-reviewer config default timeout.
+        zai_chat_url: Z.AI plan-reviewer config default chat endpoint.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
@@ -57,7 +59,9 @@ class ModelAdapterSettings(BaseModel):
     gmail_embed_s: float = Field(gt=0)
     gmail_llm_s: float = Field(gt=0)
     gemini_timeout_s: float = Field(gt=0)
+    gemini_chat_url: str = Field(min_length=1)
     zai_timeout_s: float = Field(gt=0)
+    zai_chat_url: str = Field(min_length=1)
 
     @classmethod
     def load(cls, path: Path | None = None) -> ModelAdapterSettings:

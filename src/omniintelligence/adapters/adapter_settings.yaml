@@ -1,8 +1,8 @@
 # SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
 ---
-# Timeout and retry budgets of the transport and LLM client adapters, in seconds
-# (OMN-21623).
+# Timeout and retry budgets of the transport and LLM client adapters, in seconds,
+# and the default chat endpoints of the plan-reviewer clients (OMN-21623).
 #
 # Code holds none of these values: every adapter reads them from here through
 # ModelAdapterSettings, and a file that omits a field, or names one the model
@@ -10,9 +10,10 @@
 # A caller that needs a different value injects it through the adapter's own
 # config or constructor argument; this file is the default when it does not.
 #
-# Model ids, endpoint URLs and hosts are deployment facts and are not declared
-# here: they belong in the config-store overlay (hardcoded-model-config and
-# url-authority gates).
+# Model ids and hosts are deployment facts and are not declared here: they belong
+# in the config-store overlay (hardcoded-model-config gate). The two plan-reviewer
+# chat endpoints below are the providers' public API URLs; a caller that targets
+# another endpoint injects it through the client config's own `chat_url`.
 
 # adapter_http_rest.HttpRestHandler: request timeout when config has no `timeout`.
 http_timeout_s: 30.0
@@ -37,6 +38,8 @@ gmail_llm_s: 30.0  # reasoning-model call
 
 # plan_reviewer_gemini_client.ModelPlanReviewerGeminiConfig default.
 gemini_timeout_s: 60.0
+gemini_chat_url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
 
 # plan_reviewer_z_ai_client.ModelPlanReviewerZAIConfig default.
 zai_timeout_s: 60.0
+zai_chat_url: "https://api.z.ai/api/paas/v4/chat/completions"
