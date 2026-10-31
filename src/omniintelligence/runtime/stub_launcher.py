@@ -33,15 +33,13 @@ import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from omniintelligence.models.runtime_bindings import runtime_bindings
+from omniintelligence.models.runtime_timeouts import runtime_timeouts
 
 
 def _get_log_level() -> int:
     """Get log level from environment with safe fallback."""
-    level_name = os.getenv("LOG_LEVEL", "INFO").upper()
-    level = getattr(logging, level_name, None)
-    if not isinstance(level, int):
-        return logging.INFO
-    return level
+    level = getattr(logging, os.getenv("LOG_LEVEL", "INFO").upper(), None)
+    return level if isinstance(level, int) else logging.INFO
 
 
 logging.basicConfig(
@@ -135,9 +133,9 @@ async def run_stub(  # stub-ok: stub-launcher-name-not-unimplemented
         logger.info("Shutting down health server...")
         shutdown_thread = threading.Thread(target=health_server.shutdown)
         shutdown_thread.start()
-        shutdown_thread.join(timeout=5.0)
+        shutdown_thread.join(timeout=runtime_timeouts().stub_shutdown_join_s)
         if shutdown_thread.is_alive():
-            logger.warning("Health server shutdown timed out after 5s")
+            logger.warning("Health server shutdown timed out")
         logger.info("%s shutdown complete", service_name)
 
 

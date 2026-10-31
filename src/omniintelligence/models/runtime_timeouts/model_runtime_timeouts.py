@@ -39,6 +39,11 @@ class ModelRuntimeTimeouts(BaseModel):
         watchdog_poll_s: Watchdog fallback observer polling interval.
         session_query_s: Session enrichment DB query budget.
         contract_linter_watch_poll_s: Contract linter ``--watch`` poll interval.
+        github_request_s: Review bot GitHub REST request timeout.
+        code_embed_request_s: Code embed-graph embedding request timeout.
+        introspection_heartbeat_s: Introspection heartbeat interval.
+        promotion_interval_s: Promotion scheduler check interval.
+        stub_shutdown_join_s: Stub launcher health server shutdown wait.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
@@ -52,6 +57,11 @@ class ModelRuntimeTimeouts(BaseModel):
     watchdog_poll_s: float = Field(gt=0)
     session_query_s: float = Field(gt=0)
     contract_linter_watch_poll_s: float = Field(gt=0)
+    github_request_s: float = Field(gt=0)
+    code_embed_request_s: float = Field(gt=0)
+    introspection_heartbeat_s: float = Field(gt=0)
+    promotion_interval_s: float = Field(gt=0)
+    stub_shutdown_join_s: float = Field(gt=0)
 
     @classmethod
     def load(cls, path: Path | None = None) -> ModelRuntimeTimeouts:
