@@ -68,10 +68,10 @@ class TestResolveTestPaths:
 
     def test_missing_module_test_dir_is_filtered(self) -> None:
         paths = resolve_test_paths(
-            ["src/omniintelligence/adapters/embedding_client_local_openai.py"],
+            ["src/omniintelligence/hooks/topics.py"],
             ADJACENCY_PATH,
         )
-        assert "tests/unit/adapters/" not in paths
+        assert "tests/unit/hooks/" not in paths
         assert "tests/unit/runtime/" in paths
 
 

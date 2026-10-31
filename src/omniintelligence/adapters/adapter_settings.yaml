@@ -1,0 +1,42 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# Timeout and retry budgets of the transport and LLM client adapters, in seconds
+# (OMN-21623).
+#
+# Code holds none of these values: every adapter reads them from here through
+# ModelAdapterSettings, and a file that omits a field, or names one the model
+# does not know, fails to load rather than falling back to a value in code.
+# A caller that needs a different value injects it through the adapter's own
+# config or constructor argument; this file is the default when it does not.
+#
+# Model ids, endpoint URLs and hosts are deployment facts and are not declared
+# here: they belong in the config-store overlay (hardcoded-model-config and
+# url-authority gates).
+
+# adapter_http_rest.HttpRestHandler: request timeout when config has no `timeout`.
+http_timeout_s: 30.0
+
+# adapter_postgres.PostgresHandler: asyncpg command timeout when config has no
+# `command_timeout`.
+pg_timeout_s: 30.0
+
+# adapter_kafka.KafkaHandler.
+kafka_poll_s: 1.0  # consume poll when params have no `timeout`
+kafka_produce_flush_s: 10.0  # flush after one produce
+kafka_close_flush_s: 5.0  # flush on disconnect
+
+# eval_llm_client.EvalLLMClient.
+eval_timeout_s: 30.0
+eval_retry_s: 1.0  # doubled per attempt
+
+# gmail_intent_http_client.
+gmail_fetch_s: 10.0  # URL content fetch
+gmail_embed_s: 20.0  # embedding call
+gmail_llm_s: 30.0  # reasoning-model call
+
+# plan_reviewer_gemini_client.ModelPlanReviewerGeminiConfig default.
+gemini_timeout_s: 60.0
+
+# plan_reviewer_z_ai_client.ModelPlanReviewerZAIConfig default.
+zai_timeout_s: 60.0

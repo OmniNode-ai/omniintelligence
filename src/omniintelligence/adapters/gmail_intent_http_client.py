@@ -29,6 +29,8 @@ from urllib.parse import urlparse
 
 import httpx
 
+from omniintelligence.models.adapters import adapter_settings
+
 if TYPE_CHECKING:
     from omniintelligence.protocols import ProtocolPatternRepository
 
@@ -102,7 +104,6 @@ def _is_safe_fetch_target(url: str) -> bool:
 # ---------------------------------------------------------------------------
 
 _URL_FETCH_MAX_BYTES: int = 524288  # 512KB
-_URL_FETCH_TIMEOUT_SECONDS: float = 10.0
 _URL_CONTENT_BUDGET_CHARS: int = 6000
 _URL_PARAGRAPH_MIN_LEN: int = 40
 _URL_PARAGRAPH_BUDGET: int = 20
@@ -125,7 +126,7 @@ async def fetch_url_content(url: str) -> tuple[str, str]:
         content_type = ""
 
         async with httpx.AsyncClient(
-            follow_redirects=True, timeout=_URL_FETCH_TIMEOUT_SECONDS
+            follow_redirects=True, timeout=adapter_settings().gmail_fetch_s
         ) as client:
             async with client.stream("GET", url, headers=headers) as r:
                 r.raise_for_status()
@@ -184,7 +185,7 @@ async def fetch_embedding(query_text: str, embedding_url: str) -> list[float]:
     Raises:
         httpx.HTTPError: On HTTP failure.
     """
-    async with httpx.AsyncClient(timeout=20.0) as client:
+    async with httpx.AsyncClient(timeout=adapter_settings().gmail_embed_s) as client:
         resp = await client.post(
             f"{embedding_url.rstrip('/')}/v1/embeddings",
             json={"input": query_text[:2000], "model": "Qwen3-Embedding-8B"},
@@ -198,7 +199,6 @@ async def fetch_embedding(query_text: str, embedding_url: str) -> list[float]:
 # ---------------------------------------------------------------------------
 
 _LLM_MAX_TOKENS: int = 1000
-_LLM_TIMEOUT_SECONDS: float = 30.0
 
 
 async def call_deepseek_r1(
@@ -214,7 +214,7 @@ async def call_deepseek_r1(
         httpx.HTTPError: On HTTP failure.
         KeyError: If response shape is unexpected.
     """
-    async with httpx.AsyncClient(timeout=_LLM_TIMEOUT_SECONDS) as client:
+    async with httpx.AsyncClient(timeout=adapter_settings().gmail_llm_s) as client:
         resp = await client.post(
             f"{llm_url.rstrip('/')}/v1/chat/completions",
             json={

@@ -15,7 +15,7 @@ Supported Operations:
 
 Config Keys:
     - base_url (str, required): Base URL for all requests
-    - timeout (float, optional): Request timeout in seconds (default: 30.0)
+    - timeout (float, optional): Request timeout in seconds (default: adapter_settings.yaml)
     - headers (dict, optional): Default headers for all requests
 
 Params Keys (per operation):
@@ -35,6 +35,8 @@ from typing import Any
 
 import httpx
 
+from omniintelligence.models.adapters import adapter_settings
+
 # =============================================================================
 # Logging
 # =============================================================================
@@ -45,7 +47,6 @@ logger = logging.getLogger(__name__)
 # Constants
 # =============================================================================
 
-DEFAULT_TIMEOUT = 30.0
 VALID_OPERATIONS = frozenset({"GET", "POST", "PUT", "DELETE"})
 
 
@@ -85,7 +86,7 @@ class HttpRestHandler:
         if not base_url:
             raise ConnectionError("HttpRestHandler requires 'base_url' in config")
 
-        timeout = config.get("timeout", DEFAULT_TIMEOUT)
+        timeout = config.get("timeout", adapter_settings().http_timeout_s)
         headers = config.get("headers", {})
 
         self._base_url = str(base_url).rstrip("/")

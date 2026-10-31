@@ -45,6 +45,8 @@ from typing import TYPE_CHECKING, Any
 import httpx
 from pydantic import BaseModel, Field
 
+from omniintelligence.models.adapters import adapter_settings
+
 if TYPE_CHECKING:
     from types import TracebackType
 
@@ -56,7 +58,6 @@ logger = logging.getLogger(__name__)
 
 _Z_AI_DEFAULT_CHAT_URL = "https://api.z.ai/api/paas/v4/chat/completions"
 _DEFAULT_MODEL = "glm-4-plus"
-_DEFAULT_TIMEOUT_SECONDS = 60.0
 _DEFAULT_MAX_TOKENS = 2048
 _HTTP_CLIENT_ERROR_MIN = 400
 _HTTP_CLIENT_ERROR_MAX = 500  # exclusive (4xx range)
@@ -95,7 +96,7 @@ class ModelPlanReviewerZAIConfig(BaseModel):
         description="GLM model name.",
     )
     timeout_seconds: float = Field(
-        default=_DEFAULT_TIMEOUT_SECONDS,
+        default_factory=lambda: adapter_settings().zai_timeout_s,
         description="HTTP request timeout in seconds.",
     )
     max_tokens: int = Field(

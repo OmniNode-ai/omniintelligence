@@ -15,7 +15,7 @@ Config Keys:
     - dsn (str, required): PostgreSQL connection string
     - min_size (int, optional): Minimum pool size (default: 2)
     - max_size (int, optional): Maximum pool size (default: 10)
-    - command_timeout (float, optional): Query timeout in seconds (default: 30.0)
+    - command_timeout (float, optional): Query timeout in seconds (default: adapter_settings.yaml)
 
 Params Keys (per operation):
     - sql (str, required): SQL query or statement
@@ -32,6 +32,8 @@ from typing import Any
 
 import asyncpg
 
+from omniintelligence.models.adapters import adapter_settings
+
 # =============================================================================
 # Logging
 # =============================================================================
@@ -45,7 +47,6 @@ logger = logging.getLogger(__name__)
 VALID_OPERATIONS = frozenset({"query", "execute"})
 DEFAULT_MIN_POOL_SIZE = 2
 DEFAULT_MAX_POOL_SIZE = 10
-DEFAULT_COMMAND_TIMEOUT = 30.0
 
 
 # =============================================================================
@@ -87,7 +88,7 @@ class PostgresHandler:
 
         min_size = config.get("min_size", DEFAULT_MIN_POOL_SIZE)
         max_size = config.get("max_size", DEFAULT_MAX_POOL_SIZE)
-        command_timeout = config.get("command_timeout", DEFAULT_COMMAND_TIMEOUT)
+        command_timeout = config.get("command_timeout", adapter_settings().pg_timeout_s)
         self._dsn = str(dsn)
 
         try:
