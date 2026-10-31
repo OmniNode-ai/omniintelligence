@@ -42,6 +42,7 @@ from omnibase_infra.enums import EnumIntrospectionReason
 from omnibase_infra.mixins.mixin_node_introspection import MixinNodeIntrospection
 from omnibase_infra.models.discovery import ModelIntrospectionConfig
 
+from omniintelligence.models.runtime_timeouts import runtime_timeouts
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
 if TYPE_CHECKING:
@@ -102,8 +103,7 @@ def _parse_node_type(raw_type: str) -> EnumNodeKind:
         "ORCHESTRATOR_GENERIC" -> EnumNodeKind.ORCHESTRATOR
         "REDUCER_GENERIC" -> EnumNodeKind.REDUCER
     """
-    normalized = raw_type.replace("_GENERIC", "").lower()
-    return EnumNodeKind(normalized)
+    return EnumNodeKind(raw_type.replace("_GENERIC", "").lower())
 
 
 def _discover_nodes_from_contracts(
@@ -268,7 +268,7 @@ async def publish_intelligence_introspection(
     *,
     correlation_id: UUID | None = None,
     enable_heartbeat: bool = True,
-    heartbeat_interval_seconds: float = 30.0,
+    heartbeat_interval_seconds: float = runtime_timeouts().introspection_heartbeat_s,
 ) -> IntrospectionResult:
     """Publish introspection events for all intelligence nodes.
 

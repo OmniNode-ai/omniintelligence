@@ -30,6 +30,7 @@ from omnibase_core.protocols.handler.protocol_handler_context import (
     ProtocolHandlerContext,
 )
 
+from omniintelligence.models.runtime_timeouts import runtime_timeouts
 from omniintelligence.runtime.contract_topics import canonical_topic_to_dispatch_alias
 from omniintelligence.topics import IntentTopic
 
@@ -44,11 +45,7 @@ logger = logging.getLogger(__name__)
 class ProtocolQdrantClient(Protocol):
     """Minimal protocol for Qdrant upsert operations."""
 
-    async def upsert(
-        self,
-        collection_name: str,
-        points: list[Any],
-    ) -> Any: ...
+    async def upsert(self, collection_name: str, points: list[Any]) -> Any: ...
 
 
 @runtime_checkable
@@ -83,10 +80,7 @@ def create_code_embed_graph_dispatch_handler(
     qdrant_client: ProtocolQdrantClient | None = None,
     bolt_handler: ProtocolBoltHandler | None = None,
     embedding_url: str | None = None,
-) -> Callable[
-    [ModelEventEnvelope[object], ProtocolHandlerContext],
-    Awaitable[str],
-]:
+) -> Callable[[ModelEventEnvelope[object], ProtocolHandlerContext], Awaitable[str]]:
     """Create a dispatch handler that embeds entities in Qdrant and graphs in Memgraph.
 
     Consumes code-entities-extracted.v1 events (same event as persist handler —
@@ -202,10 +196,14 @@ async def _embed_entities(
         )
 
 
-async def _get_embedding(text: str, embedding_url: str) -> list[float] | None:
+async def _get_embedding(
+    text: str,
+    embedding_url: str,
+    timeout_s: float = runtime_timeouts().code_embed_request_s,
+) -> list[float] | None:
     """Get embedding vector from LLM endpoint."""
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=timeout_s) as client:
             response = await client.post(
                 f"{embedding_url}/v1/embeddings",
                 json={"input": text, "model": "default"},

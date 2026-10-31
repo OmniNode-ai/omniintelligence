@@ -36,5 +36,20 @@ watchdog_poll_s: 5.0
 # runtime dispatch_handler_pattern_learning: session enrichment DB query.
 session_query_s: 2.0
 
+# review_bot GitHubClient: per-request timeout of the GitHub REST calls.
+github_request_s: 10.0
+
+# runtime dispatch_handler_code_embed_graph: embedding endpoint request timeout.
+code_embed_request_s: 30.0
+
+# runtime introspection: heartbeat interval of the effect-node proxies.
+introspection_heartbeat_s: 30.0
+
+# runtime promotion_scheduler: interval between promotion-check commands.
+promotion_interval_s: 300.0
+
+# runtime stub_launcher: wait for the health server thread to stop at shutdown.
+stub_shutdown_join_s: 5.0
+
 # validators contract_linter: --watch poll interval.
 contract_linter_watch_poll_s: 1.0
