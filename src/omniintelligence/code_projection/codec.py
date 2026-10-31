@@ -51,6 +51,7 @@ from omniintelligence.code_projection.models import (
     ModelSymbolVisibility,
     ModelTombstoneReason,
 )
+from omniintelligence.models.code_projection import artifact_ref_for
 
 _SOURCE_ID_DOMAIN = "omninode.code-projection.source.v2"
 _NODE_ID_DOMAIN = "omninode.code-projection.node.v2"
@@ -88,10 +89,6 @@ _FORBIDDEN_INLINE_CONTENT_KEYS = frozenset(
         "text",
     }
 )
-
-
-def _artifact_ref(digest: str) -> str:
-    return f"artifact://sha256/{digest}"
 
 
 def derive_code_source_id(
@@ -212,7 +209,7 @@ def make_code_source(
     canonical_repository_id = normalize_repository_id(repository_id)
     canonical_relative_path = normalize_relative_path(relative_path)
     canonical_source_version = normalize_text(source_version)
-    resolved_artifact_ref = artifact_ref or _artifact_ref(raw_content_hash_sha256)
+    resolved_artifact_ref = artifact_ref or artifact_ref_for(raw_content_hash_sha256)
     resolved_media_type = media_type or _LANGUAGE_MEDIA_TYPES[language]
     return ModelCodeProjectionSource(
         source_id=derive_code_source_id(
@@ -340,7 +337,7 @@ def make_code_chunk(
         anchor_node_id=anchor_node_id,
         source_span=source_span,
         chunker_version=canonical_chunker_version,
-        content_ref=content_ref or _artifact_ref(sanitized_content_hash_sha256),
+        content_ref=content_ref or artifact_ref_for(sanitized_content_hash_sha256),
         sanitized_content_hash_sha256=sanitized_content_hash_sha256,
         byte_count=byte_count,
     )

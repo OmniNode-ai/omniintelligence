@@ -51,9 +51,6 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-_GEMINI_CHAT_URL = (
-    "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
-)
 _DEFAULT_MODEL = "gemini-2.0-flash"
 _DEFAULT_MAX_TOKENS = 2048
 _HTTP_CLIENT_ERROR_MIN = 400
@@ -85,7 +82,7 @@ class ModelPlanReviewerGeminiConfig(BaseModel):
         description="Gemini model name.",
     )
     chat_url: str = Field(
-        default=_GEMINI_CHAT_URL,
+        default_factory=lambda: adapter_settings().gemini_chat_url,
         description="Full URL for the Gemini OpenAI-compat chat completions endpoint.",
     )
     timeout_seconds: float = Field(

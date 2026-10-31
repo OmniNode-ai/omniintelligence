@@ -237,19 +237,19 @@ class TestRadonAvailable:
     def test_returns_bool(self) -> None:
         """radon_available() always returns a bool."""
         from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
-            radon_available,
+            HandlerQualityScoring,
         )
 
-        assert isinstance(radon_available(), bool)
+        assert isinstance(HandlerQualityScoring.radon_available(), bool)
 
     def test_returns_true_when_radon_installed(self) -> None:
         """In this test environment radon is installed — should return True."""
         from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
-            radon_available,
+            HandlerQualityScoring,
         )
 
         # radon is in the dev dependency group; it should be present in CI/CD
-        assert radon_available() is True, (
+        assert HandlerQualityScoring.radon_available() is True, (
             "radon is expected to be installed in the dev environment. "
             "If this fails, add 'radon' to [dependency-groups].dev in pyproject.toml."
         )
@@ -262,10 +262,10 @@ class TestRadonAvailable:
         try:
             mod._RADON_AVAILABLE = False  # type: ignore[assignment]
             from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
-                radon_available,
+                HandlerQualityScoring,
             )
 
-            assert radon_available() is False
+            assert HandlerQualityScoring.radon_available() is False
         finally:
             mod._RADON_AVAILABLE = original  # type: ignore[assignment]
 
@@ -281,28 +281,37 @@ class TestScoreCodeQualityRadonIntegration:
     def test_radon_complexity_enabled_key_present(self) -> None:
         """score_code_quality result includes radon_complexity_enabled key."""
         from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
-            score_code_quality,
+            HandlerQualityScoring,
+            ModelScoreCodeQualityRequest,
         )
 
-        result = score_code_quality("def foo(): pass", "python")
+        result = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content="def foo(): pass", language="python")
+        )
         assert "radon_complexity_enabled" in result
 
     def test_radon_complexity_enabled_is_bool(self) -> None:
         """radon_complexity_enabled must be a bool."""
         from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
-            score_code_quality,
+            HandlerQualityScoring,
+            ModelScoreCodeQualityRequest,
         )
 
-        result = score_code_quality("x = 1", "python")
+        result = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content="x = 1", language="python")
+        )
         assert isinstance(result.get("radon_complexity_enabled"), bool)
 
     def test_radon_complexity_enabled_true_when_radon_present(self) -> None:
         """When radon is installed, radon_complexity_enabled should be True."""
         from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
-            score_code_quality,
+            HandlerQualityScoring,
+            ModelScoreCodeQualityRequest,
         )
 
-        result = score_code_quality("def foo(): pass", "python")
+        result = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content="def foo(): pass", language="python")
+        )
         assert result.get("radon_complexity_enabled") is True
 
     def test_radon_complexity_enabled_false_when_radon_absent(self) -> None:
@@ -313,10 +322,15 @@ class TestScoreCodeQualityRadonIntegration:
         try:
             mod._RADON_AVAILABLE = False  # type: ignore[assignment]
             from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
-                score_code_quality,
+                HandlerQualityScoring,
+                ModelScoreCodeQualityRequest,
             )
 
-            result = score_code_quality("def foo(): pass", "python")
+            result = HandlerQualityScoring().handle(
+                ModelScoreCodeQualityRequest(
+                    content="def foo(): pass", language="python"
+                )
+            )
             assert result.get("radon_complexity_enabled") is False
         finally:
             mod._RADON_AVAILABLE = original  # type: ignore[assignment]
@@ -324,11 +338,16 @@ class TestScoreCodeQualityRadonIntegration:
     def test_complexity_score_higher_for_simple_code(self) -> None:
         """Simple code must score higher on complexity dimension than complex code."""
         from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
-            score_code_quality,
+            HandlerQualityScoring,
+            ModelScoreCodeQualityRequest,
         )
 
-        simple_result = score_code_quality(_SIMPLE_CODE, "python")
-        complex_result = score_code_quality(_COMPLEX_CODE, "python")
+        simple_result = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=_SIMPLE_CODE, language="python")
+        )
+        complex_result = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=_COMPLEX_CODE, language="python")
+        )
 
         simple_score = simple_result["dimensions"]["complexity"]
         complex_score = complex_result["dimensions"]["complexity"]

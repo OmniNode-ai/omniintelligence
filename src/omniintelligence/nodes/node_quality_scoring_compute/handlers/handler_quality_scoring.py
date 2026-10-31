@@ -3,8 +3,8 @@
 
 """Handler for quality scoring computation.
 
-Pure functions for scoring code quality based on
-ONEX-focused dimensions. All functions are side-effect-free and suitable
+A pure handler and private helpers score code quality based on
+ONEX-focused dimensions. All computation is side-effect-free and suitable
 for use in compute nodes.
 
 The scoring system evaluates Python code across six dimensions:
@@ -25,13 +25,14 @@ Complexity Scoring (OMN-1452):
 
 Example:
     from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
-        score_code_quality,
+        HandlerQualityScoring,
+        ModelScoreCodeQualityRequest,
     )
 
-    result = score_code_quality(
+    result = HandlerQualityScoring().handle(ModelScoreCodeQualityRequest(
         content="def foo(x: int) -> int: return x * 2",
         language="python",
-    )
+    ))
     print(f"Quality score: {result['quality_score']}")
     print(f"Using radon: {result['metadata']['radon_complexity_enabled']}")
 """
@@ -45,8 +46,8 @@ from typing import Final, Literal, get_args
 
 from omnibase_core.models.primitives.model_semver import ModelSemVer
 
-from .enum_onex_strictness_level import OnexStrictnessLevel
 from .exceptions import QualityScoringComputeError, QualityScoringValidationError
+from .model_score_code_quality_request import ModelScoreCodeQualityRequest
 from .presets import get_threshold_for_preset, get_weights_for_preset
 from .protocols import DimensionScores, QualityScoringResult
 
@@ -388,140 +389,147 @@ UNSUPPORTED_LANGUAGE_BASELINE: Final[float] = 0.5
 
 
 # =============================================================================
-# Main Handler Function
+# Main Handler Class
 # =============================================================================
 
 
-def score_code_quality(
-    content: str,
-    language: str,
-    weights: dict[str, float] | None = None,
-    onex_threshold: float = 0.7,
-    preset: OnexStrictnessLevel | None = None,
-) -> QualityScoringResult:
-    """Score code quality based on multiple dimensions.
+class HandlerQualityScoring:
+    """Score code quality from a typed request without side effects."""
 
-    This is the main entry point for quality scoring. It computes scores
-    across six dimensions and aggregates them using configurable weights.
+    def handle(self, request: ModelScoreCodeQualityRequest) -> QualityScoringResult:
+        """Score code quality based on multiple dimensions.
 
-    Configuration Precedence:
-        1. preset (highest priority) - When set, overrides weights and threshold.
-        2. weights / onex_threshold - Manual configuration.
-        3. Defaults (lowest priority) - Standard weights and 0.7 threshold.
+        This is the main entry point for quality scoring. It computes scores
+        across six dimensions and aggregates them using configurable weights.
 
-    Args:
-        content: Source code content to analyze.
-        language: Programming language (e.g., "python"). Non-Python languages
-            receive baseline scores with an unsupported_language recommendation.
-        weights: Optional custom weights for each dimension. Must sum to ~1.0.
-            Defaults to six-dimension standard weights if None.
-            Ignored when preset is specified.
-        onex_threshold: Score threshold for ONEX compliance (default 0.7).
-            If quality_score >= onex_threshold, onex_compliant is True.
-            Ignored when preset is specified.
-        preset: Optional ONEX strictness preset (strict/standard/lenient).
-            When set, automatically configures weights and threshold:
-            - STRICT: Production-ready, threshold 0.8
-            - STANDARD: Balanced, threshold 0.7
-            - LENIENT: Development mode, threshold 0.5
+        Configuration Precedence:
+            1. preset (highest priority) - When set, overrides weights and threshold.
+            2. weights / onex_threshold - Manual configuration.
+            3. Defaults (lowest priority) - Standard weights and 0.7 threshold.
 
-    Returns:
-        QualityScoringResult with all scoring data. On validation errors,
-        returns result with success=False and error in recommendations.
-        Validation errors are domain errors returned as structured output
-        per CLAUDE.md handler pattern.
+        Args:
+            request: Source content, language, optional dimension weights, compliance
+                threshold, and optional strictness preset. A preset overrides manual
+                weights and threshold. Unsupported languages receive baseline scores.
 
-    Example:
-        >>> result = score_code_quality(
-        ...     content="class Foo(BaseModel):\\n    x: int",
-        ...     language="python",
-        ... )
-        >>> result["success"]
-        True
-        >>> 0.0 <= result["quality_score"] <= 1.0
-        True
+        Returns:
+            QualityScoringResult with all scoring data. On validation errors,
+            returns result with success=False and error in recommendations.
+            Validation errors are domain errors returned as structured output
+            per CLAUDE.md handler pattern.
 
-        >>> # Using a preset
-        >>> result = score_code_quality(
-        ...     content="class Model(BaseModel): x: int",
-        ...     language="python",
-        ...     preset=OnexStrictnessLevel.STRICT,
-        ... )
-        >>> result["onex_compliant"]  # Uses 0.8 threshold
-        False
+        Example:
+            >>> from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
+            ...     OnexStrictnessLevel,
+            ... )
+            >>> result = HandlerQualityScoring().handle(ModelScoreCodeQualityRequest(
+            ...     content="class Foo(BaseModel):\\n    x: int",
+            ...     language="python",
+            ... ))
+            >>> result["success"]
+            True
+            >>> 0.0 <= result["quality_score"] <= 1.0
+            True
 
-        >>> # Validation error returns structured output
-        >>> result = score_code_quality(content="", language="python")
-        >>> result["success"]
-        False
-    """
-    normalized_language = language.lower().strip() if language else "unknown"
+            >>> # Using a preset
+            >>> result = HandlerQualityScoring().handle(ModelScoreCodeQualityRequest(
+            ...     content="class Model(BaseModel): x: int",
+            ...     language="python",
+            ...     preset=OnexStrictnessLevel.STRICT,
+            ... ))
+            >>> result["onex_compliant"]  # Uses 0.8 threshold
+            False
 
-    # Validate inputs - return structured errors per CLAUDE.md handler pattern
-    if not content or not content.strip():
-        return _create_validation_error_result(
-            "Content cannot be empty",
-            language=normalized_language,
+            >>> # Validation error returns structured output
+            >>> result = HandlerQualityScoring().handle(ModelScoreCodeQualityRequest(content="", language="python"))
+            >>> result["success"]
+            False
+        """
+        normalized_language = (
+            request.language.lower().strip() if request.language else "unknown"
         )
 
-    # Apply preset configuration (highest precedence)
-    if preset is not None:
-        effective_weights = get_weights_for_preset(preset)
-        effective_threshold = get_threshold_for_preset(preset)
-    else:
-        effective_weights = weights if weights is not None else DEFAULT_WEIGHTS.copy()
-        effective_threshold = onex_threshold
+        # Validate inputs - return structured errors per CLAUDE.md handler pattern
+        if not request.content or not request.content.strip():
+            return _create_validation_error_result(
+                "Content cannot be empty",
+                language=normalized_language,
+            )
 
-    # Validate weights - catch validation errors and return structured output
-    try:
-        _validate_weights(effective_weights)
-    except QualityScoringValidationError as e:
-        return _create_validation_error_result(str(e), language=normalized_language)
+        # Apply preset configuration (highest precedence)
+        if request.preset is not None:
+            effective_weights = get_weights_for_preset(request.preset)
+            effective_threshold = get_threshold_for_preset(request.preset)
+        else:
+            effective_weights = (
+                request.weights
+                if request.weights is not None
+                else DEFAULT_WEIGHTS.copy()
+            )
+            effective_threshold = request.onex_threshold
 
-    # Check if language is supported for full analysis
-    if normalized_language not in SUPPORTED_LANGUAGES:
-        return _create_unsupported_language_result(
-            normalized_language, effective_threshold
-        )
+        # Validate weights - catch validation errors and return structured output
+        try:
+            _validate_weights(effective_weights)
+        except QualityScoringValidationError as e:
+            return _create_validation_error_result(str(e), language=normalized_language)
 
-    try:
-        # Compute dimension scores
-        dimensions = _compute_all_dimensions(content)
+        # Check if language is supported for full analysis
+        if normalized_language not in SUPPORTED_LANGUAGES:
+            return _create_unsupported_language_result(
+                normalized_language, effective_threshold
+            )
 
-        # Calculate weighted aggregate
-        quality_score = _compute_weighted_score(dimensions, effective_weights)
+        try:
+            # Compute dimension scores
+            dimensions = _compute_all_dimensions(request.content)
 
-        # Determine ONEX compliance
-        onex_compliant = quality_score >= effective_threshold
+            # Calculate weighted aggregate
+            quality_score = _compute_weighted_score(dimensions, effective_weights)
 
-        # Generate recommendations based on low scores
-        recommendations = _generate_recommendations(dimensions)
+            # Determine ONEX compliance
+            onex_compliant = quality_score >= effective_threshold
 
-        return QualityScoringResult(
-            success=True,
-            quality_score=round(quality_score, 4),
-            dimensions=_round_dimension_scores(dimensions),
-            onex_compliant=onex_compliant,
-            recommendations=recommendations,
-            source_language=normalized_language,
-            analysis_version=ANALYSIS_VERSION_STR,
-            radon_complexity_enabled=bool(_RADON_AVAILABLE),
-        )
+            # Generate recommendations based on low scores
+            recommendations = _generate_recommendations(dimensions)
 
-    except SyntaxError as e:
-        # Code has syntax errors - return partial result
-        return _create_syntax_error_result(normalized_language, str(e))
+            return QualityScoringResult(
+                success=True,
+                quality_score=round(quality_score, 4),
+                dimensions=_round_dimension_scores(dimensions),
+                onex_compliant=onex_compliant,
+                recommendations=recommendations,
+                source_language=normalized_language,
+                analysis_version=ANALYSIS_VERSION_STR,
+                radon_complexity_enabled=bool(_RADON_AVAILABLE),
+            )
 
-    except QualityScoringComputeError:
-        # Re-raise compute errors as invariant violations
-        raise
+        except SyntaxError as e:
+            # Code has syntax errors - return partial result
+            return _create_syntax_error_result(normalized_language, str(e))
 
-    except Exception as e:
-        # Unknown errors - return structured output per CLAUDE.md
-        return _create_validation_error_result(
-            f"Unexpected error during quality scoring: {e}",
-            language=normalized_language,
-        )
+        except QualityScoringComputeError:
+            # Re-raise compute errors as invariant violations
+            raise
+
+        except Exception as e:
+            # Unknown errors - return structured output per CLAUDE.md
+            return _create_validation_error_result(
+                f"Unexpected error during quality scoring: {e}",
+                language=normalized_language,
+            )
+
+    @staticmethod
+    def radon_available() -> bool:
+        """Return True if the radon library is installed and available.
+
+        This is exposed so callers can gate radon-specific behaviour (e.g. in
+        tests or the scoring result metadata) without importing radon.
+
+        Returns:
+            True if radon can be used for complexity scoring, False otherwise.
+        """
+        return bool(_RADON_AVAILABLE)
 
 
 # =============================================================================
@@ -808,18 +816,6 @@ def _compute_radon_complexity_score(content: str) -> float:
         return _mccabe_to_score(avg)
     except Exception:
         return NO_FUNCTIONS_NEUTRAL_SCORE
-
-
-def radon_available() -> bool:
-    """Return True if the radon library is installed and available.
-
-    This is exposed so callers can gate radon-specific behaviour (e.g. in
-    tests or the score_code_quality metadata block) without importing radon.
-
-    Returns:
-        True if radon can be used for complexity scoring, False otherwise.
-    """
-    return bool(_RADON_AVAILABLE)
 
 
 def _compute_complexity_score(tree: ast.AST) -> float:
@@ -1357,7 +1353,7 @@ def _round_dimension_scores(
 def _validate_weights(weights: dict[str, float]) -> None:
     """Validate that weights sum to approximately 1.0.
 
-    Note: This validation is defensive for direct API calls to score_code_quality().
+    Note: This validation is defensive for direct calls to HandlerQualityScoring.handle().
     When using the node through ModelQualityScoringInput, the Pydantic model
     (ModelDimensionWeights) already validates these constraints. This function
     ensures consistent error handling for callers who bypass the model layer.
@@ -1521,5 +1517,5 @@ __all__ = [
     "ANALYSIS_VERSION",
     "ANALYSIS_VERSION_STR",
     "DEFAULT_WEIGHTS",
-    "score_code_quality",
+    "HandlerQualityScoring",
 ]

@@ -8,7 +8,7 @@ Nodes follow the four-node pattern: Orchestrator, Reducer, Compute, Effect.
 
 Nodes are lazily imported to avoid loading heavy dependencies (like Kafka)
 at package import time. This allows lightweight imports like:
-    from omniintelligence import score_code_quality
+    from omniintelligence import HandlerQualityScoring
 without triggering the full dependency chain.
 """
 

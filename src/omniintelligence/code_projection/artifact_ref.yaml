@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# Content-addressed artifact reference of the code projection (OMN-21623).
+#
+# Code holds no copy of this prefix: every module that builds, parses or
+# validates an artifact reference reads it through ModelArtifactRefContract, and a
+# file that omits the field, or names one the model does not know, fails to load
+# rather than falling back to a value in code.
+
+# Prefix of every artifact reference; the SHA-256 hex digest of the artifact
+# follows it.
+prefix: "artifact://sha256/"

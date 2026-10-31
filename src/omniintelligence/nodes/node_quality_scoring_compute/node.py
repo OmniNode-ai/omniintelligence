@@ -4,7 +4,7 @@
 """Quality Scoring Compute Node - Thin shell delegating to handler.
 
 This node follows the ONEX declarative pattern where the node class is a thin
-shell that delegates all logic to handler functions.
+shell that delegates all logic to handler classes.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from __future__ import annotations
 from omnibase_core.nodes.node_compute import NodeCompute
 
 from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
-    handle_quality_scoring_compute,
+    HandlerQualityScoringCompute,
 )
 from omniintelligence.nodes.node_quality_scoring_compute.models import (
     ModelQualityScoringInput,
@@ -34,14 +34,14 @@ class NodeQualityScoringCompute(
         - architectural: Module organization
 
     This node is a thin shell following the ONEX declarative pattern.
-    All computation logic is delegated to the handler function.
+    All computation logic is delegated to the handler.
     """
 
     async def compute(
         self, input_data: ModelQualityScoringInput
     ) -> ModelQualityScoringOutput:
-        """Score code quality by delegating to handler function."""
-        return handle_quality_scoring_compute(input_data)
+        """Score code quality by delegating to handler."""
+        return HandlerQualityScoringCompute().handle(input_data)
 
 
 __all__ = ["NodeQualityScoringCompute"]

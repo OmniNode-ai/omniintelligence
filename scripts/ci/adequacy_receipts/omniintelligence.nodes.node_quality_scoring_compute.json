@@ -1,0 +1,28 @@
+{
+  "branch_coverage_pct": 71.62162162162163,
+  "candidate_count": 8,
+  "coverage_target": 80.0,
+  "handler_module": "omniintelligence.nodes.node_quality_scoring_compute.handlers.handler_compute",
+  "handler_module_sha256": "sha256:0af1de3c178fa79c9f1183dcca732c13788247abfba7f05cd175026e42a6b5b1",
+  "meets_target": false,
+  "node_id": "omniintelligence.nodes.node_quality_scoring_compute",
+  "receipt_schema": "adequacy_receipt.v1",
+  "recorded_at": "2026-10-31T08:57:04.131358+00:00",
+  "recorder_schema": "adequacy_receipt.v1",
+  "selected_count": 8,
+  "selected_input_hashes": [
+    "sha256:58ee73e51462a9065915b67fc959d945838c59ad3f261b5cd60259feca4d1ca2",
+    "sha256:983758336a1cb2d6f5f76d834d83d3e512df12ef2a6444697cfd778ab26fd8fb",
+    "sha256:6f7fbb16c6ba35cf54996631662e225ddc3b5552e9de8f45270cd76669f3d3c8",
+    "sha256:a5a58cc1e87f392ed5586aa7cea0d816bd2f1e4f038a3d98031014e38beb2895",
+    "sha256:547973d24b9dc6b56fae46b943bc58595338b6664a08f943988c11fdbaf21488",
+    "sha256:dad0b6aa45ca6667a46a5ecd5bbcb54c019cf21df23b099a9150cd37d7e7e08b",
+    "sha256:6362d6f5bc29e24057aa31030c746e11ea977960537da55801b10b201732e316",
+    "sha256:a729a67007a745c0631c3123baca88e1dceb7104f53a49aca25b7031f4638b15"
+  ],
+  "uncovered_waiver": {
+    "reason": "The eight parity cases cover default and preset scoring, custom weights, below-threshold output, whitespace-only content, syntax-error fallback, unsupported language, and an injected scoring invariant failure. Coverage.py branch=True reports 47/68 statements and 6/6 branch exits covered (53/74 combined, 71.62162162162163%). The 21 missing statements are the raised validation-exception path, catch-all exception handling, logging failures, timing failure, and nested fallback output construction. These defensive exception paths are outside this corpus; no branch exits are missing.",
+    "uncovered_branch_count": 0
+  },
+  "volatile_mask": []
+}

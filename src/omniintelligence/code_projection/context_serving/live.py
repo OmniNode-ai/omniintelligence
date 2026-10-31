@@ -26,6 +26,7 @@ from omniintelligence.code_projection.qdrant import (
     ProtocolCodeProjectionContentResolver,
     ProtocolCodeProjectionCurrentGenerationResolver,
 )
+from omniintelligence.models.code_projection import artifact_digest
 from omniintelligence.nodes.node_embedding_generation_effect.models.model_embedding_client_config import (
     ModelEmbeddingClientConfig,
 )
@@ -126,10 +127,7 @@ def _content_resolver(
     store: CodeProjectionArtifactStore,
 ) -> Callable[[str], bytes]:
     def resolve(content_ref: str) -> bytes:
-        prefix = "artifact://sha256/"
-        if not content_ref.startswith(prefix):
-            raise ValueError("semantic content_ref is not a SHA-256 artifact URI")
-        return store.read_content_artifact(content_ref.removeprefix(prefix))
+        return store.read_content_artifact(artifact_digest(content_ref))
 
     return resolve
 

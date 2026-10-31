@@ -1,84 +1,32 @@
 # SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
 
-"""Intent Classifier Compute Handlers.
+"""Pure computation handlers for intent classification and semantic analysis.
 
-Handler functions for intent classification operations,
-including TF-IDF based classification and semantic analysis.
-
-Handler Pattern:
-    Each handler is a PURE FUNCTION that:
-    - Accepts input parameters
-    - Performs computation (no external I/O)
-    - Returns a typed result dictionary
-    - Handles errors gracefully without raising
-
-Core Classification:
-    The classify_intent handler implements TF-IDF based classification:
-    - Tokenizes and normalizes input text
-    - Calculates term frequency (TF) scores
-    - Matches against 9 intent categories (6 original + 3 intelligence-focused)
-    - Supports multi-label classification
-    - Pure functional design (no side effects)
-
-Semantic Analysis:
-    The analyze_semantics handler provides semantic enrichment:
-    - Extracts concepts, themes, domains from text using keyword patterns
-    - Pure computation - no HTTP calls or external services
-    - Enhances intent classification with domain-specific boosts
-
-Error Handling:
-    Contract-defined exceptions with error codes for structured handling:
-    - IntentClassificationValidationError (INTENT_001): Non-recoverable input errors
-    - IntentClassificationComputeError (INTENT_002): Recoverable computation errors
-    - SemanticAnalysisError (INTENT_003): Non-blocking semantic errors
+Each handler accepts a typed request through ``handle``. Configuration for the
+orchestrating HandlerIntentClassification is injected through its constructor.
 
 Usage:
     from omniintelligence.nodes.node_intent_classifier_compute.handlers import (
-        classify_intent,
-        handle_intent_classification,
-        INTENT_PATTERNS,
-        analyze_semantics,
-        map_semantic_to_intent_boost,
-        IntentClassificationValidationError,
-        IntentClassificationComputeError,
+        HandlerIntentClassifier,
+        HandlerSemanticAnalysis,
+        HandlerSemanticIntentBoost,
+        ModelSemanticIntentBoostRequest,
+    )
+    from omniintelligence.nodes.node_intent_classifier_compute.models import (
+        ModelAnalyzeSemanticsRequest,
+        ModelClassifyIntentRequest,
     )
 
-    # Core TF-IDF classification
-    result = classify_intent(
-        content="Create a REST API endpoint",
-        confidence_threshold=0.5,
-        multi_label=False,
+    result = HandlerIntentClassifier().handle(
+        ModelClassifyIntentRequest(content="Create a REST API endpoint")
     )
-    print(f"Intent: {result['intent_category']} ({result['confidence']:.2f})")
-
-    # Optional semantic analysis
-    semantic_result = analyze_semantics(
-        content="Create a REST API endpoint",
-        context="api_development",
+    semantic_result = HandlerSemanticAnalysis().handle(
+        ModelAnalyzeSemanticsRequest(content="Create a REST API endpoint")
     )
-
-    # Map semantics to intent confidence boosts
-    boosts = map_semantic_to_intent_boost(semantic_result)
-
-    # Error handling with contract codes
-    try:
-        result = classify_intent(content="...")
-    except IntentClassificationValidationError as e:
-        log.error(f"Validation failed: {e.code} - {e.message}")
-    except IntentClassificationComputeError as e:
-        log.warning(f"Compute error: {e.code} - {e.message}, retrying...")
-
-Example:
-    >>> from omniintelligence.nodes.node_intent_classifier_compute.handlers import (
-    ...     classify_intent,
-    ...     INTENT_PATTERNS,
-    ... )
-    >>> result = classify_intent("Please generate a Python function")
-    >>> result["intent_category"]
-    'code_generation'
-    >>> len(INTENT_PATTERNS)
-    15
+    boosts = HandlerSemanticIntentBoost().handle(
+        ModelSemanticIntentBoostRequest(semantic_result=semantic_result)
+    )
 """
 
 from typing import TYPE_CHECKING
@@ -93,21 +41,20 @@ from omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_inte
     DEFAULT_CLASSIFICATION_CONFIG,
     INTENT_PATTERNS,
     EnumIntentCategory,
-    classify_intent,
-    handle_intent_classification,
+    HandlerIntentClassification,
+    HandlerIntentClassifier,
 )
 from omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_langextract import (
     DEFAULT_SEMANTIC_CONFIG,
     EnumSemanticDomain,
+    HandlerSemanticAnalysis,
+    HandlerSemanticIntentBoost,
+    ModelSemanticIntentBoostRequest,
     SemanticResult,
-    analyze_semantics,
-    create_empty_semantic_result,
-    map_semantic_to_intent_boost,
 )
 from omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_typed_classification import (
     DEFAULT_TYPED_CONFIDENCE_THRESHOLD,
-    get_category_to_typed_class_mapping,
-    resolve_typed_intent,
+    HandlerTypedClassification,
 )
 
 # ---------------------------------------------------------------------------
@@ -116,7 +63,7 @@ from omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_type
 # `handler_adaptive_classification` imports `adaptive_classifier`, which pulls
 # torch + transformers. Those live in the opt-in, non-default `rl` dependency
 # group, so importing THIS package must stay torch-free. The adaptive backend is
-# NOT on the node's runtime path (TF-IDF via `handle_intent_classification` is) —
+# NOT on the node's runtime path (TF-IDF via `HandlerIntentClassification` is) —
 # only its unit tests exercise it. These symbols resolve lazily on first access
 # via module __getattr__ (PEP 562); torch is imported only if something actually
 # requests an adaptive symbol.
@@ -157,27 +104,26 @@ def __getattr__(name: str) -> object:
 
 
 __all__ = [
+    "AdaptiveClassificationResult",
     "DEFAULT_CLASSIFICATION_CONFIG",
     "DEFAULT_SEMANTIC_CONFIG",
     "DEFAULT_TYPED_CONFIDENCE_THRESHOLD",
     "EnumIntentCategory",
     "EnumSemanticDomain",
+    "HandlerIntentClassification",
+    "HandlerIntentClassifier",
+    "HandlerSemanticAnalysis",
+    "HandlerSemanticIntentBoost",
+    "HandlerTypedClassification",
     "INTENT_PATTERNS",
     "IntentClassificationComputeError",
     "IntentClassificationError",
     "IntentClassificationValidationError",
+    "ModelSemanticIntentBoostRequest",
     "SemanticAnalysisError",
     "SemanticResult",
     "UNKNOWN_CONFIDENCE_THRESHOLD",
-    "AdaptiveClassificationResult",
-    "analyze_semantics",
-    "classify_intent",
     "classify_intent_adaptive",
-    "create_empty_semantic_result",
-    "get_category_to_typed_class_mapping",
     "get_classifier_version",
-    "handle_intent_classification",
-    "map_semantic_to_intent_boost",
     "reset_classifier",
-    "resolve_typed_intent",
 ]

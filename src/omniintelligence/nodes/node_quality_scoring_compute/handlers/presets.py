@@ -36,13 +36,17 @@ Usage:
     weights = get_weights_for_preset(OnexStrictnessLevel.STRICT)
     threshold = get_threshold_for_preset(OnexStrictnessLevel.STRICT)
 
-    # Use with score_code_quality
-    result = score_code_quality(
+    from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
+        HandlerQualityScoring,
+        ModelScoreCodeQualityRequest,
+    )
+
+    result = HandlerQualityScoring().handle(ModelScoreCodeQualityRequest(
         content=code,
         language="python",
         weights=weights,
         onex_threshold=threshold,
-    )
+    ))
 
 Example:
     >>> from omniintelligence.nodes.node_quality_scoring_compute.handlers.presets import (

@@ -19,7 +19,8 @@ import pytest
 pytestmark = pytest.mark.unit
 
 from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
-    score_code_quality,
+    HandlerQualityScoring,
+    ModelScoreCodeQualityRequest,
 )
 
 
@@ -44,8 +45,12 @@ def public_function() -> int:
     """A public function."""
     return 42
 '''
-        result_with = score_code_quality(with_all, "python")
-        result_without = score_code_quality(without_all, "python")
+        result_with = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=with_all, language="python")
+        )
+        result_without = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=without_all, language="python")
+        )
 
         # Module with __all__ should score better on architectural dimension
         assert (
@@ -70,8 +75,12 @@ def process() -> str:
     import os  # Import inside function
     return os.getcwd()
 '''
-        result_clean = score_code_quality(clean_imports, "python")
-        result_risky = score_code_quality(circular_risk, "python")
+        result_clean = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=clean_imports, language="python")
+        )
+        result_risky = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=circular_risk, language="python")
+        )
 
         # Imports inside functions should lower architectural score
         assert (
@@ -98,8 +107,12 @@ import sys
 from mypackage import utils
 import json
 '''
-        result_grouped = score_code_quality(grouped_imports, "python")
-        result_ungrouped = score_code_quality(ungrouped_imports, "python")
+        result_grouped = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=grouped_imports, language="python")
+        )
+        result_ungrouped = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=ungrouped_imports, language="python")
+        )
 
         # Grouped imports should score better
         assert (
@@ -133,8 +146,12 @@ def compute_score(data):
 def validate_input(value):
     return len(value) > 0
 '''
-        result_handler = score_code_quality(handler_pattern, "python")
-        result_no_handler = score_code_quality(no_handler_pattern, "python")
+        result_handler = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=handler_pattern, language="python")
+        )
+        result_no_handler = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=no_handler_pattern, language="python")
+        )
 
         # Handler pattern should score better on architectural dimension
         assert (
@@ -168,8 +185,12 @@ class Model:
     VERSION: ClassVar[str] = "1.0"
     model_config = {"frozen": True}
 '''
-        result_good = score_code_quality(well_organized, "python")
-        result_bad = score_code_quality(poorly_organized, "python")
+        result_good = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=well_organized, language="python")
+        )
+        result_bad = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=poorly_organized, language="python")
+        )
 
         # Well organized class should score better
         assert (
@@ -189,8 +210,14 @@ class Child(Parent1, Parent2, Mixin):
     """Multiple inheritance."""
     pass
 '''
-        result_single = score_code_quality(single_inheritance, "python")
-        result_multiple = score_code_quality(multiple_inheritance, "python")
+        result_single = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=single_inheritance, language="python")
+        )
+        result_multiple = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(
+                content=multiple_inheritance, language="python"
+            )
+        )
 
         # Multiple inheritance should lower score
         assert (
@@ -214,8 +241,12 @@ x = 1
 import os
 import sys
 '''
-        result_top = score_code_quality(imports_at_top, "python")
-        result_after = score_code_quality(imports_after_code, "python")
+        result_top = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=imports_at_top, language="python")
+        )
+        result_after = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=imports_after_code, language="python")
+        )
 
         # Imports at top should score better
         assert (
@@ -272,8 +303,14 @@ class Multi(Base1, Base2, Base3):
 x = 1
 import sys
 """
-        result_excellent = score_code_quality(excellent_architecture, "python")
-        result_poor = score_code_quality(poor_architecture, "python")
+        result_excellent = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(
+                content=excellent_architecture, language="python"
+            )
+        )
+        result_poor = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=poor_architecture, language="python")
+        )
 
         # Excellent architecture should score significantly higher
         assert (
@@ -293,7 +330,9 @@ import sys
 x = 1
 y = 2
 '''
-        result = score_code_quality(simple_module, "python")
+        result = HandlerQualityScoring().handle(
+            ModelScoreCodeQualityRequest(content=simple_module, language="python")
+        )
 
         # Simple module should get the default architectural score or better
         assert result["dimensions"]["architectural"] >= 0.5

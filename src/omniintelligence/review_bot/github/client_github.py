@@ -22,7 +22,6 @@ import urllib.request
 from typing import Any, cast
 
 _BOT_MARKER = "<!-- omni-review-bot -->"
-_DEFAULT_GITHUB_API = "https://api.github.com"
 
 
 class GitHubClient:
@@ -36,14 +35,15 @@ class GitHubClient:
     Args:
         token: GitHub personal access token or GITHUB_TOKEN.
         repo: Repository in "owner/repo" format.
-        base_url: GitHub API base URL (override for GitHub Enterprise).
+        base_url: GitHub API base URL, injected by the caller from the service
+            endpoint authority (no default is held in code).
     """
 
     def __init__(
         self,
         token: str,
         repo: str,
-        base_url: str = _DEFAULT_GITHUB_API,
+        base_url: str,
     ) -> None:
         self._token = token
         self._repo = repo

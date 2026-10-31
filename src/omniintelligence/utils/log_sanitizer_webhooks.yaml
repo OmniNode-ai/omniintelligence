@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# Webhook URL redaction rows of the log sanitizer (OMN-21623).
+#
+# Code holds none of these URL patterns: LogSanitizer reads them through
+# ModelWebhookPatterns, in this order, at the position the webhook rows sit in
+# its default pattern list. A file that omits a field of a row, or names one the
+# model does not know, fails to load rather than falling back to a value in code.
+# Patterns are matched case-insensitively.
+rows:
+  - pattern: 'https://hooks\.slack\.com/services/[A-Z0-9]+/[A-Z0-9]+/[a-zA-Z0-9]+'
+    replacement: "[SLACK_WEBHOOK_URL]"
+    description: "Slack webhook URL"
+  - pattern: 'https://discord\.com/api/webhooks/[0-9]+/[a-zA-Z0-9\-_]+'
+    replacement: "[DISCORD_WEBHOOK_URL]"
+    description: "Discord webhook URL"

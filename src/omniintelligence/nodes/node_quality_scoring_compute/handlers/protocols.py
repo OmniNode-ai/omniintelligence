@@ -18,12 +18,13 @@ Usage:
         QualityScoringResult,
     )
 
-    def score_code_quality(...) -> QualityScoringResult:
-        return {
-            "success": True,
-            "quality_score": 0.85,
-            ...
-        }
+    class HandlerQualityScoring:
+        def handle(self, request: ModelScoreCodeQualityRequest) -> QualityScoringResult:
+            return {
+                "success": True,
+                "quality_score": 0.85,
+                ...
+            }
 """
 
 from __future__ import annotations
@@ -69,7 +70,7 @@ class QualityScoringResult(_QualityScoringResultRequired, total=False):
     """Result structure for quality scoring handler.
 
     This TypedDict defines the guaranteed structure returned by
-    the score_code_quality function.
+    the HandlerQualityScoring.handle method.
 
     Required Attributes:
         success: Whether the scoring completed without errors.

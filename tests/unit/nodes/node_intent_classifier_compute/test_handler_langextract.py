@@ -20,12 +20,16 @@ from pydantic import ValidationError
 
 from omniintelligence.nodes.node_intent_classifier_compute.handlers import (
     DEFAULT_SEMANTIC_CONFIG,
+    HandlerSemanticAnalysis,
+    HandlerSemanticIntentBoost,
     SemanticResult,
-    analyze_semantics,
-    create_empty_semantic_result,
-    map_semantic_to_intent_boost,
+)
+from omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_langextract import (
+    ModelSemanticIntentBoostRequest,
 )
 from omniintelligence.nodes.node_intent_classifier_compute.models import (
+    ModelAnalyzeSemanticsRequest,
+    ModelClassifyIntentRequest,
     ModelSemanticAnalysisConfig,
     ModelSemanticBoostsConfig,
     ModelSemanticLimitsConfig,
@@ -63,7 +67,7 @@ class TestCreateEmptySemanticResult:
 
     def test_creates_empty_result_without_error(self) -> None:
         """Test that empty result has all required fields."""
-        result = create_empty_semantic_result()
+        result = HandlerSemanticAnalysis.create_empty_semantic_result()
 
         assert result["concepts"] == []
         assert result["themes"] == []
@@ -77,7 +81,7 @@ class TestCreateEmptySemanticResult:
     def test_creates_empty_result_with_error_message(self) -> None:
         """Test that error message is included when provided."""
         error_msg = "Analysis failed"
-        result = create_empty_semantic_result(error=error_msg)
+        result = HandlerSemanticAnalysis.create_empty_semantic_result(error=error_msg)
 
         assert result["error"] == error_msg
         assert result["concepts"] == []
@@ -85,7 +89,7 @@ class TestCreateEmptySemanticResult:
 
     def test_result_structure_completeness(self) -> None:
         """Test that all expected keys are present."""
-        result = create_empty_semantic_result()
+        result = HandlerSemanticAnalysis.create_empty_semantic_result()
 
         expected_keys = {
             "concepts",
@@ -111,51 +115,75 @@ class TestAnalyzeSemantics:
 
     def test_empty_content_returns_empty_result(self) -> None:
         """Test that empty content returns empty result."""
-        result = analyze_semantics("")
+        result = HandlerSemanticAnalysis().handle(
+            ModelAnalyzeSemanticsRequest(content="")
+        )
         assert result["concepts"] == []
         assert result["error"] is None
 
     def test_whitespace_content_returns_empty_result(self) -> None:
         """Test that whitespace-only content returns empty result."""
-        result = analyze_semantics("   \n\t  ")
+        result = HandlerSemanticAnalysis().handle(
+            ModelAnalyzeSemanticsRequest(content="   \n\t  ")
+        )
         assert result["concepts"] == []
 
     def test_detects_api_domain(self) -> None:
         """Test that API-related content detects api_design domain."""
-        result = analyze_semantics("Create a REST API endpoint for authentication")
+        result = HandlerSemanticAnalysis().handle(
+            ModelAnalyzeSemanticsRequest(
+                content="Create a REST API endpoint for authentication"
+            )
+        )
 
         assert "api_design" in result["domain_indicators"]
         assert result["topic_weights"].get("api_design", 0) > 0
 
     def test_detects_testing_domain(self) -> None:
         """Test that testing content detects testing domain."""
-        result = analyze_semantics("Write unit tests with pytest and mocks")
+        result = HandlerSemanticAnalysis().handle(
+            ModelAnalyzeSemanticsRequest(
+                content="Write unit tests with pytest and mocks"
+            )
+        )
 
         assert "testing" in result["domain_indicators"]
         assert result["topic_weights"].get("testing", 0) > 0
 
     def test_detects_code_generation_domain(self) -> None:
         """Test that code generation content detects correct domain."""
-        result = analyze_semantics("Generate a Python function to process data")
+        result = HandlerSemanticAnalysis().handle(
+            ModelAnalyzeSemanticsRequest(
+                content="Generate a Python function to process data"
+            )
+        )
 
         assert "code_generation" in result["domain_indicators"]
 
     def test_detects_debugging_domain(self) -> None:
         """Test that debugging content detects debugging domain."""
-        result = analyze_semantics("Fix the bug in error handling")
+        result = HandlerSemanticAnalysis().handle(
+            ModelAnalyzeSemanticsRequest(content="Fix the bug in error handling")
+        )
 
         assert "debugging" in result["domain_indicators"]
 
     def test_detects_documentation_domain(self) -> None:
         """Test that documentation content detects documentation domain."""
-        result = analyze_semantics("Write documentation and README for the API")
+        result = HandlerSemanticAnalysis().handle(
+            ModelAnalyzeSemanticsRequest(
+                content="Write documentation and README for the API"
+            )
+        )
 
         assert "documentation" in result["domain_indicators"]
 
     def test_detects_multiple_domains(self) -> None:
         """Test that content with multiple domains detects all."""
-        result = analyze_semantics(
-            "Create an API endpoint with unit tests and documentation"
+        result = HandlerSemanticAnalysis().handle(
+            ModelAnalyzeSemanticsRequest(
+                content="Create an API endpoint with unit tests and documentation"
+            )
         )
 
         # Should detect multiple domains
@@ -164,8 +192,12 @@ class TestAnalyzeSemantics:
 
     def test_context_boosts_domain(self) -> None:
         """Test that context parameter boosts specific domain."""
-        result_no_context = analyze_semantics("Write code")
-        result_with_context = analyze_semantics("Write code", context="testing")
+        result_no_context = HandlerSemanticAnalysis().handle(
+            ModelAnalyzeSemanticsRequest(content="Write code")
+        )
+        result_with_context = HandlerSemanticAnalysis().handle(
+            ModelAnalyzeSemanticsRequest(content="Write code", context="testing")
+        )
 
         # Context should boost testing domain score if it exists
         if "testing" in result_with_context["topic_weights"]:
@@ -175,7 +207,11 @@ class TestAnalyzeSemantics:
 
     def test_extracts_concepts(self) -> None:
         """Test that concepts are extracted from content."""
-        result = analyze_semantics("Create REST API endpoint with authentication")
+        result = HandlerSemanticAnalysis().handle(
+            ModelAnalyzeSemanticsRequest(
+                content="Create REST API endpoint with authentication"
+            )
+        )
 
         assert len(result["concepts"]) > 0
         concept_names = [c["name"] for c in result["concepts"]]
@@ -186,7 +222,9 @@ class TestAnalyzeSemantics:
 
     def test_concepts_have_confidence(self) -> None:
         """Test that concepts have confidence scores."""
-        result = analyze_semantics("Generate code with testing")
+        result = HandlerSemanticAnalysis().handle(
+            ModelAnalyzeSemanticsRequest(content="Generate code with testing")
+        )
 
         for concept in result["concepts"]:
             assert "confidence" in concept
@@ -194,7 +232,9 @@ class TestAnalyzeSemantics:
 
     def test_concepts_have_category(self) -> None:
         """Test that concepts have category assigned."""
-        result = analyze_semantics("Generate code with unit tests")
+        result = HandlerSemanticAnalysis().handle(
+            ModelAnalyzeSemanticsRequest(content="Generate code with unit tests")
+        )
 
         for concept in result["concepts"]:
             assert "category" in concept
@@ -202,7 +242,11 @@ class TestAnalyzeSemantics:
 
     def test_detects_themes(self) -> None:
         """Test that themes are detected from domains."""
-        result = analyze_semantics("Generate code and refactor for debugging")
+        result = HandlerSemanticAnalysis().handle(
+            ModelAnalyzeSemanticsRequest(
+                content="Generate code and refactor for debugging"
+            )
+        )
 
         # Should detect development theme (covers code_generation, refactoring, debugging)
         theme_names = [t["name"] for t in result["themes"]]
@@ -210,7 +254,9 @@ class TestAnalyzeSemantics:
 
     def test_themes_have_weight(self) -> None:
         """Test that themes have weight scores."""
-        result = analyze_semantics("Generate code and write tests")
+        result = HandlerSemanticAnalysis().handle(
+            ModelAnalyzeSemanticsRequest(content="Generate code and write tests")
+        )
 
         for theme in result["themes"]:
             assert "weight" in theme
@@ -218,19 +264,19 @@ class TestAnalyzeSemantics:
 
     def test_processing_time_recorded(self) -> None:
         """Test that processing time is recorded."""
-        result = analyze_semantics("Test content for timing")
+        result = HandlerSemanticAnalysis().handle(
+            ModelAnalyzeSemanticsRequest(content="Test content for timing")
+        )
         assert result["processing_time_ms"] >= 0.0
 
     def test_min_confidence_filtering(self) -> None:
         """Test that min_confidence filters low-confidence results."""
         # With high threshold, should return fewer results
-        result_high = analyze_semantics(
-            "Test content",
-            min_confidence=0.8,
+        result_high = HandlerSemanticAnalysis().handle(
+            ModelAnalyzeSemanticsRequest(content="Test content", min_confidence=0.8)
         )
-        result_low = analyze_semantics(
-            "Test content",
-            min_confidence=0.1,
+        result_low = HandlerSemanticAnalysis().handle(
+            ModelAnalyzeSemanticsRequest(content="Test content", min_confidence=0.1)
         )
 
         # Low threshold should return same or more domains
@@ -248,46 +294,70 @@ class TestMapSemanticToIntentBoost:
 
     def test_empty_result_returns_empty_boosts(self) -> None:
         """Test that empty semantic result returns no boosts."""
-        empty_result = create_empty_semantic_result()
-        boosts = map_semantic_to_intent_boost(empty_result)
+        empty_result = HandlerSemanticAnalysis.create_empty_semantic_result()
+        boosts = HandlerSemanticIntentBoost().handle(
+            ModelSemanticIntentBoostRequest(semantic_result=empty_result)
+        )
         assert boosts == {}
 
     def test_api_domain_maps_to_api_design(self) -> None:
         """Test that api_design domain maps to api_design intent."""
-        result = analyze_semantics("Create REST API endpoint")
-        boosts = map_semantic_to_intent_boost(result)
+        result = HandlerSemanticAnalysis().handle(
+            ModelAnalyzeSemanticsRequest(content="Create REST API endpoint")
+        )
+        boosts = HandlerSemanticIntentBoost().handle(
+            ModelSemanticIntentBoostRequest(semantic_result=result)
+        )
 
         assert "api_design" in boosts
         assert boosts["api_design"] > 0.0
 
     def test_testing_domain_maps_to_testing(self) -> None:
         """Test that testing domain maps to testing intent."""
-        result = analyze_semantics("Write unit tests with pytest")
-        boosts = map_semantic_to_intent_boost(result)
+        result = HandlerSemanticAnalysis().handle(
+            ModelAnalyzeSemanticsRequest(content="Write unit tests with pytest")
+        )
+        boosts = HandlerSemanticIntentBoost().handle(
+            ModelSemanticIntentBoostRequest(semantic_result=result)
+        )
 
         assert "testing" in boosts
         assert boosts["testing"] > 0.0
 
     def test_code_generation_domain_maps_correctly(self) -> None:
         """Test that code_generation domain maps correctly."""
-        result = analyze_semantics("Generate Python function to process data")
-        boosts = map_semantic_to_intent_boost(result)
+        result = HandlerSemanticAnalysis().handle(
+            ModelAnalyzeSemanticsRequest(
+                content="Generate Python function to process data"
+            )
+        )
+        boosts = HandlerSemanticIntentBoost().handle(
+            ModelSemanticIntentBoostRequest(semantic_result=result)
+        )
 
         assert "code_generation" in boosts
         assert boosts["code_generation"] > 0.0
 
     def test_debugging_domain_maps_correctly(self) -> None:
         """Test that debugging domain maps correctly."""
-        result = analyze_semantics("Fix the bug in error handling")
-        boosts = map_semantic_to_intent_boost(result)
+        result = HandlerSemanticAnalysis().handle(
+            ModelAnalyzeSemanticsRequest(content="Fix the bug in error handling")
+        )
+        boosts = HandlerSemanticIntentBoost().handle(
+            ModelSemanticIntentBoostRequest(semantic_result=result)
+        )
 
         assert "debugging" in boosts
         assert boosts["debugging"] > 0.0
 
     def test_documentation_domain_maps_correctly(self) -> None:
         """Test that documentation domain maps correctly."""
-        result = analyze_semantics("Write documentation for the API")
-        boosts = map_semantic_to_intent_boost(result)
+        result = HandlerSemanticAnalysis().handle(
+            ModelAnalyzeSemanticsRequest(content="Write documentation for the API")
+        )
+        boosts = HandlerSemanticIntentBoost().handle(
+            ModelSemanticIntentBoostRequest(semantic_result=result)
+        )
 
         assert "documentation" in boosts
         assert boosts["documentation"] > 0.0
@@ -295,10 +365,14 @@ class TestMapSemanticToIntentBoost:
     def test_boost_capped_at_max(self) -> None:
         """Test that boosts are capped at maximum value (0.30)."""
         # Create content that would generate high boosts
-        result = analyze_semantics(
-            "api rest endpoint http request response authentication jwt oauth"
+        result = HandlerSemanticAnalysis().handle(
+            ModelAnalyzeSemanticsRequest(
+                content="api rest endpoint http request response authentication jwt oauth"
+            )
         )
-        boosts = map_semantic_to_intent_boost(result)
+        boosts = HandlerSemanticIntentBoost().handle(
+            ModelSemanticIntentBoostRequest(semantic_result=result)
+        )
 
         # All boosts should be capped at 0.30
         for intent, boost in boosts.items():
@@ -306,8 +380,14 @@ class TestMapSemanticToIntentBoost:
 
     def test_multiple_sources_combine(self) -> None:
         """Test that boosts from multiple sources combine."""
-        result = analyze_semantics("Create REST API with authentication and tests")
-        boosts = map_semantic_to_intent_boost(result)
+        result = HandlerSemanticAnalysis().handle(
+            ModelAnalyzeSemanticsRequest(
+                content="Create REST API with authentication and tests"
+            )
+        )
+        boosts = HandlerSemanticIntentBoost().handle(
+            ModelSemanticIntentBoostRequest(semantic_result=result)
+        )
 
         # Should have multiple intent boosts
         assert len(boosts) >= 2
@@ -325,7 +405,9 @@ class TestMapSemanticToIntentBoost:
             "processing_time_ms": 0.0,
             "error": None,
         }
-        boosts = map_semantic_to_intent_boost(result)
+        boosts = HandlerSemanticIntentBoost().handle(
+            ModelSemanticIntentBoostRequest(semantic_result=result)
+        )
 
         # Should return empty dict (no valid mappings)
         assert boosts == {}
@@ -358,7 +440,9 @@ class TestDomainCoverage:
     )
     def test_domain_detection(self, content: str, expected_domain: str) -> None:
         """Test that various content types detect correct domains."""
-        result = analyze_semantics(content)
+        result = HandlerSemanticAnalysis().handle(
+            ModelAnalyzeSemanticsRequest(content=content)
+        )
         assert expected_domain in result["domain_indicators"], (
             f"Expected {expected_domain} in domains for '{content}', "
             f"got {result['domain_indicators']}"
@@ -377,19 +461,25 @@ class TestIntegrationWithIntentClassification:
     def test_semantic_boosts_can_enhance_classification(self) -> None:
         """Test that semantic boosts can be used to enhance classification."""
         from omniintelligence.nodes.node_intent_classifier_compute.handlers import (
-            classify_intent,
+            HandlerIntentClassifier,
         )
 
         content = "Create a REST API endpoint with tests"
 
         # Get base classification using threshold=0.0 to obtain the actual top intent
-        base_result = classify_intent(content, confidence_threshold=0.0)
+        base_result = HandlerIntentClassifier().handle(
+            ModelClassifyIntentRequest(content=content, confidence_threshold=0.0)
+        )
 
         # Get semantic analysis
-        semantic_result = analyze_semantics(content)
+        semantic_result = HandlerSemanticAnalysis().handle(
+            ModelAnalyzeSemanticsRequest(content=content)
+        )
 
         # Get boosts
-        boosts = map_semantic_to_intent_boost(semantic_result)
+        boosts = HandlerSemanticIntentBoost().handle(
+            ModelSemanticIntentBoostRequest(semantic_result=semantic_result)
+        )
 
         # Verify we can combine them (the actual combination logic is in the node)
         assert base_result["confidence"] > 0
@@ -405,7 +495,7 @@ class TestIntegrationWithIntentClassification:
     def test_semantic_and_tfidf_agree_on_strong_signals(self) -> None:
         """Test that semantic and TF-IDF agree on clear intent signals."""
         from omniintelligence.nodes.node_intent_classifier_compute.handlers import (
-            classify_intent,
+            HandlerIntentClassifier,
         )
 
         test_cases = [
@@ -415,9 +505,15 @@ class TestIntegrationWithIntentClassification:
         ]
 
         for content, expected in test_cases:
-            tfidf_result = classify_intent(content, confidence_threshold=0.0)
-            semantic_result = analyze_semantics(content)
-            boosts = map_semantic_to_intent_boost(semantic_result)
+            tfidf_result = HandlerIntentClassifier().handle(
+                ModelClassifyIntentRequest(content=content, confidence_threshold=0.0)
+            )
+            semantic_result = HandlerSemanticAnalysis().handle(
+                ModelAnalyzeSemanticsRequest(content=content)
+            )
+            boosts = HandlerSemanticIntentBoost().handle(
+                ModelSemanticIntentBoostRequest(semantic_result=semantic_result)
+            )
 
             # TF-IDF should classify correctly
             assert tfidf_result["intent_category"] == expected
@@ -442,17 +538,24 @@ class TestExplicitConfigParameter:
         self, default_semantic_config: ModelSemanticAnalysisConfig
     ) -> None:
         """Test that analyze_semantics accepts explicit default config."""
-        result = analyze_semantics(
-            "Create REST API endpoint",
-            config=default_semantic_config,
+        result = HandlerSemanticAnalysis().handle(
+            ModelAnalyzeSemanticsRequest(
+                content="Create REST API endpoint", config=default_semantic_config
+            )
         )
         assert "api_design" in result["domain_indicators"]
 
     def test_analyze_semantics_with_none_config_uses_default(self) -> None:
         """Test that None config uses DEFAULT_SEMANTIC_CONFIG."""
-        result_none = analyze_semantics("Create REST API endpoint", config=None)
-        result_default = analyze_semantics(
-            "Create REST API endpoint", config=DEFAULT_SEMANTIC_CONFIG
+        result_none = HandlerSemanticAnalysis().handle(
+            ModelAnalyzeSemanticsRequest(
+                content="Create REST API endpoint", config=None
+            )
+        )
+        result_default = HandlerSemanticAnalysis().handle(
+            ModelAnalyzeSemanticsRequest(
+                content="Create REST API endpoint", config=DEFAULT_SEMANTIC_CONFIG
+            )
         )
 
         # Results should be equivalent
@@ -462,11 +565,17 @@ class TestExplicitConfigParameter:
         self, custom_semantic_config: ModelSemanticAnalysisConfig
     ) -> None:
         """Test that custom boost cap is respected."""
-        result = analyze_semantics(
-            "api rest endpoint http request response authentication jwt oauth",
-            config=custom_semantic_config,
+        result = HandlerSemanticAnalysis().handle(
+            ModelAnalyzeSemanticsRequest(
+                content="api rest endpoint http request response authentication jwt oauth",
+                config=custom_semantic_config,
+            )
         )
-        boosts = map_semantic_to_intent_boost(result, config=custom_semantic_config)
+        boosts = HandlerSemanticIntentBoost().handle(
+            ModelSemanticIntentBoostRequest(
+                semantic_result=result, config=custom_semantic_config
+            )
+        )
 
         # Custom config has max_boost_cap=0.5
         for intent, boost in boosts.items():
@@ -474,10 +583,14 @@ class TestExplicitConfigParameter:
 
     def test_map_semantic_with_default_boost_cap(self) -> None:
         """Test that default boost cap (0.30) is applied."""
-        result = analyze_semantics(
-            "api rest endpoint http request response authentication jwt oauth"
+        result = HandlerSemanticAnalysis().handle(
+            ModelAnalyzeSemanticsRequest(
+                content="api rest endpoint http request response authentication jwt oauth"
+            )
         )
-        boosts = map_semantic_to_intent_boost(result)
+        boosts = HandlerSemanticIntentBoost().handle(
+            ModelSemanticIntentBoostRequest(semantic_result=result)
+        )
 
         # Default config has max_boost_cap=0.30
         for intent, boost in boosts.items():
@@ -492,13 +605,16 @@ class TestExplicitConfigParameter:
         )
 
         # With high minimum confidence, should get fewer results
-        result_high = analyze_semantics(
-            "Test content for scoring",
-            config=high_min_config,
+        result_high = HandlerSemanticAnalysis().handle(
+            ModelAnalyzeSemanticsRequest(
+                content="Test content for scoring", config=high_min_config
+            )
         )
 
         # Default config with lower threshold
-        result_default = analyze_semantics("Test content for scoring")
+        result_default = HandlerSemanticAnalysis().handle(
+            ModelAnalyzeSemanticsRequest(content="Test content for scoring")
+        )
 
         # High threshold should filter more
         assert len(result_high["domains"]) <= len(result_default["domains"])
@@ -514,9 +630,11 @@ class TestExplicitConfigParameter:
             ),
         )
 
-        result = analyze_semantics(
-            "Create REST API with testing and documentation and debugging",
-            config=limited_config,
+        result = HandlerSemanticAnalysis().handle(
+            ModelAnalyzeSemanticsRequest(
+                content="Create REST API with testing and documentation and debugging",
+                config=limited_config,
+            )
         )
 
         # Should respect limits

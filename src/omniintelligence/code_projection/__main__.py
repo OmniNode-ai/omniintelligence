@@ -74,6 +74,7 @@ from omniintelligence.code_projection.qdrant import (
     ProtocolCodeProjectionContentResolver,
     ProtocolCodeProjectionCurrentGenerationResolver,
 )
+from omniintelligence.models.code_projection import artifact_digest, artifact_ref_for
 from omniintelligence.nodes.node_embedding_generation_effect.models.model_embedding_client_config import (
     ModelEmbeddingClientConfig,
 )
@@ -183,7 +184,7 @@ def _provenance(
         extractor_name="python-ast-and-multilang-regex",
         extractor_version="1.0.0",
         extractor_config_hash_sha256=contract_hash,
-        transform_manifest_ref=f"artifact://sha256/{contract_hash}",
+        transform_manifest_ref=artifact_ref_for(contract_hash),
         transform_manifest_hash_sha256=contract_hash,
         labeler_version="deterministic-classifier-quality-semantic-v1",
         chunker_version="syntax-aware-v2",
@@ -427,10 +428,7 @@ def _content_resolver(
     store: CodeProjectionArtifactStore,
 ) -> Callable[[str], bytes]:
     def resolve(content_ref: str) -> bytes:
-        prefix = "artifact://sha256/"
-        if not content_ref.startswith(prefix):
-            raise ValueError("semantic content_ref is not a SHA-256 artifact URI")
-        return store.read_content_artifact(content_ref.removeprefix(prefix))
+        return store.read_content_artifact(artifact_digest(content_ref))
 
     return resolve
 
