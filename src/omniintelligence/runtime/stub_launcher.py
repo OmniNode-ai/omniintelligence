@@ -38,11 +38,8 @@ from omniintelligence.models.runtime_timeouts import runtime_timeouts
 
 def _get_log_level() -> int:
     """Get log level from environment with safe fallback."""
-    level_name = os.getenv("LOG_LEVEL", "INFO").upper()
-    level = getattr(logging, level_name, None)
-    if not isinstance(level, int):
-        return logging.INFO
-    return level
+    level = getattr(logging, os.getenv("LOG_LEVEL", "INFO").upper(), None)
+    return level if isinstance(level, int) else logging.INFO
 
 
 logging.basicConfig(
