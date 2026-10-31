@@ -21,13 +21,20 @@ from pydantic import BaseModel, ConfigDict, Field
 _TOPIC_FIELDS: tuple[str, ...] = ("subscribe_topics", "publish_topics")
 
 
+def _load_contract(content: str) -> object:
+    """Parse a contract with LibYAML's safe loader when it is available."""
+    if yaml.__with_libyaml__:
+        return yaml.load(content, Loader=yaml.CSafeLoader)
+    return yaml.safe_load(content)
+
+
 @cache
 def _event_bus_topics(nodes_package: str, node: str) -> tuple[str, ...]:
     """Every subscribe and publish topic the node's contract declares."""
     contract_file = importlib.resources.files(nodes_package).joinpath(
         node, "contract.yaml"
     )
-    contract = yaml.safe_load(contract_file.read_text())
+    contract = _load_contract(contract_file.read_text())
     event_bus = contract.get("event_bus") if isinstance(contract, dict) else None
     if not isinstance(event_bus, dict):
         return ()

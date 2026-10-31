@@ -27,7 +27,9 @@ import importlib.resources
 import logging
 from pathlib import Path
 
-import yaml
+from omniintelligence.models.topics.model_contract_topic_reader import (
+    _load_contract,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -77,8 +79,7 @@ def _discover_effect_node_packages() -> list[str]:
 
 def _has_subscribe_topics(contract_path: Path) -> bool:
     """Check if a contract.yaml has subscribe_topics."""
-    with open(contract_path) as f:
-        contract = yaml.safe_load(f)
+    contract = _load_contract(contract_path.read_text())
     if not isinstance(contract, dict):
         return False
     event_bus = contract.get("event_bus", {})
@@ -262,8 +263,7 @@ def _read_event_bus_topics(package: str, field: str) -> list[str]:
     """
     package_files = importlib.resources.files(package)
     contract_file = package_files.joinpath("contract.yaml")
-    content = contract_file.read_text()
-    contract: object = yaml.safe_load(content)
+    contract = _load_contract(contract_file.read_text())
 
     if not isinstance(contract, dict):
         logger.warning(
