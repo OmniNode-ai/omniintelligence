@@ -11,7 +11,7 @@ Reference:
 from __future__ import annotations
 
 from omniintelligence.nodes.node_gmail_intent_evaluator_effect.handlers.handler_gmail_intent_evaluate import (
-    handle_gmail_intent_evaluate,
+    HandlerGmailIntentEvaluate,
 )
 
-__all__ = ["handle_gmail_intent_evaluate"]
+__all__ = ["HandlerGmailIntentEvaluate"]

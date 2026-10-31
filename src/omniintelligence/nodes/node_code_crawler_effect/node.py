@@ -9,14 +9,18 @@ from omniintelligence.nodes.node_ast_extraction_compute.models.model_code_file_d
     ModelCodeFileDiscoveredEvent,
 )
 from omniintelligence.nodes.node_code_crawler_effect.handlers.handler_crawl_files import (
-    crawl_files,
+    HandlerCrawlFiles,
 )
 from omniintelligence.nodes.node_code_crawler_effect.models.model_crawl_config import (
     ModelCrawlConfig,
 )
+from omniintelligence.nodes.node_code_crawler_effect.models.model_crawl_files_request import (
+    ModelCrawlFilesRequest,
+)
 
 __all__ = [
-    "ModelCrawlConfig",
+    "HandlerCrawlFiles",
     "ModelCodeFileDiscoveredEvent",
-    "crawl_files",
+    "ModelCrawlConfig",
+    "ModelCrawlFilesRequest",
 ]

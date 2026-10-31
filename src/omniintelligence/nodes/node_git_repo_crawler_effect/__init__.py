@@ -29,7 +29,7 @@ Change Detection Algorithm:
 Usage:
     from omniintelligence.nodes.node_git_repo_crawler_effect import (
         NodeGitRepoCrawlerEffect,
-        handle_git_repo_crawl,
+        HandlerGitRepoCrawl,
         ModelGitRepoCrawlInput,
     )
 
@@ -38,9 +38,9 @@ Reference:
 """
 
 from omniintelligence.nodes.node_git_repo_crawler_effect.handlers import (
+    HandlerGitRepoCrawl,
     ModelCrawlStateEntry,
     ProtocolCrawlStateStore,
-    handle_git_repo_crawl,
 )
 from omniintelligence.nodes.node_git_repo_crawler_effect.models import (
     ModelDocumentChangedEvent,
@@ -62,5 +62,5 @@ __all__ = [
     "ModelGitRepoCrawlOutput",
     "NodeGitRepoCrawlerEffect",
     "ProtocolCrawlStateStore",
-    "handle_git_repo_crawl",
+    "HandlerGitRepoCrawl",
 ]

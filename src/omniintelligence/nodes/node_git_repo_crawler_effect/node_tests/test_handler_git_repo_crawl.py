@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 # Copyright (c) 2025 OmniNode Team
-"""Unit tests for handle_git_repo_crawl.
+"""Unit tests for HandlerGitRepoCrawl.
 
 Covers the requirements from OMN-2387:
 
@@ -36,7 +36,7 @@ import hashlib
 import pytest
 
 from omniintelligence.nodes.node_git_repo_crawler_effect.handlers.handler_git_repo_crawl import (
-    handle_git_repo_crawl,
+    HandlerGitRepoCrawl,
 )
 from omniintelligence.nodes.node_git_repo_crawler_effect.handlers.protocol_crawl_state import (
     ModelCrawlStateEntry,
@@ -69,9 +69,8 @@ async def test_skip_when_head_sha_unchanged(
     # Pre-populate crawl_state with the current HEAD SHA
     await crawl_state.update_head_sha(git_repo.path, sha)
 
-    result = await handle_git_repo_crawl(
+    result = await HandlerGitRepoCrawl(crawl_state=crawl_state).handle(
         ModelGitRepoCrawlInput(repo_path=git_repo.path),
-        crawl_state=crawl_state,
     )
 
     assert result.skipped is True
@@ -96,9 +95,8 @@ async def test_process_when_head_sha_changed(
     git_repo.write("docs/page.md", "# Updated")
     _new_sha = git_repo.commit("update page")
 
-    result = await handle_git_repo_crawl(
+    result = await HandlerGitRepoCrawl(crawl_state=crawl_state).handle(
         ModelGitRepoCrawlInput(repo_path=git_repo.path),
-        crawl_state=crawl_state,
     )
 
     assert result.skipped is False
@@ -119,9 +117,8 @@ async def test_new_md_file_emits_discovered_event(
     git_repo.write("README.md", content)
     git_repo.commit("add README")
 
-    result = await handle_git_repo_crawl(
+    result = await HandlerGitRepoCrawl(crawl_state=crawl_state).handle(
         ModelGitRepoCrawlInput(repo_path=git_repo.path),
-        crawl_state=crawl_state,
     )
 
     assert len(result.discovered) == 1
@@ -153,9 +150,8 @@ async def test_discovered_event_has_file_level_source_version(
         "Test assumption violated: file commit SHA equals HEAD SHA"
     )
 
-    result = await handle_git_repo_crawl(
+    result = await HandlerGitRepoCrawl(crawl_state=crawl_state).handle(
         ModelGitRepoCrawlInput(repo_path=git_repo.path),
-        crawl_state=crawl_state,
     )
 
     md_events = [e for e in result.discovered if e.file_path == "docs/note.md"]
@@ -196,9 +192,8 @@ async def test_changed_content_emits_changed_event(
     git_repo.write("guide.md", "# Updated content")
     _new_sha = git_repo.commit("update guide")
 
-    result = await handle_git_repo_crawl(
+    result = await HandlerGitRepoCrawl(crawl_state=crawl_state).handle(
         ModelGitRepoCrawlInput(repo_path=git_repo.path),
-        crawl_state=crawl_state,
     )
 
     assert len(result.changed) == 1
@@ -237,9 +232,8 @@ async def test_unchanged_content_emits_no_event(
     git_repo.write("other.txt", "noise")
     _new_sha = git_repo.commit("add noise")
 
-    result = await handle_git_repo_crawl(
+    result = await HandlerGitRepoCrawl(crawl_state=crawl_state).handle(
         ModelGitRepoCrawlInput(repo_path=git_repo.path),
-        crawl_state=crawl_state,
     )
 
     stable_events = [
@@ -281,9 +275,8 @@ async def test_removed_file_emits_removed_event(
     git_repo.delete("will_delete.md")
     _sha2 = git_repo.commit("delete file")
 
-    result = await handle_git_repo_crawl(
+    result = await HandlerGitRepoCrawl(crawl_state=crawl_state).handle(
         ModelGitRepoCrawlInput(repo_path=git_repo.path),
-        crawl_state=crawl_state,
     )
 
     assert len(result.removed) == 1
@@ -318,9 +311,8 @@ async def test_removed_file_deleted_from_crawl_state(
     git_repo.delete("gone.md")
     git_repo.commit("delete")
 
-    await handle_git_repo_crawl(
+    await HandlerGitRepoCrawl(crawl_state=crawl_state).handle(
         ModelGitRepoCrawlInput(repo_path=git_repo.path),
-        crawl_state=crawl_state,
     )
 
     entry = await crawl_state.get_entry(git_repo.path, "gone.md")
@@ -341,9 +333,8 @@ async def test_head_sha_updated_after_crawl(
     git_repo.write("file.md", "# File")
     sha = git_repo.commit("initial")
 
-    result = await handle_git_repo_crawl(
+    result = await HandlerGitRepoCrawl(crawl_state=crawl_state).handle(
         ModelGitRepoCrawlInput(repo_path=git_repo.path),
-        crawl_state=crawl_state,
     )
 
     stored_sha = await crawl_state.get_head_sha(git_repo.path)
@@ -361,16 +352,14 @@ async def test_idempotent_recrawl_emits_nothing(
     git_repo.commit("initial")
 
     # First crawl — discovers the file
-    first = await handle_git_repo_crawl(
+    first = await HandlerGitRepoCrawl(crawl_state=crawl_state).handle(
         ModelGitRepoCrawlInput(repo_path=git_repo.path),
-        crawl_state=crawl_state,
     )
     assert len(first.discovered) == 1
 
     # Second crawl with same HEAD — must be skipped entirely
-    second = await handle_git_repo_crawl(
+    second = await HandlerGitRepoCrawl(crawl_state=crawl_state).handle(
         ModelGitRepoCrawlInput(repo_path=git_repo.path),
-        crawl_state=crawl_state,
     )
     assert second.skipped is True
     assert second.discovered == []
@@ -400,9 +389,8 @@ async def test_source_version_is_file_level_not_head(
     head_sha = git_repo.head_sha()
     assert file_sha != head_sha
 
-    await handle_git_repo_crawl(
+    await HandlerGitRepoCrawl(crawl_state=crawl_state).handle(
         ModelGitRepoCrawlInput(repo_path=git_repo.path),
-        crawl_state=crawl_state,
     )
 
     entry = await crawl_state.get_entry(git_repo.path, "notes.md")
@@ -425,9 +413,8 @@ async def test_integration_discover_then_change(
     git_repo.write("doc.md", "# Version 1")
     git_repo.commit("v1")
 
-    first = await handle_git_repo_crawl(
+    first = await HandlerGitRepoCrawl(crawl_state=crawl_state).handle(
         ModelGitRepoCrawlInput(repo_path=git_repo.path),
-        crawl_state=crawl_state,
     )
     assert len(first.discovered) == 1
     assert first.discovered[0].file_path == "doc.md"
@@ -437,9 +424,8 @@ async def test_integration_discover_then_change(
     git_repo.write("doc.md", "# Version 2 — completely different")
     git_repo.commit("v2")
 
-    second = await handle_git_repo_crawl(
+    second = await HandlerGitRepoCrawl(crawl_state=crawl_state).handle(
         ModelGitRepoCrawlInput(repo_path=git_repo.path),
-        crawl_state=crawl_state,
     )
     # doc.md was in crawl_state after the first crawl, so it must appear as
     # changed (not discovered) on the second crawl.
@@ -463,12 +449,11 @@ async def test_correlation_id_propagated_to_events(
     git_repo.write("tracked.md", "# Tracked")
     git_repo.commit("initial")
 
-    result = await handle_git_repo_crawl(
+    result = await HandlerGitRepoCrawl(crawl_state=crawl_state).handle(
         ModelGitRepoCrawlInput(
             repo_path=git_repo.path,
             correlation_id="test-corr-id-42",
         ),
-        crawl_state=crawl_state,
     )
 
     for evt in result.discovered:
@@ -491,9 +476,8 @@ async def test_non_md_files_not_discovered(
     git_repo.write("README.md", "# Readme")
     git_repo.commit("mixed files")
 
-    result = await handle_git_repo_crawl(
+    result = await HandlerGitRepoCrawl(crawl_state=crawl_state).handle(
         ModelGitRepoCrawlInput(repo_path=git_repo.path),
-        crawl_state=crawl_state,
     )
 
     discovered_paths = {e.file_path for e in result.discovered}

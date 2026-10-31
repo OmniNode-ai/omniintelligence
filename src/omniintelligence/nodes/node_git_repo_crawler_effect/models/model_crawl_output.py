@@ -95,7 +95,7 @@ class ModelDocumentRemovedEvent(BaseModel):
 
 
 class ModelGitRepoCrawlOutput(BaseModel):
-    """Aggregate result returned by handle_git_repo_crawl.
+    """Aggregate result returned by HandlerGitRepoCrawl.
 
     Attributes:
         repo_path: Repository that was crawled.

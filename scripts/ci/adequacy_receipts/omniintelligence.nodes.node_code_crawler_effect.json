@@ -1,0 +1,25 @@
+{
+  "branch_coverage_pct": 62.5,
+  "candidate_count": 6,
+  "coverage_target": 80.0,
+  "handler_module": "omniintelligence.nodes.node_code_crawler_effect.handlers.handler_crawl_files",
+  "handler_module_sha256": "sha256:d8441aa061aad560b3b451b78c8f9df5c96deb3788eb7d07181abc6f906b5a70",
+  "meets_target": false,
+  "node_id": "omniintelligence.nodes.node_code_crawler_effect",
+  "receipt_schema": "adequacy_receipt.v1",
+  "recorded_at": "2026-10-31T09:23:00.668778+00:00",
+  "recorder_schema": "adequacy_receipt.v1",
+  "selected_count": 5,
+  "selected_input_hashes": [
+    "sha256:bd09c11756cc0ae50f880087c89ace9918ab6ae94b215bac051159e2b7c3da50",
+    "sha256:14c4c7e49b055c7de16c56b5e26bd20fbfdd8456cb40ef6d5715e61e595acdb6",
+    "sha256:cb9ae293ec71aa95079382c06f73b60dba70777af515bcd0c64b5b62724847a5",
+    "sha256:d6f2e5a00759e8efe9e784bbacea8624d44de32b64cfa86fb8e2a0b8512a9b3b",
+    "sha256:401432522956a08faf7bc8b8e99b921bcd757b7b5c8a0da25cd3bdfc6ecc17a1"
+  ],
+  "uncovered_waiver": {
+    "reason": "The parity corpus covers include and exclude patterns, a disabled repo, a repo filter, a missing repo path, an unreadable non-UTF-8 file and a generated crawl id. The unreferenced _compute_file_hash helper is not reached by any corpus case.",
+    "uncovered_branch_count": 0
+  },
+  "volatile_mask": []
+}

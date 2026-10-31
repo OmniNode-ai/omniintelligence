@@ -22,8 +22,9 @@ import hashlib
 import logging
 import sys
 from collections import Counter
+from collections.abc import Iterator
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from omniintelligence.nodes.node_code_crawler_effect.models.model_crawl_config import (
@@ -45,11 +46,7 @@ def _load_crawl_config() -> ModelCrawlConfig:
 
     contract_path = (
         Path(__file__).resolve().parents[1]
-        / "src"
-        / "omniintelligence"
-        / "nodes"
-        / "node_code_crawler_effect"
-        / "contract.yaml"
+        / "src/omniintelligence/nodes/node_code_crawler_effect/contract.yaml"
     )
 
     if not contract_path.exists():
@@ -59,22 +56,28 @@ def _load_crawl_config() -> ModelCrawlConfig:
     with open(contract_path) as f:  # noqa: PTH123
         raw = yaml.safe_load(f)
 
-    config_section = raw.get("config", {})
-    repos = []
-    for repo_raw in config_section.get("repos", []):
-        repos.append(ModelRepoCrawlConfig(**repo_raw))
+    repos = [ModelRepoCrawlConfig(**r) for r in raw.get("config", {}).get("repos", [])]
 
     return ModelCrawlConfig(repos=repos)
 
 
-def cmd_dry_run(repo_filter: str | None = None) -> None:
-    """List files that would be crawled without side effects."""
+def _discover(config: ModelCrawlConfig, repo_filter: str | None) -> Iterator[Any]:
+    """Walk the configured repos through the crawler handler."""
     from omniintelligence.nodes.node_code_crawler_effect.handlers.handler_crawl_files import (
-        crawl_files,
+        HandlerCrawlFiles,
+    )
+    from omniintelligence.nodes.node_code_crawler_effect.models.model_crawl_files_request import (
+        ModelCrawlFilesRequest,
     )
 
+    request = ModelCrawlFilesRequest(config=config, repo_filter=repo_filter)
+    return HandlerCrawlFiles().handle(request)
+
+
+def cmd_dry_run(repo_filter: str | None = None) -> None:
+    """List files that would be crawled without side effects."""
     config = _load_crawl_config()
-    events = list(crawl_files(config, repo_filter=repo_filter))
+    events = list(_discover(config, repo_filter))
 
     # Count by repo and extension
     repo_counts: Counter[str] = Counter()
@@ -141,9 +144,6 @@ async def cmd_execute_sync(repo_filter: str | None = None) -> None:
     from omniintelligence.nodes.node_ast_extraction_compute.repository.repository_code_entity import (
         RepositoryCodeEntity,
     )
-    from omniintelligence.nodes.node_code_crawler_effect.handlers.handler_crawl_files import (
-        crawl_files,
-    )
 
     config = _load_crawl_config()
 
@@ -167,7 +167,7 @@ async def cmd_execute_sync(repo_filter: str | None = None) -> None:
     repo_stats: dict[str, dict[str, int]] = {}
 
     try:
-        for event in crawl_files(config, repo_filter=repo_filter):
+        for event in _discover(config, repo_filter):
             # Resolve file path
             repo_config = next(
                 (r for r in config.repos if r.name == event.repo_name), None

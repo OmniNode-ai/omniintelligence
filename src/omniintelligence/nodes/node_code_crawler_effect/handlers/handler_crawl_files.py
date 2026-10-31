@@ -17,42 +17,45 @@ from omniintelligence.nodes.node_ast_extraction_compute.models.model_code_file_d
     ModelCodeFileDiscoveredEvent,
 )
 from omniintelligence.nodes.node_code_crawler_effect.models.model_crawl_config import (
-    ModelCrawlConfig,
     ModelRepoCrawlConfig,
+)
+from omniintelligence.nodes.node_code_crawler_effect.models.model_crawl_files_request import (
+    ModelCrawlFilesRequest,
 )
 
 logger = logging.getLogger(__name__)
 
 
-def crawl_files(
-    config: ModelCrawlConfig,
-    *,
-    crawl_id: str | None = None,
-    repo_filter: str | None = None,
-) -> Iterator[ModelCodeFileDiscoveredEvent]:
-    """Walk configured repos and yield a discovery event per matching file.
+class HandlerCrawlFiles:
+    """Walks configured repos and yields a discovery event per matching file."""
 
-    Args:
-        config: Crawl configuration with repo list and patterns.
-        crawl_id: Unique ID for this crawl run. Auto-generated if not provided.
-        repo_filter: If set, only crawl this specific repo name.
+    def handle(
+        self, request: ModelCrawlFilesRequest
+    ) -> Iterator[ModelCodeFileDiscoveredEvent]:
+        """Walk configured repos and yield a discovery event per matching file.
 
-    Yields:
-        ModelCodeFileDiscoveredEvent for each file matching include patterns
-        and not matching exclude patterns.
-    """
-    if crawl_id is None:
-        crawl_id = f"crawl_{uuid4().hex[:12]}"
+        Args:
+            request: Crawl configuration with repo list and patterns, an optional
+                crawl run ID (auto-generated if not provided) and an optional repo
+                name that restricts the walk to that repo.
 
-    for repo_config in config.repos:
-        if not repo_config.enabled:
-            logger.debug("Skipping disabled repo: %s", repo_config.name)
-            continue
+        Yields:
+            ModelCodeFileDiscoveredEvent for each file matching include patterns
+            and not matching exclude patterns.
+        """
+        crawl_id = request.crawl_id
+        if crawl_id is None:
+            crawl_id = f"crawl_{uuid4().hex[:12]}"
 
-        if repo_filter and repo_config.name != repo_filter:
-            continue
+        for repo_config in request.config.repos:
+            if not repo_config.enabled:
+                logger.debug("Skipping disabled repo: %s", repo_config.name)
+                continue
 
-        yield from _crawl_repo(repo_config, crawl_id)
+            if request.repo_filter and repo_config.name != request.repo_filter:
+                continue
+
+            yield from _crawl_repo(repo_config, crawl_id)
 
 
 def _crawl_repo(
@@ -109,4 +112,4 @@ def _compute_file_hash(file_path: Path) -> str:
     return hasher.hexdigest()
 
 
-__all__ = ["crawl_files"]
+__all__ = ["HandlerCrawlFiles"]

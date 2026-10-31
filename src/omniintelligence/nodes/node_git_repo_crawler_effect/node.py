@@ -46,19 +46,18 @@ class NodeGitRepoCrawlerEffect(NodeEffect):
         - crawl_repo: Detect .md file changes and emit document lifecycle events
 
     Dependency Injection:
-        The ``handle_git_repo_crawl`` handler accepts a ``ProtocolCrawlStateStore``
+        The ``HandlerGitRepoCrawl`` handler accepts a ``ProtocolCrawlStateStore``
         instance. This is resolved by the caller or RuntimeHostProcess.
 
     Example:
         ```python
         from omniintelligence.nodes.node_git_repo_crawler_effect import (
             NodeGitRepoCrawlerEffect,
-            handle_git_repo_crawl,
+            HandlerGitRepoCrawl,
         )
 
-        result = await handle_git_repo_crawl(
+        result = await HandlerGitRepoCrawl(crawl_state=my_crawl_state_store).handle(
             ModelGitRepoCrawlInput(repo_path="/path/to/repo"),
-            crawl_state=my_crawl_state_store,
         )
         ```
     """
