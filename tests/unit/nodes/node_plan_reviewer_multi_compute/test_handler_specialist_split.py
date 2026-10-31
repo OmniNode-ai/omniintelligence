@@ -16,7 +16,7 @@ import pytest
 
 from omniintelligence.nodes.node_plan_reviewer_multi_compute.handlers.strategies.handler_specialist_split import (
     _SPECIALIST_MAP,
-    handle_specialist_split,
+    HandlerSpecialistSplit,
 )
 from omniintelligence.nodes.node_plan_reviewer_multi_compute.models.enum_plan_review_category import (
     EnumPlanReviewCategory,
@@ -27,6 +27,9 @@ from omniintelligence.nodes.node_plan_reviewer_multi_compute.models.enum_review_
 from omniintelligence.nodes.node_plan_reviewer_multi_compute.models.model_plan_review_finding import (
     SEVERITY_WARN,
     PlanReviewFinding,
+)
+from omniintelligence.nodes.node_plan_reviewer_multi_compute.models.model_strategy_review_request import (
+    ModelStrategyReviewRequest,
 )
 
 _PLAN = "Sample plan text for testing."
@@ -71,8 +74,13 @@ async def test_r1_category_owned_by_qwen3() -> None:
     callers = _make_empty_callers()
     callers[EnumReviewModel.QWEN3_CODER] = AsyncMock(return_value=[r1_finding])
 
-    result = await handle_specialist_split(
-        _PLAN, _ALL_CATEGORIES, callers, _EQUAL_WEIGHTS
+    result = await HandlerSpecialistSplit().handle(
+        ModelStrategyReviewRequest(
+            plan_text=_PLAN,
+            categories=_ALL_CATEGORIES,
+            callers=callers,
+            weights=_EQUAL_WEIGHTS,
+        )
     )
 
     r1_results = [f for f in result if f.category == EnumPlanReviewCategory.R1_COUNTS]
@@ -91,8 +99,13 @@ async def test_r5_category_owned_by_qwen3() -> None:
     callers = _make_empty_callers()
     callers[EnumReviewModel.QWEN3_CODER] = AsyncMock(return_value=[r5_finding])
 
-    result = await handle_specialist_split(
-        _PLAN, _ALL_CATEGORIES, callers, _EQUAL_WEIGHTS
+    result = await HandlerSpecialistSplit().handle(
+        ModelStrategyReviewRequest(
+            plan_text=_PLAN,
+            categories=_ALL_CATEGORIES,
+            callers=callers,
+            weights=_EQUAL_WEIGHTS,
+        )
     )
 
     r5_results = [
@@ -113,8 +126,13 @@ async def test_r4_category_owned_by_deepseek() -> None:
     callers = _make_empty_callers()
     callers[EnumReviewModel.DEEPSEEK_R1] = AsyncMock(return_value=[r4_finding])
 
-    result = await handle_specialist_split(
-        _PLAN, _ALL_CATEGORIES, callers, _EQUAL_WEIGHTS
+    result = await HandlerSpecialistSplit().handle(
+        ModelStrategyReviewRequest(
+            plan_text=_PLAN,
+            categories=_ALL_CATEGORIES,
+            callers=callers,
+            weights=_EQUAL_WEIGHTS,
+        )
     )
 
     r4_results = [
@@ -141,8 +159,13 @@ async def test_r2_r3_owned_by_gemini() -> None:
         return_value=[r2_finding, r3_finding]
     )
 
-    result = await handle_specialist_split(
-        _PLAN, _ALL_CATEGORIES, callers, _EQUAL_WEIGHTS
+    result = await HandlerSpecialistSplit().handle(
+        ModelStrategyReviewRequest(
+            plan_text=_PLAN,
+            categories=_ALL_CATEGORIES,
+            callers=callers,
+            weights=_EQUAL_WEIGHTS,
+        )
     )
 
     for cat in (
@@ -169,11 +192,13 @@ async def test_tiebreaker_glm4_invoked_when_specialist_returns_empty() -> None:
     callers[EnumReviewModel.DEEPSEEK_R1] = AsyncMock(return_value=[])
     callers[EnumReviewModel.GLM_4] = AsyncMock(return_value=[r6_tiebreaker])
 
-    result = await handle_specialist_split(
-        _PLAN,
-        [EnumPlanReviewCategory.R6_VERIFICATION],
-        callers,
-        _EQUAL_WEIGHTS,
+    result = await HandlerSpecialistSplit().handle(
+        ModelStrategyReviewRequest(
+            plan_text=_PLAN,
+            categories=[EnumPlanReviewCategory.R6_VERIFICATION],
+            callers=callers,
+            weights=_EQUAL_WEIGHTS,
+        )
     )
 
     r6_results = [
@@ -217,15 +242,17 @@ async def test_tiebreaker_not_invoked_when_all_specialists_have_findings() -> No
     callers[EnumReviewModel.GLM_4] = glm_mock
 
     # Only request R1, R4, R2 — all covered by specialists.
-    await handle_specialist_split(
-        _PLAN,
-        [
-            EnumPlanReviewCategory.R1_COUNTS,
-            EnumPlanReviewCategory.R4_INTEGRATION_TRAPS,
-            EnumPlanReviewCategory.R2_ACCEPTANCE_CRITERIA,
-        ],
-        callers,
-        _EQUAL_WEIGHTS,
+    await HandlerSpecialistSplit().handle(
+        ModelStrategyReviewRequest(
+            plan_text=_PLAN,
+            categories=[
+                EnumPlanReviewCategory.R1_COUNTS,
+                EnumPlanReviewCategory.R4_INTEGRATION_TRAPS,
+                EnumPlanReviewCategory.R2_ACCEPTANCE_CRITERIA,
+            ],
+            callers=callers,
+            weights=_EQUAL_WEIGHTS,
+        )
     )
 
     glm_mock.assert_not_called()
@@ -235,7 +262,14 @@ async def test_tiebreaker_not_invoked_when_all_specialists_have_findings() -> No
 @pytest.mark.asyncio
 async def test_empty_callers_returns_empty() -> None:
     """No callers → empty result."""
-    result = await handle_specialist_split(_PLAN, _ALL_CATEGORIES, {}, {})
+    result = await HandlerSpecialistSplit().handle(
+        ModelStrategyReviewRequest(
+            plan_text=_PLAN,
+            categories=_ALL_CATEGORIES,
+            callers={},
+            weights={},
+        )
+    )
     assert result == []
 
 

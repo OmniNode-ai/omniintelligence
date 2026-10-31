@@ -30,8 +30,22 @@ from omniintelligence.nodes.node_plan_reviewer_multi_compute.models.model_plan_r
 from omniintelligence.nodes.node_plan_reviewer_multi_compute.models.model_plan_reviewer_multi_output import (
     ModelPlanReviewerMultiOutput,
 )
+from omniintelligence.nodes.node_plan_reviewer_multi_compute.models.model_strategy_review_request import (
+    CriticCaller,
+    CritiqueResult,
+    ModelCaller,
+    ModelSequentialCritiqueRequest,
+    ModelStrategyReviewRequest,
+    StrategyFindings,
+)
 
 __all__ = [
+    "CriticCaller",
+    "CritiqueResult",
+    "ModelCaller",
+    "ModelSequentialCritiqueRequest",
+    "ModelStrategyReviewRequest",
+    "StrategyFindings",
     "EnumPlanReviewCategory",
     "EnumReviewModel",
     "EnumReviewStrategy",

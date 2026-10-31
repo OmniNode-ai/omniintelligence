@@ -12,14 +12,14 @@ from omniintelligence.nodes.node_plan_reviewer_multi_compute.handlers.handler_co
     fetch_accuracy_weights,
 )
 from omniintelligence.nodes.node_plan_reviewer_multi_compute.handlers.handler_plan_reviewer_multi_compute import (
+    HandlerPlanReviewerMultiCompute,
     ModelCaller,
-    handle_plan_reviewer_multi_compute,
 )
 
 __all__ = [
+    "HandlerPlanReviewerMultiCompute",
     "ModelCaller",
     "ProtocolDBConnection",
     "build_equal_weights",
     "fetch_accuracy_weights",
-    "handle_plan_reviewer_multi_compute",
 ]

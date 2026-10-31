@@ -15,7 +15,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from omniintelligence.nodes.node_plan_reviewer_multi_compute.handlers.strategies.handler_independent_merge import (
-    handle_independent_merge,
+    HandlerIndependentMerge,
 )
 from omniintelligence.nodes.node_plan_reviewer_multi_compute.models.enum_plan_review_category import (
     EnumPlanReviewCategory,
@@ -27,6 +27,9 @@ from omniintelligence.nodes.node_plan_reviewer_multi_compute.models.model_plan_r
     SEVERITY_BLOCK,
     SEVERITY_WARN,
     PlanReviewFinding,
+)
+from omniintelligence.nodes.node_plan_reviewer_multi_compute.models.model_strategy_review_request import (
+    ModelStrategyReviewRequest,
 )
 
 _PLAN = "Sample plan text for testing."
@@ -77,7 +80,14 @@ async def test_block_severity_escalates_if_any_source_blocks() -> None:
         EnumReviewModel.GLM_4: AsyncMock(return_value=[]),
     }
 
-    result = await handle_independent_merge(_PLAN, _CATEGORIES, callers, _EQUAL_WEIGHTS)
+    result = await HandlerIndependentMerge().handle(
+        ModelStrategyReviewRequest(
+            plan_text=_PLAN,
+            categories=_CATEGORIES,
+            callers=callers,
+            weights=_EQUAL_WEIGHTS,
+        )
+    )
 
     assert len(result) == 1
     assert result[0].severity == SEVERITY_BLOCK, (
@@ -103,7 +113,14 @@ async def test_confidence_formula_two_of_four() -> None:
         EnumReviewModel.GLM_4: AsyncMock(return_value=[]),
     }
 
-    result = await handle_independent_merge(_PLAN, _CATEGORIES, callers, _EQUAL_WEIGHTS)
+    result = await HandlerIndependentMerge().handle(
+        ModelStrategyReviewRequest(
+            plan_text=_PLAN,
+            categories=_CATEGORIES,
+            callers=callers,
+            weights=_EQUAL_WEIGHTS,
+        )
+    )
 
     assert len(result) == 1
     assert result[0].confidence == pytest.approx(0.5)
@@ -127,7 +144,14 @@ async def test_confidence_single_source() -> None:
         EnumReviewModel.DEEPSEEK_R1: AsyncMock(return_value=[]),
     }
 
-    result = await handle_independent_merge(_PLAN, _CATEGORIES, callers, weights)
+    result = await HandlerIndependentMerge().handle(
+        ModelStrategyReviewRequest(
+            plan_text=_PLAN,
+            categories=_CATEGORIES,
+            callers=callers,
+            weights=weights,
+        )
+    )
 
     assert len(result) == 1
     # total_weight = 0.5 + 0.5 = 1.0; source_weight = 0.5 → confidence = 0.5
@@ -143,7 +167,14 @@ async def test_confidence_all_four_agree() -> None:
         for m in EnumReviewModel
     }
 
-    result = await handle_independent_merge(_PLAN, _CATEGORIES, callers, _EQUAL_WEIGHTS)
+    result = await HandlerIndependentMerge().handle(
+        ModelStrategyReviewRequest(
+            plan_text=_PLAN,
+            categories=_CATEGORIES,
+            callers=callers,
+            weights=_EQUAL_WEIGHTS,
+        )
+    )
 
     assert len(result) == 1
     assert result[0].confidence == pytest.approx(1.0)
@@ -168,7 +199,14 @@ async def test_deduplication_by_category_and_location_normalized() -> None:
         EnumReviewModel.GLM_4: AsyncMock(return_value=[]),
     }
 
-    result = await handle_independent_merge(_PLAN, _CATEGORIES, callers, _EQUAL_WEIGHTS)
+    result = await HandlerIndependentMerge().handle(
+        ModelStrategyReviewRequest(
+            plan_text=_PLAN,
+            categories=_CATEGORIES,
+            callers=callers,
+            weights=_EQUAL_WEIGHTS,
+        )
+    )
 
     assert len(result) == 1, "Same (category, location_normalized) must be deduplicated"
     assert set(result[0].sources) == {
@@ -190,7 +228,14 @@ async def test_distinct_locations_produce_separate_entries() -> None:
         EnumReviewModel.GLM_4: AsyncMock(return_value=[]),
     }
 
-    result = await handle_independent_merge(_PLAN, _CATEGORIES, callers, _EQUAL_WEIGHTS)
+    result = await HandlerIndependentMerge().handle(
+        ModelStrategyReviewRequest(
+            plan_text=_PLAN,
+            categories=_CATEGORIES,
+            callers=callers,
+            weights=_EQUAL_WEIGHTS,
+        )
+    )
 
     assert len(result) == 2
 
@@ -207,7 +252,14 @@ async def test_single_model_finding_is_included() -> None:
         EnumReviewModel.GLM_4: AsyncMock(return_value=[]),
     }
 
-    result = await handle_independent_merge(_PLAN, _CATEGORIES, callers, _EQUAL_WEIGHTS)
+    result = await HandlerIndependentMerge().handle(
+        ModelStrategyReviewRequest(
+            plan_text=_PLAN,
+            categories=_CATEGORIES,
+            callers=callers,
+            weights=_EQUAL_WEIGHTS,
+        )
+    )
 
     assert len(result) == 1, (
         "independent_merge must include all findings regardless of agreement count"
@@ -218,7 +270,14 @@ async def test_single_model_finding_is_included() -> None:
 @pytest.mark.asyncio
 async def test_empty_callers_returns_empty() -> None:
     """No callers → empty result."""
-    result = await handle_independent_merge(_PLAN, _CATEGORIES, {}, {})
+    result = await HandlerIndependentMerge().handle(
+        ModelStrategyReviewRequest(
+            plan_text=_PLAN,
+            categories=_CATEGORIES,
+            callers={},
+            weights={},
+        )
+    )
     assert result == []
 
 
@@ -240,7 +299,14 @@ async def test_failed_model_treated_as_empty() -> None:
         EnumReviewModel.GLM_4: AsyncMock(return_value=[]),
     }
 
-    result = await handle_independent_merge(_PLAN, _CATEGORIES, callers, _EQUAL_WEIGHTS)
+    result = await HandlerIndependentMerge().handle(
+        ModelStrategyReviewRequest(
+            plan_text=_PLAN,
+            categories=_CATEGORIES,
+            callers=callers,
+            weights=_EQUAL_WEIGHTS,
+        )
+    )
 
     # deepseek's finding is still included (S4 includes single-model findings).
     assert len(result) == 1

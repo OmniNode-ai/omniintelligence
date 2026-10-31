@@ -47,18 +47,12 @@ KNOWN_MODEL_IMPORT_FAILURES = {
         "list[ModelEvalScenario]",
     ),
     ("node_memory_eval_compute", "output_model", "ModelEvalSuiteResult"),
-    (
-        "node_plan_reviewer_multi_compute",
-        "input_model",
-        "ModelPlanReviewerMultiInput",
-    ),
 }
 
 KNOWN_MISSING_HANDLER_ROUTING = {
     "node_context_audit_aggregator_compute",
     "node_ci_failure_tracker_effect",
     "node_debug_fix_record_effect",
-    "node_plan_reviewer_multi_compute",
     "node_policy_state_reducer",
 }
 

@@ -18,7 +18,9 @@ summary: 'The six compute nodes whose handler is one function of one typed reque
   still reports the module-function handlers of the other nodes. The gmail intent evaluator, git repo
   crawler and code crawler effect nodes now bind a handler class with handle(self, request) in their contracts,
   the Claude Code review effect handler becomes a class that the host handler constructs, and the old
-  function names are removed. The three flipped nodes carry adequacy receipts and hand-flip proofs.'
+  function names are removed. The three flipped nodes carry adequacy receipts and hand-flip proofs. The
+  plan reviewer''s main handler and its four strategy handlers (panel_vote, specialist_split, sequential_critique,
+  independent_merge) also become handler classes with handle(request).'
 is_seam_ticket: false
 interface_change: false
 interfaces_touched: []
@@ -89,6 +91,13 @@ requirements:
       - id: "AC3"
         statement: |-
           AC3: the unit and parity tests of the quality scoring and intent classifier nodes call the handler classes and pass -- falsifier: uv run pytest tests/unit/nodes/node_quality_scoring_compute tests/unit/nodes/node_intent_classifier_compute tests/unit/nodes/node_dispatch_outcome_eval_effect -q
+  - id: "req-plan-reviewer-handler-classes"
+    statement: |-
+      The plan reviewer's five handlers expose handle(request) with one typed request; no module-level handler function remains, and the handler-shape validator reports no finding on them.
+    acceptance:
+      - id: "AC10"
+        statement: |-
+          AC10: the plan reviewer unit tests call the handler classes with the typed request models and pass -- falsifier: uv run pytest tests/unit/nodes/node_plan_reviewer_multi_compute -q
 evidence_requirements:
   - kind: tests
     description: Handler-class unit tests for the six nodes pass.
@@ -106,6 +115,9 @@ evidence_requirements:
     description: Handler-class unit tests for the four nodes pass.
     command: uv run pytest tests/unit/nodes/node_gmail_intent_evaluator_effect tests/unit/nodes/node_code_crawler_effect
       -q
+  - kind: "tests"
+    description: "Handler-class unit tests for the plan reviewer pass."
+    command: "uv run pytest tests/unit/nodes/node_plan_reviewer_multi_compute -q"
 emergency_bypass:
   enabled: false
   justification: ''
@@ -206,3 +218,13 @@ dod_evidence:
         check_value: "uv run pytest tests/unit/nodes/node_quality_scoring_compute tests/unit/nodes/node_intent_classifier_compute
           -q"
     binds_ac: ["AC3"]
+  - id: "dod-omn21536-ac2-plan-reviewer-handler-classes"
+    description: "The plan reviewer handler classes are exercised by their unit tests, and no module-level
+      handle_ function remains in the node's handlers."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/nodes/node_plan_reviewer_multi_compute -q"
+      - check_type: "command"
+        check_value: "! grep -rnE '^(async )?def handle_' src/omniintelligence/nodes/node_plan_reviewer_multi_compute/handlers"
+    binds_ac: ["AC10"]

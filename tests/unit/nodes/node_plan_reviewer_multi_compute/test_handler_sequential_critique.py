@@ -17,7 +17,7 @@ import pytest
 from omniintelligence.nodes.node_plan_reviewer_multi_compute.handlers.strategies.handler_sequential_critique import (
     _CRITIC,
     _DRAFTER,
-    handle_sequential_critique,
+    HandlerSequentialCritique,
 )
 from omniintelligence.nodes.node_plan_reviewer_multi_compute.models.enum_plan_review_category import (
     EnumPlanReviewCategory,
@@ -28,6 +28,9 @@ from omniintelligence.nodes.node_plan_reviewer_multi_compute.models.enum_review_
 from omniintelligence.nodes.node_plan_reviewer_multi_compute.models.model_plan_review_finding import (
     SEVERITY_WARN,
     PlanReviewFinding,
+)
+from omniintelligence.nodes.node_plan_reviewer_multi_compute.models.model_strategy_review_request import (
+    ModelSequentialCritiqueRequest,
 )
 
 _PLAN = "Sample plan text for testing."
@@ -70,12 +73,14 @@ async def test_rejected_finding_absent_from_output() -> None:
         }
     )
 
-    result = await handle_sequential_critique(
-        _PLAN,
-        _CATEGORIES,
-        drafter_mock,
-        critic_mock,
-        _EQUAL_WEIGHTS,
+    result = await HandlerSequentialCritique().handle(
+        ModelSequentialCritiqueRequest(
+            plan_text=_PLAN,
+            categories=_CATEGORIES,
+            drafter_caller=drafter_mock,
+            critic_caller=critic_mock,
+            weights=_EQUAL_WEIGHTS,
+        )
     )
 
     assert result == [], "Rejected finding should not appear in output"
@@ -95,12 +100,14 @@ async def test_confirmed_finding_present_in_output() -> None:
         }
     )
 
-    result = await handle_sequential_critique(
-        _PLAN,
-        _CATEGORIES,
-        drafter_mock,
-        critic_mock,
-        _EQUAL_WEIGHTS,
+    result = await HandlerSequentialCritique().handle(
+        ModelSequentialCritiqueRequest(
+            plan_text=_PLAN,
+            categories=_CATEGORIES,
+            drafter_caller=drafter_mock,
+            critic_caller=critic_mock,
+            weights=_EQUAL_WEIGHTS,
+        )
     )
 
     assert len(result) == 1
@@ -125,12 +132,14 @@ async def test_added_finding_present_with_critic_as_source() -> None:
         }
     )
 
-    result = await handle_sequential_critique(
-        _PLAN,
-        _CATEGORIES,
-        drafter_mock,
-        critic_mock,
-        _EQUAL_WEIGHTS,
+    result = await HandlerSequentialCritique().handle(
+        ModelSequentialCritiqueRequest(
+            plan_text=_PLAN,
+            categories=_CATEGORIES,
+            drafter_caller=drafter_mock,
+            critic_caller=critic_mock,
+            weights=_EQUAL_WEIGHTS,
+        )
     )
 
     assert len(result) == 1
@@ -159,12 +168,14 @@ async def test_confirmed_and_added_both_present() -> None:
         }
     )
 
-    result = await handle_sequential_critique(
-        _PLAN,
-        _CATEGORIES,
-        drafter_mock,
-        critic_mock,
-        _EQUAL_WEIGHTS,
+    result = await HandlerSequentialCritique().handle(
+        ModelSequentialCritiqueRequest(
+            plan_text=_PLAN,
+            categories=_CATEGORIES,
+            drafter_caller=drafter_mock,
+            critic_caller=critic_mock,
+            weights=_EQUAL_WEIGHTS,
+        )
     )
 
     assert len(result) == 2
@@ -185,12 +196,14 @@ async def test_drafter_failure_returns_empty() -> None:
 
     critic_mock = AsyncMock(return_value={"confirmed": [], "rejected": [], "added": []})
 
-    result = await handle_sequential_critique(
-        _PLAN,
-        _CATEGORIES,
-        _fail_drafter,
-        critic_mock,
-        _EQUAL_WEIGHTS,
+    result = await HandlerSequentialCritique().handle(
+        ModelSequentialCritiqueRequest(
+            plan_text=_PLAN,
+            categories=_CATEGORIES,
+            drafter_caller=_fail_drafter,
+            critic_caller=critic_mock,
+            weights=_EQUAL_WEIGHTS,
+        )
     )
 
     assert result == []
@@ -208,12 +221,14 @@ async def test_critic_failure_treats_all_drafter_findings_as_confirmed() -> None
     ) -> dict[str, object]:
         raise RuntimeError("critic down")
 
-    result = await handle_sequential_critique(
-        _PLAN,
-        _CATEGORIES,
-        drafter_mock,
-        _fail_critic,
-        _EQUAL_WEIGHTS,
+    result = await HandlerSequentialCritique().handle(
+        ModelSequentialCritiqueRequest(
+            plan_text=_PLAN,
+            categories=_CATEGORIES,
+            drafter_caller=drafter_mock,
+            critic_caller=_fail_critic,
+            weights=_EQUAL_WEIGHTS,
+        )
     )
 
     assert len(result) == 1
