@@ -65,13 +65,8 @@ async def check_context_utilization_events() -> bool:
 
     omnidash_dsn = os.environ.get("OMNIDASH_ANALYTICS_DB_URL")
     if not omnidash_dsn:
-        # Try to construct from OMNIBASE_INFRA_DB_URL
-        infra_dsn = os.environ.get("OMNIBASE_INFRA_DB_URL", "")
-        if "localhost" in infra_dsn:
-            omnidash_dsn = infra_dsn.replace("omnibase_infra", "omnidash_analytics")
-        else:
-            print("[SKIP] OMNIDASH_ANALYTICS_DB_URL not set")  # noqa: T201
-            return False
+        print("[SKIP] OMNIDASH_ANALYTICS_DB_URL not set")  # noqa: T201
+        return False
 
     try:
         conn = await asyncpg.connect(omnidash_dsn)
