@@ -21,6 +21,22 @@ class ModelClaudeCodeReviewRequest(BaseModel):
     max_output_tokens: int = Field(default=4096, gt=0)
 
 
+CLAUDE_ENV_KEYS = frozenset(
+    {
+        "PATH",
+        "HOME",
+        "TMPDIR",
+        "LANG",
+        "LC_ALL",
+        "SSL_CERT_FILE",
+        "SSL_CERT_DIR",
+        "NODE_EXTRA_CA_CERTS",
+        "HTTPS_PROXY",
+        "HTTP_PROXY",
+        "NO_PROXY",
+    }
+)
+
 type ClaudeCodeReviewError = Literal[
     "claude_pool_unavailable",
     "claude_pool_all_limited",

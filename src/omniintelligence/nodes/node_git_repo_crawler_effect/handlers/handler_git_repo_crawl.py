@@ -132,212 +132,221 @@ def _sha256_of_file(repo_path: str, file_path: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-async def handle_git_repo_crawl(
-    input_data: ModelGitRepoCrawlInput,
-    *,
-    crawl_state: ProtocolCrawlStateStore,
-) -> ModelGitRepoCrawlOutput:
-    """Perform git-based change detection for a single repository.
+class HandlerGitRepoCrawl:
+    """Git-based change detection for a single repository.
 
-    Steps:
-        1. Read HEAD SHA. If unchanged (fast-path), return skipped=True.
-        2. Determine the set of .md files changed between old and new HEAD.
-        3. For each changed .md file:
-           - Compute file-level SHA and content fingerprint.
-           - If not in crawl_state → emit ``discovered``.
-           - If content_fingerprint differs → emit ``changed``.
-           - Update crawl_state entry.
-        4. Walk all .md files in the repo to find newly committed files
-           that were not in the diff (initial crawl / first-time files).
-        5. Emit ``removed`` for entries in crawl_state not in the git tree.
-        6. Persist updated HEAD SHA to crawl_state.
-
-    Args:
-        input_data: Crawl request with repo_path and trigger metadata.
-        crawl_state: Persistence interface for omnimemory_crawl_state.
-
-    Returns:
-        ModelGitRepoCrawlOutput with discovered/changed/removed lists
-        and a ``skipped`` flag when the HEAD was unchanged.
+    ``crawl_state`` is the persistence interface for omnimemory_crawl_state.
     """
-    repo_path = input_data.repo_path
-    correlation_id = input_data.correlation_id
 
-    # ------------------------------------------------------------------
-    # Step 1 — HEAD SHA fast-path
-    # ------------------------------------------------------------------
-    try:
-        new_head_sha = _get_head_sha(repo_path)
-    except RuntimeError as exc:
-        logger.error(
-            "git rev-parse HEAD failed for %s: %s",
-            repo_path,
-            exc,
-        )
-        return ModelGitRepoCrawlOutput(
-            repo_path=repo_path,
-            head_sha="",
-            errors={"": str(exc)},
-        )
+    def __init__(self, *, crawl_state: ProtocolCrawlStateStore) -> None:
+        self._crawl_state = crawl_state
 
-    stored_head_sha = await crawl_state.get_head_sha(repo_path)
+    async def handle(self, request: ModelGitRepoCrawlInput) -> ModelGitRepoCrawlOutput:
+        """Perform git-based change detection for a single repository.
 
-    if stored_head_sha is not None and stored_head_sha == new_head_sha:
-        logger.debug(
-            "Skipping repo %s — HEAD unchanged (%s)",
-            repo_path,
-            new_head_sha[:12],
-        )
-        return ModelGitRepoCrawlOutput(
-            repo_path=repo_path,
-            head_sha=new_head_sha,
-            skipped=True,
-        )
+        Steps:
+            1. Read HEAD SHA. If unchanged (fast-path), return skipped=True.
+            2. Determine the set of .md files changed between old and new HEAD.
+            3. For each changed .md file:
+               - Compute file-level SHA and content fingerprint.
+               - If not in crawl_state → emit ``discovered``.
+               - If content_fingerprint differs → emit ``changed``.
+               - Update crawl_state entry.
+            4. Walk all .md files in the repo to find newly committed files
+               that were not in the diff (initial crawl / first-time files).
+            5. Emit ``removed`` for entries in crawl_state not in the git tree.
+            6. Persist updated HEAD SHA to crawl_state.
 
-    # ------------------------------------------------------------------
-    # Step 2 — determine candidate files to inspect
-    # ------------------------------------------------------------------
-    # When we have a previous HEAD we diff; otherwise we fall through
-    # to inspecting all files (first-time crawl).
-    candidate_files: set[str] = set()
+        Args:
+            request: Crawl request with repo_path and trigger metadata.
 
-    if stored_head_sha is not None:
+        Returns:
+            ModelGitRepoCrawlOutput with discovered/changed/removed lists
+            and a ``skipped`` flag when the HEAD was unchanged.
+        """
+        repo_path = request.repo_path
+        correlation_id = request.correlation_id
+
+        # ------------------------------------------------------------------
+        # Step 1 — HEAD SHA fast-path
+        # ------------------------------------------------------------------
         try:
-            diff_files = _get_changed_md_files(repo_path, stored_head_sha, new_head_sha)
-            candidate_files.update(diff_files)
+            new_head_sha = _get_head_sha(repo_path)
         except RuntimeError as exc:
-            logger.warning(
-                "git diff failed for %s (%s..%s): %s — falling back to full scan",
+            logger.error(
+                "git rev-parse HEAD failed for %s: %s",
                 repo_path,
-                stored_head_sha[:12],
-                new_head_sha[:12],
                 exc,
             )
-            # Fall through to full scan below
+            return ModelGitRepoCrawlOutput(
+                repo_path=repo_path,
+                head_sha="",
+                errors={"": str(exc)},
+            )
 
-    # Always walk the full file set to catch:
-    # (a) the first crawl (no stored_head_sha)
-    # (b) partial diff fallback
-    # (c) newly committed files not appearing in the diff
-    try:
-        all_git_files = set(_get_all_md_files(repo_path))
-    except RuntimeError as exc:
-        logger.error("git ls-files failed for %s: %s", repo_path, exc)
+        stored_head_sha = await self._crawl_state.get_head_sha(repo_path)
+
+        if stored_head_sha is not None and stored_head_sha == new_head_sha:
+            logger.debug(
+                "Skipping repo %s — HEAD unchanged (%s)",
+                repo_path,
+                new_head_sha[:12],
+            )
+            return ModelGitRepoCrawlOutput(
+                repo_path=repo_path,
+                head_sha=new_head_sha,
+                skipped=True,
+            )
+
+        # ------------------------------------------------------------------
+        # Step 2 — determine candidate files to inspect
+        # ------------------------------------------------------------------
+        # When we have a previous HEAD we diff; otherwise we fall through
+        # to inspecting all files (first-time crawl).
+        candidate_files: set[str] = set()
+
+        if stored_head_sha is not None:
+            try:
+                diff_files = _get_changed_md_files(
+                    repo_path, stored_head_sha, new_head_sha
+                )
+                candidate_files.update(diff_files)
+            except RuntimeError as exc:
+                logger.warning(
+                    "git diff failed for %s (%s..%s): %s — falling back to full scan",
+                    repo_path,
+                    stored_head_sha[:12],
+                    new_head_sha[:12],
+                    exc,
+                )
+                # Fall through to full scan below
+
+        # Always walk the full file set to catch:
+        # (a) the first crawl (no stored_head_sha)
+        # (b) partial diff fallback
+        # (c) newly committed files not appearing in the diff
+        try:
+            all_git_files = set(_get_all_md_files(repo_path))
+        except RuntimeError as exc:
+            logger.error("git ls-files failed for %s: %s", repo_path, exc)
+            return ModelGitRepoCrawlOutput(
+                repo_path=repo_path,
+                head_sha=new_head_sha,
+                errors={"": str(exc)},
+            )
+
+        # The union ensures we process every file that could have changed.
+        candidate_files.update(all_git_files)
+
+        # ------------------------------------------------------------------
+        # Step 3 — process candidate files
+        # ------------------------------------------------------------------
+        existing_entries: dict[str, ModelCrawlStateEntry] = {
+            entry.file_path: entry
+            for entry in await self._crawl_state.get_all_entries(repo_path)
+        }
+
+        discovered: list[ModelDocumentDiscoveredEvent] = []
+        changed: list[ModelDocumentChangedEvent] = []
+        errors: dict[str, str] = {}
+
+        for file_path in sorted(candidate_files):
+            try:
+                file_commit_sha = _get_file_commit_sha(repo_path, file_path)
+                content_fingerprint = _sha256_of_file(repo_path, file_path)
+            except (RuntimeError, OSError) as exc:
+                errors[file_path] = str(exc)
+                logger.warning(
+                    "Error processing %s in %s: %s", file_path, repo_path, exc
+                )
+                continue
+
+            existing = existing_entries.get(file_path)
+
+            if existing is None:
+                # New file — emit discovered
+                discovered.append(
+                    ModelDocumentDiscoveredEvent(
+                        repo_path=repo_path,
+                        file_path=file_path,
+                        source_version=file_commit_sha,
+                        content_fingerprint=content_fingerprint,
+                        correlation_id=correlation_id,
+                    )
+                )
+                await self._crawl_state.upsert_entry(
+                    ModelCrawlStateEntry(
+                        repo_path=repo_path,
+                        file_path=file_path,
+                        source_version=file_commit_sha,
+                        content_fingerprint=content_fingerprint,
+                        head_sha=new_head_sha,
+                    )
+                )
+            elif content_fingerprint != existing.content_fingerprint:
+                # Content changed — emit changed
+                changed.append(
+                    ModelDocumentChangedEvent(
+                        repo_path=repo_path,
+                        file_path=file_path,
+                        source_version=file_commit_sha,
+                        previous_source_version=existing.source_version,
+                        content_fingerprint=content_fingerprint,
+                        correlation_id=correlation_id,
+                    )
+                )
+                await self._crawl_state.upsert_entry(
+                    ModelCrawlStateEntry(
+                        repo_path=repo_path,
+                        file_path=file_path,
+                        source_version=file_commit_sha,
+                        content_fingerprint=content_fingerprint,
+                        head_sha=new_head_sha,
+                    )
+                )
+            # else: file unchanged — no event, no state update needed
+
+        # ------------------------------------------------------------------
+        # Step 4 — detect removed files
+        # ------------------------------------------------------------------
+        removed: list[ModelDocumentRemovedEvent] = []
+
+        for file_path, entry in existing_entries.items():
+            if file_path not in all_git_files:
+                removed.append(
+                    ModelDocumentRemovedEvent(
+                        repo_path=repo_path,
+                        file_path=file_path,
+                        last_source_version=entry.source_version,
+                        correlation_id=correlation_id,
+                    )
+                )
+                await self._crawl_state.delete_entry(repo_path, file_path)
+
+        # ------------------------------------------------------------------
+        # Step 5 — persist new HEAD SHA
+        # ------------------------------------------------------------------
+        await self._crawl_state.update_head_sha(repo_path, new_head_sha)
+
+        logger.info(
+            "Crawl complete for %s: discovered=%d changed=%d removed=%d errors=%d "
+            "(head=%s)",
+            repo_path,
+            len(discovered),
+            len(changed),
+            len(removed),
+            len(errors),
+            new_head_sha[:12],
+        )
+
         return ModelGitRepoCrawlOutput(
             repo_path=repo_path,
             head_sha=new_head_sha,
-            errors={"": str(exc)},
+            discovered=discovered,
+            changed=changed,
+            removed=removed,
+            errors=errors,
         )
 
-    # The union ensures we process every file that could have changed.
-    candidate_files.update(all_git_files)
 
-    # ------------------------------------------------------------------
-    # Step 3 — process candidate files
-    # ------------------------------------------------------------------
-    existing_entries: dict[str, ModelCrawlStateEntry] = {
-        entry.file_path: entry for entry in await crawl_state.get_all_entries(repo_path)
-    }
-
-    discovered: list[ModelDocumentDiscoveredEvent] = []
-    changed: list[ModelDocumentChangedEvent] = []
-    errors: dict[str, str] = {}
-
-    for file_path in sorted(candidate_files):
-        try:
-            file_commit_sha = _get_file_commit_sha(repo_path, file_path)
-            content_fingerprint = _sha256_of_file(repo_path, file_path)
-        except (RuntimeError, OSError) as exc:
-            errors[file_path] = str(exc)
-            logger.warning("Error processing %s in %s: %s", file_path, repo_path, exc)
-            continue
-
-        existing = existing_entries.get(file_path)
-
-        if existing is None:
-            # New file — emit discovered
-            discovered.append(
-                ModelDocumentDiscoveredEvent(
-                    repo_path=repo_path,
-                    file_path=file_path,
-                    source_version=file_commit_sha,
-                    content_fingerprint=content_fingerprint,
-                    correlation_id=correlation_id,
-                )
-            )
-            await crawl_state.upsert_entry(
-                ModelCrawlStateEntry(
-                    repo_path=repo_path,
-                    file_path=file_path,
-                    source_version=file_commit_sha,
-                    content_fingerprint=content_fingerprint,
-                    head_sha=new_head_sha,
-                )
-            )
-        elif content_fingerprint != existing.content_fingerprint:
-            # Content changed — emit changed
-            changed.append(
-                ModelDocumentChangedEvent(
-                    repo_path=repo_path,
-                    file_path=file_path,
-                    source_version=file_commit_sha,
-                    previous_source_version=existing.source_version,
-                    content_fingerprint=content_fingerprint,
-                    correlation_id=correlation_id,
-                )
-            )
-            await crawl_state.upsert_entry(
-                ModelCrawlStateEntry(
-                    repo_path=repo_path,
-                    file_path=file_path,
-                    source_version=file_commit_sha,
-                    content_fingerprint=content_fingerprint,
-                    head_sha=new_head_sha,
-                )
-            )
-        # else: file unchanged — no event, no state update needed
-
-    # ------------------------------------------------------------------
-    # Step 4 — detect removed files
-    # ------------------------------------------------------------------
-    removed: list[ModelDocumentRemovedEvent] = []
-
-    for file_path, entry in existing_entries.items():
-        if file_path not in all_git_files:
-            removed.append(
-                ModelDocumentRemovedEvent(
-                    repo_path=repo_path,
-                    file_path=file_path,
-                    last_source_version=entry.source_version,
-                    correlation_id=correlation_id,
-                )
-            )
-            await crawl_state.delete_entry(repo_path, file_path)
-
-    # ------------------------------------------------------------------
-    # Step 5 — persist new HEAD SHA
-    # ------------------------------------------------------------------
-    await crawl_state.update_head_sha(repo_path, new_head_sha)
-
-    logger.info(
-        "Crawl complete for %s: discovered=%d changed=%d removed=%d errors=%d "
-        "(head=%s)",
-        repo_path,
-        len(discovered),
-        len(changed),
-        len(removed),
-        len(errors),
-        new_head_sha[:12],
-    )
-
-    return ModelGitRepoCrawlOutput(
-        repo_path=repo_path,
-        head_sha=new_head_sha,
-        discovered=discovered,
-        changed=changed,
-        removed=removed,
-        errors=errors,
-    )
-
-
-__all__ = ["handle_git_repo_crawl"]
+__all__ = ["HandlerGitRepoCrawl"]

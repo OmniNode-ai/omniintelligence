@@ -1,0 +1,30 @@
+{
+  "branch_coverage_pct": 54.43,
+  "candidate_count": 11,
+  "coverage_target": 80.0,
+  "handler_module": "omniintelligence.nodes.node_gmail_intent_evaluator_effect.handlers.handler_gmail_intent_evaluate",
+  "handler_module_sha256": "sha256:7a5b5c70fac1b519e1f648178021d054459fb4a0668d03626c53f68bb5775bc9",
+  "meets_target": false,
+  "node_id": "omniintelligence.nodes.node_gmail_intent_evaluator_effect",
+  "receipt_schema": "adequacy_receipt.v1",
+  "recorded_at": "2026-10-31T09:18:52.355371+00:00",
+  "recorder_schema": "adequacy_receipt.v1",
+  "selected_count": 10,
+  "selected_input_hashes": [
+    "sha256:1340cd41de924271172c89a0da4eef29fd31802691e70b664cbc8460bab6e765",
+    "sha256:82f359b7562bb2effe76b942ce3ebda22456081996d8569ee8d661d17ac4c767",
+    "sha256:c4ed2e2a7eaccc5735983361c6bc37f6f970196757eb64a9cd2cc3062052e62f",
+    "sha256:46edb7609e8a1fa6331754a27e670f3428c21185d60e3579bfedcca28e0071cf",
+    "sha256:c8f2c162f2920a362dfea47b4412373e80e77c2cf9bf603383876563674978e6",
+    "sha256:038d66dbc764c6e0a005f6ee07854b361ed8f8ccb34e5e9321bd10b832afbd96",
+    "sha256:1ca10618c0474f8066cc60fb1493ee6aa0d2a79311dae51957181ae1d3b47d56",
+    "sha256:34a38e5dfb46d75f4f5ba0b1fc07bcce19612275460a1f717907247ceec83f54",
+    "sha256:168d6fe18669677966f3684a2fd89080614074edb4770b5fe3bc0067bf47ddbf",
+    "sha256:d6a5bb60a631bbf0aa5897ac5079e547fd41fd7a46f3c97f41c0d79a91aedc16"
+  ],
+  "uncovered_waiver": {
+    "reason": "The parity corpus replaces the URL fetch, omnimemory, DeepSeek and database-factory collaborators with fixed results, so their function bodies are not executed. It covers SURFACE, rate-limited, Slack failure, SKIP, LLM failure, invalid verdict, missing plan, idempotent replay, memory error, fetch failure and an unavailable store. Those helpers stay byte-identical across the flip and are listed as preserved symbols.",
+    "uncovered_branch_count": 0
+  },
+  "volatile_mask": []
+}

@@ -10,8 +10,8 @@ node_version: {major: 1, minor: 0, patch: 0}
 node_type: "EFFECT_GENERIC"
 
 input_model:
-  name: "ModelCrawlConfig"
-  module: "omniintelligence.nodes.node_code_crawler_effect.models.model_crawl_config"
+  name: "ModelCrawlFilesRequest"
+  module: "omniintelligence.nodes.node_code_crawler_effect.models.model_crawl_files_request"
 
 output_model:
   name: "ModelCodeFileDiscoveredEvent"
@@ -22,7 +22,7 @@ handler_routing:
   handlers:
     - operation: "crawl_files"
       handler:
-        function: "crawl_files"
+        class: "HandlerCrawlFiles"
         module: "omniintelligence.nodes.node_code_crawler_effect.handlers.handler_crawl_files"
         type: "sync"
 

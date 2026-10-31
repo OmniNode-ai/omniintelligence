@@ -1,0 +1,50 @@
+{
+  "base_ref": "fa990e381",
+  "canonical_handler_module": "omniintelligence.nodes.node_gmail_intent_evaluator_effect.handlers.handler_gmail_intent_evaluate",
+  "legacy_handler_module": "omniintelligence.nodes.node_gmail_intent_evaluator_effect.handlers.handler_gmail_intent_evaluate",
+  "node_id": "omniintelligence.nodes.node_gmail_intent_evaluator_effect",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:1340cd41de924271172c89a0da4eef29fd31802691e70b664cbc8460bab6e765",
+      "sha256:82f359b7562bb2effe76b942ce3ebda22456081996d8569ee8d661d17ac4c767",
+      "sha256:c4ed2e2a7eaccc5735983361c6bc37f6f970196757eb64a9cd2cc3062052e62f",
+      "sha256:46edb7609e8a1fa6331754a27e670f3428c21185d60e3579bfedcca28e0071cf",
+      "sha256:c8f2c162f2920a362dfea47b4412373e80e77c2cf9bf603383876563674978e6",
+      "sha256:038d66dbc764c6e0a005f6ee07854b361ed8f8ccb34e5e9321bd10b832afbd96",
+      "sha256:1ca10618c0474f8066cc60fb1493ee6aa0d2a79311dae51957181ae1d3b47d56",
+      "sha256:34a38e5dfb46d75f4f5ba0b1fc07bcce19612275460a1f717907247ceec83f54",
+      "sha256:168d6fe18669677966f3684a2fd89080614074edb4770b5fe3bc0067bf47ddbf",
+      "sha256:d6a5bb60a631bbf0aa5897ac5079e547fd41fd7a46f3c97f41c0d79a91aedc16"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_gmail_intent_evaluator_effect/test_canonical_parity.py::test_canonical_handle_matches_preserved_function[fetch_failed_with_hits]",
+      "tests/unit/nodes/node_gmail_intent_evaluator_effect/test_canonical_parity.py::test_canonical_handle_matches_preserved_function[idempotent_replay]",
+      "tests/unit/nodes/node_gmail_intent_evaluator_effect/test_canonical_parity.py::test_canonical_handle_matches_preserved_function[invalid_llm_verdict]",
+      "tests/unit/nodes/node_gmail_intent_evaluator_effect/test_canonical_parity.py::test_canonical_handle_matches_preserved_function[no_urls_memory_error]",
+      "tests/unit/nodes/node_gmail_intent_evaluator_effect/test_canonical_parity.py::test_canonical_handle_matches_preserved_function[skip]",
+      "tests/unit/nodes/node_gmail_intent_evaluator_effect/test_canonical_parity.py::test_canonical_handle_matches_preserved_function[store_unavailable]",
+      "tests/unit/nodes/node_gmail_intent_evaluator_effect/test_canonical_parity.py::test_canonical_handle_matches_preserved_function[surface_rate_limited]",
+      "tests/unit/nodes/node_gmail_intent_evaluator_effect/test_canonical_parity.py::test_canonical_handle_matches_preserved_function[surface_sent]",
+      "tests/unit/nodes/node_gmail_intent_evaluator_effect/test_canonical_parity.py::test_canonical_handle_matches_preserved_function[surface_slack_failed]",
+      "tests/unit/nodes/node_gmail_intent_evaluator_effect/test_canonical_parity.py::test_canonical_handle_matches_preserved_function[surface_without_plan]",
+      "tests/unit/nodes/node_gmail_intent_evaluator_effect/test_canonical_parity.py::test_canonical_handle_matches_preserved_function[watchlist_llm_failed]"
+    ]
+  },
+  "preserved_symbols": [
+    "_handle_gmail_intent_evaluate_inner",
+    "_select_url",
+    "_url_tier",
+    "_host_matches",
+    "_strip_pii",
+    "_sanitize_sender",
+    "_build_user_prompt",
+    "_validate_llm_dict",
+    "_parse_llm_response",
+    "_check_idempotency",
+    "_write_idempotency",
+    "_post_to_slack",
+    "_check_slack_rate_limit"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

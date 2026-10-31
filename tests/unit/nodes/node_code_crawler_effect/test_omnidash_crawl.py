@@ -11,11 +11,14 @@ from pathlib import Path
 import pytest
 
 from omniintelligence.nodes.node_code_crawler_effect.handlers.handler_crawl_files import (
-    crawl_files,
+    HandlerCrawlFiles,
 )
 from omniintelligence.nodes.node_code_crawler_effect.models.model_crawl_config import (
     ModelCrawlConfig,
     ModelRepoCrawlConfig,
+)
+from omniintelligence.nodes.node_code_crawler_effect.models.model_crawl_files_request import (
+    ModelCrawlFilesRequest,
 )
 
 
@@ -49,7 +52,11 @@ class TestOmnidashCrawl:
                 ]
             )
 
-            events = list(crawl_files(config, crawl_id="test_crawl"))
+            events = list(
+                HandlerCrawlFiles().handle(
+                    ModelCrawlFilesRequest(config=config, crawl_id="test_crawl")
+                )
+            )
 
             file_paths = {e.file_path for e in events}
             # Should find .ts and .js, not .d.ts or node_modules

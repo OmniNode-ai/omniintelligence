@@ -64,14 +64,14 @@ output_model:
 handler_routing:
   routing_strategy: "operation_match"
   entry_point:
-    function: "handle_gmail_intent_evaluate"
+    class: "HandlerGmailIntentEvaluate"
     module: "omniintelligence.nodes.node_gmail_intent_evaluator_effect.handlers.handler_gmail_intent_evaluate"
     type: "async"
     description: "Main entry point: evaluate a single Gmail intent signal end-to-end"
   handlers:
     - operation: "gmail.evaluate_intent"
       handler:
-        function: "handle_gmail_intent_evaluate"
+        class: "HandlerGmailIntentEvaluate"
         module: "omniintelligence.nodes.node_gmail_intent_evaluator_effect.handlers.handler_gmail_intent_evaluate"
         type: "async"
       description: "Evaluate Gmail intent signal: URL fetch, omnimemory, LLM, Slack, Kafka"
@@ -88,7 +88,7 @@ handler_routing:
         - "append gmail-intent-evaluated.v1 and (SURFACE) gmail-intent-surfaced.v1 to pending_events"
         - "write idempotency record to gmail_intent_evaluations with TTL-like created_at"
   default_handler:
-    function: "handle_gmail_intent_evaluate"
+    class: "HandlerGmailIntentEvaluate"
     module: "omniintelligence.nodes.node_gmail_intent_evaluator_effect.handlers.handler_gmail_intent_evaluate"
     type: "async"
     description: "Default to gmail.evaluate_intent operation"

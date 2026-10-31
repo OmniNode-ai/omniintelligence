@@ -1,8 +1,7 @@
 ---
 schema_version: 1.0.0
 ticket_id: OMN-21536
-title: 'handler-shape burn-down in omniintelligence: single-request compute handlers and node_pattern_extraction_compute
-  become handler classes with handle(request)'
+title: Compute, pattern, pattern extraction and four effect handlers become handler classes with handle(request)
 summary: 'The six compute nodes whose handler is one function of one typed request (ci_error_classifier,
   semantic_analysis, success_criteria_matcher, execution_trace_parser, pattern_matching, code_entity_bridge)
   now bind a handler class with handle(self, request) in their contracts, and the old function names are
@@ -16,7 +15,10 @@ summary: 'The six compute nodes whose handler is one function of one typed reque
   baseline with an adequacy receipt and a hand-flip proof, five handler files leave the canonical-file-shape
   burn-down baseline, and no baselined file grew. The canon-shape-ratchet job now checks out full history
   so a hand-flip proof can resolve its base_ref. This slice does not finish the ticket: the validator
-  still reports the module-function handlers of the other nodes.'
+  still reports the module-function handlers of the other nodes. The gmail intent evaluator, git repo
+  crawler and code crawler effect nodes now bind a handler class with handle(self, request) in their contracts,
+  the Claude Code review effect handler becomes a class that the host handler constructs, and the old
+  function names are removed. The three flipped nodes carry adequacy receipts and hand-flip proofs.'
 is_seam_ticket: false
 interface_change: false
 interfaces_touched: []
@@ -57,6 +59,15 @@ requirements:
         statement: 'AC6: the handler-shape validator reports no finding in the node and none of the eleven
           handler modules, and still reports a module of bare functions -- falsifier: the test_handle_request_shape_omn21536.py
           tests fail'
+  - id: req-effect-handler-classes
+    statement: Each of the four effect nodes delegates to a handler class exposing handle(request); no
+      module-level handler function remains.
+    acceptance:
+      - id: AC3
+        statement: 'AC3: the unit tests of the four converted handlers call the handler classes and pass
+          -- falsifier: uv run pytest tests/unit/nodes/node_gmail_intent_evaluator_effect tests/unit/nodes/node_code_crawler_effect
+          src/omniintelligence/nodes/node_git_repo_crawler_effect tests/unit/review_pairing/test_claude_code_pool_voter.py
+          -q'
 evidence_requirements:
   - kind: tests
     description: Handler-class unit tests for the six nodes pass.
@@ -70,6 +81,10 @@ evidence_requirements:
     description: Contract binding, output equality with the module functions, and the handler-shape check
       of each of the eleven modules, run on a lab host at the pushed head.
     command: uv run pytest tests/unit/nodes/node_pattern_extraction_compute -q -n 0 --no-cov
+  - kind: tests
+    description: Handler-class unit tests for the four nodes pass.
+    command: uv run pytest tests/unit/nodes/node_gmail_intent_evaluator_effect tests/unit/nodes/node_code_crawler_effect
+      -q
 emergency_bypass:
   enabled: false
   justification: ''
@@ -82,8 +97,12 @@ dod_evidence:
       - check_type: test_passes
         check_value: uv run pytest tests/unit/nodes/node_ci_error_classifier_compute tests/unit/nodes/node_semantic_analysis_compute
           -q
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/nodes/node_gmail_intent_evaluator_effect tests/unit/nodes/node_code_crawler_effect
+          -q
     binds_ac:
       - AC1
+      - AC3
   - id: dod-omn21536-ac2-pattern-handler-classes
     description: The converted pattern learning and pattern assembler handler classes are exercised by
       the unit tests of the two nodes.
