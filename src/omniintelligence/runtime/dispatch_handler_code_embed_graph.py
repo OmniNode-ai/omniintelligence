@@ -30,6 +30,7 @@ from omnibase_core.protocols.handler.protocol_handler_context import (
     ProtocolHandlerContext,
 )
 
+from omniintelligence.models.runtime_timeouts import runtime_timeouts
 from omniintelligence.runtime.contract_topics import canonical_topic_to_dispatch_alias
 from omniintelligence.topics import IntentTopic
 
@@ -205,7 +206,7 @@ async def _embed_entities(
 async def _get_embedding(text: str, embedding_url: str) -> list[float] | None:
     """Get embedding vector from LLM endpoint."""
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=runtime_timeouts().code_embed_s) as client:
             response = await client.post(
                 f"{embedding_url}/v1/embeddings",
                 json={"input": text, "model": "default"},
@@ -218,10 +219,7 @@ async def _get_embedding(text: str, embedding_url: str) -> list[float] | None:
         return None
 
 
-async def _graph_entities(
-    bolt_handler: ProtocolBoltHandler,
-    event: Any,
-) -> None:
+async def _graph_entities(bolt_handler: ProtocolBoltHandler, event: Any) -> None:
     """Write entity nodes and relationship edges to Memgraph. Graceful degradation."""
     try:
         # MERGE entity nodes

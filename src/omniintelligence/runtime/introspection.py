@@ -42,6 +42,7 @@ from omnibase_infra.enums import EnumIntrospectionReason
 from omnibase_infra.mixins.mixin_node_introspection import MixinNodeIntrospection
 from omnibase_infra.models.discovery import ModelIntrospectionConfig
 
+from omniintelligence.models.runtime_timeouts import runtime_timeouts
 from omniintelligence.utils.log_sanitizer import get_log_sanitizer
 
 if TYPE_CHECKING:
@@ -268,7 +269,7 @@ async def publish_intelligence_introspection(
     *,
     correlation_id: UUID | None = None,
     enable_heartbeat: bool = True,
-    heartbeat_interval_seconds: float = 30.0,
+    heartbeat_interval_seconds: float | None = None,
 ) -> IntrospectionResult:
     """Publish introspection events for all intelligence nodes.
 
@@ -295,7 +296,8 @@ async def publish_intelligence_introspection(
             introspection events. If None, introspection is skipped.
         correlation_id: Optional correlation ID for tracing.
         enable_heartbeat: Whether to start heartbeat tasks for effect nodes.
-        heartbeat_interval_seconds: Interval between heartbeats in seconds.
+        heartbeat_interval_seconds: Interval between heartbeats in seconds
+            (default: heartbeat_s of runtime_timeouts.yaml).
 
     Returns:
         IntrospectionResult with registered node names and proxy references
@@ -326,13 +328,13 @@ async def publish_intelligence_introspection(
         # nothing to orphan. A later call with a real event bus must still
         # be allowed to proceed.
         logger.info(
-            "Skipping intelligence introspection: no event bus available "
-            "(correlation_id=%s)",
+            "Skipping intelligence introspection: no event bus (correlation_id=%s)",
             correlation_id,
         )
         return IntrospectionResult()
 
     result = IntrospectionResult()
+    interval = heartbeat_interval_seconds or runtime_timeouts().heartbeat_s
 
     for descriptor in INTELLIGENCE_NODES:
         try:
@@ -349,10 +351,8 @@ async def publish_intelligence_introspection(
             if success:
                 result.registered_nodes.append(descriptor.name)
                 logger.debug(
-                    "Published introspection for %s (node_id=%s, type=%s, "
-                    "correlation_id=%s)",
+                    "Published introspection for %s (type=%s, correlation_id=%s)",
                     descriptor.name,
-                    descriptor.node_id,
                     descriptor.node_type,
                     correlation_id,
                 )
@@ -361,7 +361,7 @@ async def publish_intelligence_introspection(
                 if enable_heartbeat and descriptor.node_type == EnumNodeKind.EFFECT:
                     await proxy.start_introspection_tasks(
                         enable_heartbeat=True,
-                        heartbeat_interval_seconds=heartbeat_interval_seconds,
+                        heartbeat_interval_seconds=interval,
                         enable_registry_listener=False,
                     )
                     result.proxies.append(proxy)

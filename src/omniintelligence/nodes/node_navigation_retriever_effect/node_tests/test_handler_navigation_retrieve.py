@@ -31,6 +31,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from omniintelligence.models.runtime_timeouts import runtime_timeouts
 from omniintelligence.nodes.node_navigation_retriever_effect.handlers.handler_navigation_retrieve import (
     ProtocolNavigationEmbedder,
     ProtocolNavigationVectorStore,
@@ -63,6 +64,8 @@ from omniintelligence.nodes.node_navigation_retriever_effect.models.model_plan_s
 # ---------------------------------------------------------------------------
 
 _FAKE_EMBEDDING = [0.1] * 1024
+# A small fraction of the default retrieval budget, so the timeout path fires fast.
+_SHORT_TIMEOUT_S = runtime_timeouts().navigation_retrieve_s / 40
 
 
 def _make_goal(
@@ -170,7 +173,7 @@ def _make_input(
     state: ContractState | None = None,
     graph: ContractGraph | None = None,
     top_k: int = 3,
-    timeout_seconds: float = 2.0,
+    timeout_seconds: float = runtime_timeouts().navigation_retrieve_s,
     correlation_id: str | None = "corr-001",
 ) -> ModelNavigationRetrieveInput:
     return ModelNavigationRetrieveInput(
@@ -365,7 +368,7 @@ class TestTimeout:
         """Retrieval exceeding timeout returns empty list with timed_out=True."""
 
         async def _slow_embed(_text: str) -> list[float]:
-            await asyncio.sleep(10)  # Far exceeds timeout
+            await asyncio.Event().wait()  # Never completes, so the timeout fires
             return _FAKE_EMBEDDING
 
         embedder = MagicMock(spec=ProtocolNavigationEmbedder)
@@ -373,7 +376,7 @@ class TestTimeout:
         vector_store = _make_mock_vector_store()
 
         result = await handle_navigation_retrieve(
-            _make_input(timeout_seconds=0.05),  # 50ms timeout
+            _make_input(timeout_seconds=_SHORT_TIMEOUT_S),
             embedder=embedder,
             vector_store=vector_store,
         )
@@ -386,7 +389,7 @@ class TestTimeout:
         """Timeout must never raise an exception."""
 
         async def _slow_embed(_text: str) -> list[float]:
-            await asyncio.sleep(10)
+            await asyncio.Event().wait()
             return _FAKE_EMBEDDING
 
         embedder = MagicMock(spec=ProtocolNavigationEmbedder)
@@ -395,7 +398,7 @@ class TestTimeout:
 
         # Should not raise
         result = await handle_navigation_retrieve(
-            _make_input(timeout_seconds=0.05),
+            _make_input(timeout_seconds=_SHORT_TIMEOUT_S),
             embedder=embedder,
             vector_store=vector_store,
         )

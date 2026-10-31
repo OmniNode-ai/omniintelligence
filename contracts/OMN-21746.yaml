@@ -1,0 +1,89 @@
+---
+schema_version: 1.0.0
+ticket_id: OMN-21746
+title: omniintelligence contracts_and_di literal_timeout burn-down, slice rf1320-c2 -- the remaining timeouts
+  are read from runtime_timeouts.yaml
+summary: >-
+  The read-only contracts_and_di scan of omniintelligence src/ (omnibase_core as locked, validator ValidatorContractsAndDi)
+  reported 16 literal_timeout findings on dev at 98b21c0e and 0 after this change; the other rules did
+  not move (literal_topic 60, handler_hand_construction 67, literal_url 31, literal_path 12, literal_model_name
+  9) and nothing new appeared. Eight new required fields of runtime/runtime_timeouts.yaml carry the values
+  (utilization_llm_s, github_api_s, code_embed_s, projection_throttle_s, heartbeat_s, promotion_interval_s,
+  health_shutdown_s, forecast_max_ci_width) and the consumers read them through ModelRuntimeTimeouts.
+  The introspection heartbeat and the promotion scheduler interval now default to None and resolve from
+  the contract; the DEFAULT_INTERVAL_SECONDS constant is removed. The navigation retriever node tests
+  derive their timeouts from the contract and wait on an event that never fires in place of a numeric
+  sleep. Nothing remains to be done for this rule in this repository.
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: req-omn21746-timeouts-from-contract
+    statement: Every remaining timeout, interval and poll budget of the touched modules comes from runtime_timeouts.yaml
+      through ModelRuntimeTimeouts and the modules hold no such literal.
+    acceptance:
+      - id: AC1
+        statement: 'AC1: the contracts_and_di count for literal_timeout over the slice paths drops to
+          zero and the repo total drops by the slice size, with no baseline entry or suppression added
+          -- falsifier: onex run of runtime_validator_run with the contracts_and_di reference over omniintelligence
+          src before and after, counts compared per rule'
+      - id: AC2
+        statement: 'AC2: every moved timeout is taken through an injected parameter bound from the node
+          contract or overlay and none remains hard-coded in the touched code -- falsifier: uv run pytest
+          tests/unit -q over the touched modules plus the checker re-run on the slice paths'
+      - id: AC3
+        statement: 'AC3: the slice lands as one PR titled with this ticket id and carries lab proof of
+          the tests and the checker re-run -- falsifier: uv run pytest tests/unit -q on the lab through
+          lab-run at the PR head, receipt path in the PR body'
+evidence_requirements:
+  - kind: tests
+    description: Contract tests for the new fields and the scheduler, projection throttle and heartbeat
+      defaults, plus the runtime timeouts contract tests of OMN-21623.
+    command: uv run pytest tests/unit/runtime/test_runtime_timeouts_slice_omn21746.py tests/unit/runtime/test_runtime_timeouts_contract_omn21623.py
+      -q -n 0
+emergency_bypass:
+  enabled: false
+  justification: ''
+  follow_up_ticket_id: ''
+dod_evidence:
+  - id: dod-omn21746-ac1-checker-rerun
+    description: The checker scans the slice paths and reports no literal_timeout finding; missing files
+      and parse errors fail.
+    source: manual
+    checks:
+      - check_type: command
+        check_value: >-
+          env PYTHONDONTWRITEBYTECODE=1 uv run python -c 'import sys; from pathlib import Path; from omnibase_core.validation.validator_contracts_and_di
+          import ValidatorContractsAndDi; paths = [Path(p) for p in sys.argv[1:]]; assert paths and all(p.is_file()
+          for p in paths), "missing slice path"; result = ValidatorContractsAndDi().validate(paths); assert
+          result.metadata is not None and result.metadata.files_processed == len(paths), "incomplete scan";
+          findings = [i for i in result.issues if i.rule_name in {"literal_timeout", "unparseable_file"}];
+          print(result.summary); [print(i) for i in findings]; sys.exit(bool(findings))' src/omniintelligence/adapters/utilization_llm_client.py
+          src/omniintelligence/nodes/node_intent_cost_forecast_compute/handlers/handler_cost_forecast.py
+          src/omniintelligence/nodes/node_navigation_retriever_effect/node_tests/test_handler_navigation_retrieve.py
+          src/omniintelligence/review_bot/github/client_github.py src/omniintelligence/runtime/dispatch_handler_code_embed_graph.py
+          src/omniintelligence/runtime/dispatch_handlers.py src/omniintelligence/runtime/introspection.py
+          src/omniintelligence/runtime/promotion_scheduler.py src/omniintelligence/runtime/stub_launcher.py
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC1
+  - id: dod-omn21746-ac2-timeouts-from-contract
+    description: The contract tests pass for every new field and default.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/runtime/test_runtime_timeouts_slice_omn21746.py tests/unit/runtime/test_runtime_timeouts_contract_omn21623.py
+          -q -n 0
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC2
+  - id: dod-omn21746-ac3-lab-regression-proof
+    description: The contract tests re-run as executable regression proof alongside the lab unit run recorded
+      in the PR body.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/runtime/test_runtime_timeouts_slice_omn21746.py -q -n 0
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC3

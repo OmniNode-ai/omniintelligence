@@ -38,3 +38,28 @@ session_query_s: 2.0
 
 # validators contract_linter: --watch poll interval.
 contract_linter_watch_poll_s: 1.0
+
+# adapters utilization_llm_client: chat-completion HTTP client timeout.
+utilization_llm_s: 30.0
+
+# review_bot github client_github: GitHub REST request timeout (GET, POST, DELETE).
+github_api_s: 10.0
+
+# runtime dispatch_handler_code_embed_graph: embedding endpoint request timeout.
+code_embed_s: 30.0
+
+# runtime dispatch_handlers: minimum gap between pattern-stored projection snapshots.
+projection_throttle_s: 60.0
+
+# runtime introspection: heartbeat publish interval.
+heartbeat_s: 30.0
+
+# runtime promotion_scheduler: promotion check interval when the caller names none.
+promotion_interval_s: 300.0
+
+# runtime stub_launcher: wait for the health server thread to stop at shutdown.
+health_shutdown_s: 5.0
+
+# node_intent_cost_forecast_compute: widest confidence interval the forecast reports,
+# scaled by (1 - classification confidence).
+forecast_max_ci_width: 0.8
