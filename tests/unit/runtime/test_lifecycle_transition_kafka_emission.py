@@ -62,13 +62,13 @@ class TestLifecycleTransitionKafkaEmission:
         mock_result.duplicate = False
 
         with patch(
-            "omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.HandlerTransition",
+            "omniintelligence.nodes.node_pattern_lifecycle_effect.HandlerTransition",
         ) as mock_handler_cls:
             mock_handler_cls.return_value.handle = AsyncMock(return_value=mock_result)
             await handler(envelope, context)
 
             mock_handler_cls.assert_called_once()
-            assert mock_handler_cls.call_args.kwargs["producer"] is mock_producer
+            assert mock_handler_cls.call_args.args[2] is mock_producer
             mock_handler_cls.return_value.handle.assert_called_once()
             request = mock_handler_cls.return_value.handle.call_args.args[0]
 
@@ -105,13 +105,13 @@ class TestLifecycleTransitionKafkaEmission:
         mock_result.duplicate = False
 
         with patch(
-            "omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.HandlerTransition",
+            "omniintelligence.nodes.node_pattern_lifecycle_effect.HandlerTransition",
         ) as mock_handler_cls:
             mock_handler_cls.return_value.handle = AsyncMock(return_value=mock_result)
             await handler(envelope, context)
 
             mock_handler_cls.assert_called_once()
-            assert mock_handler_cls.call_args.kwargs["producer"] is None
+            assert mock_handler_cls.call_args.args[2] is None
             mock_handler_cls.return_value.handle.assert_called_once()
             request = mock_handler_cls.return_value.handle.call_args.args[0]
             assert request.publish_topic is None
