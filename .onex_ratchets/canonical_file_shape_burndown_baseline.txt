@@ -5,7 +5,6 @@
 # location or rewritten as contract + node + handler. A new line is refused
 # and the file is never deleted, even when empty.
 src/omniintelligence/handlers/handler_compile_pattern.py
-src/omniintelligence/handlers/handler_review_standing_rules.py
 src/omniintelligence/nodes/node_agent_behavior_eval_compute/handlers/handler_agent_behavior_evaluation.py
 src/omniintelligence/nodes/node_anti_gaming_guardrails_compute/handlers/handler_guardrails.py
 src/omniintelligence/nodes/node_ast_extraction_compute/handlers/handler_deterministic_classify.py

@@ -1,0 +1,109 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# ONEX Node Contract
+# Node: NodeLlmCostEmitEffect
+#
+# Publishes one LLM call cost event for downstream projection into omnidash's
+# llm_cost_aggregates table. Fail-open: a missing producer or a failed publish is
+# logged and reported as data, never raised.
+#
+# Reference: OMN-6801
+
+name: "node_llm_cost_emit_effect"
+version: "1.0.0"
+contract_version: {major: 1, minor: 0, patch: 0}
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+node_type: "EFFECT_GENERIC"
+
+status: "active"
+
+description: >
+  Builds the cost telemetry payload of one LLM call (model, prompt, completion and total tokens, estimated
+  cost, session, correlation id, endpoint, request type, latency and optional repository and machine attribution)
+  and publishes it through the injected Kafka producer to the llm-call-completed topic. Returns whether
+  the event was emitted; a missing producer or a failed publish returns emitted=false after a warning.
+input_model:
+  name: "ModelLlmCostEmitRequest"
+  module: "omniintelligence.nodes.node_llm_cost_emit_effect.models.model_llm_cost_emit_request"
+  description: "One LLM call's cost telemetry."
+
+output_model:
+  name: "ModelLlmCostEmitResult"
+  module: "omniintelligence.nodes.node_llm_cost_emit_effect.models.model_llm_cost_emit_result"
+  description: "Whether the cost event was published."
+
+operations:
+  - name: "emit_llm_cost_event"
+    description: "Publish one LLM call cost event, fail-open"
+    input_fields:
+      - model_id
+      - prompt_tokens
+      - completion_tokens
+      - total_tokens
+      - estimated_cost_usd
+      - session_id
+      - correlation_id
+      - endpoint_url
+      - request_type
+      - latency_ms
+      - repo_name
+      - machine_id
+    output_fields:
+      - emitted
+
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    - operation: "emit_llm_cost_event"
+      handler:
+        class: "HandlerLlmCostEmitter"
+        function: "handle"
+        module: "omniintelligence.nodes.node_llm_cost_emit_effect.handlers.handler_llm_cost_emitter"
+        type: "async"
+      description: "Publish one LLM call cost event"
+
+event_bus:
+  event_bus_enabled: false
+  subscribe_topics: []
+  publish_topics:
+    - "onex.evt.omniintelligence.llm-call-completed.v1"
+
+dependencies:
+  - name: "kafka_producer"
+    type: "protocol"
+    class_name: "ProtocolKafkaPublisher"
+    module: "omniintelligence.protocols"
+    description: "Kafka producer for the cost event; optional, the emitter is fail-open"
+    required: false
+
+error_handling:
+  error_types:
+    - name: "LlmCostEmitFailed"
+      error_code: "LCE_001"
+      description: "No producer or the publish failed; returned as emitted=false, never raised"
+      recoverable: true
+      retry_strategy: "none"
+
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-10-31"
+  updated: "2026-10-31"
+  tags:
+    - effect
+    - llm
+    - cost
+  references:
+    - ticket: "OMN-6801"
+      url: "https://linear.app/omninode/issue/OMN-6801"
+      description: "LLM cost events empty"

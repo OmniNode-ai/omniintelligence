@@ -1,0 +1,94 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# ONEX Node Contract
+# Node: NodeReviewStandingRulesCompute
+#
+# Validates a repository's review standing rules file and, when asked, guards a
+# pull request's copy of it against weakening a mandatory rule.
+#
+# Reference: OMN-20784
+
+name: "node_review_standing_rules_compute"
+version: "1.0.0"
+contract_version: {major: 1, minor: 0, patch: 0}
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+node_type: "COMPUTE_GENERIC"
+
+status: "active"
+
+description: >
+  Parses the reviewed repository's standing rules text (schema_version, version, rules) into the typed
+  schema and reports each schema error by field path. When asked to compare, parses the pull request's
+  copy and reports every mandatory base rule the copy removes, demotes or rewords; an invalid copy keeps
+  none of the base's mandatory rules, so each of them is reported as removed. Domain errors are returned
+  as data. Pure computation over the files' text; the caller reads the protected base branch and the pull
+  request.
+input_model:
+  name: "ModelStandingRulesRequest"
+  module: "omniintelligence.models.review.model_standing_rules_request"
+  description: "The authoritative rules text, whether to compare, and the pull request's copy."
+
+output_model:
+  name: "ModelStandingRulesResult"
+  module: "omniintelligence.models.review.model_standing_rules_result"
+  description: "The parsed rules, schema errors, weakened mandatory rules and candidate errors."
+
+operations:
+  - name: "check_standing_rules"
+    description: "Validate the standing rules and optionally guard a candidate copy against weakening"
+    input_fields:
+      - rules_text
+      - compare_candidate
+      - candidate_text
+    output_fields:
+      - ok
+      - rules
+      - errors
+      - weakened
+      - candidate_errors
+
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    - operation: "check_standing_rules"
+      handler:
+        class: "HandlerReviewStandingRules"
+        function: "handle"
+        module: "omniintelligence.nodes.node_review_standing_rules_compute.handlers.handler_review_standing_rules"
+        type: "sync"
+      description: "Check one standing rules file and its pull request copy"
+
+dependencies: []
+
+error_handling:
+  error_types:
+    - name: "StandingRulesInvalid"
+      error_code: "SRC_001"
+      description: "The rules file is missing, not YAML or off schema; returned as result data"
+      recoverable: false
+      retry_strategy: "none"
+
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-10-31"
+  updated: "2026-10-31"
+  tags:
+    - compute
+    - review
+    - standing-rules
+  references:
+    - ticket: "OMN-20784"
+      url: "https://linear.app/omninode/issue/OMN-20784"
+      description: "Gated review reads the reviewed repository's standing rules from the protected base
+        branch"

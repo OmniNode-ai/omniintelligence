@@ -247,7 +247,6 @@ src/omniintelligence/runtime/dispatch_handler_utilization_scoring.py
 src/omniintelligence/runtime/dispatch_handlers.py
 src/omniintelligence/runtime/enum_handler_type.py
 src/omniintelligence/runtime/enum_log_level.py
-src/omniintelligence/runtime/handler_llm_cost_emitter.py
 src/omniintelligence/runtime/introspection.py
 src/omniintelligence/runtime/message_type_registration.py
 src/omniintelligence/runtime/model_event_bus_config.py

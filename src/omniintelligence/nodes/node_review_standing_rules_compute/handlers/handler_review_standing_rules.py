@@ -3,9 +3,9 @@
 
 """Standing-rules handler: validate a rules file and guard it against weakening.
 
-Pure and definition-B shaped, ``handle(request) -> result``. The caller reads the
-rules text (from the protected base branch) and the pull request's copy; this
-handler does no I/O. Domain errors come back as data, never as exceptions.
+Pure and definition-B shaped, ``HandlerReviewStandingRules().handle(request) ->
+result``. The caller reads the rules text (from the protected base branch) and the
+pull request's copy; this handler does no I/O. Domain errors come back as data, never as exceptions.
 
 Ticket: OMN-20784
 """
@@ -74,30 +74,33 @@ def _weakened(
     return tuple(found)
 
 
-def handle(request: ModelStandingRulesRequest) -> ModelStandingRulesResult:
-    """Validate the authoritative rules; when asked, compare the pull request's copy.
+class HandlerReviewStandingRules:
+    """Validate the authoritative rules and guard the pull request's copy."""
 
-    A candidate that is present but invalid is reported in ``candidate_errors``
-    and fails the result, and since an invalid file keeps none of the base's
-    mandatory rules, each of them is also reported as removed.
-    """
-    rules, errors = _parse(request.rules_text)
-    if rules is None:
-        return ModelStandingRulesResult(ok=False, errors=errors)
-    if not request.compare_candidate:
-        return ModelStandingRulesResult(ok=True, rules=rules)
+    def handle(self, request: ModelStandingRulesRequest) -> ModelStandingRulesResult:
+        """Validate the authoritative rules; when asked, compare the pull request's copy.
 
-    candidate: ModelReviewStandingRules | None = None
-    candidate_errors: tuple[str, ...] = ()
-    if request.candidate_text is not None:
-        candidate, candidate_errors = _parse(request.candidate_text)
-    weakened = _weakened(rules, candidate)
-    return ModelStandingRulesResult(
-        ok=not weakened and not candidate_errors,
-        rules=rules,
-        weakened=weakened,
-        candidate_errors=candidate_errors,
-    )
+        A candidate that is present but invalid is reported in ``candidate_errors``
+        and fails the result, and since an invalid file keeps none of the base's
+        mandatory rules, each of them is also reported as removed.
+        """
+        rules, errors = _parse(request.rules_text)
+        if rules is None:
+            return ModelStandingRulesResult(ok=False, errors=errors)
+        if not request.compare_candidate:
+            return ModelStandingRulesResult(ok=True, rules=rules)
+
+        candidate: ModelReviewStandingRules | None = None
+        candidate_errors: tuple[str, ...] = ()
+        if request.candidate_text is not None:
+            candidate, candidate_errors = _parse(request.candidate_text)
+        weakened = _weakened(rules, candidate)
+        return ModelStandingRulesResult(
+            ok=not weakened and not candidate_errors,
+            rules=rules,
+            weakened=weakened,
+            candidate_errors=candidate_errors,
+        )
 
 
-__all__ = ["handle"]
+__all__ = ["HandlerReviewStandingRules"]
