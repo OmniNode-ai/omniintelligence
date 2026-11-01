@@ -17,8 +17,9 @@
 # Read-only contents and pull-requests permissions are all this caller needs;
 # checkout and verification belong to the reusable, with no caller secrets.
 # The dev-merge tag of omnibase_core makes the reusable a fixed ref (the repo's
-# ruling is tags, never full commit shas); verifier-version pins the released
-# verifier used to read the caller's contracts.
+# ruling is tags, never full commit shas); verifier-tag names the omnimarket
+# dev-merge tag the verifier that reads the caller's contracts is installed from
+# (OMN-21856; operator ruling 2026-10-31T21:49:54Z, OMN-21676).
 #
 # The job id is the context prefix: repo-evidence / dod-verify carries the
 # verdict, so do not add a job name. The reusable also reports a
@@ -43,13 +44,11 @@
 # node_receipt_gate_pin_advance_compute (OMN-20134), which edits this line and
 # RECEIPT_GATE_PIN_TAG in tests/ci/receipt_gate_pin.py.
 #
-# The pinned reusable refuses a verifier-version below 0.4.303 before installing
-# it (VERIFIER_FLOOR, omnibase_core#1932; OMN-20032), the first release that
-# refuses a contract leaving a criterion unbound. With shadow "false" that
-# install step blocks. verifier-version 0.4.310 is the first omnimarket release
-# that ships the writer-app and plugin-manifest diff classifiers
-# (omnimarket#3694) and refuses a contract that repeats a mapping key
-# (omnimarket#3751), the version omniclaude and omnidash run.
+# The reusable resolves verifier-tag to its commit and refuses a tag that moved,
+# a tag not on the omnimarket dev branch, and a tag whose commit does not descend
+# from the floor commit e565ba5ba00c (omnibase_core#2203; OMN-21676). It then
+# installs the verifier from that commit's own uv.lock. verifier-version is only
+# a warned migration fallback in the reusable, and this caller passes none.
 
 name: Repo Evidence Gate
 
@@ -68,9 +67,9 @@ permissions:
 
 jobs:
   repo-evidence:
-    uses: OmniNode-ai/omnibase_core/.github/workflows/receipt-gate.yml@dev-20261030152335-66d35d2283c3 # omnibase_core dev-merge tag; carries the fix-parent control fallback (OMN-20134)
+    uses: OmniNode-ai/omnibase_core/.github/workflows/receipt-gate.yml@dev-20261101005012-ac2f26e3e5bf # omnibase_core dev-merge tag; carries verifier-tag (OMN-21856)
     with:
       evidence-source: caller
-      verifier-version: 0.4.310
+      verifier-tag: dev-20261101000200-949993edf3b7
       compare-with-occ: "false"
       shadow: "false"

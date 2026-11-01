@@ -1,0 +1,167 @@
+---
+schema_version: 1.0.0
+ticket_id: OMN-21856
+title: omniintelligence repo-evidence caller installs its verifier from the omnimarket dev-merge tag
+summary: >-
+  The Repo Evidence Gate caller moves to the omnibase_core dev-merge tag dev-20261101005012-ac2f26e3e5bf,
+  whose receipt-gate.yml accepts verifier-tag, passes verifier-tag dev-20261101000200-949993edf3b7 and
+  drops verifier-version. The caller tests assert the new shape. Operator ruling 2026-10-31T21:49:54Z
+  (OMN-21676): the definition-of-done check installs its verifier from the omnimarket dev-merge tag, not
+  from a released package version.
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: req-omn21856-caller-passes-verifier-tag
+    statement: The repo-evidence caller calls the omnibase_core reusable that accepts verifier-tag and
+      passes an omnimarket dev-merge tag as verifier-tag, with no verifier-version.
+    acceptance:
+      - id: AC1
+        statement: 'AC1: .github/workflows/call-repo-evidence-gate.yml in omniintelligence calls OmniNode-ai/omnibase_core/.github/workflows/receipt-gate.yml@dev-20261101005012-ac2f26e3e5bf
+          with verifier-tag dev-20261101000200-949993edf3b7 and no verifier-version key -- falsifier:
+          uv run pytest tests/ci -q -k repo_evidence_caller'
+      - id: AC2
+        statement: 'AC2: every test in omniintelligence that asserted verifier-version now asserts verifier-tag
+          and passes, and no test in tests/ names verifier-version as a required caller input -- falsifier:
+          uv run pytest tests/ci -q'
+      - id: AC3
+        statement: 'AC3: lab proof: the real install of tag dev-20261101000200-949993edf3b7 on the lab
+          (clone at the tag commit, uv sync --frozen --no-dev --no-editable from its uv.lock) exits 0,
+          and the repo caller tests run as an /omni:lab-run unit exit 0 -- falsifier: uv run pytest tests/ci
+          -q -k repo_evidence_caller'
+evidence_requirements:
+  - kind: tests
+    description: Run the repo-evidence caller tests, which read the caller workflow and assert the verifier-tag
+      shape.
+    command: uv run pytest tests/ci -q -k repo_evidence_caller
+emergency_bypass:
+  enabled: false
+  justification: ''
+  follow_up_ticket_id: ''
+dod_evidence:
+  - id: dod-omn21856-ac1-caller-verifier-tag
+    description: Reject a caller whose reusable ref is not a dev-merge tag, whose verifier-tag is not
+      an omnimarket dev-merge tag, or that still passes verifier-version.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci -q -n 0 --no-cov -k repo_evidence_caller
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC1
+  - id: dod-omn21856-ac2-tests-assert-verifier-tag
+    description: Run every tests/ci test file as a separate check, preserving the whole suite while giving
+      each file the verifier's per-check budget. Every caller test asserts the verifier-tag shape and
+      none requires verifier-version.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_arch_handler_compliance_core_omn20074.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_auto_tag_app_token_push_omn18662.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_ban_hardcoded_runner_ip_scope.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_canonical_file_shape_canary_omn21527.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_canonical_file_shape_release_push_omn21164.py -q -n 0
+          --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_ci_contract_validation_notice_omn20074.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_ci_workflow_shape.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_codeql_from_core_omn20074.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_contract_validation_core_validator_omn20074.py -q -n
+          0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_contract_validation_workflow.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_deployment_config_context_omn20940.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_dev_merge_tag_workflow_omn19998.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_imperative_contract_guard_caller_omn21005.py -q -n 0
+          --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_mypy_hook_serial_omn17427.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_no_occ_callers_omn20074.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_occ_residue_removed_omn20074.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_pattern_pipeline_health.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_pin_resolvability_conflict_report.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_pin_resolvability_gate_workflow.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_pr_title_check_omnimarket_node.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_precommit_hooks_core_omn20074.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_public_runner_placement_omn17427.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_receipt_gate_caller_pin_omn20134.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_release_main_sync_omn16396.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_repo_evidence_caller_verifier_floor_omn20032.py -q -n
+          0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_sibling_lock_refresh_identity_binding_omn18753.py -q
+          -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_sibling_pins.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_todo_format_replay_omn20074.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_validate_boundaries_caller_omn20965.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_workflow_script_refs_exist.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC2
+  - id: dod-omn21856-ac3-caller-tests-on-lab
+    description: The caller tests pass. The tag install and the lab-run receipts are quoted in the pull
+      request body.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci -q -n 0 --no-cov -k repo_evidence_caller
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC3
