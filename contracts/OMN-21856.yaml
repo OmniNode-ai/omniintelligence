@@ -50,12 +50,108 @@ dod_evidence:
     binds_ac:
       - AC1
   - id: dod-omn21856-ac2-tests-assert-verifier-tag
-    description: Run the whole tests/ci suite, where every caller test asserts the verifier-tag shape
-      and none requires verifier-version.
+    description: Run every tests/ci test file as a separate check, preserving the whole suite while giving
+      each file the verifier's per-check budget. Every caller test asserts the verifier-tag shape and
+      none requires verifier-version.
     source: manual
     checks:
       - check_type: test_passes
-        check_value: uv run pytest tests/ci -q -n 0 --no-cov
+        check_value: uv run pytest tests/ci/test_arch_handler_compliance_core_omn20074.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_auto_tag_app_token_push_omn18662.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_ban_hardcoded_runner_ip_scope.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_canonical_file_shape_canary_omn21527.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_canonical_file_shape_release_push_omn21164.py -q -n 0
+          --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_ci_contract_validation_notice_omn20074.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_ci_workflow_shape.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_codeql_from_core_omn20074.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_contract_validation_core_validator_omn20074.py -q -n
+          0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_contract_validation_workflow.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_deployment_config_context_omn20940.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_dev_merge_tag_workflow_omn19998.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_imperative_contract_guard_caller_omn21005.py -q -n 0
+          --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_mypy_hook_serial_omn17427.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_no_occ_callers_omn20074.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_occ_residue_removed_omn20074.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_pattern_pipeline_health.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_pin_resolvability_conflict_report.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_pin_resolvability_gate_workflow.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_pr_title_check_omnimarket_node.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_precommit_hooks_core_omn20074.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_public_runner_placement_omn17427.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_receipt_gate_caller_pin_omn20134.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_release_main_sync_omn16396.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_repo_evidence_caller_verifier_floor_omn20032.py -q -n
+          0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_sibling_lock_refresh_identity_binding_omn18753.py -q
+          -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_sibling_pins.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_todo_format_replay_omn20074.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_validate_boundaries_caller_omn20965.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_workflow_script_refs_exist.py -q -n 0 --no-cov
         cwd: ${OMNI_HOME}/omniintelligence
     binds_ac:
       - AC2
