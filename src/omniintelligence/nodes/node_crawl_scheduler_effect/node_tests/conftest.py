@@ -29,8 +29,8 @@ from omniintelligence.nodes.node_crawl_scheduler_effect.models import (
     ModelCrawlRequestedEvent,
     ModelCrawlSchedulerConfig,
 )
-from omniintelligence.nodes.node_crawl_scheduler_effect.node import (
-    NodeCrawlSchedulerEffect,
+from omniintelligence.nodes.node_crawl_scheduler_effect.node_tests.container.container_crawl_scheduler_effect import (
+    resolve_crawl_scheduler_effect,
 )
 from omniintelligence.nodes.node_crawl_scheduler_effect.registry.registry_crawl_scheduler_effect import (
     RegistryCrawlSchedulerEffect,
@@ -51,7 +51,7 @@ def assert_node_protocol_conformance() -> None:
     from omnibase_core.nodes.node_effect import NodeEffect
 
     container = ModelONEXContainer()
-    node = NodeCrawlSchedulerEffect(container)
+    node = resolve_crawl_scheduler_effect(container)
     assert isinstance(node, NodeEffect), (
         f"NodeCrawlSchedulerEffect must be an instance of NodeEffect. Got: {type(node)}"
     )

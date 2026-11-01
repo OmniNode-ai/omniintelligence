@@ -19,8 +19,8 @@ from typing import TYPE_CHECKING, Any
 
 from omnibase_core.nodes.node_orchestrator import NodeOrchestrator
 
-from omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers import (
-    HandlerPatternAssemblyOrchestrate,
+from omniintelligence.nodes.node_pattern_assembler_orchestrator.container.container_pattern_assembler import (
+    resolve_pattern_assembly_orchestrate_handler,
 )
 from omniintelligence.nodes.node_pattern_assembler_orchestrator.models import (
     ModelPatternAssemblyOrchestrateRequest,
@@ -65,7 +65,7 @@ class NodePatternAssemblerOrchestrator(NodeOrchestrator):
         """
         # Handler guarantees structured output (never raises); model_dump() is safe.
         result: ModelPatternAssemblyOutput = (
-            await HandlerPatternAssemblyOrchestrate().handle(
+            await resolve_pattern_assembly_orchestrate_handler().handle(
                 ModelPatternAssemblyOrchestrateRequest(input_data=input_data)
             )
         )

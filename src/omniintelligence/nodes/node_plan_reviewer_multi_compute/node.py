@@ -38,11 +38,13 @@ from typing import ClassVar
 from omnibase_core.models.container.model_onex_container import ModelONEXContainer
 from omnibase_core.nodes.node_compute import NodeCompute
 
+from omniintelligence.nodes.node_plan_reviewer_multi_compute.container.container_plan_reviewer_multi import (
+    resolve_plan_reviewer_multi_compute_handler,
+)
 from omniintelligence.nodes.node_plan_reviewer_multi_compute.handlers.handler_confidence_scorer import (
     ProtocolDBConnection,
 )
 from omniintelligence.nodes.node_plan_reviewer_multi_compute.handlers.handler_plan_reviewer_multi_compute import (
-    HandlerPlanReviewerMultiCompute,
     ModelCaller,
 )
 from omniintelligence.nodes.node_plan_reviewer_multi_compute.handlers.strategies.handler_sequential_critique import (
@@ -133,7 +135,7 @@ class NodePlanReviewerMultiCompute(
         Returns:
             ``ModelPlanReviewerMultiOutput`` with findings and DB status.
         """
-        return await HandlerPlanReviewerMultiCompute(
+        return await resolve_plan_reviewer_multi_compute_handler(
             model_callers=self._model_callers,
             db_conn=self._db_conn,
             critic_caller=self._critic_caller,

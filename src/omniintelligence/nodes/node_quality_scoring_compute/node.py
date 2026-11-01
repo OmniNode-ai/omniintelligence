@@ -11,8 +11,8 @@ from __future__ import annotations
 
 from omnibase_core.nodes.node_compute import NodeCompute
 
-from omniintelligence.nodes.node_quality_scoring_compute.handlers import (
-    HandlerQualityScoringCompute,
+from omniintelligence.nodes.node_quality_scoring_compute.container.container_quality_scoring import (
+    resolve_quality_scoring_compute_handler,
 )
 from omniintelligence.nodes.node_quality_scoring_compute.models import (
     ModelQualityScoringInput,
@@ -41,7 +41,7 @@ class NodeQualityScoringCompute(
         self, input_data: ModelQualityScoringInput
     ) -> ModelQualityScoringOutput:
         """Score code quality by delegating to handler."""
-        return HandlerQualityScoringCompute().handle(input_data)
+        return resolve_quality_scoring_compute_handler().handle(input_data)
 
 
 __all__ = ["NodeQualityScoringCompute"]
