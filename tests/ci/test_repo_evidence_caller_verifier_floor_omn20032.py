@@ -21,13 +21,10 @@ CALLER = REPO_ROOT / ".github" / "workflows" / "call-repo-evidence-gate.yml"
 # dev-merge tag embeds its UTC creation time, so a tag at or after this one carries it.
 FLOOR_REUSABLE_TAG = "dev-20261018024445-b6ee996befa1"
 
-# 0.4.303 is the first omnimarket release carrying omnimarket#3511, the refusal of
-# a contract that leaves an acceptance criterion unbound.
-VERIFIER_FLOOR = (0, 4, 303)
-
-
-def _version(text: str) -> tuple[int, ...]:
-    return tuple(int(part) for part in text.split("."))
+# The verifier is installed from an omnimarket dev-merge tag (OMN-21856, OMN-21676):
+# the reusable refuses a tag whose commit does not descend from the floor commit
+# e565ba5ba00c, so the floor is an ancestry fact and not a version number.
+VERIFIER_TAG_PATTERN = r"dev-\d{14}-[0-9a-f]{12}"
 
 
 def _job() -> dict[str, Any]:
@@ -47,17 +44,28 @@ def test_caller_pins_the_reusable_that_carries_the_verifier_floor() -> None:
     )
 
 
-def test_caller_verifier_version_is_at_or_above_the_floor() -> None:
-    assert _version(_job()["with"]["verifier-version"]) >= VERIFIER_FLOOR, (
-        "verifier-version must be at or above the reusable's VERIFIER_FLOOR 0.4.303"
+def test_caller_verifier_tag_is_at_or_above_the_floor_by_dev_merge_tag() -> None:
+    inputs = _job()["with"]
+    assert re.fullmatch(VERIFIER_TAG_PATTERN, inputs["verifier-tag"]), (
+        "verifier-tag must be an omnimarket dev-merge tag"
+    )
+    assert "verifier-version" not in inputs, (
+        "the caller passes verifier-tag and no verifier-version"
     )
 
 
 @pytest.mark.parametrize(
-    ("version", "expected"),
-    [("0.4.280", False), ("0.4.302", False), ("0.4.303", True), ("0.4.305", True)],
+    ("value", "expected"),
+    [
+        ("0.4.310", False),
+        ("dev", False),
+        ("a" * 40, False),
+        ("dev-20261101000200-949993edf3b", False),
+        ("dev-20261101000200-949993EDF3B7", False),
+        ("dev-20261101000200-949993edf3b7", True),
+    ],
 )
 def test_floor_comparison_has_a_refusing_and_an_admitting_case(
-    version: str, expected: bool
+    value: str, expected: bool
 ) -> None:
-    assert (_version(version) >= VERIFIER_FLOOR) is expected
+    assert bool(re.fullmatch(VERIFIER_TAG_PATTERN, value)) is expected
