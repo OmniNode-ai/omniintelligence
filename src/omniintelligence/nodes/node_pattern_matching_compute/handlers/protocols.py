@@ -87,7 +87,7 @@ class PatternMatchingHandlerResult(TypedDict, total=False):
     """Result structure for pattern matching handler.
 
     This TypedDict defines the guaranteed structure returned by
-    the match_patterns function.
+    HandlerPatternMatching.
 
     Note on total=False: Used because error and error_code fields are only
     present when success=False. The core fields below are always populated

@@ -25,8 +25,32 @@ pytestmark = pytest.mark.unit
 
 from omniintelligence.nodes.node_semantic_analysis_compute.handlers import (
     ANALYSIS_VERSION_STR,
-    analyze_semantics,
+    HandlerSemanticAnalysis,
 )
+from omniintelligence.nodes.node_semantic_analysis_compute.handlers.protocols import (
+    SemanticAnalysisResult,
+)
+from omniintelligence.nodes.node_semantic_analysis_compute.models.model_semantic_analysis_request import (
+    ModelSemanticAnalysisRequest,
+)
+
+
+def analyze_semantics(
+    content: str,
+    language: str = "python",
+    include_call_graph: bool = True,
+    include_import_graph: bool = True,
+) -> SemanticAnalysisResult:
+    """Test shorthand for ``HandlerSemanticAnalysis().handle(request)``."""
+    return HandlerSemanticAnalysis().handle(
+        ModelSemanticAnalysisRequest(
+            content=content,
+            language=language,
+            include_call_graph=include_call_graph,
+            include_import_graph=include_import_graph,
+        )
+    )
+
 
 # =============================================================================
 # Test Fixtures - Sample Python Code Snippets
@@ -1017,11 +1041,11 @@ def test_canonical_dispatch_matches_preserved_core(payload, monkeypatch):
         ModelSemanticAnalysisOutput,
     )
 
-    core = canonical_handler.analyze_semantics(
-        content=request.code_snippet,
-        language=request.context.get("source_language", "python"),
-        include_call_graph=True,
-        include_import_graph=True,
+    core = canonical_handler.HandlerSemanticAnalysis().handle(
+        ModelSemanticAnalysisRequest(
+            content=request.code_snippet,
+            language=request.context.get("source_language", "python"),
+        )
     )
     metadata = {
         "status": "completed",

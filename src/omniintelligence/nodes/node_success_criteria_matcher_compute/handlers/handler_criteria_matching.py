@@ -3,8 +3,8 @@
 
 """Handler for success criteria matching computation.
 
-Pure functions for matching execution outcomes against
-success criteria. All functions are side-effect-free and suitable for use
+Pure handler for matching execution outcomes against
+success criteria. All operations are side-effect-free and suitable for use
 in compute nodes.
 
 The matching system evaluates criteria using configurable operators:
@@ -22,8 +22,7 @@ Field Path Resolution:
 
 Example:
     from omniintelligence.nodes.node_success_criteria_matcher_compute.handlers import (
-        match_criteria,
-        resolve_field_path,
+        HandlerCriteriaMatching,
     )
 
     outcome = {"status": "success", "exit_code": 0, "outputs": [{"name": "result"}]}
@@ -32,7 +31,9 @@ Example:
         {"criterion_id": "exit_ok", "field": "exit_code", "operator": "equals", "expected_value": 0},
     ]
 
-    result = match_criteria(outcome, criteria)
+    result = HandlerCriteriaMatching().handle(
+        ModelCriteriaMatchRequest(outcome=outcome, criteria=criteria)
+    )
     if result["success"]:
         print(f"All required criteria passed! Score: {result['match_score']}")
 """
@@ -55,6 +56,9 @@ from omniintelligence.nodes.node_success_criteria_matcher_compute.handlers.proto
     MaybeJsonValue,
     get_type_name,
 )
+from omniintelligence.nodes.node_success_criteria_matcher_compute.models.model_criteria_match_request import (
+    ModelCriteriaMatchRequest,
+)
 from omniintelligence.nodes.node_success_criteria_matcher_compute.models.model_success_criteria_input import (
     SuccessCriterionDict,
 )
@@ -71,287 +75,284 @@ _INDEX_PATTERN: Final[re.Pattern[str]] = re.compile(r"^[0-9]+$")
 
 
 # =============================================================================
-# Main Matching Function
+# Handler
 # =============================================================================
 
 
-def match_criteria(
-    outcome: dict[str, object],
-    criteria: list[SuccessCriterionDict],
-) -> CriteriaMatchResult:
-    """Evaluate all criteria against an execution outcome.
+class HandlerCriteriaMatching:
+    """Pure success-criteria matching of an execution outcome."""
 
-    This is the main entry point for criteria matching. It validates the criteria
-    set, evaluates each criterion against the outcome, and calculates aggregate
-    scores.
+    def handle(self, request: ModelCriteriaMatchRequest) -> CriteriaMatchResult:
+        """Evaluate all criteria against an execution outcome.
 
-    Algorithm:
-        1. Validate criteria set (unique IDs, valid operators, non-negative weights,
-           pre-compile regex patterns)
-        2. For each criterion:
-           a. Resolve field path from outcome (supports list indexing)
-           b. Apply operator comparison
-           c. Record pass/fail with weight
-        3. Calculate weighted match_score
-        4. Determine success (all required=True criteria must pass)
+        This is the main entry point for criteria matching. It validates the criteria
+        set, evaluates each criterion against the outcome, and calculates aggregate
+        scores.
 
-    Args:
-        outcome: Dictionary containing execution results to match against.
-        criteria: List of success criteria to evaluate.
+        Algorithm:
+            1. Validate criteria set (unique IDs, valid operators, non-negative weights,
+               pre-compile regex patterns)
+            2. For each criterion:
+               a. Resolve field path from outcome (supports list indexing)
+               b. Apply operator comparison
+               c. Record pass/fail with weight
+            3. Calculate weighted match_score
+            4. Determine success (all required=True criteria must pass)
 
-    Returns:
-        CriteriaMatchResult with match status, scores, and details.
+        Args:
+            request: Execution outcome and success criteria to evaluate.
 
-    Edge Cases:
-        - Empty criteria list: success=True, score=1.0
-        - total_weight==0: score=1.0 if all required pass, else 0.0
-        - MISSING field: is_null fails, is_not_null fails, other operators fail
+        Returns:
+            CriteriaMatchResult with match status, scores, and details.
 
-    Raises:
-        CriteriaMatchingValidationError: If criteria set is invalid.
+        Edge Cases:
+            - Empty criteria list: success=True, score=1.0
+            - total_weight==0: score=1.0 if all required pass, else 0.0
+            - MISSING field: is_null fails, is_not_null fails, other operators fail
 
-    Example:
-        >>> outcome = {"status": "success", "exit_code": 0}
-        >>> criteria = [{"criterion_id": "c1", "field": "exit_code", "operator": "equals", "expected_value": 0}]
-        >>> result = match_criteria(outcome, criteria)
-        >>> result["success"]
-        True
-    """
-    # Edge case: empty criteria = success
-    if not criteria:
+        Raises:
+            CriteriaMatchingValidationError: If criteria set is invalid.
+
+        Example:
+            >>> outcome = {"status": "success", "exit_code": 0}
+            >>> criteria = [{"criterion_id": "c1", "field": "exit_code", "operator": "equals", "expected_value": 0}]
+            >>> result = HandlerCriteriaMatching().handle(
+            ...     ModelCriteriaMatchRequest(outcome=outcome, criteria=criteria)
+            ... )
+            >>> result["success"]
+            True
+        """
+        outcome = request.outcome
+        criteria = cast("list[SuccessCriterionDict]", list(request.criteria))
+
+        # Edge case: empty criteria = success
+        if not criteria:
+            return CriteriaMatchResult(
+                success=True,
+                matched_criteria=[],
+                unmatched_criteria=[],
+                match_score=1.0,
+                match_details=[],
+            )
+
+        # Validate criteria set (may raise CriteriaMatchingValidationError)
+        compiled_regex = _validate_criteria_set(criteria)
+
+        # Evaluate each criterion
+        match_details: list[CriterionMatchResultDict] = []
+        matched_ids: list[str] = []
+        unmatched_ids: list[str] = []
+        all_required_passed = True
+        weighted_sum = 0.0
+        total_weight = 0.0
+
+        for criterion in criteria:
+            result = _evaluate_criterion(outcome, criterion, compiled_regex)
+            match_details.append(result)
+
+            weight = criterion.get("weight", 1.0)
+            required = criterion.get("required", False)
+            criterion_id = criterion.get("criterion_id", "")
+
+            total_weight += weight
+
+            if result["matched"]:
+                matched_ids.append(criterion_id)
+                weighted_sum += weight
+            else:
+                unmatched_ids.append(criterion_id)
+                if required:
+                    all_required_passed = False
+
+        # Calculate match score
+        if total_weight > 0:
+            match_score = weighted_sum / total_weight
+        else:
+            # No weighted criteria - base success on required criteria
+            match_score = 1.0 if all_required_passed else 0.0
+
         return CriteriaMatchResult(
-            success=True,
-            matched_criteria=[],
-            unmatched_criteria=[],
-            match_score=1.0,
-            match_details=[],
+            success=all_required_passed,
+            matched_criteria=matched_ids,
+            unmatched_criteria=unmatched_ids,
+            match_score=round(match_score, 4),
+            match_details=match_details,
         )
 
-    # Validate criteria set (may raise CriteriaMatchingValidationError)
-    compiled_regex = _validate_criteria_set(criteria)
+    @staticmethod
+    def resolve_field_path(
+        data: dict[str, Any], path: str
+    ) -> MaybeJsonValue:  # any-ok: dict invariance -- callers pass deserialized JSON
+        """Resolve a dot-notation field path from a nested data structure.
 
-    # Evaluate each criterion
-    match_details: list[CriterionMatchResultDict] = []
-    matched_ids: list[str] = []
-    unmatched_ids: list[str] = []
-    all_required_passed = True
-    weighted_sum = 0.0
-    total_weight = 0.0
+        Supports dictionary keys and list indices (non-negative integers).
 
-    for criterion in criteria:
-        result = _evaluate_criterion(outcome, criterion, compiled_regex)
-        match_details.append(result)
+        Args:
+            data: The data dictionary to resolve the path from.
+            path: Dot-notation path (e.g., "outputs.0.name").
 
-        weight = criterion.get("weight", 1.0)
-        required = criterion.get("required", False)
-        criterion_id = criterion.get("criterion_id", "")
+        Returns:
+            The value at the path, or MISSING if the path doesn't exist.
 
-        total_weight += weight
+        Raises:
+            CriteriaMatchingValidationError: If path syntax is invalid.
 
-        if result["matched"]:
-            matched_ids.append(criterion_id)
-            weighted_sum += weight
-        else:
-            unmatched_ids.append(criterion_id)
-            if required:
-                all_required_passed = False
+        Path Syntax Rules:
+            - Tokens separated by dots: "a.b.c"
+            - Allowed tokens: [A-Za-z0-9_]+ (alphanumeric and underscore only)
+            - Rejects: empty tokens ("a..b"), leading/trailing dots, invalid characters
+            - Returns MISSING (not None) for missing keys or out-of-range indexes
 
-    # Calculate match score
-    if total_weight > 0:
-        match_score = weighted_sum / total_weight
-    else:
-        # No weighted criteria - base success on required criteria
-        match_score = 1.0 if all_required_passed else 0.0
+        Examples:
+            >>> data = {"status": "ok", "items": [{"name": "a"}, {"name": "b"}]}
+            >>> HandlerCriteriaMatching.resolve_field_path(data, "status")
+            'ok'
+            >>> HandlerCriteriaMatching.resolve_field_path(data, "items.0.name")
+            'a'
+            >>> HandlerCriteriaMatching.resolve_field_path(data, "missing")
+            MISSING
+        """
+        # Validate path is not empty
+        if not path or not path.strip():
+            raise CriteriaMatchingValidationError("Field path cannot be empty")
 
-    return CriteriaMatchResult(
-        success=all_required_passed,
-        matched_criteria=matched_ids,
-        unmatched_criteria=unmatched_ids,
-        match_score=round(match_score, 4),
-        match_details=match_details,
-    )
-
-
-# =============================================================================
-# Field Path Resolution
-# =============================================================================
-
-
-def resolve_field_path(
-    data: dict[str, Any], path: str
-) -> MaybeJsonValue:  # any-ok: dict invariance -- callers pass deserialized JSON
-    """Resolve a dot-notation field path from a nested data structure.
-
-    Supports dictionary keys and list indices (non-negative integers).
-
-    Args:
-        data: The data dictionary to resolve the path from.
-        path: Dot-notation path (e.g., "outputs.0.name").
-
-    Returns:
-        The value at the path, or MISSING if the path doesn't exist.
-
-    Raises:
-        CriteriaMatchingValidationError: If path syntax is invalid.
-
-    Path Syntax Rules:
-        - Tokens separated by dots: "a.b.c"
-        - Allowed tokens: [A-Za-z0-9_]+ (alphanumeric and underscore only)
-        - Rejects: empty tokens ("a..b"), leading/trailing dots, invalid characters
-        - Returns MISSING (not None) for missing keys or out-of-range indexes
-
-    Examples:
-        >>> data = {"status": "ok", "items": [{"name": "a"}, {"name": "b"}]}
-        >>> resolve_field_path(data, "status")
-        'ok'
-        >>> resolve_field_path(data, "items.0.name")
-        'a'
-        >>> resolve_field_path(data, "missing")
-        MISSING
-    """
-    # Validate path is not empty
-    if not path or not path.strip():
-        raise CriteriaMatchingValidationError("Field path cannot be empty")
-
-    # Check for leading/trailing dots
-    if path.startswith(".") or path.endswith("."):
-        raise CriteriaMatchingValidationError(
-            f"Invalid field path '{path}': leading or trailing dots not allowed"
-        )
-
-    tokens = path.split(".")
-
-    # Validate each token
-    for token in tokens:
-        if not token:
+        # Check for leading/trailing dots
+        if path.startswith(".") or path.endswith("."):
             raise CriteriaMatchingValidationError(
-                f"Invalid field path '{path}': empty token (consecutive dots)"
-            )
-        if not _TOKEN_PATTERN.match(token):
-            raise CriteriaMatchingValidationError(
-                f"Invalid field path '{path}': token '{token}' contains invalid characters"
+                f"Invalid field path '{path}': leading or trailing dots not allowed"
             )
 
-    # Traverse the data structure
-    # any-ok: traverses heterogeneous nested structures (dicts/lists)
-    current: Any = data
+        tokens = path.split(".")
 
-    for token in tokens:
-        # Check if token is a list index
-        if _INDEX_PATTERN.match(token):
-            index = int(token)
-            if not isinstance(current, list | tuple):
-                return MISSING
-            if index >= len(current):
-                return MISSING
-            current = current[index]
-        else:
-            # Dictionary key access
-            if not isinstance(current, dict):
-                return MISSING
-            if token not in current:
-                return MISSING
-            current = current[token]
+        # Validate each token
+        for token in tokens:
+            if not token:
+                raise CriteriaMatchingValidationError(
+                    f"Invalid field path '{path}': empty token (consecutive dots)"
+                )
+            if not _TOKEN_PATTERN.match(token):
+                raise CriteriaMatchingValidationError(
+                    f"Invalid field path '{path}': token '{token}' contains invalid characters"
+                )
 
-    # Cast needed because 'current' is typed as object from dict traversal
-    return cast("MaybeJsonValue", current)
+        # Traverse the data structure
+        # any-ok: traverses heterogeneous nested structures (dicts/lists)
+        current: Any = data
 
+        for token in tokens:
+            # Check if token is a list index
+            if _INDEX_PATTERN.match(token):
+                index = int(token)
+                if not isinstance(current, list | tuple):
+                    return MISSING
+                if index >= len(current):
+                    return MISSING
+                current = current[index]
+            else:
+                # Dictionary key access
+                if not isinstance(current, dict):
+                    return MISSING
+                if token not in current:
+                    return MISSING
+                current = current[token]
 
-# =============================================================================
-# Operator Application
-# =============================================================================
+        # Cast needed because 'current' is typed as object from dict traversal
+        return cast("MaybeJsonValue", current)
 
+    @staticmethod
+    def apply_operator(
+        actual: Any,  # any-ok: actual values come from heterogeneous JSON data, require dynamic dispatch
+        operator: EnumCriteriaOperator,
+        expected: JsonValue | None,
+    ) -> tuple[bool, str]:
+        """Apply a comparison operator between actual and expected values.
 
-def apply_operator(
-    actual: Any,  # any-ok: actual values come from heterogeneous JSON data, require dynamic dispatch
-    operator: EnumCriteriaOperator,
-    expected: JsonValue | None,
-) -> tuple[bool, str]:
-    """Apply a comparison operator between actual and expected values.
+        Args:
+            actual: The actual value from the outcome (may be MISSING).
+            operator: The comparison operator to apply.
+            expected: The expected value from the criterion.
 
-    Args:
-        actual: The actual value from the outcome (may be MISSING).
-        operator: The comparison operator to apply.
-        expected: The expected value from the criterion.
+        Returns:
+            Tuple of (matched: bool, reason: str).
+            The reason is a short, deterministic explanation.
 
-    Returns:
-        Tuple of (matched: bool, reason: str).
-        The reason is a short, deterministic explanation.
+        Operator Semantics:
+            - equals: actual == expected (type-sensitive)
+            - not_equals: actual != expected
+            - greater_than: actual > expected (numeric only)
+            - less_than: actual < expected (numeric only)
+            - greater_or_equal: actual >= expected (numeric only)
+            - less_or_equal: actual <= expected (numeric only)
+            - contains:
+                - str: str(expected) in actual
+                - list/tuple/set: expected in actual
+                - dict: expected in actual.keys()
+                - else: fail with "contains unsupported for type"
+            - not_contains: inverse of contains
+            - regex: re.search(expected, str(actual)) where expected is str
+            - is_null: actual is None (MISSING -> fail)
+            - is_not_null: actual is not None and actual is not MISSING
 
-    Operator Semantics:
-        - equals: actual == expected (type-sensitive)
-        - not_equals: actual != expected
-        - greater_than: actual > expected (numeric only)
-        - less_than: actual < expected (numeric only)
-        - greater_or_equal: actual >= expected (numeric only)
-        - less_or_equal: actual <= expected (numeric only)
-        - contains:
-            - str: str(expected) in actual
-            - list/tuple/set: expected in actual
-            - dict: expected in actual.keys()
-            - else: fail with "contains unsupported for type"
-        - not_contains: inverse of contains
-        - regex: re.search(expected, str(actual)) where expected is str
-        - is_null: actual is None (MISSING -> fail)
-        - is_not_null: actual is not None and actual is not MISSING
+        Examples:
+            >>> HandlerCriteriaMatching.apply_operator(0, EnumCriteriaOperator.EQUALS, 0)
+            (True, '0 equals 0')
+            >>> HandlerCriteriaMatching.apply_operator(MISSING, EnumCriteriaOperator.IS_NULL, None)
+            (False, 'value is missing, not null')
+        """
+        # Handle MISSING value first
+        if actual is MISSING:
+            if operator == EnumCriteriaOperator.IS_NULL:
+                return False, "value is missing, not null"
+            if operator == EnumCriteriaOperator.IS_NOT_NULL:
+                return False, "value is missing"
+            return False, "field is missing"
 
-    Examples:
-        >>> apply_operator(0, EnumCriteriaOperator.EQUALS, 0)
-        (True, '0 equals 0')
-        >>> apply_operator(MISSING, EnumCriteriaOperator.IS_NULL, None)
-        (False, 'value is missing, not null')
-    """
-    # Handle MISSING value first
-    if actual is MISSING:
+        # Handle null checks
         if operator == EnumCriteriaOperator.IS_NULL:
-            return False, "value is missing, not null"
+            if actual is None:
+                return True, "value is null"
+            return False, f"expected null, got {get_type_name(actual)}"
+
         if operator == EnumCriteriaOperator.IS_NOT_NULL:
-            return False, "value is missing"
-        return False, "field is missing"
+            if actual is not None:
+                return True, f"value is {get_type_name(actual)}, not null"
+            return False, "value is null"
 
-    # Handle null checks
-    if operator == EnumCriteriaOperator.IS_NULL:
-        if actual is None:
-            return True, "value is null"
-        return False, f"expected null, got {get_type_name(actual)}"
+        # Handle equality operators
+        if operator == EnumCriteriaOperator.EQUALS:
+            if actual == expected:
+                return True, f"{_safe_repr(actual)} equals {_safe_repr(expected)}"
+            return False, f"{_safe_repr(actual)} does not equal {_safe_repr(expected)}"
 
-    if operator == EnumCriteriaOperator.IS_NOT_NULL:
-        if actual is not None:
-            return True, f"value is {get_type_name(actual)}, not null"
-        return False, "value is null"
+        if operator == EnumCriteriaOperator.NOT_EQUALS:
+            if actual != expected:
+                return (
+                    True,
+                    f"{_safe_repr(actual)} does not equal {_safe_repr(expected)}",
+                )
+            return False, f"{_safe_repr(actual)} equals {_safe_repr(expected)}"
 
-    # Handle equality operators
-    if operator == EnumCriteriaOperator.EQUALS:
-        if actual == expected:
-            return True, f"{_safe_repr(actual)} equals {_safe_repr(expected)}"
-        return False, f"{_safe_repr(actual)} does not equal {_safe_repr(expected)}"
+        # Handle numeric comparisons
+        if operator in (
+            EnumCriteriaOperator.GREATER_THAN,
+            EnumCriteriaOperator.LESS_THAN,
+            EnumCriteriaOperator.GREATER_OR_EQUAL,
+            EnumCriteriaOperator.LESS_OR_EQUAL,
+        ):
+            return _apply_numeric_operator(actual, operator, expected)
 
-    if operator == EnumCriteriaOperator.NOT_EQUALS:
-        if actual != expected:
-            return True, f"{_safe_repr(actual)} does not equal {_safe_repr(expected)}"
-        return False, f"{_safe_repr(actual)} equals {_safe_repr(expected)}"
+        # Handle contains operators
+        if operator == EnumCriteriaOperator.CONTAINS:
+            return _apply_contains(actual, expected, negate=False)
 
-    # Handle numeric comparisons
-    if operator in (
-        EnumCriteriaOperator.GREATER_THAN,
-        EnumCriteriaOperator.LESS_THAN,
-        EnumCriteriaOperator.GREATER_OR_EQUAL,
-        EnumCriteriaOperator.LESS_OR_EQUAL,
-    ):
-        return _apply_numeric_operator(actual, operator, expected)
+        if operator == EnumCriteriaOperator.NOT_CONTAINS:
+            return _apply_contains(actual, expected, negate=True)
 
-    # Handle contains operators
-    if operator == EnumCriteriaOperator.CONTAINS:
-        return _apply_contains(actual, expected, negate=False)
+        # Handle regex
+        if operator == EnumCriteriaOperator.REGEX:
+            return _apply_regex(actual, expected)
 
-    if operator == EnumCriteriaOperator.NOT_CONTAINS:
-        return _apply_contains(actual, expected, negate=True)
-
-    # Handle regex
-    if operator == EnumCriteriaOperator.REGEX:
-        return _apply_regex(actual, expected)
-
-    raise AssertionError(operator)
+        raise AssertionError(operator)
 
 
 # =============================================================================
@@ -454,7 +455,11 @@ def _evaluate_criterion(
 
     # Resolve field path
     try:
-        actual = resolve_field_path(outcome, field) if field else MISSING
+        actual = (
+            HandlerCriteriaMatching.resolve_field_path(outcome, field)
+            if field
+            else MISSING
+        )
     except CriteriaMatchingValidationError:
         # Invalid field path - treat as MISSING but record the error
         actual = MISSING
@@ -466,7 +471,9 @@ def _evaluate_criterion(
     if operator == EnumCriteriaOperator.REGEX and criterion_id in compiled_regex:
         matched, reason = _apply_compiled_regex(actual, compiled_regex[criterion_id])
     else:
-        matched, reason = apply_operator(actual, operator, expected)
+        matched, reason = HandlerCriteriaMatching.apply_operator(
+            actual, operator, expected
+        )
 
     # Determine actual_value for output (None if MISSING)
     # Cast needed because mypy doesn't narrow MaybeJsonValue after MISSING check
@@ -669,36 +676,4 @@ def _truncate(s: str, max_len: int) -> str:
     return s[: max_len - 3] + "..."
 
 
-# =============================================================================
-# Public Wrapper (Naming Convention)
-# =============================================================================
-
-
-def handle_match_criteria(
-    outcome: dict[str, object],
-    criteria: list[SuccessCriterionDict],
-) -> CriteriaMatchResult:
-    """Handle success criteria matching (naming convention wrapper).
-
-    This function follows the ONEX handler naming convention (handle_*)
-    and delegates to the core match_criteria function.
-
-    Args:
-        outcome: Dictionary containing execution results to match against.
-        criteria: List of success criteria to evaluate.
-
-    Returns:
-        CriteriaMatchResult with match status, scores, and details.
-
-    Raises:
-        CriteriaMatchingValidationError: If criteria set is invalid.
-    """
-    return match_criteria(outcome, criteria)
-
-
-__all__ = [
-    "apply_operator",
-    "handle_match_criteria",
-    "match_criteria",
-    "resolve_field_path",
-]
+__all__ = ["HandlerCriteriaMatching"]

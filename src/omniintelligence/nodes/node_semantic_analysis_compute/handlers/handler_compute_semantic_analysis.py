@@ -4,7 +4,7 @@
 """Handler for semantic analysis compute node.
 
 Main handler function for semantic analysis computation.
-It bridges the pure analyze_semantics function (which returns TypedDicts) to the
+It bridges the pure HandlerSemanticAnalysis handler (which returns TypedDicts) to the
 node's Pydantic input/output models.
 
 Design Decisions:
@@ -28,7 +28,7 @@ from typing import cast
 
 from omniintelligence.nodes.node_semantic_analysis_compute.handlers.handler_semantic_analysis import (
     ANALYSIS_VERSION_STR,
-    analyze_semantics,
+    HandlerSemanticAnalysis,
 )
 from omniintelligence.nodes.node_semantic_analysis_compute.handlers.protocols import (
     EntityDict,
@@ -43,6 +43,9 @@ from omniintelligence.nodes.node_semantic_analysis_compute.models import (
     ModelSemanticRelation,
     SemanticAnalysisMetadataDict,
     SemanticFeaturesDict,
+)
+from omniintelligence.nodes.node_semantic_analysis_compute.models.model_semantic_analysis_request import (
+    ModelSemanticAnalysisRequest,
 )
 from omniintelligence.nodes.node_semantic_analysis_compute.models.model_semantic_entity import (
     SemanticEntityMetadataDict,
@@ -61,7 +64,7 @@ class HandlerSemanticAnalysisCompute:
 
         This is the main handler method for semantic analysis. It:
         1. Extracts parameters from the input model
-        2. Calls the pure analyze_semantics function
+        2. Calls the pure HandlerSemanticAnalysis handler
         3. Converts TypedDict results to Pydantic models
         4. Handles all error cases with logging
 
@@ -81,11 +84,13 @@ class HandlerSemanticAnalysisCompute:
         language = request.context.get("source_language", "python")
 
         # Call the pure handler function
-        result = analyze_semantics(
-            content=content,
-            language=language,
-            include_call_graph=True,
-            include_import_graph=True,
+        result = HandlerSemanticAnalysis().handle(
+            ModelSemanticAnalysisRequest(
+                content=content,
+                language=language,
+                include_call_graph=True,
+                include_import_graph=True,
+            )
         )
 
         # Convert handler TypedDicts to Pydantic models

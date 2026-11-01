@@ -27,7 +27,8 @@ Operation Routing:
 Usage:
     from omniintelligence.nodes.node_pattern_matching_compute.handlers import (
         HandlerPatternMatchingCompute,
-        match_patterns,
+        HandlerPatternMatching,
+        ModelPatternMatchingRequest,
         PatternRecord,
         PatternMatchDetail,
     )
@@ -38,12 +39,14 @@ Usage:
 
     # Using the pure matching function directly
     patterns: list[PatternRecord] = [...]
-    result = match_patterns(
-        code_snippet="def foo(): return None",
-        patterns=patterns,
-        min_confidence=0.5,
-        max_results=10,
-        operation="match",
+    result = HandlerPatternMatching().handle(
+        ModelPatternMatchingRequest(
+            code_snippet="def foo(): return None",
+            patterns=patterns,
+            min_confidence=0.5,
+            max_results=10,
+            operation="match",
+        )
     )
 """
 
@@ -56,8 +59,7 @@ from omniintelligence.nodes.node_pattern_matching_compute.handlers.handler_compu
 )
 from omniintelligence.nodes.node_pattern_matching_compute.handlers.handler_pattern_matching import (
     ALGORITHM_VERSION,
-    PatternOperation,
-    match_patterns,
+    HandlerPatternMatching,
 )
 from omniintelligence.nodes.node_pattern_matching_compute.handlers.protocols import (
     PatternMatchDetail,
@@ -65,10 +67,16 @@ from omniintelligence.nodes.node_pattern_matching_compute.handlers.protocols imp
     PatternRecord,
     create_empty_handler_result,
 )
+from omniintelligence.nodes.node_pattern_matching_compute.models.model_pattern_matching_request import (
+    ModelPatternMatchingRequest,
+    PatternOperation,
+)
 
 __all__ = [
     "ALGORITHM_VERSION",
+    "HandlerPatternMatching",
     "HandlerPatternMatchingCompute",
+    "ModelPatternMatchingRequest",
     "PatternMatchDetail",
     "PatternMatchingComputeError",
     "PatternMatchingHandlerResult",
@@ -76,5 +84,4 @@ __all__ = [
     "PatternOperation",
     "PatternRecord",
     "create_empty_handler_result",
-    "match_patterns",
 ]

@@ -11,21 +11,24 @@ from __future__ import annotations
 import pytest
 
 from omniintelligence.nodes.node_pattern_matching_compute.handlers import (
+    HandlerPatternMatching,
+    ModelPatternMatchingRequest,
     PatternRecord,
-    match_patterns,
 )
 
 
 @pytest.mark.unit
 class TestMatchPatterns:
-    """Tests for the match_patterns function."""
+    """Tests for HandlerPatternMatching.handle."""
 
     def test_empty_pattern_library_returns_empty_result(self) -> None:
         """Empty pattern library should return success with no matches."""
-        result = match_patterns(
-            code_snippet="def foo(): return None",
-            patterns=[],
-            min_confidence=0.5,
+        result = HandlerPatternMatching().handle(
+            ModelPatternMatchingRequest(
+                code_snippet="def foo(): return None",
+                patterns=[],
+                min_confidence=0.5,
+            )
         )
         assert result["success"] is True
         assert result["matches"] == []
@@ -62,11 +65,13 @@ class TestMatchPatterns:
                 return cls._instance
         """
 
-        result = match_patterns(
-            code_snippet=code,
-            patterns=patterns,
-            min_confidence=0.1,  # Low threshold to ensure matches
-            operation="match",
+        result = HandlerPatternMatching().handle(
+            ModelPatternMatchingRequest(
+                code_snippet=code,
+                patterns=patterns,
+                min_confidence=0.1,  # Low threshold to ensure matches
+                operation="match",
+            )
         )
 
         assert result["success"] is True
@@ -90,11 +95,13 @@ class TestMatchPatterns:
 
         code = "def calculate(x: int, y: int) -> int:\n    return x + y"
 
-        result = match_patterns(
-            code_snippet=code,
-            patterns=patterns,
-            min_confidence=0.5,
-            operation="validate",
+        result = HandlerPatternMatching().handle(
+            ModelPatternMatchingRequest(
+                code_snippet=code,
+                patterns=patterns,
+                min_confidence=0.5,
+                operation="validate",
+            )
         )
 
         assert result["success"] is True
@@ -116,11 +123,13 @@ class TestMatchPatterns:
         # Code contains the literal invalid pattern string
         code = "[invalid(regex is here"
 
-        result = match_patterns(
-            code_snippet=code,
-            patterns=patterns,
-            min_confidence=0.5,
-            operation="validate",
+        result = HandlerPatternMatching().handle(
+            ModelPatternMatchingRequest(
+                code_snippet=code,
+                patterns=patterns,
+                min_confidence=0.5,
+                operation="validate",
+            )
         )
 
         assert result["success"] is True
@@ -149,11 +158,13 @@ class TestMatchPatterns:
 
         code = "# This is a pattern example"
 
-        result = match_patterns(
-            code_snippet=code,
-            patterns=patterns,
-            min_confidence=0.0,
-            pattern_categories=["anti_pattern"],
+        result = HandlerPatternMatching().handle(
+            ModelPatternMatchingRequest(
+                code_snippet=code,
+                patterns=patterns,
+                min_confidence=0.0,
+                pattern_categories=["anti_pattern"],
+            )
         )
 
         # Only p2 should be analyzed
@@ -176,11 +187,13 @@ class TestMatchPatterns:
 
         code = "# test pattern code"
 
-        result = match_patterns(
-            code_snippet=code,
-            patterns=patterns,
-            min_confidence=0.0,
-            max_results=3,
+        result = HandlerPatternMatching().handle(
+            ModelPatternMatchingRequest(
+                code_snippet=code,
+                patterns=patterns,
+                min_confidence=0.0,
+                max_results=3,
+            )
         )
 
         assert len(result["matches"]) <= 3
@@ -199,10 +212,12 @@ class TestMatchPatterns:
 
         code = "completely unrelated code"
 
-        result = match_patterns(
-            code_snippet=code,
-            patterns=patterns,
-            min_confidence=0.9,  # High threshold
+        result = HandlerPatternMatching().handle(
+            ModelPatternMatchingRequest(
+                code_snippet=code,
+                patterns=patterns,
+                min_confidence=0.9,  # High threshold
+            )
         )
 
         # Should filter out low-confidence matches
@@ -223,9 +238,11 @@ class TestMatchPatterns:
             ),
         ]
 
-        result = match_patterns(
-            code_snippet="",
-            patterns=patterns,
+        result = HandlerPatternMatching().handle(
+            ModelPatternMatchingRequest(
+                code_snippet="",
+                patterns=patterns,
+            )
         )
 
         assert result["success"] is False
@@ -246,9 +263,11 @@ class TestMatchPatterns:
             ),
         ]
 
-        result = match_patterns(
-            code_snippet="   \n\t  ",
-            patterns=patterns,
+        result = HandlerPatternMatching().handle(
+            ModelPatternMatchingRequest(
+                code_snippet="   \n\t  ",
+                patterns=patterns,
+            )
         )
 
         assert result["success"] is False
@@ -261,10 +280,12 @@ class TestMatchPatterns:
         Per ONEX handler pattern, validation errors return structured output
         with success=False instead of raising exceptions.
         """
-        result = match_patterns(
-            code_snippet="code",
-            patterns=[],
-            min_confidence=1.5,
+        result = HandlerPatternMatching().handle(
+            ModelPatternMatchingRequest(
+                code_snippet="code",
+                patterns=[],
+                min_confidence=1.5,
+            )
         )
 
         assert result["success"] is False
@@ -277,10 +298,12 @@ class TestMatchPatterns:
         Per ONEX handler pattern, validation errors return structured output
         with success=False instead of raising exceptions.
         """
-        result = match_patterns(
-            code_snippet="code",
-            patterns=[],
-            max_results=0,
+        result = HandlerPatternMatching().handle(
+            ModelPatternMatchingRequest(
+                code_snippet="code",
+                patterns=[],
+                max_results=0,
+            )
         )
 
         assert result["success"] is False
@@ -308,10 +331,12 @@ class TestMatchPatterns:
 
         code = "this is a test pattern match example"
 
-        result = match_patterns(
-            code_snippet=code,
-            patterns=patterns,
-            min_confidence=0.0,
+        result = HandlerPatternMatching().handle(
+            ModelPatternMatchingRequest(
+                code_snippet=code,
+                patterns=patterns,
+                min_confidence=0.0,
+            )
         )
 
         if len(result["matches"]) >= 2:
@@ -330,10 +355,12 @@ class TestMatchPatterns:
             ),
         ]
 
-        result = match_patterns(
-            code_snippet="this is a test",
-            patterns=patterns,
-            min_confidence=0.0,
+        result = HandlerPatternMatching().handle(
+            ModelPatternMatchingRequest(
+                code_snippet="this is a test",
+                patterns=patterns,
+                min_confidence=0.0,
+            )
         )
 
         if result["matches"]:
@@ -371,10 +398,12 @@ class TestKeywordExtraction:
         meaningful identifier here
         """
 
-        result = match_patterns(
-            code_snippet=code,
-            patterns=patterns,
-            min_confidence=0.0,
+        result = HandlerPatternMatching().handle(
+            ModelPatternMatchingRequest(
+                code_snippet=code,
+                patterns=patterns,
+                min_confidence=0.0,
+            )
         )
 
         # Should match on 'meaningful' and 'identifier', not Python keywords
@@ -398,10 +427,12 @@ class TestKeywordExtraction:
                 pass
         """
 
-        result = match_patterns(
-            code_snippet=code,
-            patterns=patterns,
-            min_confidence=0.0,
+        result = HandlerPatternMatching().handle(
+            ModelPatternMatchingRequest(
+                code_snippet=code,
+                patterns=patterns,
+                min_confidence=0.0,
+            )
         )
 
         # Should match on 'user_repository' keyword

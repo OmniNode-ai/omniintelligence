@@ -113,7 +113,7 @@ from typing import Literal, NamedTuple
 from uuid import uuid4
 
 from omniintelligence.handlers.handler_review_standing_rules import (
-    handle as handle_standing_rules,
+    HandlerReviewStandingRules,
 )
 from omniintelligence.models.review.model_review_budgets import shipped_review_budgets
 from omniintelligence.models.review.model_review_standing_rules import (
@@ -446,7 +446,7 @@ def _load_standing_rules(
     """
     try:
         if base_ref is None:
-            result = handle_standing_rules(
+            result = HandlerReviewStandingRules().handle(
                 ModelStandingRulesRequest(rules_text=_read_rules_text(rules_file))
             )
             return _RulesLoad(result, rules_file, None)
@@ -456,7 +456,7 @@ def _load_standing_rules(
                 rules_file,
                 "--rules-file must be repo-relative when --rules-base-ref is set",
             )
-        result = handle_standing_rules(
+        result = HandlerReviewStandingRules().handle(
             ModelStandingRulesRequest(
                 rules_text=_git_show(repo_dir, base_ref, rules_file),
                 compare_candidate=True,

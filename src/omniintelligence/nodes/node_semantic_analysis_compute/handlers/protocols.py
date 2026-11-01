@@ -21,7 +21,7 @@ Usage:
         create_empty_features,
     )
 
-    def analyze_semantics(...) -> SemanticAnalysisResult:
+    def handle(request) -> SemanticAnalysisResult:
         return {
             "success": True,
             "parse_ok": True,
@@ -228,7 +228,7 @@ class SemanticAnalysisResult(TypedDict):
     """Result structure for semantic analysis handler.
 
     This TypedDict defines the guaranteed structure returned by
-    the analyze_semantics function.
+    the HandlerSemanticAnalysis.handle method.
 
     All Attributes are Required:
         success: Whether the analysis completed without errors.

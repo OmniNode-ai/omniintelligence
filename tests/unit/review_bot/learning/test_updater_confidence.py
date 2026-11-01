@@ -9,6 +9,9 @@ Tests cover OMN-2499 acceptance criteria:
 
 from __future__ import annotations
 
+from omniintelligence.models.review.model_finding_feedback_signal import (
+    ModelFindingFeedbackSignal,
+)
 from omniintelligence.review_bot.learning.handler_finding_feedback import (
     HandlerFindingFeedback,
 )
@@ -29,13 +32,13 @@ def make_handler(*decisions: str, rule_id: str = "formatter") -> HandlerFindingF
         signal_type = (
             "remediation_accepted" if decision == "accepted" else "remediation_rejected"
         )
-        handler.handle_signal(
-            {
-                "signal_type": signal_type,
-                "finding_id": f"id-{i}",
-                "rule_id": rule_id,
-                "confidence": 0.8,
-            }
+        handler.handle(
+            ModelFindingFeedbackSignal(
+                signal_type=signal_type,
+                finding_id=f"id-{i}",
+                rule_id=rule_id,
+                confidence=0.8,
+            )
         )
     return handler
 

@@ -69,10 +69,13 @@ from omniintelligence.nodes.node_ast_extraction_compute.models.model_code_relati
 )
 from omniintelligence.nodes.node_semantic_analysis_compute.handlers.handler_semantic_analysis import (
     ANALYSIS_VERSION_STR,
-    analyze_semantics,
+    HandlerSemanticAnalysis,
 )
 from omniintelligence.nodes.node_semantic_analysis_compute.handlers.protocols import (
     SemanticAnalysisResult,
+)
+from omniintelligence.nodes.node_semantic_analysis_compute.models.model_semantic_analysis_request import (
+    ModelSemanticAnalysisRequest,
 )
 
 _MAPPER_VERSION = "1.0.0"
@@ -206,7 +209,9 @@ def _extract_python(
 
     semantic_result: SemanticAnalysisResult | None = None
     if source_text.strip():
-        analyzed = analyze_semantics(source_text, language="python")
+        analyzed = HandlerSemanticAnalysis().handle(
+            ModelSemanticAnalysisRequest(content=source_text, language="python")
+        )
         if not analyzed["success"] or not analyzed["parse_ok"]:
             msg = f"semantic analysis failed for {relative_path}"
             raise CodeProjectionExtractionError(msg)

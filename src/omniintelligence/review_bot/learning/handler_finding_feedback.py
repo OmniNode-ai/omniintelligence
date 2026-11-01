@@ -15,6 +15,10 @@ import sys
 from dataclasses import dataclass
 from typing import Literal
 
+from omniintelligence.models.review.model_finding_feedback_signal import (
+    ModelFindingFeedbackSignal,
+)
+
 
 @dataclass
 class FeedbackRecord:
@@ -43,7 +47,7 @@ class HandlerFindingFeedback:
     Usage::
 
         handler = HandlerFindingFeedback()
-        handler.handle_signal(signal)
+        handler.handle(signal)
         records = handler.get_records_for_rule("formatter")
     """
 
@@ -51,10 +55,10 @@ class HandlerFindingFeedback:
         # rule_id -> list of FeedbackRecord
         self._records: dict[str, list[FeedbackRecord]] = {}
 
-    def handle_signal(self, signal: dict[str, object]) -> FeedbackRecord | None:
-        """Process a remediation signal dict and store a feedback record.
+    def handle(self, request: ModelFindingFeedbackSignal) -> FeedbackRecord | None:
+        """Process a remediation signal and store a feedback record.
 
-        Accepts the signal format emitted by RemediationPipeline:
+        Accepts the signal fields emitted by RemediationPipeline:
             {
                 "signal_type": "remediation_accepted" | "remediation_rejected",
                 "finding_id": str,
@@ -63,12 +67,12 @@ class HandlerFindingFeedback:
             }
 
         Args:
-            signal: Signal dict from RemediationPipeline.
+            request: Signal from RemediationPipeline.
 
         Returns:
             The stored FeedbackRecord, or None if the signal is malformed.
         """
-        signal_type = signal.get("signal_type")
+        signal_type = request.signal_type
         if signal_type not in ("remediation_accepted", "remediation_rejected"):
             print(
                 f"WARNING: Unknown signal type: {signal_type!r}",
@@ -76,9 +80,9 @@ class HandlerFindingFeedback:
             )
             return None
 
-        finding_id = signal.get("finding_id")
-        rule_id = signal.get("rule_id")
-        confidence = signal.get("confidence")
+        finding_id = request.finding_id
+        rule_id = request.rule_id
+        confidence = request.confidence
 
         if not isinstance(finding_id, str) or not isinstance(rule_id, str):
             print("WARNING: Signal missing finding_id or rule_id", file=sys.stderr)
@@ -123,10 +127,6 @@ class HandlerFindingFeedback:
             Sorted list of rule IDs.
         """
         return sorted(self._records.keys())
-
-    def clear(self) -> None:
-        """Clear all stored records (useful for testing)."""
-        self._records.clear()
 
 
 __all__ = ["FeedbackRecord", "HandlerFindingFeedback"]

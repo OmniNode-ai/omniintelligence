@@ -19,7 +19,9 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from omniintelligence.handlers.handler_review_standing_rules import handle
+from omniintelligence.handlers.handler_review_standing_rules import (
+    HandlerReviewStandingRules,
+)
 from omniintelligence.models.review.model_review_standing_rules import (
     ModelReviewStandingRules,
 )
@@ -327,7 +329,9 @@ class TestGatedReviewRequiresRules:
 
 
 def _load(text: str) -> ModelReviewStandingRules:
-    result = handle(ModelStandingRulesRequest(rules_text=text))
+    result = HandlerReviewStandingRules().handle(
+        ModelStandingRulesRequest(rules_text=text)
+    )
     assert result.ok, result.errors
     assert result.rules is not None
     return result.rules
@@ -565,7 +569,11 @@ class TestPrCannotWeakenBaseRules:
         # The pull request's own file is schema-valid, so a reviewer that loaded
         # the file from the pull request's branch would accept it.
         if pr_rules is not None:
-            assert handle(ModelStandingRulesRequest(rules_text=pr_rules)).ok
+            assert (
+                HandlerReviewStandingRules()
+                .handle(ModelStandingRulesRequest(rules_text=pr_rules))
+                .ok
+            )
         repo = _repo_with_base_and_pr(
             tmp_path, base_rules=_RULES_YAML, pr_rules=pr_rules
         )
@@ -657,7 +665,9 @@ class TestStandingRulesHandler:
 
     def test_handler_returns_structured_errors_and_never_raises(self) -> None:
         for text in ("", "rules: [", None, "\x00"):
-            result = handle(ModelStandingRulesRequest(rules_text=text))
+            result = HandlerReviewStandingRules().handle(
+                ModelStandingRulesRequest(rules_text=text)
+            )
             assert result.ok is False
             assert result.rules is None
             assert result.errors
@@ -669,7 +679,7 @@ class TestStandingRulesHandler:
             (_RULES_REWORDED_YAML, "reworded"),
             (None, "removed"),
         ):
-            result = handle(
+            result = HandlerReviewStandingRules().handle(
                 ModelStandingRulesRequest(
                     rules_text=_RULES_YAML,
                     compare_candidate=True,
@@ -687,7 +697,7 @@ class TestStandingRulesHandler:
     ) -> None:
         edited = _RULES_YAML.replace("A change touches one concern.", "One concern.")
         for candidate in (_RULES_EXTENDED_YAML, edited):
-            result = handle(
+            result = HandlerReviewStandingRules().handle(
                 ModelStandingRulesRequest(
                     rules_text=_RULES_YAML,
                     compare_candidate=True,

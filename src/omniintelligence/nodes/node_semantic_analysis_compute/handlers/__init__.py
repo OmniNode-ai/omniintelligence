@@ -22,7 +22,7 @@ Semantic Analysis Components:
 
 Usage:
     from omniintelligence.nodes.node_semantic_analysis_compute.handlers import (
-        analyze_semantics,
+        HandlerSemanticAnalysis,
         SemanticAnalysisResult,
         EntityDict,
         RelationDict,
@@ -31,18 +31,19 @@ Usage:
         create_empty_features,
     )
 
-    result: SemanticAnalysisResult = analyze_semantics(
-        content="class MyModel: ...",
-        language="python",
+    result: SemanticAnalysisResult = HandlerSemanticAnalysis().handle(
+        ModelSemanticAnalysisRequest(content="class MyModel: ...", language="python"),
     )
 
 Example:
     >>> from omniintelligence.nodes.node_semantic_analysis_compute.handlers import (
-    ...     analyze_semantics,
+    ...     HandlerSemanticAnalysis,
     ...     create_error_result,
     ...     create_empty_features,
     ... )
-    >>> result = analyze_semantics("def foo(): pass")
+    >>> result = HandlerSemanticAnalysis().handle(
+    ...     ModelSemanticAnalysisRequest(content="def foo(): pass")
+    ... )
     >>> result["success"]
     True
     >>> len(result["entities"]) >= 1
@@ -66,7 +67,7 @@ from omniintelligence.nodes.node_semantic_analysis_compute.handlers.handler_comp
 from omniintelligence.nodes.node_semantic_analysis_compute.handlers.handler_semantic_analysis import (
     ANALYSIS_VERSION,
     ANALYSIS_VERSION_STR,
-    analyze_semantics,
+    HandlerSemanticAnalysis,
 )
 from omniintelligence.nodes.node_semantic_analysis_compute.handlers.protocols import (
     EntityDict,
@@ -100,7 +101,7 @@ __all__ = [
     "SemanticFeaturesDict",
     "SemanticFunctionMetadata",
     "SemanticImportMetadata",
-    "analyze_semantics",
+    "HandlerSemanticAnalysis",
     "create_empty_features",
     "create_error_result",
 ]

@@ -10,6 +10,9 @@ Tests cover OMN-2499 acceptance criteria:
 
 from __future__ import annotations
 
+from omniintelligence.models.review.model_finding_feedback_signal import (
+    ModelFindingFeedbackSignal,
+)
 from omniintelligence.review_bot.learning.detector_overflagging import (
     OVERFLAGGING_THRESHOLD,
     OVERFLAGGING_WINDOW,
@@ -31,13 +34,13 @@ def make_handler(*decisions: str, rule_id: str = "formatter") -> HandlerFindingF
         signal_type = (
             "remediation_accepted" if decision == "accepted" else "remediation_rejected"
         )
-        handler.handle_signal(
-            {
-                "signal_type": signal_type,
-                "finding_id": f"id-{i}",
-                "rule_id": rule_id,
-                "confidence": 0.8,
-            }
+        handler.handle(
+            ModelFindingFeedbackSignal(
+                signal_type=signal_type,
+                finding_id=f"id-{i}",
+                rule_id=rule_id,
+                confidence=0.8,
+            )
         )
     return handler
 
@@ -51,13 +54,13 @@ class TestFeedbackStorage:
     def test_accepted_signal_stored(self) -> None:
         """R1: remediation_accepted signal creates an 'accepted' record."""
         handler = HandlerFindingFeedback()
-        record = handler.handle_signal(
-            {
-                "signal_type": "remediation_accepted",
-                "finding_id": "abc-123",
-                "rule_id": "formatter",
-                "confidence": 0.9,
-            }
+        record = handler.handle(
+            ModelFindingFeedbackSignal(
+                signal_type="remediation_accepted",
+                finding_id="abc-123",
+                rule_id="formatter",
+                confidence=0.9,
+            )
         )
 
         assert record is not None
@@ -67,13 +70,13 @@ class TestFeedbackStorage:
     def test_rejected_signal_stored(self) -> None:
         """R1: remediation_rejected signal creates a 'rejected' record."""
         handler = HandlerFindingFeedback()
-        record = handler.handle_signal(
-            {
-                "signal_type": "remediation_rejected",
-                "finding_id": "def-456",
-                "rule_id": "import_sort",
-                "confidence": 0.7,
-            }
+        record = handler.handle(
+            ModelFindingFeedbackSignal(
+                signal_type="remediation_rejected",
+                finding_id="def-456",
+                rule_id="import_sort",
+                confidence=0.7,
+            )
         )
 
         assert record is not None
@@ -91,21 +94,21 @@ class TestFeedbackStorage:
     def test_different_rules_isolated(self) -> None:
         """R1: Records for different rules are isolated."""
         handler = HandlerFindingFeedback()
-        handler.handle_signal(
-            {
-                "signal_type": "remediation_accepted",
-                "finding_id": "1",
-                "rule_id": "formatter",
-                "confidence": 0.8,
-            }
+        handler.handle(
+            ModelFindingFeedbackSignal(
+                signal_type="remediation_accepted",
+                finding_id="1",
+                rule_id="formatter",
+                confidence=0.8,
+            )
         )
-        handler.handle_signal(
-            {
-                "signal_type": "remediation_rejected",
-                "finding_id": "2",
-                "rule_id": "import_sort",
-                "confidence": 0.6,
-            }
+        handler.handle(
+            ModelFindingFeedbackSignal(
+                signal_type="remediation_rejected",
+                finding_id="2",
+                rule_id="import_sort",
+                confidence=0.6,
+            )
         )
 
         assert len(handler.get_records_for_rule("formatter")) == 1
@@ -113,40 +116,39 @@ class TestFeedbackStorage:
 
     def test_unknown_signal_type_returns_none(self) -> None:
         handler = HandlerFindingFeedback()
-        result = handler.handle_signal(
-            {
-                "signal_type": "unknown",
-                "rule_id": "r",
-                "finding_id": "1",
-                "confidence": 0.5,
-            }
+        result = handler.handle(
+            ModelFindingFeedbackSignal(
+                signal_type="unknown", rule_id="r", finding_id="1", confidence=0.5
+            )
         )
         assert result is None
 
     def test_missing_finding_id_returns_none(self) -> None:
         handler = HandlerFindingFeedback()
-        result = handler.handle_signal(
-            {"signal_type": "remediation_accepted", "rule_id": "r", "confidence": 0.5}
+        result = handler.handle(
+            ModelFindingFeedbackSignal(
+                signal_type="remediation_accepted", rule_id="r", confidence=0.5
+            )
         )
         assert result is None
 
     def test_get_all_rule_ids(self) -> None:
         handler = HandlerFindingFeedback()
-        handler.handle_signal(
-            {
-                "signal_type": "remediation_accepted",
-                "finding_id": "1",
-                "rule_id": "b",
-                "confidence": 0.8,
-            }
+        handler.handle(
+            ModelFindingFeedbackSignal(
+                signal_type="remediation_accepted",
+                finding_id="1",
+                rule_id="b",
+                confidence=0.8,
+            )
         )
-        handler.handle_signal(
-            {
-                "signal_type": "remediation_accepted",
-                "finding_id": "2",
-                "rule_id": "a",
-                "confidence": 0.8,
-            }
+        handler.handle(
+            ModelFindingFeedbackSignal(
+                signal_type="remediation_accepted",
+                finding_id="2",
+                rule_id="a",
+                confidence=0.8,
+            )
         )
 
         rule_ids = handler.get_all_rule_ids()
@@ -232,22 +234,22 @@ class TestOverflaggingDetection:
         handler = HandlerFindingFeedback()
         for rule in ["rule_a", "rule_b"]:
             for i in range(8):
-                handler.handle_signal(
-                    {
-                        "signal_type": "remediation_rejected",
-                        "finding_id": f"{rule}-{i}",
-                        "rule_id": rule,
-                        "confidence": 0.7,
-                    }
+                handler.handle(
+                    ModelFindingFeedbackSignal(
+                        signal_type="remediation_rejected",
+                        finding_id=f"{rule}-{i}",
+                        rule_id=rule,
+                        confidence=0.7,
+                    )
                 )
             for i in range(2):
-                handler.handle_signal(
-                    {
-                        "signal_type": "remediation_accepted",
-                        "finding_id": f"{rule}-acc-{i}",
-                        "rule_id": rule,
-                        "confidence": 0.7,
-                    }
+                handler.handle(
+                    ModelFindingFeedbackSignal(
+                        signal_type="remediation_accepted",
+                        finding_id=f"{rule}-acc-{i}",
+                        rule_id=rule,
+                        confidence=0.7,
+                    )
                 )
 
         detector = DetectorOverflagging(handler=handler)
@@ -284,13 +286,13 @@ class TestOverflaggingDetection:
         handler = HandlerFindingFeedback()
         for rule in ["z_rule", "a_rule", "m_rule"]:
             for i in range(10):
-                handler.handle_signal(
-                    {
-                        "signal_type": "remediation_rejected",
-                        "finding_id": f"{rule}-{i}",
-                        "rule_id": rule,
-                        "confidence": 0.8,
-                    }
+                handler.handle(
+                    ModelFindingFeedbackSignal(
+                        signal_type="remediation_rejected",
+                        finding_id=f"{rule}-{i}",
+                        rule_id=rule,
+                        confidence=0.8,
+                    )
                 )
 
         detector = DetectorOverflagging(handler=handler)

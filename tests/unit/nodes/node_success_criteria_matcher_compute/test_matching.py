@@ -24,11 +24,24 @@ pytestmark = pytest.mark.unit
 
 from omniintelligence.nodes.node_success_criteria_matcher_compute.handlers import (
     CriteriaMatchingValidationError,
-    match_criteria,
+    CriteriaMatchResult,
+    HandlerCriteriaMatching,
 )
 from omniintelligence.nodes.node_success_criteria_matcher_compute.models import (
     ModelSuccessCriteriaInput,
 )
+from omniintelligence.nodes.node_success_criteria_matcher_compute.models.model_criteria_match_request import (
+    ModelCriteriaMatchRequest,
+)
+
+
+def match_criteria(
+    outcome: dict[str, object], criteria: list[dict[str, object]]
+) -> CriteriaMatchResult:
+    """Test shorthand for ``HandlerCriteriaMatching().handle(request)``."""
+    return HandlerCriteriaMatching().handle(
+        ModelCriteriaMatchRequest(outcome=outcome, criteria=criteria)
+    )
 
 
 class TestMatchCriteriaBasicMatching:

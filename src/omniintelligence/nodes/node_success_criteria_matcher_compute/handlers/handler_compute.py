@@ -47,7 +47,10 @@ from omniintelligence.nodes.node_success_criteria_matcher_compute.handlers.excep
     CriteriaMatchingValidationError,
 )
 from omniintelligence.nodes.node_success_criteria_matcher_compute.handlers.handler_criteria_matching import (
-    match_criteria,
+    HandlerCriteriaMatching,
+)
+from omniintelligence.nodes.node_success_criteria_matcher_compute.models.model_criteria_match_request import (
+    ModelCriteriaMatchRequest,
 )
 from omniintelligence.nodes.node_success_criteria_matcher_compute.models.model_success_criteria_input import (
     ModelSuccessCriteriaInput,
@@ -189,7 +192,9 @@ def _execute_matching(
     )
 
     # Perform matching
-    result = match_criteria(outcome, criteria)
+    result = HandlerCriteriaMatching().handle(
+        ModelCriteriaMatchRequest(outcome=outcome, criteria=criteria)
+    )
 
     processing_time = (time.perf_counter() - start_time) * 1000
 
