@@ -1,0 +1,57 @@
+---
+schema_version: 1.0.0
+ticket_id: OMN-21878
+title: Update the locked transformers dependency to 5.10.1
+summary: >-
+  Update transformers from 4.57.6 to 5.10.1 in uv.lock for the opt-in rl dependency group. Verify the
+  selected version, the artifact hashes and that the rl group declaration still admits the locked version.
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: req-omn21878-transformers-upgrade
+    statement: The project resolves transformers 5.10.1 from its lockfile.
+    acceptance:
+      - id: AC1
+        statement: The unique transformers lock entry and its distribution URLs select version 5.10.1.
+      - id: AC2
+        statement: Every transformers artifact in the lock carries a sha256 hash and names 5.10.1.
+      - id: AC3
+        statement: The rl group declares transformers with a lower bound the locked 5.10.1 satisfies.
+evidence_requirements:
+  - kind: tests
+    description: Run the transformers lockfile assertions.
+    command: env PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/unit/test_transformers_lock_omn21878.py
+      -q
+emergency_bypass:
+  enabled: false
+  justification: ''
+  follow_up_ticket_id: ''
+dod_evidence:
+  - id: dod-omn21878-ac1-lock-version
+    description: Reject a missing, duplicate or stale transformers lock entry or distribution URL.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/test_transformers_lock_omn21878.py -q -n 0 --no-cov -k test_lock_selects_transformers_5_10_1
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC1
+  - id: dod-omn21878-ac2-artifact-hashes
+    description: Reject a transformers lock artifact without a sha256 hash or naming another version.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/test_transformers_lock_omn21878.py -q -n 0 --no-cov -k test_lock_transformers_artifacts_are_consistent
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC2
+  - id: dod-omn21878-ac3-rl-group-floor
+    description: Reject an rl group whose transformers declaration is missing or excludes the locked version.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/test_transformers_lock_omn21878.py -q -n 0 --no-cov -k test_rl_group_declares_transformers
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC3
