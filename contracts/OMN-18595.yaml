@@ -34,8 +34,8 @@ dod_evidence:
     description: pyproject.toml declares version 0.25.1.
     source: manual
     checks:
-      - check_type: command_succeeds
-        check_value: rg -n '^version = "0.25.1"$' pyproject.toml
+      - check_type: command
+        check_value: grep -nE '^version = "0.25.1"$' pyproject.toml
         cwd: ${OMNI_HOME}/omniintelligence
     binds_ac:
       - AC1
@@ -43,8 +43,8 @@ dod_evidence:
     description: CHANGELOG.md carries the v0.25.1 block.
     source: manual
     checks:
-      - check_type: command_succeeds
-        check_value: rg -n '^## v0.25.1 ' CHANGELOG.md
+      - check_type: command
+        check_value: grep -nE '^## v0.25.1 ' CHANGELOG.md
         cwd: ${OMNI_HOME}/omniintelligence
     binds_ac:
       - AC2
