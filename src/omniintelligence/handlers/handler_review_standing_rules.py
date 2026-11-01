@@ -74,30 +74,30 @@ def _weakened(
     return tuple(found)
 
 
-def handle(request: ModelStandingRulesRequest) -> ModelStandingRulesResult:
-    """Validate the authoritative rules; when asked, compare the pull request's copy.
+class HandlerReviewStandingRules:
+    def handle(self, request: ModelStandingRulesRequest) -> ModelStandingRulesResult:
+        """Validate the authoritative rules; when asked, compare the pull request's copy.
 
-    A candidate that is present but invalid is reported in ``candidate_errors``
-    and fails the result, and since an invalid file keeps none of the base's
-    mandatory rules, each of them is also reported as removed.
-    """
-    rules, errors = _parse(request.rules_text)
-    if rules is None:
-        return ModelStandingRulesResult(ok=False, errors=errors)
-    if not request.compare_candidate:
-        return ModelStandingRulesResult(ok=True, rules=rules)
+        An invalid candidate is reported in ``candidate_errors`` and fails the result,
+        and each of the base's mandatory rules is then also reported as removed.
+        """
+        rules, errors = _parse(request.rules_text)
+        if rules is None:
+            return ModelStandingRulesResult(ok=False, errors=errors)
+        if not request.compare_candidate:
+            return ModelStandingRulesResult(ok=True, rules=rules)
 
-    candidate: ModelReviewStandingRules | None = None
-    candidate_errors: tuple[str, ...] = ()
-    if request.candidate_text is not None:
-        candidate, candidate_errors = _parse(request.candidate_text)
-    weakened = _weakened(rules, candidate)
-    return ModelStandingRulesResult(
-        ok=not weakened and not candidate_errors,
-        rules=rules,
-        weakened=weakened,
-        candidate_errors=candidate_errors,
-    )
+        candidate: ModelReviewStandingRules | None = None
+        candidate_errors: tuple[str, ...] = ()
+        if request.candidate_text is not None:
+            candidate, candidate_errors = _parse(request.candidate_text)
+        weakened = _weakened(rules, candidate)
+        return ModelStandingRulesResult(
+            ok=not weakened and not candidate_errors,
+            rules=rules,
+            weakened=weakened,
+            candidate_errors=candidate_errors,
+        )
 
 
-__all__ = ["handle"]
+__all__ = ["HandlerReviewStandingRules"]

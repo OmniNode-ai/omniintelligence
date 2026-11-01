@@ -20,8 +20,7 @@ from omniintelligence.nodes.node_review_rubric_check_compute.handlers.handler_re
     handle,
 )
 from omniintelligence.nodes.node_review_rubric_check_compute.handlers.handler_review_rubric_loader import (
-    compute_content_hash,
-    load_review_rubric,
+    HandlerReviewRubricLoader,
 )
 from omniintelligence.nodes.node_review_rubric_check_compute.models.enum_review_rubric_check_outcome import (
     EnumReviewRubricCheckOutcome,
@@ -32,9 +31,27 @@ from omniintelligence.nodes.node_review_rubric_check_compute.models.enum_review_
 from omniintelligence.nodes.node_review_rubric_check_compute.models.model_review_rubric_check_request import (
     ModelReviewRubricCheckRequest,
 )
+from omniintelligence.nodes.node_review_rubric_check_compute.models.model_review_rubric_load import (
+    ModelReviewRubricLoad,
+)
+from omniintelligence.nodes.node_review_rubric_check_compute.models.model_review_rubric_load_request import (
+    ModelReviewRubricLoadRequest,
+)
 
 FIXTURES = Path(__file__).parent / "fixtures"
 GENEROUS_BUDGET = 4000
+
+compute_content_hash = HandlerReviewRubricLoader.compute_content_hash
+
+
+def load_review_rubric(
+    text: str, *, token_budget: int, source: str = "<rubric>"
+) -> ModelReviewRubricLoad:
+    return HandlerReviewRubricLoader().handle(
+        ModelReviewRubricLoadRequest(
+            text=text, token_budget=token_budget, source=source
+        )
+    )
 
 
 def _read(name: str) -> str:

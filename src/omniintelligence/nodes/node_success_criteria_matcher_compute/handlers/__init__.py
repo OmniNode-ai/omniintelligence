@@ -29,9 +29,7 @@ Field Path Resolution:
 
 Usage:
     from omniintelligence.nodes.node_success_criteria_matcher_compute.handlers import (
-        match_criteria,
-        resolve_field_path,
-        apply_operator,
+        HandlerCriteriaMatching,
         EnumCriteriaOperator,
         MISSING,
     )
@@ -47,13 +45,15 @@ Usage:
         }
     ]
 
-    result = match_criteria(outcome, criteria)
+    result = HandlerCriteriaMatching().handle(
+        ModelCriteriaMatchRequest(outcome=outcome, criteria=criteria)
+    )
     if result["success"]:
         print(f"All required criteria passed! Score: {result['match_score']}")
 
 Example:
     >>> from omniintelligence.nodes.node_success_criteria_matcher_compute.handlers import (
-    ...     match_criteria,
+    ...     HandlerCriteriaMatching,
     ...     MISSING,
     ... )
     >>> outcome = {"status": "success", "items": [{"name": "a"}, {"name": "b"}]}
@@ -61,7 +61,9 @@ Example:
     ...     {"criterion_id": "c1", "field": "status", "operator": "equals", "expected_value": "success"},
     ...     {"criterion_id": "c2", "field": "items.0.name", "operator": "equals", "expected_value": "a"},
     ... ]
-    >>> result = match_criteria(outcome, criteria)
+    >>> result = HandlerCriteriaMatching().handle(
+    ...     ModelCriteriaMatchRequest(outcome=outcome, criteria=criteria)
+    ... )
     >>> result["success"]
     True
     >>> result["match_score"]
@@ -76,10 +78,7 @@ from omniintelligence.nodes.node_success_criteria_matcher_compute.handlers.handl
     HandlerSuccessCriteriaCompute,
 )
 from omniintelligence.nodes.node_success_criteria_matcher_compute.handlers.handler_criteria_matching import (
-    apply_operator,
-    handle_match_criteria,
-    match_criteria,
-    resolve_field_path,
+    HandlerCriteriaMatching,
 )
 from omniintelligence.nodes.node_success_criteria_matcher_compute.handlers.protocols import (
     MISSING,
@@ -104,10 +103,7 @@ __all__ = [
     "JsonPrimitive",
     "JsonValue",
     "MaybeJsonValue",
-    "apply_operator",
     "get_type_name",
-    "handle_match_criteria",
+    "HandlerCriteriaMatching",
     "HandlerSuccessCriteriaCompute",
-    "match_criteria",
-    "resolve_field_path",
 ]

@@ -45,7 +45,7 @@ from omniintelligence.nodes.node_pattern_matching_compute.handlers.exceptions im
     PatternMatchingValidationError,
 )
 from omniintelligence.nodes.node_pattern_matching_compute.handlers.handler_pattern_matching import (
-    match_patterns,
+    HandlerPatternMatching,
 )
 from omniintelligence.nodes.node_pattern_matching_compute.handlers.protocols import (
     PatternRecord,
@@ -58,6 +58,9 @@ from omniintelligence.nodes.node_pattern_matching_compute.models.model_pattern_m
     ModelPatternMatch,
     ModelPatternMatchingMetadata,
     ModelPatternMatchingOutput,
+)
+from omniintelligence.nodes.node_pattern_matching_compute.models.model_pattern_matching_request import (
+    ModelPatternMatchingRequest,
 )
 
 # Module logger for exception tracking
@@ -179,16 +182,20 @@ def _execute_matching(
     )
     language = context.language
 
-    # Call the pure matching function
-    result = match_patterns(
-        code_snippet=input_data.code_snippet,
-        patterns=patterns,
-        min_confidence=min_confidence,
-        max_results=max_results,
-        operation=input_data.operation,
-        language=language,
-        pattern_categories=pattern_categories,
-        correlation_id=str(context.correlation_id) if context.correlation_id else None,
+    # Call the pure matching handler
+    result = HandlerPatternMatching().handle(
+        ModelPatternMatchingRequest(
+            code_snippet=input_data.code_snippet,
+            patterns=patterns,
+            min_confidence=min_confidence,
+            max_results=max_results,
+            operation=input_data.operation,
+            language=language,
+            pattern_categories=pattern_categories,
+            correlation_id=(
+                str(context.correlation_id) if context.correlation_id else None
+            ),
+        )
     )
 
     processing_time = (time.perf_counter() - start_time) * 1000

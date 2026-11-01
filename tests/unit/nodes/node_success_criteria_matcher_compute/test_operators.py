@@ -22,8 +22,10 @@ pytestmark = pytest.mark.unit
 from omniintelligence.nodes.node_success_criteria_matcher_compute.handlers import (
     MISSING,
     EnumCriteriaOperator,
-    apply_operator,
+    HandlerCriteriaMatching,
 )
+
+apply_operator = HandlerCriteriaMatching.apply_operator
 
 # =============================================================================
 # EQUALS Operator Tests

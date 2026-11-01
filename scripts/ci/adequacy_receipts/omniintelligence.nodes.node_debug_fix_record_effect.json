@@ -1,0 +1,22 @@
+{
+  "branch_coverage_pct": 100.0,
+  "candidate_count": 6,
+  "coverage_target": 80.0,
+  "handler_module": "omniintelligence.nodes.node_debug_fix_record_effect.handlers.handler_fix_record",
+  "handler_module_sha256": "sha256:1ce8a009e2ce5b35e2107d09e65eaf2604ad1a528ceed324eb55a07cebe41781",
+  "meets_target": true,
+  "node_id": "omniintelligence.nodes.node_debug_fix_record_effect",
+  "receipt_schema": "adequacy_receipt.v1",
+  "recorded_at": "2026-11-01T14:21:48.204323+00:00",
+  "recorder_schema": "adequacy_receipt.v1",
+  "selected_count": 6,
+  "selected_input_hashes": [
+    "sha256:b989f259ca7bafd64c21761fceb21c2094f3a45b03dcc720ce65eb14aabeadf1",
+    "sha256:276e88854cfb8f937c4ca9d35ad52158bb4e22e0694d549bbcb9018042d3770d",
+    "sha256:2f78d1f3507e236f51ccc7980498fb33ea2e4e4291ab5ecd090414d4a1f2f538",
+    "sha256:760df4f4f488bc876cbbdac819f37616df4612d23c2b403f2dee60ea046772d9",
+    "sha256:b53d3596b73d0b4a3f7345f47ad4f63712997749e1c44c7b004843d4e75426ef",
+    "sha256:14ae7305954c3550e83fe5bb3682f3bcf4f43731009eae09916da4a5e9edd9ed"
+  ],
+  "volatile_mask": []
+}

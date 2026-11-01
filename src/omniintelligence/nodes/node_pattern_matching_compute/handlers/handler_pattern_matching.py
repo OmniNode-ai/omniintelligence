@@ -19,18 +19,20 @@ Operation Routing:
 
 Usage:
     from omniintelligence.nodes.node_pattern_matching_compute.handlers import (
-        match_patterns,
+        HandlerPatternMatching,
+        ModelPatternMatchingRequest,
         PatternRecord,
-        PatternMatchingHandlerResult,
     )
 
     patterns: list[PatternRecord] = [...]
-    result = match_patterns(
-        code_snippet="def foo(): return None",
-        patterns=patterns,
-        min_confidence=0.5,
-        max_results=10,
-        operation="match",
+    result = HandlerPatternMatching().handle(
+        ModelPatternMatchingRequest(
+            code_snippet="def foo(): return None",
+            patterns=patterns,
+            min_confidence=0.5,
+            max_results=10,
+            operation="match",
+        )
     )
 """
 
@@ -57,9 +59,6 @@ def _get_regex_executor() -> ThreadPoolExecutor:
     """Get or create the regex thread pool executor.
 
     Uses lazy initialization to avoid creating threads until needed.
-
-    Returns:
-        Shared ThreadPoolExecutor for regex operations.
     """
     global _regex_executor
     if _regex_executor is None:
@@ -131,110 +130,107 @@ from omniintelligence.nodes.node_pattern_matching_compute.handlers.protocols imp
     create_empty_handler_result,
     create_error_handler_result,
 )
+from omniintelligence.nodes.node_pattern_matching_compute.models.model_pattern_matching_request import (
+    ModelPatternMatchingRequest,
+    PatternOperation,
+)
 
-# Supported operations
-PatternOperation = Literal["match", "similarity", "classify", "validate"]
 
+class HandlerPatternMatching:
+    """Matches code against a pattern library (pure, side-effect free)."""
 
-def match_patterns(
-    code_snippet: str,
-    patterns: Sequence[PatternRecord],
-    *,
-    min_confidence: float = 0.5,
-    max_results: int = 10,
-    operation: PatternOperation = "match",
-    language: str | None = None,
-    pattern_categories: Sequence[str] | None = None,
-    correlation_id: str | None = None,
-) -> PatternMatchingHandlerResult:
-    """Match code against a pattern library.
+    def handle(
+        self, request: ModelPatternMatchingRequest
+    ) -> PatternMatchingHandlerResult:
+        """Match code against a pattern library.
 
-    Pure function that implements pattern matching algorithms. The operation
-    parameter determines which algorithm is used.
+        Pure handler that implements pattern matching algorithms. The operation
+        parameter determines which algorithm is used.
 
-    Algorithm Routing:
-        - match: keyword_overlap (categorical matching)
-        - similarity: keyword_overlap with looser threshold
-        - classify: keyword_overlap (for categorization)
-        - validate: regex_match (structural validation)
+        Algorithm Routing:
+            - match: keyword_overlap (categorical matching)
+            - similarity: keyword_overlap with looser threshold
+            - classify: keyword_overlap (for categorization)
+            - validate: regex_match (structural validation)
 
-    Args:
-        code_snippet: The code to match against patterns.
-        patterns: Sequence of pattern records to match against.
-        min_confidence: Minimum confidence threshold (0.0-1.0).
-        max_results: Maximum number of matches to return.
-        operation: Type of matching operation ("match", "similarity", "classify", "validate").
-        language: Optional language hint for better matching.
-        pattern_categories: Optional category filter (empty = all categories).
-        correlation_id: Optional correlation ID for tracing (included in error logs).
+        Args:
+            request: Typed request carrying the code snippet, pattern library,
+                thresholds, operation, optional language/category filters and
+                correlation_id for tracing (included in error logs).
 
-    Returns:
-        PatternMatchingHandlerResult with matches sorted by confidence (descending).
-        On validation errors, returns result with success=False and error details
-        instead of raising exceptions (per ONEX handler pattern).
-    """
-    # Validate inputs - catch validation errors and return structured result
-    try:
-        _validate_inputs(code_snippet, min_confidence, max_results)
-    except PatternMatchingValidationError as e:
-        logger.warning(
-            "Validation failed in match_patterns: %s",
-            str(e),
-            extra={"correlation_id": correlation_id},
-        )
-        return create_error_handler_result(
-            error_message=str(e),
-            error_code="PATMATCH_001",
-            threshold=min_confidence,
-        )
-
-    # Handle empty pattern library
-    if not patterns:
-        return create_empty_handler_result(min_confidence)
-
-    # Filter patterns by category if specified
-    filtered_patterns = _filter_by_category(patterns, pattern_categories)
-
-    # Route to appropriate algorithm based on operation
-    algorithm, algorithm_name = _get_algorithm_for_operation(operation)
-
-    # Match patterns
-    matches: list[PatternMatchDetail] = []
-    patterns_filtered = 0
-
-    for pattern in filtered_patterns:
+        Returns:
+            PatternMatchingHandlerResult with matches sorted by confidence (descending).
+            On validation errors, returns result with success=False and error details
+            instead of raising exceptions (per ONEX handler pattern).
+        """
+        # Validate inputs - catch validation errors and return structured result
         try:
-            confidence = algorithm(code_snippet, pattern, language)
-        except Exception:
-            # Individual pattern failures don't fail the entire operation,
-            # but log at WARNING to ensure visibility of potential bugs
-            logger.warning(
-                "Pattern matching failed for pattern_id=%s, skipping. "
-                "This may indicate malformed pattern data or algorithm issues.",
-                pattern.get("pattern_id", "<unknown>"),
-                exc_info=True,
-                extra={"correlation_id": correlation_id},
+            _validate_inputs(
+                request.code_snippet, request.min_confidence, request.max_results
             )
-            continue
+        except PatternMatchingValidationError as e:
+            logger.warning(
+                "Validation failed in HandlerPatternMatching: %s",
+                str(e),
+                extra={"correlation_id": request.correlation_id},
+            )
+            return create_error_handler_result(
+                error_message=str(e),
+                error_code="PATMATCH_001",
+                threshold=request.min_confidence,
+            )
 
-        if confidence >= min_confidence:
-            matches.append(_create_match_detail(pattern, confidence, algorithm_name))
-        else:
-            patterns_filtered += 1
+        # Handle empty pattern library
+        if not request.patterns:
+            return create_empty_handler_result(request.min_confidence)
 
-    # Sort by confidence (descending) and limit results
-    matches.sort(key=lambda m: m["confidence"], reverse=True)
-    matches = matches[:max_results]
+        # Filter patterns by category if specified
+        filtered_patterns = _filter_by_category(
+            request.patterns, request.pattern_categories
+        )
 
-    return PatternMatchingHandlerResult(
-        success=True,
-        matches=matches,
-        patterns_analyzed=len(filtered_patterns),
-        patterns_matched=len(matches),
-        patterns_filtered=patterns_filtered,
-        threshold_used=min_confidence,
-        algorithm_version=ALGORITHM_VERSION,
-    )
+        # Route to appropriate algorithm based on operation
+        algorithm, algorithm_name = _get_algorithm_for_operation(request.operation)
+
+        # Match patterns
+        matches: list[PatternMatchDetail] = []
+        patterns_filtered = 0
+
+        for pattern in filtered_patterns:
+            try:
+                confidence = algorithm(request.code_snippet, pattern, request.language)
+            except Exception:
+                # Individual pattern failures don't fail the entire operation,
+                # but log at WARNING to ensure visibility of potential bugs
+                logger.warning(
+                    "Pattern matching failed for pattern_id=%s, skipping. "
+                    "This may indicate malformed pattern data or algorithm issues.",
+                    pattern.get("pattern_id", "<unknown>"),
+                    exc_info=True,
+                    extra={"correlation_id": request.correlation_id},
+                )
+                continue
+
+            if confidence >= request.min_confidence:
+                matches.append(
+                    _create_match_detail(pattern, confidence, algorithm_name)
+                )
+            else:
+                patterns_filtered += 1
+
+        # Sort by confidence (descending) and limit results
+        matches.sort(key=lambda m: m["confidence"], reverse=True)
+        matches = matches[: request.max_results]
+
+        return PatternMatchingHandlerResult(
+            success=True,
+            matches=matches,
+            patterns_analyzed=len(filtered_patterns),
+            patterns_matched=len(matches),
+            patterns_filtered=patterns_filtered,
+            threshold_used=request.min_confidence,
+            algorithm_version=ALGORITHM_VERSION,
+        )
 
 
 def _validate_inputs(
@@ -492,5 +488,6 @@ def _create_match_detail(
 __all__ = [
     "ALGORITHM_VERSION",
     "PatternOperation",
-    "match_patterns",
+    "HandlerPatternMatching",
+    "ModelPatternMatchingRequest",
 ]

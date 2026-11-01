@@ -1,0 +1,250 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""Compare typed reducer output with the actual pre-flip process handler."""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime
+from functools import partial
+from types import ModuleType
+from unittest.mock import patch
+from uuid import UUID
+
+import pytest
+
+from omniintelligence.nodes.node_intelligence_reducer.handlers import (
+    handler_pattern_lifecycle as lifecycle,
+)
+from omniintelligence.nodes.node_intelligence_reducer.handlers import (
+    handler_process as canonical,
+)
+from omniintelligence.nodes.node_intelligence_reducer.models.model_reducer_input import (
+    ModelReducerInputPatternLifecycle,
+)
+
+# Legacy module captured with git show 688acb01:src/omniintelligence/nodes/node_intelligence_reducer/handlers/handler_process.py
+# Kept inline so unit-test jobs need no git history in a shallow checkout.
+LEGACY_SOURCE = '''# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+# Copyright (c) 2025 OmniNode Team
+"""Process handler for Intelligence Reducer node.
+
+Handler function that builds ModelReducerOutput from
+pattern lifecycle transition results. It encapsulates all the output building
+logic that was previously in the node class, following the ONEX declarative
+pattern where nodes are thin shells delegating to handlers.
+
+Design Principles:
+    - Handler owns all business logic, logging, and timing
+    - Node only delegates to this handler
+    - Pure function pattern with structured error handling
+"""
+
+from __future__ import annotations
+
+import logging
+import time
+from uuid import uuid4
+
+from omnibase_core.enums import EnumReductionType
+from omnibase_core.models.reducer.model_intent import ModelIntent
+from omnibase_core.models.reducer.model_reducer_output import ModelReducerOutput
+from omnibase_core.models.reducer.payloads.model_extension_payloads import (
+    ModelPayloadExtension,
+)
+
+from omniintelligence.nodes.node_intelligence_reducer.handlers.handler_pattern_lifecycle import (
+    handle_pattern_lifecycle_transition,
+)
+from omniintelligence.nodes.node_intelligence_reducer.models.model_intelligence_state import (
+    ModelIntelligenceState,
+)
+from omniintelligence.nodes.node_intelligence_reducer.models.model_reducer_input import (
+    ModelReducerInputPatternLifecycle,
+)
+
+logger = logging.getLogger(__name__)
+
+
+def handle_pattern_lifecycle_process(
+    input_data: ModelReducerInputPatternLifecycle,
+) -> ModelReducerOutput[ModelIntelligenceState]:
+    """Handle PATTERN_LIFECYCLE FSM transitions and build reducer output.
+
+    This handler:
+    1. Delegates to handle_pattern_lifecycle_transition for FSM validation
+    2. Builds ModelReducerOutput with ModelIntelligenceState result and intents
+    3. Logs transition acceptance or rejection with correlation context
+
+    Args:
+        input_data: Pattern lifecycle transition request.
+
+    Returns:
+        ModelReducerOutput with typed state and intents.
+    """
+    start_time = time.perf_counter()
+    result = handle_pattern_lifecycle_transition(input_data)
+    processing_time_ms = (time.perf_counter() - start_time) * 1000
+
+    if not result.success:
+        # Return error output with no intents
+        logger.warning(
+            "Pattern lifecycle transition rejected",
+            extra={
+                "pattern_id": input_data.payload.pattern_id,
+                "from_status": result.from_status,
+                "to_status": result.to_status,
+                "trigger": result.trigger,
+                "error_code": result.error_code,
+                "error_message": result.error_message,
+                "correlation_id": str(input_data.correlation_id),
+            },
+        )
+        return ModelReducerOutput(
+            result=ModelIntelligenceState(
+                fsm_type="PATTERN_LIFECYCLE",
+                entity_id=input_data.payload.pattern_id,
+                success=False,
+                from_status=result.from_status,
+                to_status=result.to_status,
+                trigger=result.trigger,
+                correlation_id=input_data.correlation_id,
+                error_code=result.error_code,
+                error_message=result.error_message,
+            ),
+            operation_id=uuid4(),
+            reduction_type=EnumReductionType.TRANSFORM,
+            processing_time_ms=processing_time_ms,
+            items_processed=1,
+            intents=(),
+        )
+
+    # Build intent from handler result using ModelPayloadExtension
+    # which implements ProtocolIntentPayload
+    # Note: extension_type must be in format "namespace.name" per omnibase_core
+    # Note: data must be JSON-serializable, so use mode="json" for UUIDs/datetimes
+    intent_payload = ModelPayloadExtension(
+        extension_type="omniintelligence.pattern_lifecycle_update",
+        plugin_name="omniintelligence",
+        data=result.intent.model_dump(mode="json") if result.intent else {},
+    )
+    intent = ModelIntent(
+        intent_type="extension",
+        target=f"postgres://patterns/{input_data.payload.pattern_id}",
+        payload=intent_payload,
+    )
+
+    logger.info(
+        "Pattern lifecycle transition accepted",
+        extra={
+            "pattern_id": input_data.payload.pattern_id,
+            "from_status": result.from_status,
+            "to_status": result.to_status,
+            "trigger": result.trigger,
+            "correlation_id": str(input_data.correlation_id),
+        },
+    )
+
+    return ModelReducerOutput(
+        result=ModelIntelligenceState(
+            fsm_type="PATTERN_LIFECYCLE",
+            entity_id=input_data.payload.pattern_id,
+            success=True,
+            from_status=result.from_status,
+            to_status=result.to_status,
+            trigger=result.trigger,
+            correlation_id=input_data.correlation_id,
+        ),
+        operation_id=uuid4(),
+        reduction_type=EnumReductionType.TRANSFORM,
+        processing_time_ms=processing_time_ms,
+        items_processed=1,
+        intents=(intent,),
+    )
+
+
+__all__ = ["handle_pattern_lifecycle_process"]
+'''
+CASES = {
+    "promote_legacy": ("provisional", "validated", "promote", "handler"),
+    "promote_direct": ("candidate", "validated", "promote_direct", "handler"),
+    "deprecate_candidate": ("candidate", "deprecated", "deprecate", "handler"),
+    "deprecate_legacy": ("provisional", "deprecated", "deprecate", "handler"),
+    "deprecate_validated": ("validated", "deprecated", "deprecate", "handler"),
+    "reenable": ("deprecated", "candidate", "manual_reenable", "admin"),
+    "guard_failure": ("deprecated", "candidate", "manual_reenable", "handler"),
+    "invalid_trigger": ("candidate", "validated", "unknown", "handler"),
+    "invalid_transition": ("candidate", "validated", "promote", "handler"),
+    "state_mismatch": ("candidate", "deprecated", "promote_direct", "handler"),
+    "invalid_pattern_id": ("candidate", "validated", "promote_direct", "handler"),
+}
+
+
+def _legacy_handler() -> ModuleType:
+    module = ModuleType("legacy_reducer_process")
+    exec(compile(LEGACY_SOURCE, "<legacy_reducer_process>", "exec"), module.__dict__)
+    return module
+
+
+def replay_input(case: str) -> ModelReducerInputPatternLifecycle:
+    """Build the deterministic request used for parity and coverage recording."""
+    from_status, to_status, trigger, actor_type = CASES[case]
+    pattern_id = (
+        "invalid"
+        if case == "invalid_pattern_id"
+        else "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+    )
+    return ModelReducerInputPatternLifecycle.model_validate(
+        {
+            "fsm_type": "PATTERN_LIFECYCLE",
+            "entity_id": pattern_id,
+            "action": trigger,
+            "correlation_id": "12345678-1234-5678-1234-567812345678",
+            "request_id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+            "payload": {
+                "pattern_id": pattern_id,
+                "from_status": from_status,
+                "to_status": to_status,
+                "trigger": trigger,
+                "actor_type": actor_type,
+                "actor": "parity-test",
+                "reason": "handler conversion parity",
+            },
+        }
+    )
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("case", CASES)
+def test_canonical_dispatch_matches_legacy(case: str) -> None:
+    """Freeze only clocks and generated IDs; compare every output field."""
+    handler_type = getattr(canonical, "HandlerPatternLifecycleProcess", None)
+    assert handler_type is not None, "typed handler class must exist"
+    legacy = _legacy_handler()
+    request = replay_input(case)
+    transition = partial(
+        lifecycle.handle_pattern_lifecycle_transition,
+        transition_at=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    operation_id = UUID("cccccccc-cccc-cccc-cccc-cccccccccccc")
+    intent_type = partial(canonical.ModelIntent, intent_id=operation_id)
+    output_type = partial(
+        canonical.ModelReducerOutput, timestamp=datetime(2026, 1, 1, tzinfo=UTC)
+    )
+    with (
+        patch.object(canonical.time, "perf_counter", return_value=100.0),
+        patch.object(canonical, "uuid4", return_value=operation_id),
+        patch.object(legacy, "uuid4", return_value=operation_id),
+        patch.object(canonical, "handle_pattern_lifecycle_transition", transition),
+        patch.object(legacy, "handle_pattern_lifecycle_transition", transition),
+        patch.object(canonical, "ModelIntent", intent_type),
+        patch.object(legacy, "ModelIntent", intent_type),
+        patch.object(canonical, "ModelReducerOutput", output_type),
+        patch.object(legacy, "ModelReducerOutput", output_type),
+    ):
+        expected = legacy.handle_pattern_lifecycle_process(request)
+        actual = handler_type().handle(request)
+
+    assert actual.model_dump(mode="json") == expected.model_dump(mode="json")

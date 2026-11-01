@@ -1,0 +1,94 @@
+---
+schema_version: 1.0.0
+ticket_id: OMN-21747
+title: omniintelligence handler-shape burn-down, slice rf1320-s1 -- eleven handler modules become handler
+  classes
+summary: >-
+  The handler-shape validator (omnibase_core ValidatorHandlerShape) reported 39 findings over omniintelligence
+  src (37 module_function_handler, 2 mutating_public_method). This slice fixes the 12 findings of the
+  eleven handler modules that no contract.yaml binds: each module now holds a Handler class, the old public
+  module functions are removed and every caller calls the class. Nine of the eleven take one typed request
+  model in handle(request); five request models are new. The intent graph and policy lifecycle modules
+  become stateless classes of static methods with no handle entry. The finding feedback handler takes
+  a typed signal model in handle and its unused public clear() is removed. No contract.yaml, baseline,
+  allowlist or suppression changed, and no handler names the event envelope. After the slice the validator
+  reports 27 findings, all module_function_handler in contract-bound modules of nodes on the canonical
+  handler-shape baseline, left for a later slice that carries adequacy receipts.
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: req-omn21747-handler-shape-slice
+    statement: The eleven slice handler modules hold a handler class, take a typed request model, and
+      name no event envelope; the validator reports no finding on them.
+    acceptance:
+      - id: AC1
+        statement: 'AC1: the handler-shape finding count over the slice paths drops to zero with no baseline
+          entry or suppression added -- falsifier: ValidatorHandlerShape run over omniintelligence src
+          before and after, counts compared per rule'
+      - id: AC2
+        statement: 'AC2: the touched handlers take a typed request model and name no event envelope, and
+          no per-node unwrapper is added -- falsifier: uv run pytest tests/unit -q over the touched modules
+          plus the handler-shape re-run on the slice paths'
+      - id: AC3
+        statement: 'AC3: the slice lands as one PR titled with this ticket id and carries lab proof of
+          the tests and the validator re-run -- falsifier: uv run pytest tests/unit -q on the lab through
+          lab-run at the PR head, receipt path in the PR body'
+evidence_requirements:
+  - kind: tests
+    description: Run the unit tests of the touched modules and the node purity test.
+    command: uv run pytest tests/unit/nodes/node_success_criteria_matcher_compute tests/unit/nodes/node_semantic_analysis_compute
+      tests/unit/nodes/node_debug_fix_record_effect tests/unit/nodes/node_pattern_matching_compute tests/unit/nodes/node_intent_graph_reducer
+      tests/unit/review_bot tests/unit/runtime/test_handler_llm_cost_emitter.py tests/unit/review_pairing
+      tests/unit/test_node_purity.py -q
+emergency_bypass:
+  enabled: false
+  justification: ''
+  follow_up_ticket_id: ''
+dod_evidence:
+  - id: dod-omn21747-ac1-validator-slice-zero
+    description: The handler-shape validator reports no finding on the eleven slice handler modules.
+    source: manual
+    checks:
+      - check_type: command
+        check_value: uv run --frozen python -m omnibase_core.nodes.node_validation_report_write_effect.runtime_validator_run
+          omnibase_core.validation.validator_handler_shape:ValidatorHandlerShape src/omniintelligence/handlers/handler_review_standing_rules.py
+          src/omniintelligence/runtime/handler_llm_cost_emitter.py src/omniintelligence/review_bot/learning/handler_finding_feedback.py
+          src/omniintelligence/nodes/node_review_rubric_check_compute/handlers/handler_review_rubric_loader.py
+          src/omniintelligence/nodes/node_semantic_analysis_compute/handlers/handler_semantic_analysis.py
+          src/omniintelligence/nodes/node_success_criteria_matcher_compute/handlers/handler_criteria_matching.py
+          src/omniintelligence/nodes/node_debug_fix_record_effect/handlers/handler_fix_record.py src/omniintelligence/nodes/node_pattern_matching_compute/handlers/handler_pattern_matching.py
+          src/omniintelligence/nodes/node_intelligence_reducer/handlers/handler_process.py src/omniintelligence/nodes/node_intent_graph_reducer/handlers/handler_intent_graph_update.py
+          src/omniintelligence/nodes/node_policy_state_reducer/handlers/handler_lifecycle.py
+    binds_ac:
+      - AC1
+  - id: dod-omn21747-ac2-tests-and-no-envelope
+    description: The unit tests of the touched modules pass and no slice handler module names the event
+      envelope.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/nodes/node_success_criteria_matcher_compute tests/unit/nodes/node_semantic_analysis_compute
+          tests/unit/nodes/node_debug_fix_record_effect tests/unit/nodes/node_pattern_matching_compute
+          tests/unit/nodes/node_intent_graph_reducer tests/unit/review_bot tests/unit/runtime/test_handler_llm_cost_emitter.py
+          tests/unit/review_pairing tests/unit/test_node_purity.py -q -n 0 --no-cov
+      - check_type: command
+        check_value: "! grep -lw ModelEventEnvelope src/omniintelligence/handlers/handler_review_standing_rules.py
+          src/omniintelligence/runtime/handler_llm_cost_emitter.py src/omniintelligence/review_bot/learning/handler_finding_feedback.py
+          src/omniintelligence/nodes/node_review_rubric_check_compute/handlers/handler_review_rubric_loader.py
+          src/omniintelligence/nodes/node_semantic_analysis_compute/handlers/handler_semantic_analysis.py
+          src/omniintelligence/nodes/node_success_criteria_matcher_compute/handlers/handler_criteria_matching.py
+          src/omniintelligence/nodes/node_debug_fix_record_effect/handlers/handler_fix_record.py src/omniintelligence/nodes/node_pattern_matching_compute/handlers/handler_pattern_matching.py
+          src/omniintelligence/nodes/node_intelligence_reducer/handlers/handler_process.py src/omniintelligence/nodes/node_intent_graph_reducer/handlers/handler_intent_graph_update.py
+          src/omniintelligence/nodes/node_policy_state_reducer/handlers/handler_lifecycle.py"
+    binds_ac:
+      - AC2
+  - id: dod-omn21747-ac3-policy-and-purity
+    description: The policy lifecycle node tests and the node purity test pass at the PR head.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest src/omniintelligence/nodes/node_policy_state_reducer tests/unit/nodes/node_intelligence_orchestrator
+          tests/unit/test_node_purity.py -q -n 0 --no-cov
+    binds_ac:
+      - AC3

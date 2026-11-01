@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from omniintelligence.nodes.node_review_rubric_check_compute.handlers.handler_review_rubric_loader import (
-    load_review_rubric,
+    HandlerReviewRubricLoader,
 )
 from omniintelligence.nodes.node_review_rubric_check_compute.models.enum_review_rubric_check_outcome import (
     EnumReviewRubricCheckOutcome,
@@ -16,6 +16,9 @@ from omniintelligence.nodes.node_review_rubric_check_compute.models.model_review
 from omniintelligence.nodes.node_review_rubric_check_compute.models.model_review_rubric_check_result import (
     ModelReviewRubricCheckResult,
 )
+from omniintelligence.nodes.node_review_rubric_check_compute.models.model_review_rubric_load_request import (
+    ModelReviewRubricLoadRequest,
+)
 
 
 class HandlerReviewRubricCheck:
@@ -25,10 +28,12 @@ class HandlerReviewRubricCheck:
         self, request: ModelReviewRubricCheckRequest
     ) -> ModelReviewRubricCheckResult:
         """Load the rubric under the request's budget and report what happened."""
-        loaded = load_review_rubric(
-            request.rubric_yaml,
-            token_budget=request.token_budget,
-            source=request.rubric_source,
+        loaded = HandlerReviewRubricLoader().handle(
+            ModelReviewRubricLoadRequest(
+                text=request.rubric_yaml,
+                token_budget=request.token_budget,
+                source=request.rubric_source,
+            )
         )
         rubric = loaded.rubric
         return ModelReviewRubricCheckResult(

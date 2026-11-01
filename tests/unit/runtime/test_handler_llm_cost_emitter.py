@@ -19,9 +19,12 @@ from uuid import uuid4
 
 import pytest
 
+from omniintelligence.models.model_llm_cost_event_request import (
+    ModelLlmCostEventRequest,
+)
 from omniintelligence.runtime.handler_llm_cost_emitter import (
     LLM_COST_TOPIC,
-    emit_llm_cost_event,
+    HandlerLlmCostEmitter,
 )
 from tests.fixtures.model_constants import MODEL_QWEN3_14B
 
@@ -29,7 +32,7 @@ from tests.fixtures.model_constants import MODEL_QWEN3_14B
 @pytest.mark.unit
 @pytest.mark.asyncio
 class TestEmitLlmCostEvent:
-    """Tests for emit_llm_cost_event."""
+    """Tests for HandlerLlmCostEmitter."""
 
     async def test_payload_shape_matches_omnidash_consumer(self) -> None:
         """Verify payload contains all fields expected by projectLlmCostEvent."""
@@ -44,21 +47,23 @@ class TestEmitLlmCostEvent:
         mock_producer.publish = AsyncMock(side_effect=capture_publish)
 
         correlation_id = uuid4()
-        result = await emit_llm_cost_event(
-            producer=mock_producer,
-            topic=LLM_COST_TOPIC,
-            model_id=MODEL_QWEN3_14B,
-            prompt_tokens=500,
-            completion_tokens=200,
-            total_tokens=700,
-            estimated_cost_usd=0.0035,
-            session_id="test-session-123",
-            correlation_id=correlation_id,
-            endpoint_url="http://test:8001",
-            request_type="completion",
-            latency_ms=150,
-            repo_name="omniintelligence",
-            machine_id="devbox-201",
+        result = await HandlerLlmCostEmitter(
+            producer=mock_producer, topic=LLM_COST_TOPIC
+        ).handle(
+            ModelLlmCostEventRequest(
+                model_id=MODEL_QWEN3_14B,
+                prompt_tokens=500,
+                completion_tokens=200,
+                total_tokens=700,
+                estimated_cost_usd=0.0035,
+                session_id="test-session-123",
+                correlation_id=correlation_id,
+                endpoint_url="http://test:8001",
+                request_type="completion",
+                latency_ms=150,
+                repo_name="omniintelligence",
+                machine_id="devbox-201",
+            )
         )
 
         assert result is True
@@ -89,16 +94,18 @@ class TestEmitLlmCostEvent:
 
     async def test_producer_none_returns_false_no_exception(self) -> None:
         """When producer is None, returns False without raising."""
-        result = await emit_llm_cost_event(
-            producer=None,
-            topic=LLM_COST_TOPIC,
-            model_id="test-model",
-            prompt_tokens=100,
-            completion_tokens=50,
-            total_tokens=150,
-            estimated_cost_usd=0.001,
-            session_id="test-session",
-            correlation_id=uuid4(),
+        result = await HandlerLlmCostEmitter(
+            producer=None, topic=LLM_COST_TOPIC
+        ).handle(
+            ModelLlmCostEventRequest(
+                model_id="test-model",
+                prompt_tokens=100,
+                completion_tokens=50,
+                total_tokens=150,
+                estimated_cost_usd=0.001,
+                session_id="test-session",
+                correlation_id=uuid4(),
+            )
         )
         assert result is False
 
@@ -109,15 +116,17 @@ class TestEmitLlmCostEvent:
             side_effect=ConnectionError("Kafka unavailable")
         )
 
-        result = await emit_llm_cost_event(
-            producer=mock_producer,
-            topic=LLM_COST_TOPIC,
-            model_id="test-model",
-            prompt_tokens=100,
-            completion_tokens=50,
-            total_tokens=150,
-            estimated_cost_usd=0.001,
-            session_id="test-session",
-            correlation_id=uuid4(),
+        result = await HandlerLlmCostEmitter(
+            producer=mock_producer, topic=LLM_COST_TOPIC
+        ).handle(
+            ModelLlmCostEventRequest(
+                model_id="test-model",
+                prompt_tokens=100,
+                completion_tokens=50,
+                total_tokens=150,
+                estimated_cost_usd=0.001,
+                session_id="test-session",
+                correlation_id=uuid4(),
+            )
         )
         assert result is False

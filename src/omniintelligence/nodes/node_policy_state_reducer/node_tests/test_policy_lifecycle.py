@@ -18,9 +18,7 @@ import uuid
 import pytest
 
 from omniintelligence.nodes.node_policy_state_reducer.handlers.handler_lifecycle import (
-    apply_reward_delta,
-    compute_next_lifecycle_state,
-    should_blacklist,
+    HandlerPolicyLifecycle,
 )
 from omniintelligence.nodes.node_policy_state_reducer.models.enum_policy_lifecycle_state import (
     EnumPolicyLifecycleState,
@@ -63,7 +61,7 @@ _THRESHOLDS = ModelTransitionThresholds(
 @pytest.mark.unit
 class TestComputeNextLifecycleState:
     def test_candidate_stays_candidate_insufficient_runs(self) -> None:
-        result = compute_next_lifecycle_state(
+        result = HandlerPolicyLifecycle.compute_next_lifecycle_state(
             current_state=EnumPolicyLifecycleState.CANDIDATE,
             reliability_0_1=0.9,
             run_count=3,  # below validated_min_runs=5
@@ -73,7 +71,7 @@ class TestComputeNextLifecycleState:
         assert result == EnumPolicyLifecycleState.CANDIDATE
 
     def test_candidate_stays_candidate_low_signal(self) -> None:
-        result = compute_next_lifecycle_state(
+        result = HandlerPolicyLifecycle.compute_next_lifecycle_state(
             current_state=EnumPolicyLifecycleState.CANDIDATE,
             reliability_0_1=0.9,
             run_count=10,
@@ -83,7 +81,7 @@ class TestComputeNextLifecycleState:
         assert result == EnumPolicyLifecycleState.CANDIDATE
 
     def test_candidate_transitions_to_validated(self) -> None:
-        result = compute_next_lifecycle_state(
+        result = HandlerPolicyLifecycle.compute_next_lifecycle_state(
             current_state=EnumPolicyLifecycleState.CANDIDATE,
             reliability_0_1=0.9,
             run_count=5,  # meets min_runs=5
@@ -93,7 +91,7 @@ class TestComputeNextLifecycleState:
         assert result == EnumPolicyLifecycleState.VALIDATED
 
     def test_validated_stays_validated_insufficient_runs(self) -> None:
-        result = compute_next_lifecycle_state(
+        result = HandlerPolicyLifecycle.compute_next_lifecycle_state(
             current_state=EnumPolicyLifecycleState.VALIDATED,
             reliability_0_1=0.9,
             run_count=8,  # below promoted_min_runs=10
@@ -103,7 +101,7 @@ class TestComputeNextLifecycleState:
         assert result == EnumPolicyLifecycleState.VALIDATED
 
     def test_validated_transitions_to_promoted(self) -> None:
-        result = compute_next_lifecycle_state(
+        result = HandlerPolicyLifecycle.compute_next_lifecycle_state(
             current_state=EnumPolicyLifecycleState.VALIDATED,
             reliability_0_1=0.85,  # meets significance=0.8
             run_count=10,  # meets min_runs=10
@@ -113,7 +111,7 @@ class TestComputeNextLifecycleState:
         assert result == EnumPolicyLifecycleState.PROMOTED
 
     def test_promoted_transitions_to_deprecated_on_floor_breach(self) -> None:
-        result = compute_next_lifecycle_state(
+        result = HandlerPolicyLifecycle.compute_next_lifecycle_state(
             current_state=EnumPolicyLifecycleState.PROMOTED,
             reliability_0_1=0.35,  # below floor=0.4
             run_count=100,
@@ -123,7 +121,7 @@ class TestComputeNextLifecycleState:
         assert result == EnumPolicyLifecycleState.DEPRECATED
 
     def test_validated_transitions_to_deprecated_on_floor_breach(self) -> None:
-        result = compute_next_lifecycle_state(
+        result = HandlerPolicyLifecycle.compute_next_lifecycle_state(
             current_state=EnumPolicyLifecycleState.VALIDATED,
             reliability_0_1=0.3,  # below floor=0.4
             run_count=20,
@@ -134,7 +132,7 @@ class TestComputeNextLifecycleState:
 
     def test_deprecated_is_terminal(self) -> None:
         """DEPRECATED state is terminal — no further transitions."""
-        result = compute_next_lifecycle_state(
+        result = HandlerPolicyLifecycle.compute_next_lifecycle_state(
             current_state=EnumPolicyLifecycleState.DEPRECATED,
             reliability_0_1=0.99,
             run_count=1000,
@@ -145,7 +143,7 @@ class TestComputeNextLifecycleState:
 
     def test_degradation_takes_priority_over_promotion(self) -> None:
         """If reliability falls below floor, degradation takes priority over promotion."""
-        result = compute_next_lifecycle_state(
+        result = HandlerPolicyLifecycle.compute_next_lifecycle_state(
             current_state=EnumPolicyLifecycleState.VALIDATED,
             reliability_0_1=0.35,  # below floor — degradation fires
             run_count=50,  # would also qualify for promotion
@@ -156,7 +154,7 @@ class TestComputeNextLifecycleState:
 
     def test_exact_boundary_candidate_to_validated(self) -> None:
         """Exact boundary values produce expected transitions."""
-        result = compute_next_lifecycle_state(
+        result = HandlerPolicyLifecycle.compute_next_lifecycle_state(
             current_state=EnumPolicyLifecycleState.CANDIDATE,
             reliability_0_1=0.9,
             run_count=5,  # exactly validated_min_runs
@@ -174,7 +172,7 @@ class TestComputeNextLifecycleState:
 @pytest.mark.unit
 class TestApplyRewardDelta:
     def test_positive_delta_improves_reliability(self) -> None:
-        new_rel, new_runs, new_failures = apply_reward_delta(
+        new_rel, new_runs, new_failures = HandlerPolicyLifecycle.apply_reward_delta(
             current_reliability=0.5,
             reward_delta=0.8,
             run_count=10,
@@ -185,7 +183,7 @@ class TestApplyRewardDelta:
         assert new_failures == 2
 
     def test_negative_delta_degrades_reliability(self) -> None:
-        new_rel, new_runs, new_failures = apply_reward_delta(
+        new_rel, new_runs, new_failures = HandlerPolicyLifecycle.apply_reward_delta(
             current_reliability=0.8,
             reward_delta=-0.5,
             run_count=10,
@@ -196,7 +194,7 @@ class TestApplyRewardDelta:
         assert new_failures == 3
 
     def test_reliability_clamped_to_zero(self) -> None:
-        new_rel, _, _ = apply_reward_delta(
+        new_rel, _, _ = HandlerPolicyLifecycle.apply_reward_delta(
             current_reliability=0.01,
             reward_delta=-1.0,
             run_count=100,
@@ -205,7 +203,7 @@ class TestApplyRewardDelta:
         assert new_rel >= 0.0
 
     def test_reliability_clamped_to_one(self) -> None:
-        new_rel, _, _ = apply_reward_delta(
+        new_rel, _, _ = HandlerPolicyLifecycle.apply_reward_delta(
             current_reliability=0.99,
             reward_delta=1.0,
             run_count=100,
@@ -214,12 +212,16 @@ class TestApplyRewardDelta:
         assert new_rel <= 1.0
 
     def test_run_count_increments_by_one(self) -> None:
-        _, new_runs, _ = apply_reward_delta(0.5, 0.5, 42, 5)
+        _, new_runs, _ = HandlerPolicyLifecycle.apply_reward_delta(0.5, 0.5, 42, 5)
         assert new_runs == 43
 
     def test_failure_count_increments_only_on_negative_delta(self) -> None:
-        _, _, new_failures_pos = apply_reward_delta(0.5, 0.1, 10, 2)
-        _, _, new_failures_neg = apply_reward_delta(0.5, -0.1, 10, 2)
+        _, _, new_failures_pos = HandlerPolicyLifecycle.apply_reward_delta(
+            0.5, 0.1, 10, 2
+        )
+        _, _, new_failures_neg = HandlerPolicyLifecycle.apply_reward_delta(
+            0.5, -0.1, 10, 2
+        )
         assert new_failures_pos == 2  # positive delta: no failure
         assert new_failures_neg == 3  # negative delta: +1 failure
 
@@ -232,19 +234,27 @@ class TestApplyRewardDelta:
 @pytest.mark.unit
 class TestShouldBlacklist:
     def test_blacklist_fires_below_floor(self) -> None:
-        result = should_blacklist(0.25, _THRESHOLDS, already_blacklisted=False)
+        result = HandlerPolicyLifecycle.should_blacklist(
+            0.25, _THRESHOLDS, already_blacklisted=False
+        )
         assert result is True
 
     def test_blacklist_does_not_fire_at_floor(self) -> None:
-        result = should_blacklist(0.3, _THRESHOLDS, already_blacklisted=False)
+        result = HandlerPolicyLifecycle.should_blacklist(
+            0.3, _THRESHOLDS, already_blacklisted=False
+        )
         assert result is False
 
     def test_blacklist_does_not_fire_above_floor(self) -> None:
-        result = should_blacklist(0.8, _THRESHOLDS, already_blacklisted=False)
+        result = HandlerPolicyLifecycle.should_blacklist(
+            0.8, _THRESHOLDS, already_blacklisted=False
+        )
         assert result is False
 
     def test_already_blacklisted_does_not_re_blacklist(self) -> None:
-        result = should_blacklist(0.1, _THRESHOLDS, already_blacklisted=True)
+        result = HandlerPolicyLifecycle.should_blacklist(
+            0.1, _THRESHOLDS, already_blacklisted=True
+        )
         assert result is False
 
 

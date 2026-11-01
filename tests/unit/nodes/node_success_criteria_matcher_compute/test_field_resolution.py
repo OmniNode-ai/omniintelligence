@@ -20,7 +20,7 @@ pytestmark = pytest.mark.unit
 
 from omniintelligence.nodes.node_success_criteria_matcher_compute.handlers import (
     MISSING,
-    resolve_field_path,
+    HandlerCriteriaMatching,
 )
 from omniintelligence.nodes.node_success_criteria_matcher_compute.handlers.exceptions import (
     CriteriaMatchingValidationError,
@@ -28,6 +28,8 @@ from omniintelligence.nodes.node_success_criteria_matcher_compute.handlers.excep
 from omniintelligence.nodes.node_success_criteria_matcher_compute.handlers.handler_criteria_matching import (
     _validate_criteria_set,
 )
+
+resolve_field_path = HandlerCriteriaMatching.resolve_field_path
 
 # =============================================================================
 # resolve_field_path Tests - Basic Path Resolution

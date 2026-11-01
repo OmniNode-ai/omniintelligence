@@ -22,12 +22,14 @@ Design Decisions:
 
 Example:
     from omniintelligence.nodes.node_semantic_analysis_compute.handlers import (
-        analyze_semantics,
+        HandlerSemanticAnalysis,
     )
 
-    result = analyze_semantics(
-        content="class Foo(Base): pass",
-        language="python",
+    result = HandlerSemanticAnalysis().handle(
+        ModelSemanticAnalysisRequest(
+            content="class Foo(Base): pass",
+            language="python",
+        )
     )
     print(f"Entities: {len(result['entities'])}")
     print(f"Relations: {len(result['relations'])}")
@@ -54,6 +56,9 @@ from omniintelligence.nodes.node_semantic_analysis_compute.handlers.protocols im
     SemanticFunctionMetadata,
     SemanticImportMetadata,
     create_empty_features,
+)
+from omniintelligence.nodes.node_semantic_analysis_compute.models.model_semantic_analysis_request import (
+    ModelSemanticAnalysisRequest,
 )
 
 # =============================================================================
@@ -112,119 +117,114 @@ def _get_decorator_name(decorator: ast.expr) -> str:
 
 
 # =============================================================================
-# Main Handler Function
+# Main Handler
 # =============================================================================
 
 
-def analyze_semantics(
-    content: str,
-    language: str = "python",
-    include_call_graph: bool = True,
-    include_import_graph: bool = True,
-) -> SemanticAnalysisResult:
-    """Analyze source code semantics using AST extraction.
+class HandlerSemanticAnalysis:
+    """Pure AST-based semantic analysis of source code."""
 
-    This is the main entry point for semantic analysis. It parses Python
-    source code into an AST and extracts entities (functions, classes,
-    imports, constants) and relationships (imports, inherits, calls, defines).
+    def handle(self, request: ModelSemanticAnalysisRequest) -> SemanticAnalysisResult:
+        """Analyze source code semantics using AST extraction.
 
-    Args:
-        content: Source code content to analyze.
-        language: Programming language (e.g., "python"). Non-Python languages
-            return a result with parse_ok=False.
-        include_call_graph: Whether to extract function call relationships.
-        include_import_graph: Whether to extract import relationships.
+        This is the main entry point for semantic analysis. It parses Python
+        source code into an AST and extracts entities (functions, classes,
+        imports, constants) and relationships (imports, inherits, calls, defines).
 
-    Returns:
-        SemanticAnalysisResult with all extraction data.
+        Args:
+            request: Source content, language, and graph-extraction options.
+                Non-Python languages return a result with parse_ok=False.
 
-    Note:
-        This function never throws exceptions. Parse errors and validation
-        failures are returned in the result with parse_ok=False and
-        appropriate warnings.
+        Returns:
+            SemanticAnalysisResult with all extraction data.
 
-    Example:
-        >>> result = analyze_semantics(
-        ...     content="def foo(): pass",
-        ...     language="python",
-        ... )
-        >>> result["success"]
-        True
-        >>> len(result["entities"]) >= 1
-        True
-    """
-    start_time = time.perf_counter()
-    warnings: list[str] = []
+        Note:
+            This method never throws exceptions. Parse errors and validation
+            failures are returned in the result with parse_ok=False and
+            appropriate warnings.
 
-    # Validate inputs
-    if not content or not content.strip():
-        return _create_validation_error_result(
-            "Content cannot be empty",
-            start_time,
+        Example:
+            >>> result = HandlerSemanticAnalysis().handle(
+            ...     ModelSemanticAnalysisRequest(content="def foo(): pass"),
+            ... )
+            >>> result["success"]
+            True
+            >>> len(result["entities"]) >= 1
+            True
+        """
+        content = request.content
+        start_time = time.perf_counter()
+        warnings: list[str] = []
+
+        # Validate inputs
+        if not content or not content.strip():
+            return _create_validation_error_result(
+                "Content cannot be empty",
+                start_time,
+            )
+
+        normalized_language = request.language.lower().strip()
+
+        # Check if language is supported
+        if normalized_language not in SUPPORTED_LANGUAGES:
+            return _create_unsupported_language_result(
+                normalized_language,
+                start_time,
+            )
+
+        # Parse AST with error capture
+        tree, parse_errors = _parse_python_ast(content)
+
+        if tree is None:
+            # Parsing failed completely
+            return _create_parse_error_result(
+                parse_errors,
+                content,
+                start_time,
+            )
+
+        # Add any non-fatal parse warnings
+        warnings.extend(parse_errors)
+
+        # Extract entities
+        entities = _extract_entities(tree)
+
+        # Extract relationships
+        relations = _extract_relationships(
+            tree=tree,
+            entities=entities,
+            include_call_graph=request.include_call_graph,
+            include_import_graph=request.include_import_graph,
         )
 
-    normalized_language = language.lower().strip()
-
-    # Check if language is supported
-    if normalized_language not in SUPPORTED_LANGUAGES:
-        return _create_unsupported_language_result(
-            normalized_language,
-            start_time,
+        # Compute semantic features
+        semantic_features = _compute_semantic_features(
+            tree=tree,
+            entities=entities,
+            relations=relations,
+            content=content,
+            language=normalized_language,
         )
 
-    # Parse AST with error capture
-    tree, parse_errors = _parse_python_ast(content)
-
-    if tree is None:
-        # Parsing failed completely
-        return _create_parse_error_result(
-            parse_errors,
-            content,
-            start_time,
+        # Build metadata
+        processing_time_ms = (time.perf_counter() - start_time) * 1000
+        metadata = SemanticAnalysisMetadataDict(
+            processing_time_ms=round(processing_time_ms, 2),
+            algorithm_version=ANALYSIS_VERSION_STR,
+            parser_used="ast",
+            input_length=len(content),
+            input_line_count=len(content.splitlines()),
         )
 
-    # Add any non-fatal parse warnings
-    warnings.extend(parse_errors)
-
-    # Extract entities
-    entities = _extract_entities(tree)
-
-    # Extract relationships
-    relations = _extract_relationships(
-        tree=tree,
-        entities=entities,
-        include_call_graph=include_call_graph,
-        include_import_graph=include_import_graph,
-    )
-
-    # Compute semantic features
-    semantic_features = _compute_semantic_features(
-        tree=tree,
-        entities=entities,
-        relations=relations,
-        content=content,
-        language=normalized_language,
-    )
-
-    # Build metadata
-    processing_time_ms = (time.perf_counter() - start_time) * 1000
-    metadata = SemanticAnalysisMetadataDict(
-        processing_time_ms=round(processing_time_ms, 2),
-        algorithm_version=ANALYSIS_VERSION_STR,
-        parser_used="ast",
-        input_length=len(content),
-        input_line_count=len(content.splitlines()),
-    )
-
-    return SemanticAnalysisResult(
-        success=True,
-        parse_ok=True,
-        entities=entities,
-        relations=relations,
-        warnings=warnings,
-        semantic_features=semantic_features,
-        metadata=metadata,
-    )
+        return SemanticAnalysisResult(
+            success=True,
+            parse_ok=True,
+            entities=entities,
+            relations=relations,
+            warnings=warnings,
+            semantic_features=semantic_features,
+            metadata=metadata,
+        )
 
 
 # =============================================================================
@@ -1218,5 +1218,5 @@ def _create_parse_error_result(
 __all__ = [
     "ANALYSIS_VERSION",
     "ANALYSIS_VERSION_STR",
-    "analyze_semantics",
+    "HandlerSemanticAnalysis",
 ]
