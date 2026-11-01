@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
-"""dev declares 0.25.0 and the changelog covers the window since v0.24.0 (OMN-21164)."""
+"""dev declares at least 0.25.0 and the changelog covers the window since v0.24.0 (OMN-21164)."""
 
 from __future__ import annotations
 
@@ -15,9 +15,13 @@ _ROOT = Path(__file__).resolve().parents[2]
 _VERSION = "0.25.0"
 
 
+def _release_tuple(version: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in version.split("."))
+
+
 def test_pyproject_declares_release_version() -> None:
     project = tomllib.loads((_ROOT / "pyproject.toml").read_text())["project"]
-    assert project["version"] == _VERSION
+    assert _release_tuple(project["version"]) >= _release_tuple(_VERSION)
 
 
 def test_lock_root_entry_declares_release_version() -> None:
@@ -28,7 +32,8 @@ def test_lock_root_entry_declares_release_version() -> None:
         if package["name"] == "omninode-intelligence"
         and package.get("source") == {"editable": "."}
     ]
-    assert [package["version"] for package in root] == [_VERSION]
+    assert len(root) == 1
+    assert _release_tuple(root[0]["version"]) >= _release_tuple(_VERSION)
 
 
 def test_changelog_has_release_entry_for_window() -> None:

@@ -1,0 +1,59 @@
+---
+schema_version: 1.0.0
+ticket_id: OMN-18595
+title: omniintelligence 0.25.1 release by the scheduled release train
+summary: >-
+  The release train cuts omniintelligence 0.25.1 from dev: pyproject.toml and the uv.lock root entry declare
+  0.25.1, CHANGELOG.md carries the v0.25.1 block, and the release-window test accepts any version at or
+  above 0.25.0.
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: req-omn18595-release-0-25-1
+    statement: The repository declares version 0.25.1 in pyproject.toml, with a changelog block for it.
+    acceptance:
+      - id: AC1
+        statement: 'AC1: pyproject.toml declares version 0.25.1 -- falsifier: rg -n ''^version = "0.25.1"$''
+          pyproject.toml'
+      - id: AC2
+        statement: 'AC2: CHANGELOG.md has a v0.25.1 block -- falsifier: rg -n ''^## v0.25.1 '' CHANGELOG.md'
+      - id: AC3
+        statement: 'AC3: the uv.lock root entry declares version 0.25.1 -- falsifier: grep -Pzo ''name
+          = "omninode-intelligence"\nversion = "0.25.1"\n'' uv.lock'
+evidence_requirements:
+  - kind: tests
+    description: Run the release-window test against the 0.25.1 version, lock and changelog.
+    command: uv run pytest tests/unit/test_release_0_25_0_omn21164.py -q -n 0 --no-cov
+emergency_bypass:
+  enabled: false
+  justification: ''
+  follow_up_ticket_id: ''
+dod_evidence:
+  - id: dod-omn18595-ac1-pyproject-version
+    description: pyproject.toml declares version 0.25.1.
+    source: manual
+    checks:
+      - check_type: command
+        check_value: grep -nE '^version = "0.25.1"$' pyproject.toml
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC1
+  - id: dod-omn18595-ac2-changelog-block
+    description: CHANGELOG.md carries the v0.25.1 block.
+    source: manual
+    checks:
+      - check_type: command
+        check_value: grep -nE '^## v0.25.1 ' CHANGELOG.md
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC2
+  - id: dod-omn18595-ac3-lock-root-version
+    description: The uv.lock root entry declares version 0.25.1.
+    source: manual
+    checks:
+      - check_type: command
+        check_value: grep -Pzo 'name = "omninode-intelligence"\nversion = "0.25.1"\n' uv.lock
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC3
