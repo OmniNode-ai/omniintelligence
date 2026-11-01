@@ -2,17 +2,10 @@
 # SPDX-License-Identifier: MIT
 """Load a review rubric file under a token budget (OMN-21186).
 
-Pure: text in, a rubric or a named refusal out. The checks run in a fixed
-order -- yaml, mapping, schema version, field shape, content hash, token
-budget -- and the first failure is the refusal, so a file is always refused for
-one stable reason.
-
-The token budget counts what a reviewer prompt would carry: each rule's
-category and instruction, then each hint. Support counts, ``created_from`` and
-repositories are evidence for the distiller and cost the reviewer nothing, so
-they do not count. Tokens are counted with the repository's shared tokenizer
-(``util_token_counter``).
-"""
+Pure: text in, a rubric or a named refusal out. Checks run in a fixed order
+(yaml, mapping, schema version, fields, content hash, token budget) and the first
+failure is the refusal. The budget counts each rule's category and instruction
+and each hint, counted with the shared tokenizer (``util_token_counter``)."""
 
 from __future__ import annotations
 
@@ -86,11 +79,9 @@ class HandlerReviewRubricLoader:
 
     def handle(self, request: ModelReviewRubricLoadRequest) -> ModelReviewRubricLoad:
         """Read the request text as a ``review_rubric.v1`` file within its budget."""
-        text = request.text
-        token_budget = request.token_budget
         source = request.source
         try:
-            raw = yaml.safe_load(text)
+            raw = yaml.safe_load(request.text)
         except yaml.YAMLError as exc:
             return _refuse(
                 EnumReviewRubricRefusal.NOT_YAML, source, f"not valid yaml ({exc})"
@@ -112,12 +103,8 @@ class HandlerReviewRubricLoader:
         try:
             rubric = ModelReviewRubric.model_validate(raw)
         except ValidationError as exc:
-            problems = [
-                (_field_path(error["loc"]), error["msg"]) for error in exc.errors()
-            ]
-            detail = "; ".join(
-                f"{path}: {msg}" if path else msg for path, msg in problems
-            )
+            problems = [(_field_path(e["loc"]), e["msg"]) for e in exc.errors()]
+            detail = "; ".join(f"{p}: {m}" if p else m for p, m in problems)
             return _refuse(
                 EnumReviewRubricRefusal.MALFORMED, source, detail, field=problems[0][0]
             )
@@ -130,11 +117,11 @@ class HandlerReviewRubricLoader:
                 field=_HASH_KEY,
             )
         token_count = count_tokens(self.rubric_prompt_text(rubric))
-        if token_count > token_budget:
+        if token_count > request.token_budget:
             return _refuse(
                 EnumReviewRubricRefusal.OVER_BUDGET,
                 source,
-                f"{token_count} tokens, over the budget of {token_budget}",
+                f"{token_count} tokens, over the budget of {request.token_budget}",
                 token_count=token_count,
             )
         return ModelReviewRubricLoad(rubric=rubric, token_count=token_count)

@@ -55,11 +55,6 @@ class HandlerPatternLifecycleProcess:
         2. Builds ModelReducerOutput with ModelIntelligenceState result and intents
         3. Logs transition acceptance or rejection with correlation context
 
-        Args:
-            input_data: Pattern lifecycle transition request.
-
-        Returns:
-            ModelReducerOutput with typed state and intents.
         """
         start_time = time.perf_counter()
         result = handle_pattern_lifecycle_transition(input_data)

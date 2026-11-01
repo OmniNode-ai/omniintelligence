@@ -75,14 +75,11 @@ def _weakened(
 
 
 class HandlerReviewStandingRules:
-    """Validate a standing-rules file and guard it against weakening."""
-
     def handle(self, request: ModelStandingRulesRequest) -> ModelStandingRulesResult:
         """Validate the authoritative rules; when asked, compare the pull request's copy.
 
-        A candidate that is present but invalid is reported in ``candidate_errors``
-        and fails the result, and since an invalid file keeps none of the base's
-        mandatory rules, each of them is also reported as removed.
+        An invalid candidate is reported in ``candidate_errors`` and fails the result,
+        and each of the base's mandatory rules is then also reported as removed.
         """
         rules, errors = _parse(request.rules_text)
         if rules is None:

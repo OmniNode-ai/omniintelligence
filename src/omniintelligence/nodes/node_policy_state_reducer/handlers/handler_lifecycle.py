@@ -67,9 +67,6 @@ class HandlerPolicyLifecycle:
             run_count:            Total number of runs observed.
             positive_signal_ratio: Ratio of positive-signal runs [0.0, 1.0].
             thresholds:           Transition thresholds from ObjectiveSpec.
-
-        Returns:
-            The next lifecycle state (may be same as current if no transition).
         """
         # DEPRECATED is a terminal state — no further transitions
         if current_state == EnumPolicyLifecycleState.DEPRECATED:
@@ -138,9 +135,6 @@ class HandlerPolicyLifecycle:
             reward_delta:        Signed delta [-1.0, +1.0].
             run_count:           Current total run count.
             failure_count:       Current total failure count.
-
-        Returns:
-            Tuple of (new_reliability, new_run_count, new_failure_count).
         """
         new_run_count = run_count + 1
         new_failure_count = failure_count + (1 if reward_delta < 0 else 0)

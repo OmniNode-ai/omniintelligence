@@ -3,11 +3,9 @@
 
 """Pure source-to-batch mapping for deterministic code projections.
 
-The existing AST and regex extractors contain runtime-oriented fields such as
-UUIDs and timestamps.  This module deliberately treats those fields as
-transport metadata: only source-derived values are mapped into the canonical
-projection builders.  Re-running the mapper with identical inputs therefore
-produces byte-identical batches.
+The AST and regex extractors carry runtime fields (UUIDs, timestamps); this module
+treats them as transport metadata and maps only source-derived values into the
+canonical projection builders, so identical inputs give byte-identical batches.
 """
 
 from __future__ import annotations
@@ -70,12 +68,10 @@ from omniintelligence.nodes.node_ast_extraction_compute.models.model_code_relati
 from omniintelligence.nodes.node_semantic_analysis_compute.handlers.handler_semantic_analysis import (
     ANALYSIS_VERSION_STR,
     HandlerSemanticAnalysis,
+    ModelSemanticAnalysisRequest,
 )
 from omniintelligence.nodes.node_semantic_analysis_compute.handlers.protocols import (
     SemanticAnalysisResult,
-)
-from omniintelligence.nodes.node_semantic_analysis_compute.models.model_semantic_analysis_request import (
-    ModelSemanticAnalysisRequest,
 )
 
 _MAPPER_VERSION = "1.0.0"
@@ -209,9 +205,8 @@ def _extract_python(
 
     semantic_result: SemanticAnalysisResult | None = None
     if source_text.strip():
-        analyzed = HandlerSemanticAnalysis().handle(
-            ModelSemanticAnalysisRequest(content=source_text, language="python")
-        )
+        request = ModelSemanticAnalysisRequest(content=source_text, language="python")
+        analyzed = HandlerSemanticAnalysis().handle(request)
         if not analyzed["success"] or not analyzed["parse_ok"]:
             msg = f"semantic analysis failed for {relative_path}"
             raise CodeProjectionExtractionError(msg)

@@ -54,9 +54,6 @@ def _upsert_node(
         graph: The mutable graph state to update.
         intent_class: The intent class to upsert a node for.
         session_id: Session ID used for provenance (ignored after first creation).
-
-    Returns:
-        The existing or newly created IntentGraphNodeState.
     """
     if intent_class not in graph.nodes:
         graph.nodes[intent_class] = IntentGraphNodeState(
@@ -77,9 +74,6 @@ def _upsert_edge(
         graph: The mutable graph state to update.
         from_class: Source intent class.
         to_class: Target intent class.
-
-    Returns:
-        The existing or newly created IntentGraphEdgeState.
     """
     key = (from_class, to_class)
     if key not in graph.edges:

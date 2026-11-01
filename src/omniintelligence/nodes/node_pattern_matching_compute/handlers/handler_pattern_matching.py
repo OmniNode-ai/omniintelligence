@@ -59,9 +59,6 @@ def _get_regex_executor() -> ThreadPoolExecutor:
     """Get or create the regex thread pool executor.
 
     Uses lazy initialization to avoid creating threads until needed.
-
-    Returns:
-        Shared ThreadPoolExecutor for regex operations.
     """
     global _regex_executor
     if _regex_executor is None:
