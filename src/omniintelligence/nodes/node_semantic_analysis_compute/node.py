@@ -21,8 +21,8 @@ from __future__ import annotations
 
 from omnibase_core.nodes.node_compute import NodeCompute
 
-from omniintelligence.nodes.node_semantic_analysis_compute.handlers import (
-    HandlerSemanticAnalysisCompute,
+from omniintelligence.nodes.node_semantic_analysis_compute.container.container_semantic_analysis import (
+    resolve_semantic_analysis_compute_handler,
 )
 from omniintelligence.nodes.node_semantic_analysis_compute.models import (
     ModelSemanticAnalysisInput,
@@ -53,7 +53,7 @@ class NodeSemanticAnalysisCompute(
             ModelSemanticAnalysisOutput with extracted entities, relations,
             semantic features, and metadata.
         """
-        return HandlerSemanticAnalysisCompute().handle(input_data)
+        return resolve_semantic_analysis_compute_handler().handle(input_data)
 
 
 __all__ = ["NodeSemanticAnalysisCompute"]

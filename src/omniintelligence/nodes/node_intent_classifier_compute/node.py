@@ -23,9 +23,11 @@ from __future__ import annotations
 
 from omnibase_core.nodes.node_compute import NodeCompute
 
+from omniintelligence.nodes.node_intent_classifier_compute.container.container_intent_classifier import (
+    resolve_intent_classification_handler,
+)
 from omniintelligence.nodes.node_intent_classifier_compute.handlers import (
     DEFAULT_CLASSIFICATION_CONFIG,
-    HandlerIntentClassification,
 )
 from omniintelligence.nodes.node_intent_classifier_compute.models import (
     ModelClassificationConfig,
@@ -52,9 +54,9 @@ class NodeIntentClassifierCompute(
 
         Thin shell delegation - handler owns timing, error handling, logging.
         """
-        return HandlerIntentClassification(self._classification_config).handle(
-            input_data
-        )
+        return resolve_intent_classification_handler(
+            self._classification_config
+        ).handle(input_data)
 
 
 __all__ = ["NodeIntentClassifierCompute"]

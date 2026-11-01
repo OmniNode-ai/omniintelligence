@@ -15,8 +15,8 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from omniintelligence.nodes.node_code_entity_bridge_compute.handlers import (
-    HandlerCodeEntityBridge,
+from omniintelligence.nodes.node_code_entity_bridge_compute.container.container_code_entity_bridge_handler import (
+    resolve_code_entity_bridge_handler,
 )
 from omniintelligence.nodes.node_code_entity_bridge_compute.models import (
     ModelCodeEntityBridgeInput,
@@ -36,7 +36,7 @@ class NodeCodeEntityBridgeCompute:
         self, input_data: ModelCodeEntityBridgeInput
     ) -> ModelCodeEntityBridgeOutput:
         """Derive learned patterns from code entities by delegating to handler."""
-        return HandlerCodeEntityBridge().handle(input_data)
+        return resolve_code_entity_bridge_handler().handle(input_data)
 
 
 __all__ = ["NodeCodeEntityBridgeCompute"]

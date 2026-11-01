@@ -11,8 +11,8 @@ from __future__ import annotations
 
 from omnibase_core.nodes.node_compute import NodeCompute
 
-from omniintelligence.nodes.node_success_criteria_matcher_compute.handlers import (
-    HandlerSuccessCriteriaCompute,
+from omniintelligence.nodes.node_success_criteria_matcher_compute.container.container_success_criteria_matcher import (
+    resolve_success_criteria_compute_handler,
 )
 from omniintelligence.nodes.node_success_criteria_matcher_compute.models import (
     ModelSuccessCriteriaInput,
@@ -41,7 +41,7 @@ class NodeSuccessCriteriaMatcherCompute(
         self, input_data: ModelSuccessCriteriaInput
     ) -> ModelSuccessCriteriaOutput:
         """Match criteria by delegating to handler function."""
-        return HandlerSuccessCriteriaCompute().handle(input_data)
+        return resolve_success_criteria_compute_handler().handle(input_data)
 
 
 __all__ = ["NodeSuccessCriteriaMatcherCompute"]

@@ -1,0 +1,108 @@
+---
+schema_version: 1.0.0
+ticket_id: OMN-21679
+title: omniintelligence contracts_and_di handler_hand_construction burn-down, slice rf1120-c2
+summary: 'The read-only contracts_and_di scan of omniintelligence src/ (ValidatorContractsAndDi through
+  runtime_validator_run) reported 106 findings before this change and 76 after it; handler_hand_construction
+  went from 63 to 33, literal_topic (36) and literal_url (7) are unchanged. This slice removes 30 of them:
+  the handler each of twelve node shells built by hand (13 constructions), HandlerGitRepoCrawl in the
+  git repo crawler handler tests (16) and NodeCrawlSchedulerEffect in the crawl scheduler node_tests conftest
+  (1). Each is now built in a container binding module (the binding site the checker allows) and the caller
+  resolves it from there, the pattern OMN-21785 set. Files touched by the open omniintelligence PR 1192
+  (handler_review_rubric_check.py, cli_review.py) are left out of this slice.'
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: req-omn21679-slice
+    statement: The slice's hand-built handlers and nodes leave the touched code and are resolved from
+      a binding module.
+    acceptance:
+      - id: AC1
+        statement: 'AC1: the contracts_and_di count for handler_hand_construction over the slice paths
+          drops to zero and the repo total drops by the slice size, with no baseline entry or suppression
+          added -- falsifier: onex run of runtime_validator_run with the contracts_and_di reference over
+          omniintelligence src before and after, counts compared per rule'
+      - id: AC2
+        statement: 'AC2: every moved value is read from a node contract or overlay through an injected
+          setting and no literal of it remains in the touched code -- falsifier: uv run pytest tests/unit
+          -q over the touched modules plus the checker re-run on the slice paths'
+      - id: AC3
+        statement: 'AC3: the slice lands as one PR titled with this ticket id and carries lab proof of
+          the tests and the checker re-run -- falsifier: uv run pytest tests/unit -q on the lab through
+          lab-run at the PR head, receipt path in the PR body'
+evidence_requirements:
+  - kind: tests
+    description: Unit tests of the twelve touched nodes, the git repo crawler and crawl scheduler node
+      tests and the node purity test.
+    command: env PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/unit/nodes/node_ci_error_classifier_compute
+      tests/unit/nodes/node_ci_fingerprint_compute tests/unit/nodes/node_code_entity_bridge_compute tests/unit/nodes/node_execution_trace_parser_compute
+      tests/unit/nodes/node_intent_classifier_compute tests/unit/nodes/node_pattern_assembler_orchestrator
+      tests/unit/nodes/node_pattern_extraction_compute tests/unit/nodes/node_pattern_matching_compute
+      tests/unit/nodes/node_plan_reviewer_multi_compute tests/unit/nodes/node_quality_scoring_compute
+      tests/unit/nodes/node_semantic_analysis_compute tests/unit/nodes/node_success_criteria_matcher_compute
+      src/omniintelligence/nodes/node_git_repo_crawler_effect/node_tests src/omniintelligence/nodes/node_crawl_scheduler_effect/node_tests
+      tests/unit/test_node_purity.py -q
+emergency_bypass:
+  enabled: false
+  justification: ''
+  follow_up_ticket_id: ''
+dod_evidence:
+  - id: dod-omn21679-ac1-checker-rerun
+    description: The checker scans every slice path and reports no handler_hand_construction or unparseable_file
+      finding; missing files and incomplete scans fail.
+    source: manual
+    checks:
+      - check_type: command
+        check_value: env PYTHONDONTWRITEBYTECODE=1 uv run python -c 'import sys; from pathlib import Path;
+          from omnibase_core.validation.validator_contracts_and_di import ValidatorContractsAndDi; paths
+          = [Path(p) for p in sys.argv[1:]]; assert paths and all(p.is_file() for p in paths), "missing
+          slice path"; result = ValidatorContractsAndDi().validate(paths); assert result.metadata is not
+          None and result.metadata.files_processed == len(paths), "incomplete scan"; findings = [i for
+          i in result.issues if i.rule_name in {"handler_hand_construction", "unparseable_file"}]; print(result.summary);
+          [print(i) for i in findings]; sys.exit(bool(findings))' src/omniintelligence/nodes/node_ci_error_classifier_compute/node.py
+          src/omniintelligence/nodes/node_ci_fingerprint_compute/node.py src/omniintelligence/nodes/node_code_entity_bridge_compute/node.py
+          src/omniintelligence/nodes/node_execution_trace_parser_compute/node.py src/omniintelligence/nodes/node_intent_classifier_compute/node.py
+          src/omniintelligence/nodes/node_pattern_assembler_orchestrator/node.py src/omniintelligence/nodes/node_pattern_extraction_compute/node.py
+          src/omniintelligence/nodes/node_pattern_matching_compute/node.py src/omniintelligence/nodes/node_plan_reviewer_multi_compute/node.py
+          src/omniintelligence/nodes/node_quality_scoring_compute/node.py src/omniintelligence/nodes/node_semantic_analysis_compute/node.py
+          src/omniintelligence/nodes/node_success_criteria_matcher_compute/node.py src/omniintelligence/nodes/node_git_repo_crawler_effect/node_tests/test_handler_git_repo_crawl.py
+          src/omniintelligence/nodes/node_crawl_scheduler_effect/node_tests/conftest.py
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC1
+  - id: dod-omn21679-ac2-handlers-resolved
+    description: The touched node unit tests and node tests pass with the handlers resolved from the binding
+      modules.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: env PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/unit/nodes/node_ci_error_classifier_compute
+          tests/unit/nodes/node_ci_fingerprint_compute tests/unit/nodes/node_code_entity_bridge_compute
+          tests/unit/nodes/node_execution_trace_parser_compute tests/unit/nodes/node_intent_classifier_compute
+          tests/unit/nodes/node_pattern_assembler_orchestrator tests/unit/nodes/node_pattern_extraction_compute
+          tests/unit/nodes/node_pattern_matching_compute tests/unit/nodes/node_plan_reviewer_multi_compute
+          tests/unit/nodes/node_quality_scoring_compute tests/unit/nodes/node_semantic_analysis_compute
+          tests/unit/nodes/node_success_criteria_matcher_compute src/omniintelligence/nodes/node_git_repo_crawler_effect/node_tests
+          src/omniintelligence/nodes/node_crawl_scheduler_effect/node_tests tests/unit/test_node_purity.py
+          -q
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC2
+  - id: dod-omn21679-ac3-unit-suite
+    description: The slice's focused tests pass at the PR head.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: env PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/unit/nodes/node_ci_error_classifier_compute
+          tests/unit/nodes/node_ci_fingerprint_compute tests/unit/nodes/node_code_entity_bridge_compute
+          tests/unit/nodes/node_execution_trace_parser_compute tests/unit/nodes/node_intent_classifier_compute
+          tests/unit/nodes/node_pattern_assembler_orchestrator tests/unit/nodes/node_pattern_extraction_compute
+          tests/unit/nodes/node_pattern_matching_compute tests/unit/nodes/node_plan_reviewer_multi_compute
+          tests/unit/nodes/node_quality_scoring_compute tests/unit/nodes/node_semantic_analysis_compute
+          tests/unit/nodes/node_success_criteria_matcher_compute src/omniintelligence/nodes/node_git_repo_crawler_effect/node_tests
+          src/omniintelligence/nodes/node_crawl_scheduler_effect/node_tests tests/unit/test_node_purity.py
+          -q
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC3
