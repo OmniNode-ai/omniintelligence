@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import pytest
 
-from omniintelligence.code_projection.retrieval_eval import (
+from tests.fixtures.code_projection.retrieval_eval import (
     REPLAY_LANES,
     load_replay_corpus,
     open_replay_state,

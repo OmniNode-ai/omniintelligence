@@ -6,11 +6,16 @@
 Runs entirely from the frozen replay fixtures: no live Postgres, Memgraph, or
 Qdrant, no network, and no model calls, so CI and a laptop produce the same
 bytes.
+
+It is test infrastructure: it reads the replay vectors under
+``tests/fixtures/code_projection/v2`` and is driven only by the retrieval-eval
+tests and the Retrieval Eval Gate workflow, so it lives under ``tests/`` rather
+than in the shipped package (OMN-21945).
 """
 
 from __future__ import annotations
 
-from omniintelligence.code_projection.retrieval_eval.replay import (
+from tests.fixtures.code_projection.retrieval_eval.replay import (
     DEFAULT_FIXTURE_ROOT,
     HARNESS_EMBEDDING_MODEL,
     HARNESS_EMBEDDING_MODEL_VERSION,

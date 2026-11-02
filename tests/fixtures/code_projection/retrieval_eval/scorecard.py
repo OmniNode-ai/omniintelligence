@@ -27,8 +27,8 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from omniintelligence.code_projection._canonical import canonical_json_bytes
-from omniintelligence.code_projection.retrieval_eval.metrics import ModelRankingMetrics
-from omniintelligence.code_projection.retrieval_eval.replay import (
+from tests.fixtures.code_projection.retrieval_eval.metrics import ModelRankingMetrics
+from tests.fixtures.code_projection.retrieval_eval.replay import (
     ModelStageLatencySample,
 )
 

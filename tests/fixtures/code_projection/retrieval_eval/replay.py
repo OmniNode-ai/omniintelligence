@@ -48,12 +48,11 @@ from omniintelligence.code_projection.qdrant import (
 )
 from omniintelligence.models.code_projection import artifact_ref_for
 
-#: Repository-relative location of the frozen OMN-16061 v2 replay vectors.
-#: Resolved from this file rather than an absolute path so the harness works in
-#: a worktree, a clone, or CI without configuration.
-DEFAULT_FIXTURE_ROOT = (
-    Path(__file__).resolve().parents[4] / "tests/fixtures/code_projection/v2"
-)
+#: Location of the frozen OMN-16061 v2 replay vectors, the sibling ``v2``
+#: directory of this harness package. Resolved from this file rather than an
+#: absolute path so the harness works in a worktree, a clone, or CI without
+#: configuration.
+DEFAULT_FIXTURE_ROOT = Path(__file__).resolve().parents[1] / "v2"
 
 #: Embedding dimension pinned by the shared projection collection contract.
 _EMBEDDING_DIMENSION = 1024
