@@ -16,9 +16,7 @@ expected result.
 
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping
-from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -145,15 +143,6 @@ class ModelGoldenQuerySet(_FrozenModel):
         return {lane_id: tuple(queries) for lane_id, queries in grouped.items()}
 
 
-def load_golden_query_set(path: Path | None = None) -> ModelGoldenQuerySet:
-    """Load and validate the committed golden query set."""
-
-    source = DEFAULT_GOLDEN_SET_PATH if path is None else path
-    return ModelGoldenQuerySet.model_validate(
-        json.loads(source.read_text(encoding="utf-8"))
-    )
-
-
 __all__ = [
     "DEFAULT_GOLDEN_SET_PATH",
     "GOLDEN_SET_MAXIMUM_ROWS",
@@ -161,5 +150,4 @@ __all__ = [
     "ModelGoldenExpectation",
     "ModelGoldenQuery",
     "ModelGoldenQuerySet",
-    "load_golden_query_set",
 ]

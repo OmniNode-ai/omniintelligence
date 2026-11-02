@@ -18,9 +18,9 @@ from __future__ import annotations
 
 import pytest
 
+from omniintelligence.handlers.retrieval_eval_fixtures import load_replay_corpus
 from omniintelligence.nodes.node_retrieval_eval_compute.handlers.replay import (
     REPLAY_LANES,
-    load_replay_corpus,
     open_replay_state,
 )
 

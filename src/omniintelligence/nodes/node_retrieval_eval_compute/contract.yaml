@@ -14,13 +14,13 @@ version: "1.0.0"
 contract_version: {major: 1, minor: 0, patch: 0}
 node_type: "COMPUTE_GENERIC"
 description: >-
-  Compute node that runs the offline retrieval-quality eval harness for code-intelligence context packs from the
-  frozen replay fixtures (no Postgres, Memgraph, Qdrant, network or model calls) and returns the scorecard plus the
-  latency report. The runtime_retrieval_eval module is its command line runtime.
+  Compute node that runs the offline retrieval-quality eval harness for code-intelligence context packs
+  from the frozen replay fixtures (no Postgres, Memgraph, Qdrant, network or model calls) and returns
+  the scorecard plus the latency report. The runtime_retrieval_eval module is its command line runtime.
 input_model:
   name: "ModelRetrievalEvalInput"
   module: "omniintelligence.nodes.node_retrieval_eval_compute.models"
-  description: "Replay fixture root and golden query set path; both default to the committed artifacts."
+  description: "The parsed replay corpus and golden query set; the node does no file I/O."
 output_model:
   name: "ModelEvalResult"
   module: "omniintelligence.nodes.node_retrieval_eval_compute.handlers.runner"
@@ -30,8 +30,8 @@ operations:
     description: "Run the R1-R6 replay scenarios and score the golden query set"
     input_fields:
       - correlation_id
-      - fixture_root
-      - golden_set_path
+      - corpus
+      - golden
     output_fields:
       - scorecard
       - latency
@@ -41,7 +41,7 @@ handler_routing:
     - operation: "run_retrieval_eval"
       handler:
         function: "handle_retrieval_eval"
-        module: "omniintelligence.nodes.node_retrieval_eval_compute.handlers"
+        module: "omniintelligence.nodes.node_retrieval_eval_compute.handlers.handler_retrieval_eval"
         type: "async"
 dependencies: []
 metadata:

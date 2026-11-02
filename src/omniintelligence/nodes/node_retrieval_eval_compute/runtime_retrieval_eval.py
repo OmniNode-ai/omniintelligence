@@ -18,8 +18,10 @@ import argparse
 import asyncio
 import sys
 
-from omniintelligence.nodes.node_retrieval_eval_compute.baselines import (
-    BASELINE_SCORECARD_PATH,
+from omniintelligence.handlers.retrieval_eval_fixtures import (
+    load_golden_query_set,
+    load_replay_corpus,
+    write_baseline_scorecard,
 )
 from omniintelligence.nodes.node_retrieval_eval_compute.handlers import (
     handle_retrieval_eval,
@@ -30,7 +32,11 @@ from omniintelligence.nodes.node_retrieval_eval_compute.models import (
 
 
 async def _main(*, write: bool) -> int:
-    result = await handle_retrieval_eval(ModelRetrievalEvalInput())
+    result = await handle_retrieval_eval(
+        ModelRetrievalEvalInput(
+            corpus=load_replay_corpus(), golden=load_golden_query_set()
+        )
+    )
     payload = result.scorecard.to_canonical_bytes()
 
     for scenario in result.scorecard.scenarios:
@@ -65,8 +71,8 @@ async def _main(*, write: bool) -> int:
         )
         return 1
 
-    BASELINE_SCORECARD_PATH.write_bytes(payload)
-    sys.stdout.write(f"wrote {BASELINE_SCORECARD_PATH}\n")
+    written = write_baseline_scorecard(payload)
+    sys.stdout.write(f"wrote {written}\n")
     return 0
 
 

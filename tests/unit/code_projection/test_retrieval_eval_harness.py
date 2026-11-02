@@ -16,16 +16,22 @@ from pydantic import ValidationError
 from omniintelligence.code_projection.qdrant import (
     ProtocolCodeProjectionEmbeddingClient,
 )
+from omniintelligence.handlers.retrieval_eval_fixtures import (
+    load_golden_query_set,
+    load_replay_corpus,
+)
 from omniintelligence.nodes.node_retrieval_eval_compute.baselines import (
     BASELINE_SCORECARD_PATH,
     GOLDEN_QUERY_SET_PATH,
+)
+from omniintelligence.nodes.node_retrieval_eval_compute.handlers import (
+    handle_retrieval_eval,
 )
 from omniintelligence.nodes.node_retrieval_eval_compute.handlers.golden import (
     DEFAULT_GOLDEN_SET_PATH,
     GOLDEN_SET_MAXIMUM_ROWS,
     GOLDEN_SET_MINIMUM_ROWS,
     ModelGoldenQuery,
-    load_golden_query_set,
 )
 from omniintelligence.nodes.node_retrieval_eval_compute.handlers.metrics import (
     ARMING_MINIMUM_DISTINCT_DOCUMENTS,
@@ -40,16 +46,30 @@ from omniintelligence.nodes.node_retrieval_eval_compute.handlers.metrics import 
 from omniintelligence.nodes.node_retrieval_eval_compute.handlers.replay import (
     DeterministicEmbedder,
     ProtocolTimedEmbedder,
-    load_replay_corpus,
 )
-from omniintelligence.nodes.node_retrieval_eval_compute.handlers.runner import run_eval
+from omniintelligence.nodes.node_retrieval_eval_compute.handlers.runner import (
+    ModelEvalResult,
+)
 from omniintelligence.nodes.node_retrieval_eval_compute.handlers.scorecard import (
     UNKNOWN,
+)
+from omniintelligence.nodes.node_retrieval_eval_compute.models import (
+    ModelRetrievalEvalInput,
 )
 
 pytestmark = pytest.mark.unit
 
 EXPECTED_SCENARIOS = ("R1", "R2", "R3", "R4", "R5", "R6")
+
+
+async def run_eval() -> ModelEvalResult:
+    """Run the node's bound handler over the committed corpus and golden set."""
+
+    return await handle_retrieval_eval(
+        ModelRetrievalEvalInput(
+            corpus=load_replay_corpus(), golden=load_golden_query_set()
+        )
+    )
 
 
 async def test_all_six_replay_scenarios_are_asserted_and_pass() -> None:

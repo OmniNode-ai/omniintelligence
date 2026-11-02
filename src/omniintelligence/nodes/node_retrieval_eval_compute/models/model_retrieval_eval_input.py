@@ -5,30 +5,30 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from omniintelligence.nodes.node_retrieval_eval_compute.handlers.golden import (
+    ModelGoldenQuerySet,
+)
+from omniintelligence.nodes.node_retrieval_eval_compute.handlers.replay import (
+    ModelReplayCorpus,
+)
+
 
 class ModelRetrievalEvalInput(BaseModel):
-    """Where the offline harness reads its replay fixtures and golden set.
+    """The parsed replay corpus and golden query set the harness scores.
 
-    Both paths default to the committed artifacts, so an empty request runs the
-    same harness CI gates on.
+    The node does no file I/O: the caller loads both, for example with
+    ``omniintelligence.handlers.retrieval_eval_fixtures``.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
 
     correlation_id: UUID = Field(default_factory=uuid4)
-    fixture_root: Path | None = Field(
-        default=None,
-        description="Replay fixture root; the committed v2 fixtures when unset.",
-    )
-    golden_set_path: Path | None = Field(
-        default=None,
-        description="Golden query set file; the committed v1 set when unset.",
-    )
+    corpus: ModelReplayCorpus = Field(description="The frozen replay corpus.")
+    golden: ModelGoldenQuerySet = Field(description="The judged golden query set.")
 
 
 __all__ = ["ModelRetrievalEvalInput"]

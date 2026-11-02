@@ -1,19 +1,17 @@
 # SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
 
-"""NodeRetrievalEvalCompute -- thin shell delegating to handle_retrieval_eval.
+"""NodeRetrievalEvalCompute -- declarative shell of the retrieval eval harness.
 
-Runs the offline retrieval-quality eval harness from the frozen replay
-fixtures. All computation is delegated to handle_retrieval_eval.
+Runs the offline retrieval-quality eval harness over a parsed replay corpus and
+golden query set. Routing lives in contract.yaml: the single operation
+``run_retrieval_eval`` is bound to ``handle_retrieval_eval``.
 """
 
 from __future__ import annotations
 
 from omnibase_core.nodes.node_compute import NodeCompute
 
-from omniintelligence.nodes.node_retrieval_eval_compute.handlers import (
-    handle_retrieval_eval,
-)
 from omniintelligence.nodes.node_retrieval_eval_compute.handlers.runner import (
     ModelEvalResult,
 )
@@ -23,15 +21,11 @@ from omniintelligence.nodes.node_retrieval_eval_compute.models import (
 
 
 class NodeRetrievalEvalCompute(NodeCompute[ModelRetrievalEvalInput, ModelEvalResult]):
-    """Compute node that runs the offline retrieval-quality eval harness.
+    """Declarative compute node for the offline retrieval eval harness.
 
-    Thin shell following the ONEX declarative pattern.
-    All logic is delegated to handle_retrieval_eval.
+    All behavior is defined in contract.yaml and delegated to
+    handle_retrieval_eval; this class contains no custom methods.
     """
-
-    async def compute(self, input_data: ModelRetrievalEvalInput) -> ModelEvalResult:
-        """Delegate to handle_retrieval_eval."""
-        return await handle_retrieval_eval(input_data)
 
 
 __all__ = ["NodeRetrievalEvalCompute"]

@@ -31,7 +31,6 @@ from qdrant_client import AsyncQdrantClient
 from qdrant_client.http import models as qmodels
 
 from omniintelligence.code_projection.codec import (
-    parse_code_projection_batch,
     serialize_code_projection_batch,
 )
 from omniintelligence.code_projection.models import (
@@ -46,7 +45,6 @@ from omniintelligence.code_projection.qdrant import (
     ModelCodeProjectionSearchHit,
     ProtocolCodeProjectionEmbeddingClient,
 )
-from omniintelligence.models.code_projection import artifact_ref_for
 
 #: Repository-relative location of the frozen OMN-16061 v2 replay vectors.
 #: Resolved from this file rather than an absolute path so the harness works in
@@ -479,25 +477,6 @@ class ReplayState:
         return hits
 
 
-def load_replay_corpus(fixture_root: Path | None = None) -> ModelReplayCorpus:
-    """Load every batch and sanitized artifact under ``fixture_root``."""
-
-    root = DEFAULT_FIXTURE_ROOT if fixture_root is None else fixture_root
-    batches = {
-        path.name: parse_code_projection_batch(path.read_bytes())
-        for path in sorted((root / "batches").glob("*.json"))
-    }
-    artifacts: dict[str, bytes] = {}
-    for path in filter(Path.is_file, sorted((root / "sanitized").iterdir())):
-        payload = path.read_bytes()
-        artifacts[artifact_ref_for(hashlib.sha256(payload).hexdigest())] = payload
-    return ModelReplayCorpus(
-        fixture_root=root,
-        batches=batches,
-        artifacts=artifacts,
-    )
-
-
 def _identity(batches: Sequence[ModelCodeProjectionBatch]) -> tuple[str, str]:
     tenants = {batch.source.tenant_id for batch in batches}
     repositories = {batch.source.repository_id for batch in batches}
@@ -568,6 +547,5 @@ __all__ = [
     "ModelReplayLane",
     "ReplayGenerationResolver",
     "ReplayState",
-    "load_replay_corpus",
     "open_replay_state",
 ]

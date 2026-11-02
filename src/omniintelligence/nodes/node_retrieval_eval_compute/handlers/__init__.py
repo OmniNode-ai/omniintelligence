@@ -26,7 +26,6 @@ from omniintelligence.nodes.node_retrieval_eval_compute.handlers.replay import (
     ProtocolTimedEmbedder,
     ReplayGenerationResolver,
     ReplayState,
-    load_replay_corpus,
     open_replay_state,
 )
 
@@ -44,6 +43,5 @@ __all__ = [
     "ReplayGenerationResolver",
     "ReplayState",
     "handle_retrieval_eval",
-    "load_replay_corpus",
     "open_replay_state",
 ]

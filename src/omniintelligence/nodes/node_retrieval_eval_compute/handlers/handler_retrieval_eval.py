@@ -5,12 +5,6 @@
 
 from __future__ import annotations
 
-from omniintelligence.nodes.node_retrieval_eval_compute.handlers.golden import (
-    load_golden_query_set,
-)
-from omniintelligence.nodes.node_retrieval_eval_compute.handlers.replay import (
-    load_replay_corpus,
-)
 from omniintelligence.nodes.node_retrieval_eval_compute.handlers.runner import (
     ModelEvalResult,
     run_eval,
@@ -21,12 +15,9 @@ from omniintelligence.nodes.node_retrieval_eval_compute.models import (
 
 
 async def handle_retrieval_eval(request: ModelRetrievalEvalInput) -> ModelEvalResult:
-    """Run the offline harness over the requested fixtures and golden set."""
+    """Run the offline harness over the requested corpus and golden set."""
 
-    return await run_eval(
-        corpus=load_replay_corpus(request.fixture_root),
-        golden=load_golden_query_set(request.golden_set_path),
-    )
+    return await run_eval(corpus=request.corpus, golden=request.golden)
 
 
 __all__ = ["handle_retrieval_eval"]

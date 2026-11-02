@@ -18,7 +18,6 @@ from pydantic import BaseModel, ConfigDict
 from omniintelligence.code_projection.qdrant import ModelCodeProjectionQdrantConfig
 from omniintelligence.nodes.node_retrieval_eval_compute.handlers.golden import (
     ModelGoldenQuerySet,
-    load_golden_query_set,
 )
 from omniintelligence.nodes.node_retrieval_eval_compute.handlers.metrics import (
     summarize_metrics,
@@ -29,7 +28,6 @@ from omniintelligence.nodes.node_retrieval_eval_compute.handlers.replay import (
     REPLAY_LANES,
     ModelReplayCorpus,
     ModelStageLatencySample,
-    load_replay_corpus,
     open_replay_state,
 )
 from omniintelligence.nodes.node_retrieval_eval_compute.handlers.scorecard import (
@@ -315,13 +313,13 @@ def _embedding_key() -> ModelEmbeddingCompatibilityKey:
 
 async def run_eval(
     *,
-    corpus: ModelReplayCorpus | None = None,
-    golden: ModelGoldenQuerySet | None = None,
+    corpus: ModelReplayCorpus,
+    golden: ModelGoldenQuerySet,
 ) -> ModelEvalResult:
     """Run the whole harness and return the scorecard plus the latency report."""
 
-    resolved_corpus = load_replay_corpus() if corpus is None else corpus
-    resolved_golden = load_golden_query_set() if golden is None else golden
+    resolved_corpus = corpus
+    resolved_golden = golden
     samples: list[ModelStageLatencySample] = []
 
     scenarios = await _run_scenarios(resolved_corpus, samples)
