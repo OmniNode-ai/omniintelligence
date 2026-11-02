@@ -33,7 +33,7 @@ emergency_bypass:
   justification: ''
   follow_up_ticket_id: ''
 dod_evidence:
-  - id: dod-omn21288-ac1-intelligence-api-declared-in-runtime
+  - id: dod-omn21288-ac1-intelligence-api-runtime-mount
     description: >-
       Omniintelligence slice of AC1 only: the intelligence API process is declared as a runtime mount,
       so a dev-stack service for it is no longer needed. The stack check itself and its pytest live in
