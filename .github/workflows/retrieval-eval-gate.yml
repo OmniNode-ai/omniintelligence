@@ -32,6 +32,8 @@ on:
       - 'pyproject.toml'
       - 'uv.lock'
       - 'src/omniintelligence/code_projection/**'
+      # OMN-21945: the harness lives in its node, node_retrieval_eval_compute.
+      - 'src/omniintelligence/nodes/node_retrieval_eval_compute/**'
       - 'tests/unit/code_projection/**'
       - 'tests/fixtures/code_projection/**'
       - '.github/workflows/retrieval-eval-gate.yml'
@@ -92,7 +94,7 @@ jobs:
       # Named-scenario evidence: this step's log shows each of R1-R6 executing
       # with its verdict, and exits non-zero if any scenario fails.
       - name: Run replay-scenario gate
-        run: uv run python -m omniintelligence.code_projection.retrieval_eval
+        run: uv run python -m omniintelligence.nodes.node_retrieval_eval_compute.runtime_retrieval_eval
 
       - name: Run harness and replay-gate tests
         run: |
@@ -104,6 +106,6 @@ jobs:
       # re-baseline. Failing loudly is what keeps the two distinguishable.
       - name: Verify committed baseline scorecard is unchanged
         run: |
-          uv run python -m omniintelligence.code_projection.retrieval_eval --write
+          uv run python -m omniintelligence.nodes.node_retrieval_eval_compute.runtime_retrieval_eval --write
           git diff --exit-code -- \
-            src/omniintelligence/code_projection/retrieval_eval/baselines/baseline_scorecard.json
+            src/omniintelligence/nodes/node_retrieval_eval_compute/baselines/baseline_scorecard.json

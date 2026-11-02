@@ -1,0 +1,83 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# ONEX Node Contract
+# Node: NodeRetrievalEvalCompute
+#
+# Offline retrieval-quality eval of the code-intelligence context packs: the
+# R1-R6 replay scenarios gate, the ranking metrics are reported. The harness
+# was code_projection/retrieval_eval (OMN-16522); it moved into this node so
+# its handler is bound by a contract and its command line is a node runtime.
+#
+# Reference: OMN-21945
+
+name: "node_retrieval_eval_compute"
+version: "1.0.0"
+contract_version: {major: 1, minor: 0, patch: 0}
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+node_type: "COMPUTE_GENERIC"
+
+status: "active"
+
+description: >
+  Runs the retrieval eval harness entirely from the frozen replay fixtures: the six replay scenarios
+  (generation currency, tombstones, external symbols, partition scope) and the judged golden query set,
+  and returns the scorecard plus a latency report. No Postgres, Memgraph or Qdrant service, no network and
+  no model calls. The command line is runtime_retrieval_eval.py beside this contract.
+input_model:
+  name: "ModelRetrievalEvalRequest"
+  module: "omniintelligence.nodes.node_retrieval_eval_compute.handlers.handler_retrieval_eval"
+  description: "The replay corpus and golden set to score; absent fields load the committed ones."
+
+output_model:
+  name: "ModelEvalResult"
+  module: "omniintelligence.nodes.node_retrieval_eval_compute.handlers.handler_retrieval_eval"
+  description: "The committed scorecard plus the latency report."
+
+operations:
+  - name: "run_retrieval_eval"
+    description: "Run the replay scenarios and score the golden query set"
+    input_fields:
+      - corpus
+      - golden
+    output_fields:
+      - scorecard
+      - latency
+
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    - operation: "run_retrieval_eval"
+      handler:
+        function: "handle"
+        module: "omniintelligence.nodes.node_retrieval_eval_compute.handlers.handler_retrieval_eval"
+        type: "async"
+      description: "Run the retrieval eval harness"
+
+dependencies: []
+
+error_handling:
+  error_types: []
+
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-11-02"
+  updated: "2026-11-02"
+  tags:
+    - compute
+    - code-projection
+    - retrieval-eval
+  references:
+    - ticket: "OMN-21945"
+      url: "https://linear.app/omninode/issue/OMN-21945"
+      description: "the code_projection retrieval_eval harness moves into a canonical node"
