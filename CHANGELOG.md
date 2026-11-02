@@ -1,3 +1,15 @@
+## v0.25.2 (2026-11-02)
+
+### Release
+- Cut omninode-intelligence from dev at 0.25.2 by the scheduled release train.
+- 3 release-relevant commit(s) merged since v0.25.1.
+- Opened by the release train, which cuts only when the repo's declared lab-evidence premise holds for the exact candidate commit.
+
+### Included Since v0.25.1
+- : bind the code_projection retrieval_eval harness into node_retrieval_eval_compute (#1196)
+- refactor: eleven unbound handler modules become handler classes with typed requests (#1192)
+- refactor: hand-built handlers resolve from container binding modules, handler_hand_construction 63 to 33 (#1193)
+
 ## v0.25.1 (2026-11-01)
 
 ### Release
