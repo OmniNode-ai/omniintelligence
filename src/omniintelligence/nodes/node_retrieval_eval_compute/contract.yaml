@@ -1,0 +1,55 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# ONEX Node Contract - Retrieval Eval Compute Node
+# =============================================================================
+# Tracking: OMN-16522 (harness), OMN-21945 (bound into a node)
+# =============================================================================
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+name: "node_retrieval_eval_compute"
+version: "1.0.0"
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: "COMPUTE_GENERIC"
+description: >-
+  Offline retrieval-quality eval harness for code-intelligence context packs. Replays the frozen code-projection
+  fixtures through an in-memory Qdrant, runs the named replay scenarios, scores the golden query set and returns
+  the scorecard plus a latency report. No Postgres, Memgraph, Qdrant service, network or model calls.
+input_model:
+  name: "ModelRetrievalEvalInput"
+  module: "omniintelligence.nodes.node_retrieval_eval_compute.models"
+  description: "Optional replay corpus and golden query set; None loads the committed fixtures."
+output_model:
+  name: "ModelRetrievalEvalResult"
+  module: "omniintelligence.nodes.node_retrieval_eval_compute.models"
+  description: "Scorecard (scenario verdicts, ranking metrics, embedding key) plus the latency report."
+operations:
+  - name: "run_retrieval_eval"
+    description: "Run the replay scenarios and score the golden query set"
+    input_fields:
+      - corpus
+      - golden
+    output_fields:
+      - scorecard
+      - latency
+handler_routing:
+  routing_strategy: "single_handler"
+  handlers:
+    - operation: "run_retrieval_eval"
+      handler:
+        function: "handle_retrieval_eval"
+        module: "omniintelligence.nodes.node_retrieval_eval_compute.handlers.handler_retrieval_eval"
+        type: "async"
+dependencies: []
+metadata:
+  author: "OmniNode Team"
+  created: "2026-11-02"
+  updated: "2026-11-02"
+  tags:
+    - "ONEX"
+    - "compute"
+    - "eval"
+    - "retrieval"
+    - "code-projection"

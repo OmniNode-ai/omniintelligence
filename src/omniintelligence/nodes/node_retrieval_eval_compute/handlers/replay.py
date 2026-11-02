@@ -52,7 +52,7 @@ from omniintelligence.models.code_projection import artifact_ref_for
 #: Resolved from this file rather than an absolute path so the harness works in
 #: a worktree, a clone, or CI without configuration.
 DEFAULT_FIXTURE_ROOT = (
-    Path(__file__).resolve().parents[4] / "tests/fixtures/code_projection/v2"
+    Path(__file__).resolve().parents[5] / "tests/fixtures/code_projection/v2"
 )
 
 #: Embedding dimension pinned by the shared projection collection contract.
