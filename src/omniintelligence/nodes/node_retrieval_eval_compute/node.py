@@ -11,9 +11,6 @@ from __future__ import annotations
 
 from omnibase_core.nodes.node_compute import NodeCompute
 
-from omniintelligence.nodes.node_retrieval_eval_compute.handlers import (
-    HandlerRetrievalEval,
-)
 from omniintelligence.nodes.node_retrieval_eval_compute.models import (
     ModelRetrievalEvalInput,
     ModelRetrievalEvalResult,
@@ -26,14 +23,8 @@ class NodeRetrievalEvalCompute(
     """Compute node for the offline retrieval eval harness.
 
     Thin shell following the ONEX declarative pattern.
-    All logic is delegated to HandlerRetrievalEval.
+    All logic is delegated to HandlerRetrievalEval via contract handler_routing.
     """
-
-    async def compute(
-        self, input_data: ModelRetrievalEvalInput
-    ) -> ModelRetrievalEvalResult:
-        """Delegate to HandlerRetrievalEval."""
-        return await HandlerRetrievalEval().handle(input_data)
 
 
 __all__ = ["NodeRetrievalEvalCompute"]
