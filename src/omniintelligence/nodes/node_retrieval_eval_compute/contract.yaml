@@ -1,0 +1,88 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# ONEX Node Contract
+# Node: NodeRetrievalEvalCompute
+#
+# Offline retrieval-quality eval of code-projection context packs. Runs the six
+# replay scenarios (R1-R6) and the golden-set ranking metrics from the frozen
+# replay fixtures, with no Postgres, Memgraph, Qdrant, network or model calls.
+# The command line runtime is runtime_retrieval_eval.py beside this contract;
+# the Retrieval Eval Gate workflow runs it on every PR touching retrieval code.
+#
+# Reference: OMN-16522 (harness), OMN-21945 (bound into this node)
+
+name: "node_retrieval_eval_compute"
+version: "1.0.0"
+contract_version: {major: 1, minor: 0, patch: 0}
+contract_name: "retrieval_eval_compute"
+node_name: "retrieval_eval_compute"
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+node_type: "COMPUTE_GENERIC"
+status: "active"
+description: >
+  Offline retrieval eval harness. Replays the frozen code-projection fixtures into an
+  in-memory Qdrant, runs the R1-R6 replay scenarios and the golden-set recall, MRR and
+  top-rank metrics, and returns the scorecard plus a latency report. Deterministic and
+  side-effect free apart from reading the committed fixtures.
+input_model:
+  name: "ModelRetrievalEvalInput"
+  module: "omniintelligence.nodes.node_retrieval_eval_compute.models"
+  description: "Optional fixture root and golden set path; defaults are the committed artifacts."
+output_model:
+  name: "ModelRetrievalEvalOutput"
+  module: "omniintelligence.nodes.node_retrieval_eval_compute.models"
+  description: "Pass verdict, the scorecard and latency report, or a structured error."
+handler_routing:
+  routing_strategy: "operation_match"
+  entry_point:
+    function: "handle_retrieval_eval"
+    module: "omniintelligence.nodes.node_retrieval_eval_compute.handlers.handler_retrieval_eval"
+    type: "async"
+    description: "Run the retrieval eval harness and return the scorecard"
+  handlers:
+    - operation: "run_retrieval_eval"
+      handler:
+        function: "handle_retrieval_eval"
+        module: "omniintelligence.nodes.node_retrieval_eval_compute.handlers.handler_retrieval_eval"
+        type: "async"
+      description: "Run the replay scenarios and golden-set metrics"
+  default_handler:
+    function: "handle_retrieval_eval"
+    module: "omniintelligence.nodes.node_retrieval_eval_compute.handlers.handler_retrieval_eval"
+    type: "async"
+    description: "Default to run_retrieval_eval"
+io_operations:
+  - operation: "run_retrieval_eval"
+    description: "Run the offline retrieval eval harness"
+    input_model: "ModelRetrievalEvalInput"
+    output_model: "ModelRetrievalEvalOutput"
+    input_fields:
+      - correlation_id
+      - fixture_root
+      - golden_set_path
+    output_fields:
+      - correlation_id
+      - passed
+      - result
+      - error
+event_bus:
+  event_bus_enabled: false
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-11-02"
+  updated: "2026-11-02"
+  tags:
+    - compute
+    - retrieval
+    - eval
+    - code-projection
+  references:
+    - ticket: "OMN-16522"
+      description: "Retrieval-quality benchmark harness and gate"
+    - ticket: "OMN-21945"
+      description: "Harness bound into a contract + node + handler"
