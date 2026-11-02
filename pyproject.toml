@@ -220,7 +220,7 @@ core = [
 # default/review path. Run rl + adaptive tests explicitly with `--group rl`.
 rl = [
     "torch>=2.0.0",
-    "transformers>=4.30.0",
+    "transformers>=5.10.1",
     "sentence-transformers>=4.1.0",
     "adaptive-classifier>=0.1.2",
 ]
