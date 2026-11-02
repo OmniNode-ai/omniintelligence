@@ -11,17 +11,18 @@ arms them.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Sequence
 
-from pydantic import BaseModel, ConfigDict
-
 from omniintelligence.code_projection.qdrant import ModelCodeProjectionQdrantConfig
-from omniintelligence.code_projection.retrieval_eval.golden import (
+from omniintelligence.nodes.node_retrieval_eval_compute.handlers.golden import (
     ModelGoldenQuerySet,
     load_golden_query_set,
 )
-from omniintelligence.code_projection.retrieval_eval.metrics import summarize_metrics
-from omniintelligence.code_projection.retrieval_eval.replay import (
+from omniintelligence.nodes.node_retrieval_eval_compute.handlers.metrics import (
+    summarize_metrics,
+)
+from omniintelligence.nodes.node_retrieval_eval_compute.handlers.replay import (
     HARNESS_EMBEDDING_MODEL,
     HARNESS_EMBEDDING_MODEL_VERSION,
     REPLAY_LANES,
@@ -30,12 +31,18 @@ from omniintelligence.code_projection.retrieval_eval.replay import (
     load_replay_corpus,
     open_replay_state,
 )
-from omniintelligence.code_projection.retrieval_eval.scorecard import (
+from omniintelligence.nodes.node_retrieval_eval_compute.handlers.scorecard import (
     UNKNOWN,
     ModelEmbeddingCompatibilityKey,
     ModelLatencyReport,
     ModelScenarioOutcome,
     ModelScorecard,
+)
+from omniintelligence.nodes.node_retrieval_eval_compute.models.model_retrieval_eval_input import (
+    ModelRetrievalEvalInput,
+)
+from omniintelligence.nodes.node_retrieval_eval_compute.models.model_retrieval_eval_result import (
+    ModelEvalResult,
 )
 
 SCORECARD_VERSION = "v1"
@@ -51,15 +58,7 @@ _SEARCH_LIMIT = 100
 _EXTERNAL_SYMBOL_QUERY = "where is the builtins str type defined"
 
 
-class _FrozenModel(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
-
-
-class ModelEvalResult(_FrozenModel):
-    """The full harness output: the committed scorecard plus loose latency."""
-
-    scorecard: ModelScorecard
-    latency: ModelLatencyReport
+logger = logging.getLogger(__name__)
 
 
 def _outcome(
@@ -359,10 +358,33 @@ async def run_eval(
     )
 
 
+async def handle_retrieval_eval(request: ModelRetrievalEvalInput) -> ModelEvalResult:
+    """Run the offline retrieval eval for one request.
+
+    The replay scenarios' verdicts are data on the returned scorecard, so a
+    failing scenario is a result, not an exception.
+    """
+
+    logger.info(
+        "retrieval eval started",
+        extra={"correlation_id": str(request.correlation_id)},
+    )
+    result = await run_eval()
+    logger.info(
+        "retrieval eval finished",
+        extra={
+            "correlation_id": str(request.correlation_id),
+            "scenarios_passed": sum(s.passed for s in result.scorecard.scenarios),
+            "scenarios_total": len(result.scorecard.scenarios),
+        },
+    )
+    return result
+
+
 __all__ = [
     "CORPUS_MANIFEST_ID",
     "SCORECARD_VERSION",
     "TICKET",
-    "ModelEvalResult",
+    "handle_retrieval_eval",
     "run_eval",
 ]
