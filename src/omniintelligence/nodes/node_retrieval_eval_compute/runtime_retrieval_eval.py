@@ -3,8 +3,8 @@
 
 """Run the retrieval eval and print or refresh the baseline scorecard.
 
-    uv run python -m omniintelligence.code_projection.retrieval_eval
-    uv run python -m omniintelligence.code_projection.retrieval_eval --write
+    uv run python -m omniintelligence.nodes.node_retrieval_eval_compute.runtime_retrieval_eval
+    uv run python -m omniintelligence.nodes.node_retrieval_eval_compute.runtime_retrieval_eval --write
 
 ``--write`` refreshes the committed baseline.  Do that only when a change to the
 corpus, the golden set, or the embedding-compatibility key makes the old
@@ -18,10 +18,12 @@ import argparse
 import asyncio
 import sys
 
-from omniintelligence.code_projection.retrieval_eval.baselines import (
+from omniintelligence.nodes.node_retrieval_eval_compute.baselines import (
     BASELINE_SCORECARD_PATH,
 )
-from omniintelligence.code_projection.retrieval_eval.runner import run_eval
+from omniintelligence.nodes.node_retrieval_eval_compute.handlers.handler_retrieval_eval import (
+    run_eval,
+)
 
 
 async def _main(*, write: bool) -> int:

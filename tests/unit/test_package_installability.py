@@ -100,6 +100,7 @@ EXPECTED_NODE_DIRS = [
     "node_review_record_compute",
     "node_review_rubric_check_compute",
     "node_review_voters_overlay_compute",
+    "node_retrieval_eval_compute",
     "node_routing_feedback_effect",
     "node_scoring_reducer_compute",
     "node_semantic_analysis_compute",

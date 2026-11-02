@@ -16,12 +16,14 @@ from collections.abc import Sequence
 from pydantic import BaseModel, ConfigDict
 
 from omniintelligence.code_projection.qdrant import ModelCodeProjectionQdrantConfig
-from omniintelligence.code_projection.retrieval_eval.golden import (
+from omniintelligence.nodes.node_retrieval_eval_compute.handlers.golden import (
     ModelGoldenQuerySet,
     load_golden_query_set,
 )
-from omniintelligence.code_projection.retrieval_eval.metrics import summarize_metrics
-from omniintelligence.code_projection.retrieval_eval.replay import (
+from omniintelligence.nodes.node_retrieval_eval_compute.handlers.metrics import (
+    summarize_metrics,
+)
+from omniintelligence.nodes.node_retrieval_eval_compute.handlers.replay import (
     HARNESS_EMBEDDING_MODEL,
     HARNESS_EMBEDDING_MODEL_VERSION,
     REPLAY_LANES,
@@ -30,12 +32,15 @@ from omniintelligence.code_projection.retrieval_eval.replay import (
     load_replay_corpus,
     open_replay_state,
 )
-from omniintelligence.code_projection.retrieval_eval.scorecard import (
+from omniintelligence.nodes.node_retrieval_eval_compute.handlers.scorecard import (
     UNKNOWN,
     ModelEmbeddingCompatibilityKey,
     ModelLatencyReport,
     ModelScenarioOutcome,
     ModelScorecard,
+)
+from omniintelligence.nodes.node_retrieval_eval_compute.models.model_retrieval_eval_input import (
+    ModelRetrievalEvalInput,
 )
 
 SCORECARD_VERSION = "v1"
@@ -359,10 +364,17 @@ async def run_eval(
     )
 
 
+async def handle_retrieval_eval(request: ModelRetrievalEvalInput) -> ModelEvalResult:
+    """Bound handler of ``node_retrieval_eval_compute``: run the harness."""
+
+    return await run_eval(corpus=request.corpus, golden=request.golden)
+
+
 __all__ = [
     "CORPUS_MANIFEST_ID",
     "SCORECARD_VERSION",
     "TICKET",
     "ModelEvalResult",
+    "handle_retrieval_eval",
     "run_eval",
 ]

@@ -1,0 +1,55 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# ONEX Node Contract - Retrieval Eval Compute Node
+# =============================================================================
+# Tracking: OMN-21945 (harness from OMN-16522)
+# =============================================================================
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+name: "node_retrieval_eval_compute"
+version: "1.0.0"
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: "COMPUTE_GENERIC"
+description: >-
+  Compute node that runs the offline retrieval-quality eval harness for code-intelligence context packs over the frozen
+  replay fixtures: the six replay scenarios (the gate), the ranking metrics (reported) and the baseline scorecard. No
+  live Postgres, Memgraph or Qdrant, no network and no model calls.
+input_model:
+  name: "ModelRetrievalEvalInput"
+  module: "omniintelligence.nodes.node_retrieval_eval_compute.models"
+  description: "Optional replay corpus and golden query set; both default to the committed artifacts."
+output_model:
+  name: "ModelEvalResult"
+  module: "omniintelligence.nodes.node_retrieval_eval_compute.handlers.handler_retrieval_eval"
+  description: "The committed scorecard plus the latency report excluded from its digest."
+operations:
+  - name: "run_retrieval_eval"
+    description: "Run the replay scenarios and score the golden query set"
+    input_fields:
+      - corpus
+      - golden
+    output_fields:
+      - scorecard
+      - latency
+handler_routing:
+  routing_strategy: "single_handler"
+  handlers:
+    - operation: "run_retrieval_eval"
+      handler:
+        function: "handle_retrieval_eval"
+        module: "omniintelligence.nodes.node_retrieval_eval_compute.handlers.handler_retrieval_eval"
+        type: "async"
+dependencies: []
+metadata:
+  author: "OmniNode Team"
+  created: "2026-11-02"
+  updated: "2026-11-02"
+  tags:
+    - "ONEX"
+    - "compute"
+    - "eval"
+    - "retrieval"
+    - "code-projection"
