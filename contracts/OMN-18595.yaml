@@ -65,7 +65,8 @@ dod_evidence:
     source: manual
     checks:
       - check_type: command
-        check_value: grep -Pzo 'name = "transformers"\nversion = "5.10.1"\n' uv.lock
+        check_value: grep -Pzoq 'name = "omninode-intelligence"\nversion = "0.25.2"\n' uv.lock && grep
+          -Pzoq 'name = "transformers"\nversion = "5.10.1"\n' uv.lock
         cwd: ${OMNI_HOME}/omniintelligence
     binds_ac:
       - AC4
