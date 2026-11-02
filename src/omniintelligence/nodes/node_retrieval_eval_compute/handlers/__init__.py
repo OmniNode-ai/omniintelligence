@@ -11,7 +11,7 @@ bytes.
 from __future__ import annotations
 
 from omniintelligence.nodes.node_retrieval_eval_compute.handlers.handler_retrieval_eval import (
-    handle_retrieval_eval,
+    HandlerRetrievalEval,
     run_eval,
 )
 from omniintelligence.nodes.node_retrieval_eval_compute.handlers.replay import (
@@ -44,7 +44,7 @@ __all__ = [
     "ModelReplayLane",
     "ReplayGenerationResolver",
     "ReplayState",
-    "handle_retrieval_eval",
+    "HandlerRetrievalEval",
     "load_replay_corpus",
     "open_replay_state",
     "run_eval",

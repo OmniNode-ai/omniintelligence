@@ -352,21 +352,21 @@ async def run_eval(
     )
 
 
-async def handle_retrieval_eval(
-    request: ModelRetrievalEvalInput,
-) -> ModelRetrievalEvalResult:
-    """Canonical node handler: run the harness over the request's inputs.
+class HandlerRetrievalEval:
+    """Canonical node handler: run the harness over the request's inputs."""
 
-    ``None`` fields fall back to the committed replay corpus and golden set.
-    """
+    async def handle(
+        self, request: ModelRetrievalEvalInput
+    ) -> ModelRetrievalEvalResult:
+        """Run the harness; ``None`` fields use the committed corpus and golden set."""
 
-    return await run_eval(corpus=request.corpus, golden=request.golden)
+        return await run_eval(corpus=request.corpus, golden=request.golden)
 
 
 __all__ = [
     "CORPUS_MANIFEST_ID",
     "SCORECARD_VERSION",
     "TICKET",
-    "handle_retrieval_eval",
+    "HandlerRetrievalEval",
     "run_eval",
 ]

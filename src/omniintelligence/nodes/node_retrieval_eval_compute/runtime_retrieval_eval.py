@@ -22,7 +22,7 @@ from omniintelligence.nodes.node_retrieval_eval_compute.baselines import (
     BASELINE_SCORECARD_PATH,
 )
 from omniintelligence.nodes.node_retrieval_eval_compute.handlers import (
-    handle_retrieval_eval,
+    HandlerRetrievalEval,
 )
 from omniintelligence.nodes.node_retrieval_eval_compute.models import (
     ModelRetrievalEvalInput,
@@ -30,7 +30,7 @@ from omniintelligence.nodes.node_retrieval_eval_compute.models import (
 
 
 async def _main(*, write: bool) -> int:
-    result = await handle_retrieval_eval(ModelRetrievalEvalInput())
+    result = await HandlerRetrievalEval().handle(ModelRetrievalEvalInput())
     payload = result.scorecard.to_canonical_bytes()
 
     for scenario in result.scorecard.scenarios:

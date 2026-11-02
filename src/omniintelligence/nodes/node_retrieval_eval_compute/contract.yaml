@@ -15,8 +15,9 @@ contract_version: {major: 1, minor: 0, patch: 0}
 node_type: "COMPUTE_GENERIC"
 description: >-
   Offline retrieval-quality eval harness for code-intelligence context packs. Replays the frozen code-projection
-  fixtures through an in-memory Qdrant, runs the named replay scenarios, scores the golden query set and returns
-  the scorecard plus a latency report. No Postgres, Memgraph, Qdrant service, network or model calls.
+  fixtures through an in-memory Qdrant, runs the named replay scenarios, scores the golden query set and
+  returns the scorecard plus a latency report. No Postgres, Memgraph, Qdrant service, network or model
+  calls.
 input_model:
   name: "ModelRetrievalEvalInput"
   module: "omniintelligence.nodes.node_retrieval_eval_compute.models"
@@ -39,7 +40,7 @@ handler_routing:
   handlers:
     - operation: "run_retrieval_eval"
       handler:
-        function: "handle_retrieval_eval"
+        class: "HandlerRetrievalEval"
         module: "omniintelligence.nodes.node_retrieval_eval_compute.handlers.handler_retrieval_eval"
         type: "async"
 dependencies: []
