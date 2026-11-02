@@ -38,6 +38,31 @@ output_model:
   description: "The signed receipt and the record of its findings."
 
 operations:
+  - name: "issue_agent_receipt"
+    description: "Sign a hostile_review_agent_receipt.v1 receipt (OMN-22175): input model ModelIssueAgentReceiptRequest,
+      output model ModelAgentReviewReceipt"
+    input_fields:
+      - id
+      - repo
+      - pr
+      - head_sha
+      - reviewer_id
+      - voters
+      - roster_snapshot
+      - quorum_verdict
+      - blocking
+      - findings_count
+      - issued_at
+      - key
+    output_fields:
+      - schema_version
+      - id
+      - voters
+      - roster_snapshot
+      - quorum_verdict
+      - blocking
+      - findings_count
+      - signature
   - name: "issue_receipt"
     description: "Sign a receipt counting the findings and record those findings beside it"
     input_fields:
@@ -56,6 +81,12 @@ operations:
 handler_routing:
   routing_strategy: "operation_match"
   handlers:
+    - operation: "issue_agent_receipt"
+      handler:
+        function: "handle"
+        module: "omniintelligence.nodes.node_review_receipt_issue_compute.handlers.handler_issue_agent_receipt"
+        type: "sync"
+      description: "Issue a signed agent review receipt (hostile_review_agent_receipt.v1)"
     - operation: "issue_receipt"
       handler:
         function: "handle"
@@ -85,6 +116,9 @@ metadata:
     - receipt
     - record
   references:
+    - ticket: "OMN-22175"
+      url: "https://linear.app/omninode/issue/OMN-22175"
+      description: "The agent receipt variant hostile_review_agent_receipt.v1"
     - ticket: "OMN-20981"
       url: "https://linear.app/omninode/issue/OMN-20981"
       description: "The receipt reviewer records its full findings beside the unchanged receipt"

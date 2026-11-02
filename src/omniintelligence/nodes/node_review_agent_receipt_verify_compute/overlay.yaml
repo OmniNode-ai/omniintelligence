@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# Packaged defaults of the review_agent_receipt_verify overlay (OMN-22175).
+#
+# A deployment replaces any key in <root>/review_agent_receipt_verify/overlay.yaml on
+# ONEX_SKILL_OVERLAY_ROOTS. This file ships the policy and the quorum size the node
+# starts from: it approves no voter (the agent roster is deployment data, supplied by
+# the roster overlay), so a receipt is refused until a deployment names its voters.
+transport: in_memory
+quorum_size: 2
+policy:
+  approved_identities: []
+  forbidden_providers:
+    - anthropic
+  forbidden_endpoint_classes:
+    - review_gateway
+  forbidden_endpoints: []
+  forbidden_hosts: []

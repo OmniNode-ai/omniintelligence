@@ -44,8 +44,9 @@ import hashlib
 import hmac
 import json
 import re
+from collections.abc import Mapping
 from datetime import datetime, timedelta
-from typing import Final
+from typing import Any, Final
 
 from pydantic import ValidationError
 
@@ -116,16 +117,27 @@ _BLOCK = re.compile(
 )
 
 
-def _signed_payload(receipt: ModelReviewReceipt) -> bytes:
-    fields = receipt.model_dump(mode="json", exclude={"signature"})
-    fields["repo"] = str(fields["repo"]).lower()
-    body = json.dumps(fields, sort_keys=True, separators=(",", ":"))
-    return f"{RECEIPT_SCHEMA_VERSION}\n{body}".encode()
+def sign_fields(schema_version: str, fields: Mapping[str, Any], key: bytes) -> str:
+    """HMAC-SHA256 over the JSON-able ``fields``, domain-separated by ``schema_version``.
+
+    The one signing primitive of every receipt variant (OMN-22175): the base
+    receipt and the agent receipt differ in schema version and fields, never in
+    how they are signed. ``repo`` is signed lowercased.
+    """
+    signed = dict(fields)
+    signed["repo"] = str(signed["repo"]).lower()
+    body = json.dumps(signed, sort_keys=True, separators=(",", ":"))
+    payload = f"{schema_version}\n{body}".encode()
+    return hmac.new(key, payload, hashlib.sha256).hexdigest()
 
 
 def receipt_signature(receipt: ModelReviewReceipt, key: bytes) -> str:
     """HMAC-SHA256 over every field but the signature, domain-separated."""
-    return hmac.new(key, _signed_payload(receipt), hashlib.sha256).hexdigest()
+    return sign_fields(
+        RECEIPT_SCHEMA_VERSION,
+        receipt.model_dump(mode="json", exclude={"signature"}),
+        key,
+    )
 
 
 def sign_receipt(

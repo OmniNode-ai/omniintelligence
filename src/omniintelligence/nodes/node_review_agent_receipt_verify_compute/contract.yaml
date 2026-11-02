@@ -1,0 +1,123 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# ONEX Node Contract
+# Node: review_agent_receipt_verify (compute)
+#
+# Checks a signed hostile_review_agent_receipt.v1 against the exact pull request head.
+# Task 1 of the agent-review fallback plan; operator RULING 2026-11-02T17:38:31Z and
+# the go of RULING 2026-11-02T20:48:24Z.
+#
+# Reference: OMN-22175
+
+name: "node_review_agent_receipt_verify_compute"
+version: "1.0.0"
+contract_version: {major: 1, minor: 0, patch: 0}
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+node_type: "COMPUTE_GENERIC"
+
+status: "active"
+
+description: >
+  Verifies a hostile_review_agent_receipt.v1 receipt issued by node_review_receipt_issue_compute. Takes
+  the receipt, the signing key, the injected policy, the quorum size and one verification context (the
+  expected repository, pull request and head commit), and returns accepted with the voter identities,
+  or refused with one typed reason: missing_signature, forged_signature, repository_differs, pull_request_differs,
+  head_differs, blocked_verdict, missing_provenance, forbidden_provider, forbidden_endpoint_class, forbidden_endpoint,
+  unknown_voter, duplicate_identity or below_quorum. The policy values and the quorum size are overlay
+  data and arrive in the request; the handler names no class, provider, endpoint or host. Pure computation:
+  no network, no clock, no file.
+input_model:
+  name: "ModelAgentReceiptVerifyRequest"
+  module: "omniintelligence.nodes.node_review_agent_receipt_verify_compute.models.model_agent_receipt_verify_request"
+  description: "The receipt, the key, the injected policy, the quorum size and the verification context."
+
+output_model:
+  name: "ModelAgentReceiptVerdict"
+  module: "omniintelligence.nodes.node_review_agent_receipt_verify_compute.models.model_agent_receipt_verdict"
+  description: "accepted with the voter identities, or refused with one typed reason."
+
+operations:
+  - name: "resolve_verifier_settings"
+    description: "Resolve the policy, the quorum size and the bus binding from the overlay; input model
+      ModelAgentReceiptSettingsRequest, output model ModelAgentReceiptVerifierSettings"
+    input_fields:
+      - environ
+    output_fields:
+      - transport
+      - quorum_size
+      - policy
+  - name: "verify_agent_receipt"
+    description: "Verify an agent review receipt against the exact pull request head"
+    input_fields:
+      - receipt
+      - key
+      - policy
+      - quorum_size
+      - context
+    output_fields:
+      - decision
+      - reason
+      - detail
+      - voter_identities
+      - receipt_id
+
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    - operation: "verify_agent_receipt"
+      handler:
+        function: "handle"
+        module: "omniintelligence.nodes.node_review_agent_receipt_verify_compute.handlers.handler_review_agent_receipt_verify"
+        type: "sync"
+      description: "Verify a signed agent review receipt"
+    - operation: "resolve_verifier_settings"
+      handler:
+        function: "handle"
+        module: "omniintelligence.handlers.handler_review_agent_receipt_overlay"
+        type: "sync"
+      description: "Resolve the policy, the quorum size and the bus binding from the overlay"
+
+# The overlay (overlay.yaml beside this file, read by handlers/handler_review_agent_receipt_overlay.py; a deployment replaces keys in
+# <root>/review_agent_receipt_verify/overlay.yaml) holds the policy, the quorum size and the
+# bus binding. The topics below are what the binding reads and writes. The node is not yet
+# subscribed by the intelligence runtime: its caller (the gate-accept node of the plan's
+# task 3) runs it through the contract, so no subscribe topic is declared here.
+options:
+  review_agent_receipt_verify:
+    topics:
+      command: "onex.cmd.omniintelligence.review-agent-receipt-verify-requested.v1"
+      decided: "onex.evt.omniintelligence.review-agent-receipt-verified.v1"
+
+event_bus:
+  event_bus_enabled: false
+
+dependencies: []
+
+error_handling:
+  error_types: []
+
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-11-02"
+  updated: "2026-11-02"
+  tags:
+    - compute
+    - review
+    - hostile-reviewer
+    - receipt
+    - agent-review
+  references:
+    - ticket: "OMN-22175"
+      url: "https://linear.app/omninode/issue/OMN-22175"
+      description: "Agent review receipt variant and the verifier node"
