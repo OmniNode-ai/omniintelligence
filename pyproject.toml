@@ -235,7 +235,6 @@ all = [
 ]
 
 [tool.uv.sources]
-omnibase-core = { git = "https://github.com/OmniNode-ai/omnibase_core.git", tag = "dev-20261102080237-7e087d566f24" }
 # omnimarket git-rev override removed under OMN-18634 (2026-09-18): the pinned rev
 # 54fa07dd (omnimarket 0.4.3, 2026-07-10) declares `omnibase-compat==0.5.6` exactly,
 # while every omnibase-infra release from 0.38.22 on declares `omnibase-compat==0.5.7`
