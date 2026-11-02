@@ -37,6 +37,16 @@ description: >
   from candidate to active status based on confidence thresholds and validation criteria. Emits pattern-stored
   events for successful persistence and pattern-promoted events when patterns are promoted to active status.
 
+# HTTP mount (OMN-21288): the runtime serves the intelligence API (pattern query,
+# GET /api/v1/patterns) on its own HTTP port instead of the separate
+# intelligence-api container. The runtime calls the factory with no arguments,
+# runs the app's lifespan (the asyncpg pool opens and closes with it) and hands
+# it every request at or below path_prefix with the path unchanged. The app's own
+# /health stays unreachable by design: /health on the runtime port is the runtime's.
+http_mount:
+  factory: "omniintelligence.api.app:create_app"
+  path_prefix: "/api/v1"
+
 # Strongly typed I/O models
 input_model:
   name: "ModelPatternStorageInput"
