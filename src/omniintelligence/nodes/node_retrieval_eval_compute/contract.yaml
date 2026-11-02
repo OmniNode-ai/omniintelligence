@@ -1,0 +1,56 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# ONEX Node Contract - Retrieval Eval Compute Node
+# =============================================================================
+# Tracking: OMN-16522 (harness), OMN-21945 (bound into a node)
+# =============================================================================
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+name: "node_retrieval_eval_compute"
+version: "1.0.0"
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: "COMPUTE_GENERIC"
+description: >-
+  Compute node that runs the offline retrieval-quality eval harness for code-intelligence context packs from the
+  frozen replay fixtures (no Postgres, Memgraph, Qdrant, network or model calls) and returns the scorecard plus the
+  latency report. The runtime_retrieval_eval module is its command line runtime.
+input_model:
+  name: "ModelRetrievalEvalInput"
+  module: "omniintelligence.nodes.node_retrieval_eval_compute.models"
+  description: "Replay fixture root and golden query set path; both default to the committed artifacts."
+output_model:
+  name: "ModelEvalResult"
+  module: "omniintelligence.nodes.node_retrieval_eval_compute.handlers.runner"
+  description: "The committed scorecard plus the loose latency report."
+operations:
+  - name: "run_retrieval_eval"
+    description: "Run the R1-R6 replay scenarios and score the golden query set"
+    input_fields:
+      - correlation_id
+      - fixture_root
+      - golden_set_path
+    output_fields:
+      - scorecard
+      - latency
+handler_routing:
+  routing_strategy: "single_handler"
+  handlers:
+    - operation: "run_retrieval_eval"
+      handler:
+        function: "handle_retrieval_eval"
+        module: "omniintelligence.nodes.node_retrieval_eval_compute.handlers"
+        type: "async"
+dependencies: []
+metadata:
+  author: "OmniNode Team"
+  created: "2026-11-02"
+  updated: "2026-11-02"
+  tags:
+    - "ONEX"
+    - "compute"
+    - "eval"
+    - "retrieval"
+    - "code-projection"
