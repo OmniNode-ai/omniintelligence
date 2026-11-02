@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+name: node_review_agent_receipt_verify_compute
+version: "1.0.0"
+description: Verifies a signed agent review receipt against the exact pull request head and returns accepted
+  or one typed refusal
+entry_points:
+  onex.nodes:
+    node_review_agent_receipt_verify_compute: omniintelligence.nodes.node_review_agent_receipt_verify_compute
+capabilities:
+  standalone: true
+  full_runtime: true
+  requires_network: false
+  requires_repo: false
+  requires_secrets: false
+  side_effect_class: pure
+dependencies:
+  - pydantic>=2.11.0
+  - pyyaml>=6.0
+authors: [OmniNode Team]
+license: MIT
+tags: [compute, review, receipt, agent-review]
+node_role: compute
+display_name: "Review Agent Receipt Verify Compute"
