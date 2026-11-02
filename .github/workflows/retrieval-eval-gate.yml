@@ -32,6 +32,7 @@ on:
       - 'pyproject.toml'
       - 'uv.lock'
       - 'src/omniintelligence/code_projection/**'
+      - 'src/omniintelligence/models/retrieval_eval/**'
       - 'tests/unit/code_projection/**'
       - 'tests/fixtures/code_projection/**'
       - '.github/workflows/retrieval-eval-gate.yml'
@@ -106,4 +107,4 @@ jobs:
         run: |
           uv run python -m omniintelligence.code_projection.retrieval_eval --write
           git diff --exit-code -- \
-            src/omniintelligence/code_projection/retrieval_eval/baselines/baseline_scorecard.json
+            src/omniintelligence/models/retrieval_eval/baselines/baseline_scorecard.json

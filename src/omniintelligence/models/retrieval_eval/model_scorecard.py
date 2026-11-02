@@ -22,19 +22,29 @@ changed" -- the second is a reason to re-baseline, not a regression to report.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from omniintelligence.code_projection._canonical import canonical_json_bytes
-from omniintelligence.code_projection.retrieval_eval.metrics import ModelRankingMetrics
-from omniintelligence.code_projection.retrieval_eval.replay import (
+from omniintelligence.models.retrieval_eval.model_ranking_metrics import (
+    ModelRankingMetrics,
+)
+from omniintelligence.models.retrieval_eval.model_stage_latency_sample import (
     ModelStageLatencySample,
 )
 
 #: Recorded in place of a value that cannot be sourced.  Never invent one: an
 #: invented digest is worse than an absent one, because it reads as verified.
 UNKNOWN = "unknown"
+
+#: The committed reference every future harness run is compared against.  It
+#: sits under ``baselines`` rather than ``artifacts`` because the repository
+#: .gitignore carries a blanket ``artifacts/`` rule for build output.
+BASELINE_SCORECARD_PATH = (
+    Path(__file__).resolve().parent / "baselines/baseline_scorecard.json"
+)
 
 
 class _FrozenModel(BaseModel):
@@ -162,6 +172,7 @@ def load_scorecard(payload: bytes) -> ModelScorecard:
 MetricStatusLiteral = Literal["degenerate", "armed"]
 
 __all__ = [
+    "BASELINE_SCORECARD_PATH",
     "UNKNOWN",
     "ModelEmbeddingCompatibilityKey",
     "ModelLatencyReport",

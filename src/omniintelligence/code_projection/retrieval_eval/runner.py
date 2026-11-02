@@ -16,11 +16,6 @@ from collections.abc import Sequence
 from pydantic import BaseModel, ConfigDict
 
 from omniintelligence.code_projection.qdrant import ModelCodeProjectionQdrantConfig
-from omniintelligence.code_projection.retrieval_eval.golden import (
-    ModelGoldenQuerySet,
-    load_golden_query_set,
-)
-from omniintelligence.code_projection.retrieval_eval.metrics import summarize_metrics
 from omniintelligence.code_projection.retrieval_eval.replay import (
     HARNESS_EMBEDDING_MODEL,
     HARNESS_EMBEDDING_MODEL_VERSION,
@@ -30,12 +25,15 @@ from omniintelligence.code_projection.retrieval_eval.replay import (
     load_replay_corpus,
     open_replay_state,
 )
-from omniintelligence.code_projection.retrieval_eval.scorecard import (
+from omniintelligence.models.retrieval_eval import (
     UNKNOWN,
     ModelEmbeddingCompatibilityKey,
+    ModelGoldenQuerySet,
     ModelLatencyReport,
     ModelScenarioOutcome,
     ModelScorecard,
+    load_golden_query_set,
+    summarize_metrics,
 )
 
 SCORECARD_VERSION = "v1"

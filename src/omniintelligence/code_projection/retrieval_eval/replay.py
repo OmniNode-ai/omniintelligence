@@ -47,6 +47,9 @@ from omniintelligence.code_projection.qdrant import (
     ProtocolCodeProjectionEmbeddingClient,
 )
 from omniintelligence.models.code_projection import artifact_ref_for
+from omniintelligence.models.retrieval_eval.model_stage_latency_sample import (
+    ModelStageLatencySample,
+)
 
 #: Repository-relative location of the frozen OMN-16061 v2 replay vectors.
 #: Resolved from this file rather than an absolute path so the harness works in
@@ -290,20 +293,6 @@ class DeterministicEmbedder:
         self._elapsed_ms += (perf_counter() - started) * 1000.0
         self.call_count += 1
         return vectors
-
-
-class ModelStageLatencySample(_FrozenModel):
-    """Per-stage timings for one search.
-
-    Only the embed call is separable from outside ``search()``.  Vector search,
-    policy/provenance checks and pack assembly all happen inside that single
-    call and are not individually instrumented, so they are reported together as
-    ``unseparated_remainder_ms`` rather than split by guesswork.
-    """
-
-    embed_ms: float = Field(ge=0.0)
-    total_ms: float = Field(ge=0.0)
-    unseparated_remainder_ms: float = Field(ge=0.0)
 
 
 class ReplayGenerationResolver:

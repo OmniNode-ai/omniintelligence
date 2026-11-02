@@ -23,10 +23,14 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-#: Committed golden-set artifact shipped with the harness.
-DEFAULT_GOLDEN_SET_PATH = (
+#: The judged golden query set committed with the harness, sized to the corpus
+#: ceiling.
+GOLDEN_QUERY_SET_PATH = (
     Path(__file__).resolve().parent / "baselines/golden_query_set_v1.json"
 )
+
+#: The path ``load_golden_query_set`` reads when it is given none.
+DEFAULT_GOLDEN_SET_PATH = GOLDEN_QUERY_SET_PATH
 
 #: Honest sizing bounds derived from the corpus, not chosen.  A set larger than
 #: the ceiling is paraphrase padding: it manufactures query volume without
@@ -155,6 +159,7 @@ def load_golden_query_set(path: Path | None = None) -> ModelGoldenQuerySet:
 __all__ = [
     "DEFAULT_GOLDEN_SET_PATH",
     "GOLDEN_SET_MAXIMUM_ROWS",
+    "GOLDEN_QUERY_SET_PATH",
     "GOLDEN_SET_MINIMUM_ROWS",
     "ModelGoldenExpectation",
     "ModelGoldenQuery",

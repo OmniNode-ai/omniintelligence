@@ -91,12 +91,8 @@ src/omniintelligence/code_projection/models.py
 src/omniintelligence/code_projection/qdrant.py
 src/omniintelligence/code_projection/retrieval_eval/__init__.py
 src/omniintelligence/code_projection/retrieval_eval/__main__.py
-src/omniintelligence/code_projection/retrieval_eval/baselines/__init__.py
-src/omniintelligence/code_projection/retrieval_eval/golden.py
-src/omniintelligence/code_projection/retrieval_eval/metrics.py
 src/omniintelligence/code_projection/retrieval_eval/replay.py
 src/omniintelligence/code_projection/retrieval_eval/runner.py
-src/omniintelligence/code_projection/retrieval_eval/scorecard.py
 src/omniintelligence/constants.py
 src/omniintelligence/debug_intel/__init__.py
 src/omniintelligence/debug_intel/adapter_debug_store.py

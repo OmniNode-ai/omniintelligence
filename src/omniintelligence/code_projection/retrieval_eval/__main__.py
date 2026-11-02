@@ -18,10 +18,10 @@ import argparse
 import asyncio
 import sys
 
-from omniintelligence.code_projection.retrieval_eval.baselines import (
+from omniintelligence.code_projection.retrieval_eval.runner import run_eval
+from omniintelligence.models.retrieval_eval.model_scorecard import (
     BASELINE_SCORECARD_PATH,
 )
-from omniintelligence.code_projection.retrieval_eval.runner import run_eval
 
 
 async def _main(*, write: bool) -> int:
