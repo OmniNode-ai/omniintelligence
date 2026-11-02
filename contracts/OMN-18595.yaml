@@ -64,8 +64,8 @@ dod_evidence:
     description: Reject a release refresh that downgrades transformers or changes its artifact version.
     source: manual
     checks:
-      - check_type: test_passes
-        check_value: uv run pytest tests/unit/test_transformers_lock_omn21878.py -q --no-cov
+      - check_type: command
+        check_value: grep -Pzo 'name = "transformers"\nversion = "5.10.1"\n' uv.lock
         cwd: ${OMNI_HOME}/omniintelligence
     binds_ac:
       - AC4
