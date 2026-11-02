@@ -13,15 +13,15 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from pydantic import BaseModel, ConfigDict
-
 from omniintelligence.code_projection.qdrant import ModelCodeProjectionQdrantConfig
-from omniintelligence.code_projection.retrieval_eval.golden import (
+from omniintelligence.nodes.node_retrieval_eval_effect.handlers.golden import (
     ModelGoldenQuerySet,
     load_golden_query_set,
 )
-from omniintelligence.code_projection.retrieval_eval.metrics import summarize_metrics
-from omniintelligence.code_projection.retrieval_eval.replay import (
+from omniintelligence.nodes.node_retrieval_eval_effect.handlers.metrics import (
+    summarize_metrics,
+)
+from omniintelligence.nodes.node_retrieval_eval_effect.handlers.replay import (
     HARNESS_EMBEDDING_MODEL,
     HARNESS_EMBEDDING_MODEL_VERSION,
     REPLAY_LANES,
@@ -30,12 +30,16 @@ from omniintelligence.code_projection.retrieval_eval.replay import (
     load_replay_corpus,
     open_replay_state,
 )
-from omniintelligence.code_projection.retrieval_eval.scorecard import (
+from omniintelligence.nodes.node_retrieval_eval_effect.handlers.scorecard import (
     UNKNOWN,
     ModelEmbeddingCompatibilityKey,
     ModelLatencyReport,
     ModelScenarioOutcome,
     ModelScorecard,
+)
+from omniintelligence.nodes.node_retrieval_eval_effect.models import (
+    ModelRetrievalEvalRequest,
+    ModelRetrievalEvalResult,
 )
 
 SCORECARD_VERSION = "v1"
@@ -49,17 +53,6 @@ _SEARCH_LIMIT = 100
 #: Kept identical to the golden set's negative-external-symbol row so the
 #: scenario and the scored row exercise the same string.
 _EXTERNAL_SYMBOL_QUERY = "where is the builtins str type defined"
-
-
-class _FrozenModel(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid", from_attributes=True)
-
-
-class ModelEvalResult(_FrozenModel):
-    """The full harness output: the committed scorecard plus loose latency."""
-
-    scorecard: ModelScorecard
-    latency: ModelLatencyReport
 
 
 def _outcome(
@@ -311,13 +304,22 @@ def _embedding_key() -> ModelEmbeddingCompatibilityKey:
     )
 
 
-async def run_eval(
-    *,
-    corpus: ModelReplayCorpus | None = None,
-    golden: ModelGoldenQuerySet | None = None,
-) -> ModelEvalResult:
+class HandlerRetrievalEval:
     """Run the whole harness and return the scorecard plus the latency report."""
 
+    async def handle(
+        self, request: ModelRetrievalEvalRequest
+    ) -> ModelRetrievalEvalResult:
+        """Replay the scenarios, score the golden set and build the scorecard."""
+
+        return await _run_eval(corpus=request.corpus, golden=request.golden)
+
+
+async def _run_eval(
+    *,
+    corpus: ModelReplayCorpus | None,
+    golden: ModelGoldenQuerySet | None,
+) -> ModelRetrievalEvalResult:
     resolved_corpus = load_replay_corpus() if corpus is None else corpus
     resolved_golden = load_golden_query_set() if golden is None else golden
     samples: list[ModelStageLatencySample] = []
@@ -353,7 +355,7 @@ async def run_eval(
         unknown_embedding_components=key.unknown_components,
         scenarios=scenarios,
     )
-    return ModelEvalResult(
+    return ModelRetrievalEvalResult(
         scorecard=scorecard,
         latency=ModelLatencyReport.from_samples(tuple(samples)),
     )
@@ -363,6 +365,5 @@ __all__ = [
     "CORPUS_MANIFEST_ID",
     "SCORECARD_VERSION",
     "TICKET",
-    "ModelEvalResult",
-    "run_eval",
+    "HandlerRetrievalEval",
 ]

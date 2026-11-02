@@ -1,0 +1,58 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# ONEX Node Contract - Retrieval Eval Effect Node
+# =============================================================================
+# Offline retrieval-quality eval harness (OMN-16522), bound as a node by
+# OMN-21945. The command line entry is runtime_retrieval_eval.py beside this
+# contract.
+# =============================================================================
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+name: "node_retrieval_eval_effect"
+version: "1.0.0"
+contract_version: {major: 1, minor: 0, patch: 0}
+node_type: "EFFECT_GENERIC"
+description: >-
+  Effect node that runs the offline retrieval-quality eval harness: it reads the frozen code projection
+  replay fixtures and the committed golden query set, replays the R1-R6 scenarios, computes the golden
+  set ranking metrics and builds the baseline scorecard. Its only I/O is reading those committed files:
+  no network, no live services and no model calls.
+input_model:
+  name: "ModelRetrievalEvalRequest"
+  module: "omniintelligence.nodes.node_retrieval_eval_effect.models"
+  description: "Optional replay corpus and golden query set; the committed defaults load when absent."
+output_model:
+  name: "ModelRetrievalEvalResult"
+  module: "omniintelligence.nodes.node_retrieval_eval_effect.models"
+  description: "The scorecard plus the latency report excluded from its digest."
+io_operations:
+  - operation: "run_retrieval_eval"
+    description: "Replay the scenarios, score the golden set and build the scorecard"
+    input_fields:
+      - corpus
+      - golden
+    output_fields:
+      - scorecard
+      - latency
+handler_routing:
+  routing_strategy: "single_handler"
+  handlers:
+    - operation: "run_retrieval_eval"
+      handler:
+        class: "HandlerRetrievalEval"
+        module: "omniintelligence.nodes.node_retrieval_eval_effect.handlers.handler_retrieval_eval"
+        type: "async"
+dependencies: []
+metadata:
+  author: "OmniNode Team"
+  created: "2026-11-02"
+  updated: "2026-11-02"
+  tags:
+    - "ONEX"
+    - "effect"
+    - "eval"
+    - "retrieval"
+    - "code-projection"

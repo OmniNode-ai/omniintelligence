@@ -52,7 +52,7 @@ from omniintelligence.models.code_projection import artifact_ref_for
 #: Resolved from this file rather than an absolute path so the harness works in
 #: a worktree, a clone, or CI without configuration.
 DEFAULT_FIXTURE_ROOT = (
-    Path(__file__).resolve().parents[4] / "tests/fixtures/code_projection/v2"
+    Path(__file__).resolve().parents[5] / "tests/fixtures/code_projection/v2"
 )
 
 #: Embedding dimension pinned by the shared projection collection contract.
@@ -484,12 +484,12 @@ def load_replay_corpus(fixture_root: Path | None = None) -> ModelReplayCorpus:
 
     root = DEFAULT_FIXTURE_ROOT if fixture_root is None else fixture_root
     batches = {
-        path.name: parse_code_projection_batch(path.read_bytes())
-        for path in sorted((root / "batches").glob("*.json"))
+        batch_file.name: parse_code_projection_batch(batch_file.read_bytes())
+        for batch_file in sorted((root / "batches").glob("*.json"))
     }
     artifacts: dict[str, bytes] = {}
-    for path in filter(Path.is_file, sorted((root / "sanitized").iterdir())):
-        payload = path.read_bytes()
+    for artifact_file in filter(Path.is_file, sorted((root / "sanitized").iterdir())):
+        payload = artifact_file.read_bytes()
         artifacts[artifact_ref_for(hashlib.sha256(payload).hexdigest())] = payload
     return ModelReplayCorpus(
         fixture_root=root,

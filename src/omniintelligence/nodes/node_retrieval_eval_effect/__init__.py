@@ -10,7 +10,7 @@ bytes.
 
 from __future__ import annotations
 
-from omniintelligence.code_projection.retrieval_eval.replay import (
+from omniintelligence.nodes.node_retrieval_eval_effect.handlers.replay import (
     DEFAULT_FIXTURE_ROOT,
     HARNESS_EMBEDDING_MODEL,
     HARNESS_EMBEDDING_MODEL_VERSION,
