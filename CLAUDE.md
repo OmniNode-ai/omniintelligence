@@ -287,6 +287,7 @@ Never add: `__main__.py` in a node directory, ad-hoc Kafka consumer loops, manua
 
 **Key constraints**:
 - Internal service-to-service only — no authentication, access restricted by network topology
+- Served by the runtime, not by its own container: `node_pattern_storage_effect/contract.yaml` declares `http_mount` (`factory` = `omniintelligence.api.app:create_app`, `path_prefix` = `/api/v1`), which omnibase_infra's ASGI mount loader serves on the runtime's HTTP port with the app's lifespan (pool open/close) run by the runtime. The runtime owns `/health` on that port, so the app's own `/health` is only reachable when the app runs standalone under uvicorn (`:8053`)
 - Connection pool lifecycle managed by FastAPI lifespan (startup before requests, teardown after drain)
 - Health probe at `GET /health` (not versioned) — returns 503 if pool not initialized or DB unreachable
 - `DatabaseSettings` reads `POSTGRES_*` environment variables (`OMNIINTELLIGENCE_DB_URL` takes precedence)

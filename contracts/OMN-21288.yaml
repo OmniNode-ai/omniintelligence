@@ -1,0 +1,59 @@
+---
+schema_version: 1.0.0
+ticket_id: OMN-21288
+title: Declare the intelligence API as a contract-declared ASGI mount of the runtime
+summary: >-
+  Task T15 of the one-runtime plan, omniintelligence slice: node_pattern_storage_effect/contract.yaml
+  declares http_mount (factory omniintelligence.api.app:create_app, path_prefix /api/v1) so the runtime
+  can serve the intelligence API on its own HTTP port. api/app.py is unchanged. Retiring the intelligence-api
+  compose service and the stack-shape check are owed in omnibase_infra after a release carries this declaration.
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: req-omn21288-t15-intelligence-api-mount
+    statement: The intelligence API is declared as a runtime-served ASGI mount instead of a separate process.
+    acceptance:
+      - id: AC1
+        statement: >-
+          a stack check refuses a dev-stack service that runs a projection writer, consumer or effects
+          process outside the runtime container -- falsifier: pytest of the check over a fixture compose
+          file
+      - id: AC2
+        statement: >-
+          the dev stack definition holds only the runtime and its backing services -- falsifier: the same
+          pytest run over the real dev compose file
+evidence_requirements:
+  - kind: tests
+    description: Run the http_mount declaration tests and the throwaway-database lifecycle test.
+    command: env PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/unit/api/test_http_mount_declaration_omn21288.py
+      tests/integration/api/test_http_mount_lifecycle_omn21288.py -q
+emergency_bypass:
+  enabled: false
+  justification: ''
+  follow_up_ticket_id: ''
+dod_evidence:
+  - id: dod-omn21288-ac1-intelligence-api-declared-in-runtime
+    description: >-
+      Omniintelligence slice of AC1 only: the intelligence API process is declared as a runtime mount,
+      so a dev-stack service for it is no longer needed. The stack check itself and its pytest live in
+      omnibase_infra and are owed there (live proof owed).
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/api/test_http_mount_declaration_omn21288.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC1
+  - id: dod-omn21288-ac2-intelligence-api-pool-lifecycle
+    description: >-
+      Omniintelligence slice of AC2 only: the declared mount opens and closes its database pool with the
+      runtime's mount lifecycle against a real Postgres, so the container can be retired. Removing the
+      intelligence-api service from the dev stack definition is owed in omnibase_infra (live proof owed).
+    source: manual
+    checks:
+      - check_type: command
+        check_value: grep -n 'http_mount:' src/omniintelligence/nodes/node_pattern_storage_effect/contract.yaml
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC2
