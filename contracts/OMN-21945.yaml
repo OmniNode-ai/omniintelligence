@@ -1,0 +1,49 @@
+---
+schema_version: 1.0.0
+ticket_id: OMN-21945
+title: Bind the code_projection retrieval_eval harness into node_retrieval_eval_compute
+summary: >-
+  Move the eight src/omniintelligence/code_projection/retrieval_eval files into a contract-bound compute
+  node with a canonical handler class, removing their eight canonical-file-shape baseline lines.
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: req-omn21945-retrieval-eval-node
+    statement: The retrieval eval harness runs through a contract-bound node handler.
+    acceptance:
+      - id: AC1
+        statement: The contract binds HandlerRetrievalEval, whose handle(request) returns the scorecard
+          and latency report.
+      - id: AC2
+        statement: The harness replay scenarios and golden-set scoring behave as before at the new module
+          paths.
+evidence_requirements:
+  - kind: tests
+    description: Run the retrieval eval harness and replay gate tests.
+    command: env PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/unit/code_projection/test_retrieval_eval_harness.py
+      tests/unit/code_projection/test_retrieval_replay_gate.py -q
+emergency_bypass:
+  enabled: false
+  justification: ''
+  follow_up_ticket_id: ''
+dod_evidence:
+  - id: dod-omn21945-ac1-handler-binding
+    description: Reject a contract that does not bind the HandlerRetrievalEval class.
+    source: manual
+    checks:
+      - check_type: command
+        check_value: grep -n 'HandlerRetrievalEval.$' src/omniintelligence/nodes/node_retrieval_eval_compute/contract.yaml
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC1
+  - id: dod-omn21945-ac2-harness-behaviour
+    description: Reject a harness whose replay scenarios or golden-set scoring regress at the new paths.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/code_projection/test_retrieval_eval_harness.py tests/unit/code_projection/test_retrieval_replay_gate.py
+          -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC2

@@ -25,7 +25,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 #: Committed golden-set artifact shipped with the harness.
 DEFAULT_GOLDEN_SET_PATH = (
-    Path(__file__).resolve().parent / "baselines/golden_query_set_v1.json"
+    Path(__file__).resolve().parents[1] / "baselines/golden_query_set_v1.json"
 )
 
 #: Honest sizing bounds derived from the corpus, not chosen.  A set larger than
