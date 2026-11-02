@@ -28,6 +28,7 @@ from typing import Any, Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, Field
 from qdrant_client import AsyncQdrantClient
+from qdrant_client.conversions.common_types import PayloadSchemaType
 from qdrant_client.http import models as qmodels
 
 from omniintelligence.code_projection.codec import (
@@ -52,7 +53,7 @@ from omniintelligence.models.code_projection import artifact_ref_for
 #: Resolved from this file rather than an absolute path so the harness works in
 #: a worktree, a clone, or CI without configuration.
 DEFAULT_FIXTURE_ROOT = (
-    Path(__file__).resolve().parents[4] / "tests/fixtures/code_projection/v2"
+    Path(__file__).resolve().parents[5] / "tests/fixtures/code_projection/v2"
 )
 
 #: Embedding dimension pinned by the shared projection collection contract.
@@ -201,17 +202,21 @@ class IndexedMemoryQdrant(AsyncQdrantClient):
         super().__init__(location=":memory:")
         self._created_indexes: dict[str, qmodels.KeywordIndexParams] = {}
 
-    async def create_payload_index(  # type: ignore[override]
+    async def create_payload_index(
         self,
         collection_name: str,
         field_name: str,
-        field_schema: qmodels.KeywordIndexParams | None = None,
+        field_schema: PayloadSchemaType | None = None,
+        field_type: PayloadSchemaType | None = None,
+        wait: bool = True,
+        ordering: qmodels.WriteOrdering | None = None,
+        timeout: int | None = None,
         **kwargs: Any,
     ) -> qmodels.UpdateResult:
-        """Record the index schema, then delegate to local Qdrant."""
+        """Record the keyword index schema, then delegate to local Qdrant."""
 
-        if field_schema is None:
-            message = "projection indexes require an explicit schema"
+        if not isinstance(field_schema, qmodels.KeywordIndexParams):
+            message = "projection indexes require an explicit keyword index schema"
             raise ValueError(message)
         self._created_indexes[field_name] = field_schema
         with warnings.catch_warnings():
@@ -220,6 +225,10 @@ class IndexedMemoryQdrant(AsyncQdrantClient):
                 collection_name=collection_name,
                 field_name=field_name,
                 field_schema=field_schema,
+                field_type=field_type,
+                wait=wait,
+                ordering=ordering,
+                timeout=timeout,
                 **kwargs,
             )
 

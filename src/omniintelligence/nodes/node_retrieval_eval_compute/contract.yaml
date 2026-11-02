@@ -1,0 +1,90 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# ONEX Node Contract
+# Node: NodeRetrievalEvalCompute
+#
+# Offline retrieval-quality eval of the code-intelligence context packs: the
+# R1-R6 replay scenarios (the gate) plus recall@k, MRR and top-rank accuracy
+# (reported, armed only once the corpus is large enough). Runs from the frozen
+# replay fixtures with no Postgres, Memgraph, Qdrant, network or model call.
+# The CLI is runtime_retrieval_eval.py beside this contract.
+#
+# Reference: OMN-16522 (harness), OMN-21945 (canonical node location)
+
+name: "node_retrieval_eval_compute"
+version: "1.0.0"
+contract_version: {major: 1, minor: 0, patch: 0}
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+node_type: "COMPUTE_GENERIC"
+
+status: "active"
+
+description: >
+  Replays the committed code-projection fixtures into an in-memory Qdrant, evaluates the six replay scenarios
+  (stale generation after a->b->a, tombstoned documents, external symbols, partition-scoped mutations) and
+  scores the committed golden query set, returning a deterministic scorecard plus a latency report that is
+  kept out of the scorecard digest. Pure computation over committed fixtures.
+
+input_model:
+  name: "ModelRetrievalEvalRequest"
+  module: "omniintelligence.nodes.node_retrieval_eval_compute.models.model_retrieval_eval_request"
+  description: "One eval run; carries only the correlation id."
+
+output_model:
+  name: "ModelEvalResult"
+  module: "omniintelligence.nodes.node_retrieval_eval_compute.handlers.handler_retrieval_eval"
+  description: "The deterministic scorecard and the latency report."
+
+operations:
+  - name: "run_retrieval_eval"
+    description: "Run the replay scenarios and score the golden query set"
+    input_fields:
+      - correlation_id
+    output_fields:
+      - scorecard
+      - latency
+
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    - operation: "run_retrieval_eval"
+      handler:
+        class: "HandlerRetrievalEval"
+        function: "handle"
+        module: "omniintelligence.nodes.node_retrieval_eval_compute.handlers.handler_retrieval_eval"
+        type: "async"
+      description: "Run one offline retrieval eval"
+
+dependencies: []
+
+error_handling:
+  error_types:
+    - name: "RetrievalScenarioFailed"
+      error_code: "RTE_001"
+      description: "A replay scenario failed; returned as a failed scenario outcome in the scorecard"
+      recoverable: false
+      retry_strategy: "none"
+
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-11-02"
+  updated: "2026-11-02"
+  tags:
+    - compute
+    - retrieval
+    - eval
+  references:
+    - ticket: "OMN-21945"
+      url: "https://linear.app/omninode/issue/OMN-21945"
+      description: "Bind the code_projection retrieval_eval files into a canonical node location"

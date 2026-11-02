@@ -16,18 +16,17 @@ from pydantic import ValidationError
 from omniintelligence.code_projection.qdrant import (
     ProtocolCodeProjectionEmbeddingClient,
 )
-from omniintelligence.code_projection.retrieval_eval.baselines import (
-    BASELINE_SCORECARD_PATH,
-    GOLDEN_QUERY_SET_PATH,
-)
-from omniintelligence.code_projection.retrieval_eval.golden import (
+from omniintelligence.nodes.node_retrieval_eval_compute.handlers.golden import (
     DEFAULT_GOLDEN_SET_PATH,
     GOLDEN_SET_MAXIMUM_ROWS,
     GOLDEN_SET_MINIMUM_ROWS,
     ModelGoldenQuery,
     load_golden_query_set,
 )
-from omniintelligence.code_projection.retrieval_eval.metrics import (
+from omniintelligence.nodes.node_retrieval_eval_compute.handlers.handler_retrieval_eval import (
+    run_eval,
+)
+from omniintelligence.nodes.node_retrieval_eval_compute.handlers.metrics import (
     ARMING_MINIMUM_DISTINCT_DOCUMENTS,
     ARMING_MINIMUM_LABELED_QUERIES,
     chance_floor_mrr,
@@ -37,13 +36,18 @@ from omniintelligence.code_projection.retrieval_eval.metrics import (
     resolve_metric_status,
     summarize_metrics,
 )
-from omniintelligence.code_projection.retrieval_eval.replay import (
+from omniintelligence.nodes.node_retrieval_eval_compute.handlers.replay import (
     DeterministicEmbedder,
     ProtocolTimedEmbedder,
     load_replay_corpus,
 )
-from omniintelligence.code_projection.retrieval_eval.runner import run_eval
-from omniintelligence.code_projection.retrieval_eval.scorecard import UNKNOWN
+from omniintelligence.nodes.node_retrieval_eval_compute.handlers.scorecard import (
+    UNKNOWN,
+)
+from omniintelligence.nodes.node_retrieval_eval_compute.reference import (
+    GOLDEN_QUERY_SET_PATH,
+    REFERENCE_SCORECARD_PATH,
+)
 
 pytestmark = pytest.mark.unit
 
@@ -246,7 +250,7 @@ async def test_committed_baseline_scorecard_matches_a_fresh_run() -> None:
     makes the distinction visible instead of silent.
     """
 
-    committed = BASELINE_SCORECARD_PATH.read_bytes()
+    committed = REFERENCE_SCORECARD_PATH.read_bytes()
     fresh = (await run_eval()).scorecard.to_canonical_bytes()
     assert fresh == committed
 

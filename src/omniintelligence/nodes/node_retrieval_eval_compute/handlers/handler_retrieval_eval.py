@@ -16,12 +16,14 @@ from collections.abc import Sequence
 from pydantic import BaseModel, ConfigDict
 
 from omniintelligence.code_projection.qdrant import ModelCodeProjectionQdrantConfig
-from omniintelligence.code_projection.retrieval_eval.golden import (
+from omniintelligence.nodes.node_retrieval_eval_compute.handlers.golden import (
     ModelGoldenQuerySet,
     load_golden_query_set,
 )
-from omniintelligence.code_projection.retrieval_eval.metrics import summarize_metrics
-from omniintelligence.code_projection.retrieval_eval.replay import (
+from omniintelligence.nodes.node_retrieval_eval_compute.handlers.metrics import (
+    summarize_metrics,
+)
+from omniintelligence.nodes.node_retrieval_eval_compute.handlers.replay import (
     HARNESS_EMBEDDING_MODEL,
     HARNESS_EMBEDDING_MODEL_VERSION,
     REPLAY_LANES,
@@ -30,12 +32,15 @@ from omniintelligence.code_projection.retrieval_eval.replay import (
     load_replay_corpus,
     open_replay_state,
 )
-from omniintelligence.code_projection.retrieval_eval.scorecard import (
+from omniintelligence.nodes.node_retrieval_eval_compute.handlers.scorecard import (
     UNKNOWN,
     ModelEmbeddingCompatibilityKey,
     ModelLatencyReport,
     ModelScenarioOutcome,
     ModelScorecard,
+)
+from omniintelligence.nodes.node_retrieval_eval_compute.models.model_retrieval_eval_request import (
+    ModelRetrievalEvalRequest,
 )
 
 SCORECARD_VERSION = "v1"
@@ -359,10 +364,28 @@ async def run_eval(
     )
 
 
+class HandlerRetrievalEval:
+    """Run the offline retrieval eval through the runtime's typed handler interface."""
+
+    async def handle(self, request: ModelRetrievalEvalRequest) -> ModelEvalResult:
+        """Run the harness over the committed corpus and golden query set."""
+
+        del request  # carries only the correlation id; the run reads no input
+        return await run_eval()
+
+
+async def handle(request: ModelRetrievalEvalRequest) -> ModelEvalResult:
+    """The contract's routed entry point for one retrieval eval run."""
+
+    return await HandlerRetrievalEval().handle(request)
+
+
 __all__ = [
     "CORPUS_MANIFEST_ID",
     "SCORECARD_VERSION",
     "TICKET",
+    "HandlerRetrievalEval",
     "ModelEvalResult",
+    "handle",
     "run_eval",
 ]
