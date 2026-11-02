@@ -30,7 +30,7 @@ description: >
   head_differs, blocked_verdict, missing_provenance, forbidden_provider, forbidden_endpoint_class, forbidden_endpoint,
   unknown_voter, duplicate_identity or below_quorum. The policy values and the quorum size are overlay
   data and arrive in the request; the handler names no class, provider, endpoint or host. Pure computation:
-  no network, no clock, no file. #magic___^_^___line
+  no network, no clock, no file.
 input_model:
   name: "ModelAgentReceiptVerifyRequest"
   module: "omniintelligence.nodes.node_review_agent_receipt_verify_compute.models.model_agent_receipt_verify_request"
@@ -69,18 +69,18 @@ operations:
 handler_routing:
   routing_strategy: "operation_match"
   handlers:
-    - operation: "resolve_verifier_settings"
-      handler:
-        function: "handle"
-        module: "omniintelligence.handlers.handler_review_agent_receipt_overlay"
-        type: "sync"
-      description: "Resolve the policy, the quorum size and the bus binding from the overlay"
     - operation: "verify_agent_receipt"
       handler:
         function: "handle"
         module: "omniintelligence.nodes.node_review_agent_receipt_verify_compute.handlers.handler_review_agent_receipt_verify"
         type: "sync"
       description: "Verify a signed agent review receipt"
+    - operation: "resolve_verifier_settings"
+      handler:
+        function: "handle"
+        module: "omniintelligence.handlers.handler_review_agent_receipt_overlay"
+        type: "sync"
+      description: "Resolve the policy, the quorum size and the bus binding from the overlay"
 
 # The overlay (overlay.yaml beside this file, read by handlers/handler_review_agent_receipt_overlay.py; a deployment replaces keys in
 # <root>/review_agent_receipt_verify/overlay.yaml) holds the policy, the quorum size and the
