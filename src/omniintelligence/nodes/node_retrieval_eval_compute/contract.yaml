@@ -35,14 +35,25 @@ operations:
     output_fields:
       - scorecard
       - latency
+  - name: "read_replay_fixture"
+    description: "Read one replay fixture file as raw bytes"
+    input_fields:
+      - path
+    output_fields:
+      - payload
 handler_routing:
-  routing_strategy: "single_handler"
+  routing_strategy: "operation_match"
   handlers:
     - operation: "run_retrieval_eval"
       handler:
         class: "HandlerRetrievalEval"
         module: "omniintelligence.nodes.node_retrieval_eval_compute.handlers.handler_retrieval_eval"
         type: "async"
+    - operation: "read_replay_fixture"
+      handler:
+        function: "read_fixture_bytes"
+        module: "omniintelligence.handlers.handler_fixture_io"
+        type: "sync"
 dependencies: []
 metadata:
   author: "OmniNode Team"

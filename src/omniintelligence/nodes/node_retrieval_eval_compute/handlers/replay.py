@@ -46,6 +46,7 @@ from omniintelligence.code_projection.qdrant import (
     ModelCodeProjectionSearchHit,
     ProtocolCodeProjectionEmbeddingClient,
 )
+from omniintelligence.handlers.handler_fixture_io import read_fixture_bytes
 from omniintelligence.models.code_projection import artifact_ref_for
 
 #: Repository-relative location of the frozen OMN-16061 v2 replay vectors.
@@ -484,12 +485,12 @@ def load_replay_corpus(fixture_root: Path | None = None) -> ModelReplayCorpus:
 
     root = DEFAULT_FIXTURE_ROOT if fixture_root is None else fixture_root
     batches = {
-        path.name: parse_code_projection_batch(path.read_bytes())
+        path.name: parse_code_projection_batch(read_fixture_bytes(path))
         for path in sorted((root / "batches").glob("*.json"))
     }
     artifacts: dict[str, bytes] = {}
     for path in filter(Path.is_file, sorted((root / "sanitized").iterdir())):
-        payload = path.read_bytes()
+        payload = read_fixture_bytes(path)
         artifacts[artifact_ref_for(hashlib.sha256(payload).hexdigest())] = payload
     return ModelReplayCorpus(
         fixture_root=root,
