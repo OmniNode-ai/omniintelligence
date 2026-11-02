@@ -8,7 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 
 
-def read_fixture_bytes(path: Path) -> bytes:
+def read_fixture_bytes(source_path: Path) -> bytes:
     """Return the raw bytes of one fixture file."""
 
-    return path.read_bytes()
+    return source_path.read_bytes()

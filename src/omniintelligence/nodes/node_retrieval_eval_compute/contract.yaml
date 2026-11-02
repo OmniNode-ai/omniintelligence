@@ -38,7 +38,7 @@ operations:
   - name: "read_replay_fixture"
     description: "Read one replay fixture file as raw bytes"
     input_fields:
-      - path
+      - source_path
     output_fields:
       - payload
 handler_routing:
