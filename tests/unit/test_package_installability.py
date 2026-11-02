@@ -94,6 +94,7 @@ EXPECTED_NODE_DIRS = [
     "node_policy_state_reducer",
     "node_protocol_handler_effect",
     "node_quality_scoring_compute",
+    "node_retrieval_eval_compute",
     "node_review_receipt_issue_compute",
     "node_review_receipt_substitute_compute",
     "node_review_rejection_judge_compute",
