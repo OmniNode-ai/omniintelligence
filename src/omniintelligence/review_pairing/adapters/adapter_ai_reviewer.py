@@ -39,6 +39,12 @@ from omniintelligence.models.review.model_review_call_response import (
 from omniintelligence.models.review.model_review_standing_rules import (
     ModelReviewStandingRules,
 )
+from omniintelligence.nodes.node_review_cache_layout_compute.handlers.handler_review_cache_layout import (
+    anthropic_payload,
+    anthropic_usage,
+    lay_out_openai,
+    uses_system_focus,
+)
 from omniintelligence.review_pairing.adapters.base import (
     PROBABILISTIC,
     normalize_message,
@@ -478,16 +484,7 @@ async def _call_claude_api_response(
         raise ValueError(
             "Claude API voter requires a provider endpoint from its overlay"
         )
-    payload: dict[str, Any] = {
-        "model": config.api_model_id,
-        "max_tokens": max_tokens,
-        "system": system_prompt,
-        "messages": [{"role": "user", "content": user_prompt}],
-    }
-    if config.temperature is not None:
-        payload["temperature"] = config.temperature
-    if config.top_p is not None:
-        payload["top_p"] = config.top_p
+    payload = anthropic_payload(config, system_prompt, user_prompt, max_tokens)
     retries = config.max_retries
     if retries is None:
         retries = resolve_live_max_retries_default()
@@ -528,10 +525,7 @@ async def _call_claude_api_response(
     try:
         data = response.json()
         usage = data["usage"]
-        input_tokens = usage["input_tokens"]
-        output_tokens = usage["output_tokens"]
-        if any(type(n) is not int or n < 0 for n in (input_tokens, output_tokens)):
-            raise ValueError("invalid usage")
+        input_tokens, output_tokens, cache_created, cache_read = anthropic_usage(usage)
         totals = _ANTHROPIC_USAGE.get()
         if totals is not None:
             totals[0] += input_tokens
@@ -551,6 +545,8 @@ async def _call_claude_api_response(
             input_tokens=input_tokens,
             output_tokens=output_tokens,
             served_model=served_model if isinstance(served_model, str) else None,
+            cache_creation_input_tokens=cache_created,
+            cache_read_input_tokens=cache_read,
         )
     except (KeyError, IndexError, TypeError, ValueError):
         raise RuntimeError("Unexpected or incomplete Claude API response") from None
@@ -708,7 +704,7 @@ async def call_model_response(
             for excluded in config.excluded_repositories
         ):
             raise ValueError("Cloud review is forbidden for this repository")
-        if config.review_focus:
+        if uses_system_focus(config):
             system_prompt = (
                 f"{system_prompt}\n\n## Reviewer Focus\n\n{config.review_focus}"
             )
@@ -783,8 +779,7 @@ async def call_model_response(
 
     # OMN-20422: a per-model review focus extends the system prompt for that
     # voter only. Empty (the default) leaves the prompt byte-identical.
-    if config.review_focus:
-        system_prompt = f"{system_prompt}\n\n## Reviewer Focus\n\n{config.review_focus}"
+    system_prompt, user_prompt = lay_out_openai(config, system_prompt, user_prompt)
 
     # Overflow (OMN-20910 follow-up): endpoints are tried in order. Every one
     # but the last gets one attempt of at most ``overflow_after_seconds``, so a

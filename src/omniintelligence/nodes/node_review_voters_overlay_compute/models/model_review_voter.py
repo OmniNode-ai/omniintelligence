@@ -8,6 +8,9 @@ from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from omniintelligence.models.review.model_review_prompt_cache import (
+    ModelReviewPromptCache,
+)
 from omniintelligence.nodes.node_review_voters_overlay_compute.models.model_review_persona import (
     MAX_PERSONAS_PER_VOTER,
     ModelReviewPersona,
@@ -98,6 +101,11 @@ class ModelReviewVoter(BaseModel):
     temperature: float | None = Field(default=None, ge=0.0, le=2.0)
     top_p: float | None = Field(default=None, gt=0.0, le=1.0)
     review_focus: str = Field(default="")
+    prompt_cache: ModelReviewPromptCache = Field(
+        default_factory=ModelReviewPromptCache,
+        description="Prompt-cache policy of this voter (OMN-22343): which stable "
+        "blocks the provider caches and the TTLs. Disabled by default.",
+    )
     enable_thinking: bool = Field(default=False)
     reasoning_effort: Literal["low", "medium", "high"] | None = Field(default=None)
     constrain_findings_schema: bool = Field(default=False)

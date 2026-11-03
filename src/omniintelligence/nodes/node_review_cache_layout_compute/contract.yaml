@@ -1,0 +1,89 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# ONEX Node Contract
+# Node: NodeReviewCacheLayoutCompute
+#
+# Reference: OMN-22343
+
+name: "node_review_cache_layout_compute"
+version: "1.0.0"
+contract_version: {major: 1, minor: 0, patch: 0}
+node_version:
+  major: 1
+  minor: 0
+  patch: 0
+
+node_type: "COMPUTE_GENERIC"
+
+status: "active"
+
+description: >
+  Lays a Hostile Reviewer request out for the provider's prompt cache. The render order is tools, system,
+  messages, so the stable parts come first: the rubric and catalog, then the repository's standing rules,
+  then the per-PR diff, and last the voter's own focus text, which differs per voter and is never cached.
+  For an OpenAI-compatible Claude gateway the same split is expressed with the gateway's boundary marker
+  (the gateway's contract decides the TTLs); for a direct Messages call the blocks carry cache_control
+  with the TTLs of the voter's overlay policy (prompt_cache: enabled, system_ttl, diff_ttl, max_breakpoints).
+  At most four breakpoints, and a 1h entry always precedes a 5m entry. A voter whose overlay declares
+  no prompt_cache sends exactly what it sent before. Pure computation.
+input_model:
+  name: "ModelReviewCacheLayoutRequest"
+  module: "omniintelligence.models.review.model_review_cache_layout_request"
+  description: "The built prompt, the voter's focus, its cache policy and the wire."
+
+output_model:
+  name: "ModelReviewCacheLayoutResult"
+  module: "omniintelligence.models.review.model_review_cache_layout_result"
+  description: "Marked strings for a gateway wire, or ordered cache blocks for a native wire."
+
+operations:
+  - name: "lay_out_review_prompt"
+    description: "Order the review request stable-prefix first with cache breakpoints"
+    input_fields:
+      - system_prompt
+      - user_prompt
+      - review_focus
+      - cache
+      - wire
+    output_fields:
+      - system_prompt
+      - user_prompt
+      - system_blocks
+      - user_blocks
+      - breakpoints
+
+handler_routing:
+  routing_strategy: "operation_match"
+  handlers:
+    - operation: "lay_out_review_prompt"
+      handler:
+        function: "handle"
+        module: "omniintelligence.nodes.node_review_cache_layout_compute.handlers.handler_review_cache_layout"
+        type: "sync"
+      description: "Lay the prompt out for the prompt cache"
+
+dependencies: []
+
+error_handling:
+  error_types: []
+
+health_check:
+  enabled: true
+  endpoint: "/health"
+  interval_seconds: 30
+
+metadata:
+  author: "OmniNode Team"
+  license: "MIT"
+  created: "2026-11-03"
+  updated: "2026-11-03"
+  tags:
+    - compute
+    - review
+    - hostile-reviewer
+    - prompt-cache
+  references:
+    - ticket: "OMN-22343"
+      url: "https://linear.app/omninode/issue/OMN-22343"
+      description: "Review requests carry prompt-cache breakpoints"

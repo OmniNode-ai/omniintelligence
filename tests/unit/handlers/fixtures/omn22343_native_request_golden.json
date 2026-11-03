@@ -1,0 +1,27 @@
+{
+  "messages": [
+    {
+      "content": [
+        {
+          "cache_control": {"ttl": "5m", "type": "ephemeral"},
+          "text": "Review this diff:\nDIFF OF PR A",
+          "type": "text"
+        },
+        {"text": "## Reviewer Focus\n\nGive extra scrutiny to security.", "type": "text"}
+      ],
+      "role": "user"
+    }
+  ],
+  "system": [
+    {
+      "cache_control": {"ttl": "1h", "type": "ephemeral"},
+      "text": "RUBRIC AND CATALOG",
+      "type": "text"
+    },
+    {
+      "cache_control": {"ttl": "1h", "type": "ephemeral"},
+      "text": "## Standing Rules of the Reviewed Repository\nRULE R1",
+      "type": "text"
+    }
+  ]
+}

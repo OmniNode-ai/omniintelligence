@@ -25,6 +25,8 @@ class ModelReviewCallResponse(BaseModel):
         input_tokens: Prompt tokens billed, 0 when not reported.
         output_tokens: Completion tokens billed, 0 when not reported.
         served_model: The model the provider says it served, when it says.
+        cache_creation_input_tokens: Tokens written to the prompt cache.
+        cache_read_input_tokens: Tokens read from the prompt cache.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -34,6 +36,12 @@ class ModelReviewCallResponse(BaseModel):
     input_tokens: int = Field(default=0, ge=0, description="Prompt tokens.")
     output_tokens: int = Field(default=0, ge=0, description="Completion tokens.")
     served_model: str | None = Field(default=None, description="Served model id.")
+    cache_creation_input_tokens: int = Field(
+        default=0, ge=0, description="Tokens written to the prompt cache (OMN-22343)."
+    )
+    cache_read_input_tokens: int = Field(
+        default=0, ge=0, description="Tokens read from the prompt cache (OMN-22343)."
+    )
 
     @property
     def completed_normally(self) -> bool:

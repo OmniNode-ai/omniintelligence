@@ -1,0 +1,5 @@
+{
+  "_provenance": "Authored to the documented Messages usage shape (platform.claude.com prompt-caching, usage fields); NOT a live recording. The live second-pass proof is a separate lab receipt.",
+  "first_pass": {"usage": {"input_tokens": 410, "output_tokens": 55, "cache_creation_input_tokens": 15200, "cache_read_input_tokens": 0}},
+  "second_pass": {"usage": {"input_tokens": 410, "output_tokens": 61, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 15200}}
+}

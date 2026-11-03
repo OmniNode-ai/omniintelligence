@@ -85,12 +85,12 @@ class ModelResolvedReviewVoter(BaseModel):
         ``env_var`` is empty on purpose: the overlay is the one place a voter's
         endpoint is set, so no environment variable can redirect it.
         """
-        from omniintelligence.review_pairing.models_external_review import (
-            ModelEndpointConfig,
+        from omniintelligence.models.review.model_cached_endpoint_config import (
+            ModelCachedEndpointConfig,
         )
 
         voter = self.voter
-        return ModelEndpointConfig(
+        return ModelCachedEndpointConfig(
             provider=voter.provider,
             api_key_env=voter.api_key_env,
             excluded_repositories=voter.excluded_repositories,
@@ -114,6 +114,7 @@ class ModelResolvedReviewVoter(BaseModel):
             temperature=voter.temperature,
             top_p=voter.top_p,
             review_focus=voter.review_focus,
+            prompt_cache=voter.prompt_cache,
             reasoning_effort=voter.reasoning_effort,
             identity_family="anthropic" if voter.claude_gateway else "",
             gateway_urls=self.gateway_base_urls,

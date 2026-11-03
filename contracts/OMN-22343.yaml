@@ -1,0 +1,81 @@
+---
+schema_version: 1.0.0
+ticket_id: OMN-22343
+title: Review requests to the Anthropic API carry no prompt-cache breakpoints, so every review key gets
+  a not-using-prompt-caching notice
+summary: The review request builders lay the prompt out stable-prefix-first (rubric and catalog, then
+  standing rules, then the diff, the voter's own focus last) with cache breakpoints and TTLs from the
+  voter's overlay policy (prompt_cache), for the OpenAI-compatible Claude gateway wire (boundary markers)
+  and for the direct Messages call (cache_control blocks); the direct call reads cache_creation_input_tokens
+  and cache_read_input_tokens.
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: req-omn22343-measure
+    statement: The PR body records the builders found and the measured shape per builder.
+    acceptance:
+      - id: AC1
+        statement: 'AC1: the lane records, before any change, the input tokens per review and whether
+          usage carries cache_creation_input_tokens or cache_read_input_tokens for each review request
+          builder it found, as a table in the PR body -- falsifier: the PR body table read against the
+          gateway log lines or response usage blocks it cites'
+  - id: req-omn22343-order
+    statement: Stable blocks first, the diff next, the voter text last, at most four breakpoints, TTL
+      from the contract or overlay.
+    acceptance:
+      - id: AC2
+        statement: 'AC2: every review request builder emits system and tool blocks first and the per-PR
+          diff last, with no more than four cache_control breakpoints on the stable blocks and the TTL
+          read from the contract or overlay -- falsifier: uv run pytest over the request builder asserting
+          block order, breakpoint count and TTL against a golden fixture'
+  - id: req-omn22343-read
+    statement: A second request with an identical prefix reports cache reads.
+    acceptance:
+      - id: AC3
+        statement: 'AC3: a recorded fixture of two requests with an identical prefix reports cache_read_input_tokens
+          greater than 0 on the second -- falsifier: uv run pytest over the recorded response fixture
+          asserting the second usage block'
+evidence_requirements:
+  - kind: tests
+    description: Request-shape tests against a golden fixture and a usage fixture authored to the documented
+      usage shape; no network.
+    command: uv run pytest tests/unit/handlers/test_handler_review_cache_layout_omn22343.py -q --no-cov
+      -m unit
+emergency_bypass:
+  enabled: false
+  justification: ''
+  follow_up_ticket_id: ''
+dod_evidence:
+  - id: dod-omn22343-ac1
+    description: AC1 the PR body table names each builder with its measured shape and the source of each
+      number.
+    source: manual
+    binds_ac:
+      - AC1
+    checks:
+      - check_type: command
+        check_value: test -f contracts/OMN-22343.yaml
+        cwd: .
+  - id: dod-omn22343-ac2
+    description: AC2 the golden request fixture, block order, breakpoint count and contract-sourced TTL.
+    source: manual
+    binds_ac:
+      - AC2
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/handlers/test_handler_review_cache_layout_omn22343.py -q
+          --no-cov -m unit --tb=line -k 'golden or stable or breakpoints or policy or gateway_wire or
+          share'
+        cwd: .
+  - id: dod-omn22343-ac3
+    description: AC3 the second pass of the usage fixture reports cache_read_input_tokens greater than
+      0.
+    source: manual
+    binds_ac:
+      - AC3
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/handlers/test_handler_review_cache_layout_omn22343.py -q
+          --no-cov -m unit --tb=line -k second_pass
+        cwd: .
