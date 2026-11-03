@@ -1,23 +1,26 @@
 ---
 schema_version: 1.0.0
 ticket_id: OMN-21878
-title: Update the locked transformers dependency to 5.10.1
-summary: >-
-  Update transformers from 4.57.6 to 5.10.1 in uv.lock for the opt-in rl dependency group. Verify the
-  selected version, the artifact hashes and that the rl group declaration still admits the locked version.
+title: Retain the transformers 5.10.1 floor across lock refreshes
+summary: Require a unique transformers entry at or above 5.10.1, matching distribution URLs with sha256
+  hashes, and an rl declaration that admits the actual locked version.
 is_seam_ticket: false
 interface_change: false
 interfaces_touched: []
 requirements:
   - id: req-omn21878-transformers-upgrade
-    statement: The project resolves transformers 5.10.1 from its lockfile.
+    statement: The project resolves transformers at or above 5.10.1 with consistent artifacts.
     acceptance:
       - id: AC1
-        statement: The unique transformers lock entry and its distribution URLs select version 5.10.1.
+        statement: The unique transformers lock entry is at least 5.10.1 and its distribution URLs match
+          the selected version.
       - id: AC2
-        statement: Every transformers artifact in the lock carries a sha256 hash and names 5.10.1.
+        statement: Every transformers artifact carries a sha256 hash and names the selected version.
       - id: AC3
-        statement: The rl group declares transformers with a lower bound the locked 5.10.1 satisfies.
+        statement: The rl lower bound admits the actual locked version.
+      - id: AC4
+        statement: The checks accept dependency upgrades and reject downgrades, mismatched artifacts,
+          invalid hashes and a locked version below the declared floor.
 evidence_requirements:
   - kind: tests
     description: Run the transformers lockfile assertions.
@@ -29,29 +32,44 @@ emergency_bypass:
   follow_up_ticket_id: ''
 dod_evidence:
   - id: dod-omn21878-ac1-lock-version
-    description: Reject a missing, duplicate or stale transformers lock entry or distribution URL.
+    description: The unique transformers lock entry is at least 5.10.1 and its distribution URLs match
+      the selected version.
     source: manual
     checks:
       - check_type: test_passes
-        check_value: uv run pytest tests/unit/test_transformers_lock_omn21878.py -q -n 0 --no-cov -k test_lock_selects_transformers_5_10_1
+        check_value: env PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/unit/test_transformers_lock_omn21878.py
+          -q -k test_lock_selects_transformers_5_10_1
         cwd: ${OMNI_HOME}/omniintelligence
     binds_ac:
       - AC1
   - id: dod-omn21878-ac2-artifact-hashes
-    description: Reject a transformers lock artifact without a sha256 hash or naming another version.
+    description: Every transformers artifact carries a sha256 hash and names the selected version.
     source: manual
     checks:
       - check_type: test_passes
-        check_value: uv run pytest tests/unit/test_transformers_lock_omn21878.py -q -n 0 --no-cov -k test_lock_transformers_artifacts_are_consistent
+        check_value: env PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/unit/test_transformers_lock_omn21878.py
+          -q -k test_lock_transformers_artifacts_are_consistent
         cwd: ${OMNI_HOME}/omniintelligence
     binds_ac:
       - AC2
   - id: dod-omn21878-ac3-rl-group-floor
-    description: Reject an rl group whose transformers declaration is missing or excludes the locked version.
+    description: The rl lower bound admits the actual locked version.
     source: manual
     checks:
       - check_type: test_passes
-        check_value: uv run pytest tests/unit/test_transformers_lock_omn21878.py -q -n 0 --no-cov -k test_rl_group_declares_transformers
+        check_value: env PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/unit/test_transformers_lock_omn21878.py
+          -q -k test_rl_group_declares_transformers
         cwd: ${OMNI_HOME}/omniintelligence
     binds_ac:
       - AC3
+  - id: dod-omn21878-check-regressions
+    description: The checks accept dependency upgrades and reject downgrades, mismatched artifacts, invalid
+      hashes and a locked version below the declared floor.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: env PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/unit/test_transformers_lock_omn21878.py
+          -q -k test_transformers_check_regressions
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC4
