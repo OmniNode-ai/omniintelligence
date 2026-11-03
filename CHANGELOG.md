@@ -1,3 +1,14 @@
+## v0.25.3 (2026-11-03)
+
+### Release
+- Cut omninode-intelligence from dev at 0.25.3 by the scheduled release train.
+- 2 release-relevant commit(s) merged since v0.25.2.
+- Opened by the release train, which cuts only when the repo's declared lab-evidence premise holds for the exact candidate commit.
+
+### Included Since v0.25.2
+- feat: agent review receipt variant and the verifier node (#1203)
+- : declare the intelligence API as a runtime http_mount (#1202)
+
 ## v0.25.2 (2026-11-02)
 
 ### Release
