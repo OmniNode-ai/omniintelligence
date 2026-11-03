@@ -16,6 +16,9 @@ from typing import Any, Literal
 
 import pytest
 
+from omniintelligence.models.review.model_cached_endpoint_config import (
+    ModelCachedEndpointConfig,
+)
 from omniintelligence.models.review.model_review_cache_layout_request import (
     ModelReviewCacheLayoutRequest,
 )
@@ -26,8 +29,11 @@ from omniintelligence.nodes.node_review_cache_layout_compute.handlers.handler_re
     BLOCK_BOUNDARY_MARKER,
     as_messages_blocks,
     handle,
+    lay_out_openai,
+    policy_of,
 )
 from omniintelligence.review_pairing.adapters import adapter_ai_reviewer
+from omniintelligence.review_pairing.model_registry_loader import load_review_voters
 from omniintelligence.review_pairing.models_external_review import ModelEndpointConfig
 
 pytestmark = pytest.mark.unit
@@ -139,10 +145,16 @@ def test_two_voters_share_the_system_blocks_and_differ_only_in_focus() -> None:
 
 def test_disabled_policy_keeps_the_legacy_request() -> None:
     assert ModelReviewPromptCache().enabled is False
-    config = ModelEndpointConfig(
+    plain = ModelEndpointConfig(
         env_var="X", default_url="http://h", kind="code_review", timeout_seconds=1.0
     )
-    assert config.prompt_cache.enabled is False
+    assert policy_of(plain).enabled is False
+    cached = ModelCachedEndpointConfig(
+        env_var="X", default_url="http://h", kind="code_review", timeout_seconds=1.0
+    )
+    assert cached.prompt_cache.enabled is False
+    system, user = lay_out_openai(plain, "SYS", "USER")
+    assert (system, user) == ("SYS", "USER")
 
 
 class _Resp:
@@ -181,7 +193,7 @@ def test_second_pass_reports_cache_read_tokens(monkeypatch: pytest.MonkeyPatch) 
 
     monkeypatch.setattr(httpx, "AsyncClient", _Client)
     monkeypatch.setenv(_CREDENTIAL_ENV, "placeholder-value")
-    config = ModelEndpointConfig(
+    config = ModelCachedEndpointConfig(
         env_var="",
         provider="anthropic",
         api_key_env=_CREDENTIAL_ENV,
@@ -205,3 +217,39 @@ def test_second_pass_reports_cache_read_tokens(monkeypatch: pytest.MonkeyPatch) 
     assert first.cache_creation_input_tokens > 0
     assert second.cache_read_input_tokens > 0
     assert second.cache_creation_input_tokens == 0
+
+
+def test_overlay_voter_policy_reaches_the_endpoint_config(tmp_path: Path) -> None:
+    """The overlay, not code, declares the policy a resolved voter sends with."""
+    overlay = tmp_path / "voters.yaml"
+    overlay.write_text(
+        "\n".join(
+            [
+                'schema_version: "review_voters_overlay.v1"',
+                "voters:",
+                "  - voter_id: gw",
+                '    endpoint_url: "http://gateway.example:8140/v1/chat/completions"',
+                "    model_id_source: served",
+                "    required: true",
+                "    timeout_seconds: 60",
+                '    review_focus: "Security first."',
+                "    prompt_cache:",
+                "      enabled: true",
+                '      system_ttl: "1h"',
+                '      diff_ttl: "5m"',
+                "  - voter_id: plain",
+                '    endpoint_url: "http://lab.example:8000/v1/chat/completions"',
+                "    model_id_source: served",
+                "    required: true",
+                "    timeout_seconds: 60",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    roster = load_review_voters(overlay)
+    gateway, plain = roster.get("gw"), roster.get("plain")
+    assert gateway is not None
+    assert plain is not None
+    assert policy_of(gateway.endpoint_config()).enabled is True
+    assert policy_of(gateway.endpoint_config()).diff_ttl == "5m"
+    assert policy_of(plain.endpoint_config()).enabled is False
