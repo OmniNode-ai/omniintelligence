@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
 # SPDX-License-Identifier: MIT
-"""The lockfile must select transformers 5.10.1 for the opt-in rl group (OMN-21878)."""
+"""The lockfile must select transformers 5.22.1 for the opt-in rl group (OMN-21878)."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ import pytest
 pytestmark = pytest.mark.unit
 
 _ROOT = Path(__file__).resolve().parents[2]
-_VERSION = "5.10.1"
+_VERSION = "5.22.1"
 
 
 def _transformers_packages() -> list[dict[str, object]]:
@@ -21,8 +21,8 @@ def _transformers_packages() -> list[dict[str, object]]:
     return [p for p in packages if p["name"] == "transformers"]
 
 
-def test_lock_selects_transformers_5_10_1() -> None:
-    """One transformers entry, with sdist and wheel URLs for 5.10.1."""
+def test_lock_selects_transformers_5_22_1() -> None:
+    """One transformers entry, with sdist and wheel URLs for 5.22.1."""
     matches = _transformers_packages()
     assert len(matches) == 1, matches
     package = matches[0]
@@ -36,7 +36,7 @@ def test_lock_selects_transformers_5_10_1() -> None:
 
 
 def test_lock_transformers_artifacts_are_consistent() -> None:
-    """Every transformers artifact in the lock carries a hash and names 5.10.1."""
+    """Every transformers artifact in the lock carries a hash and names 5.22.1."""
     (package,) = _transformers_packages()
     assert package["sdist"]["hash"].startswith("sha256:")
     assert all(w["hash"].startswith("sha256:") for w in package["wheels"])
@@ -45,7 +45,7 @@ def test_lock_transformers_artifacts_are_consistent() -> None:
 
 
 def test_rl_group_declares_transformers() -> None:
-    """The rl group declares transformers with a lower bound the locked 5.10.1 meets."""
+    """The rl group declares transformers with a lower bound the locked 5.22.1 meets."""
     pyproject = tomllib.loads((_ROOT / "pyproject.toml").read_text())
     rl = pyproject["dependency-groups"]["rl"]
     specs = [s for s in rl if isinstance(s, str) and s.startswith("transformers")]
