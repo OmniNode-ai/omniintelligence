@@ -288,6 +288,9 @@ repos:
       # else. The rule rows live in core (dep_provenance.validation.yaml); this
       # repository no longer carries its own copy of the gate.
       - id: check-dep-provenance
+        # The report goes outside the repository root: the default lands in
+        # .onex_state/, which onex-validate-clean-root refuses.
+        args: [--report-json, /tmp/dep-provenance-report.json]
 
   # Stub implementation detection — sourced from omnibase_core (OMN-4473)
   - repo: https://github.com/OmniNode-ai/omnibase_core
