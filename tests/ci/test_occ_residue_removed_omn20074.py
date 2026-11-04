@@ -6,7 +6,8 @@ After the S6 caller cut-over four pieces still leaned on the retired change-cont
 repository:
 
 * ``scripts/check_dep_provenance.py`` exempted the ``onex-change-control`` package from
-  its staleness check, though no such dependency exists;
+  its staleness check, though no such dependency exists (the script is gone, OMN-22011:
+  the gate is now core's check-dep-provenance hook);
 * ``main-target-guard.yml`` admitted a ``dev`` head that carried a
   ``promotion-receipt: OCC-<n>`` line, a receipt id nothing mints any more;
 * ``architecture-handshakes/validator-requirements.yaml`` listed that repository as a
@@ -20,11 +21,9 @@ refused everything (or nothing) fails here.
 
 from __future__ import annotations
 
-import importlib.util
 import os
 import subprocess
 from pathlib import Path
-from typing import Any
 
 import pytest
 import yaml
@@ -34,7 +33,6 @@ pytestmark = pytest.mark.unit
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RETIRED_PACKAGE = "onex-change-control"
 RETIRED_REPO = "onex_change_control"
-PROVENANCE_SCRIPT = REPO_ROOT / "scripts" / "check_dep_provenance.py"
 GUARD_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "main-target-guard.yml"
 VALIDATOR_REQUIREMENTS = (
     REPO_ROOT / "architecture-handshakes" / "validator-requirements.yaml"
@@ -44,50 +42,6 @@ SKIP_TOKEN_HOOK = (
 )
 
 GUARD_STEP = "Check PR target branch"
-PINNED_SHA = "a1" * 20
-
-
-def _provenance_module() -> Any:
-    spec = importlib.util.spec_from_file_location(
-        "check_dep_provenance", PROVENANCE_SCRIPT
-    )
-    assert spec and spec.loader
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-def _pin_block(package: str, repo: str) -> str:
-    return (
-        "[tool.uv.sources]\n"
-        f'{package} = {{ git = "https://github.com/OmniNode-ai/{repo}.git", '
-        f'rev = "{PINNED_SHA}" }}\n'
-    )
-
-
-@pytest.mark.parametrize(
-    ("package", "repo"),
-    [
-        pytest.param(RETIRED_PACKAGE, RETIRED_REPO, id="retired-package"),
-        pytest.param("omnimarket", "omnimarket", id="live-package-control"),
-    ],
-)
-def test_no_package_is_exempt_from_the_staleness_check(package: str, repo: str) -> None:
-    module = _provenance_module()
-    resolved: list[str] = []
-
-    def resolver(git_url: str, pinned_sha: str, base_ref: str) -> int:
-        resolved.append(pinned_sha)
-        return 217
-
-    violations = module.find_staleness_violations(
-        '[project]\nname = "x"\n\n' + _pin_block(package, repo),
-        max_commits_behind=50,
-        resolver=resolver,
-    )
-
-    assert resolved == [PINNED_SHA], f"{package} was never resolved: exempted"
-    assert len(violations) == 1
 
 
 def _guard_program() -> str:

@@ -9,11 +9,13 @@
 # core/spi from those exact commits and tests ran against them — the breakage is
 # dependency *provenance*, not runtime behavior, so no test catches it.
 #
-# This gate is a pure static provenance check (no network calls). It FAILS if
-# any of omnibase-core / omnibase-spi / omnibase-compat (hyphen or underscore
-# spelling) has a git / rev / branch / tag source override in pyproject.toml's
-# [tool.uv.sources] block. A single line may be exempted with an inline
-# '# raw-override-ok: <ticket>' comment carrying a non-empty token.
+# This gate is core's check-dep-provenance validator (OMN-22011), the same rule rows
+# the pre-commit hook runs, at the core revision pinned in .pre-commit-config.yaml
+# (this repository no longer carries a copy). A governed first-party package must
+# resolve from the registry, a workspace or the dev-merge tag of its own repository,
+# `dev-<UTC YYYYMMDDHHMMSS>-<sha12>` as a `tag`-only git source, which is the shape
+# the dependency cascade writes. A revision, a branch, a release tag, a path and a
+# foreign repository are refused, and no comment exempts a line.
 #
 # Scoping: the whole-file gate runs only when a PR actually modifies
 # pyproject.toml (a forbidden override cannot be introduced without editing
@@ -78,4 +80,4 @@ jobs:
           fi
 
           echo "pyproject.toml modified in this PR — verifying dependency provenance."
-          python3 scripts/check_dep_provenance.py --pyproject pyproject.toml
+          uvx --from pre-commit pre-commit run check-dep-provenance --files pyproject.toml
