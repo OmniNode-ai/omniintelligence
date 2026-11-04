@@ -7,7 +7,6 @@ deployment/docker/entrypoint-node.sh
 scripts/backfill_episodes.py
 scripts/backfill_pattern_projection.py
 scripts/bootstrap_promote_candidates.py
-scripts/check_dep_provenance.py
 scripts/check_migration_freeze.sh
 scripts/check_no_cloud_bus_wrapper.sh
 scripts/check_no_untyped_metadata.py

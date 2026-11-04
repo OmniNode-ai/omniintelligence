@@ -280,13 +280,14 @@ repos:
         pass_filenames: false
         stages: [pre-commit]
 
+  - repo: https://github.com/OmniNode-ai/omnibase_core
+    rev: dev-20261103173624-74e0b0f12767
+    hooks:
+      # OMN-13873, OMN-22011: first-party packages resolve from the registry, a
+      # workspace or the dev-merge tag of their own repository, and from nothing
+      # else. The rule rows live in core (dep_provenance.validation.yaml); this
+      # repository no longer carries its own copy of the gate.
       - id: check-dep-provenance
-        name: Forbid first-party git-source overrides (OMN-13873)
-        entry: uv run --frozen python scripts/check_dep_provenance.py
-        language: system
-        files: ^pyproject\.toml$
-        pass_filenames: false
-        stages: [pre-commit]
 
   # Stub implementation detection — sourced from omnibase_core (OMN-4473)
   - repo: https://github.com/OmniNode-ai/omnibase_core

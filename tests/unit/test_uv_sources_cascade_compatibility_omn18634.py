@@ -20,8 +20,8 @@ packages underneath it keep moving. The deadlock is therefore not a question of
 whether a given pin is currently stale — it is structural, and the only safe
 overrides are on distributions with no published release to resolve instead.
 
-``scripts/check_dep_provenance.py`` already refuses first-party git overrides,
-but it honours a ``# raw-override-ok: <token>`` escape on the line, and the
+The provenance gate (once ``scripts/check_dep_provenance.py``, now core's hook) refuses
+first-party git overrides, but the retired script honoured a ``# raw-override-ok: <token>`` escape on the line, and the
 omnimarket entry carried one naming a refresh ticket that was never actioned.
 The escape is what let a 217-commit-stale pin survive a dedicated gate. These
 tests close that specific hole for this table: membership of the allowlist
@@ -30,7 +30,6 @@ below is the only permission, and an annotation cannot grant it.
 
 from __future__ import annotations
 
-import importlib.util
 import tomllib
 from pathlib import Path
 from typing import Any
@@ -57,9 +56,8 @@ _GIT_OVERRIDE_ALLOWLIST: frozenset[str] = frozenset()
 
 
 #: uv's own source-kind keys that make an entry a version-control checkout
-#: rather than a registry release. Mirrors ``_GIT_SOURCE_KEYS`` in
-#: ``scripts/check_dep_provenance.py``; asserted equal to it below, so the two
-#: cannot drift apart silently.
+#: rather than a registry release. Mirrors core's check-dep-provenance
+#: hook (OMN-22011), which replaced the local script.
 _GIT_SOURCE_KEYS: frozenset[str] = frozenset({"git", "rev", "tag", "branch"})
 
 
@@ -90,20 +88,6 @@ def _insert_into_uv_sources(pyproject_text: str, entry_line: str) -> str:
     header = "\n[tool.uv.sources]\n"
     at = pyproject_text.index(header) + len(header)
     return pyproject_text[:at] + entry_line + "\n" + pyproject_text[at:]
-
-
-def test_git_source_keys_match_the_provenance_gate() -> None:
-    """Drift-proofing: this module and the gate must agree on what 'git' means."""
-    script = _REPO_ROOT / "scripts" / "check_dep_provenance.py"
-    spec = importlib.util.spec_from_file_location("check_dep_provenance", script)
-    assert spec and spec.loader, f"could not load {script}"
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    assert set(module._GIT_SOURCE_KEYS) == set(_GIT_SOURCE_KEYS), (
-        "scripts/check_dep_provenance.py changed its git-source key set; this "
-        "module would then classify entries differently from the gate it "
-        "backstops. Update both together."
-    )
 
 
 def test_no_git_override_outside_the_not_on_pypi_allowlist() -> None:

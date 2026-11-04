@@ -1,0 +1,44 @@
+schema_version: 1.0.0
+ticket_id: OMN-22011
+title: The dependency-provenance gate is core's check-dep-provenance hook
+summary: >-
+  omniintelligence carried its own scripts/check_dep_provenance.py, which forbade every git source for
+  omnibase-core, omnibase-spi and omnibase-compat and so refused the tag-only dev merge-tag pin the
+  dependency cascade writes. The gate is now core's check-dep-provenance hook (OMN-22011), consumed from
+  the pre-commit config and run by dep-provenance-gate.yml; the local script and its tests are deleted.
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: req-dep-provenance-core-hook
+    statement: >-
+      The dependency-provenance gate is core's check-dep-provenance validator, so the cascade's own pin
+      (a tag-only source at the sibling's dev merge tag) passes and a revision, a branch, a release tag
+      or a foreign repository is still refused; this repository carries no copy of the gate.
+    acceptance:
+      - id: AC1
+        statement: >-
+          AC1: scripts/check_dep_provenance.py is deleted and removed from the canonical-file-shape
+          baseline, the check-dep-provenance hook comes from omnibase_core at a dev merge tag, and
+          dep-provenance-gate.yml runs that same hook through pre-commit -- falsifier:
+          uv run pytest tests/ci/test_dep_provenance_consumes_core_omn22011.py -q -n 0 --no-cov fails at
+          the merge base.
+evidence_requirements:
+  - kind: tests
+    description: The provenance gate is consumed from core and the repository carries no copy.
+    command: uv run pytest tests/ci/test_dep_provenance_consumes_core_omn22011.py -q -n 0 --no-cov
+emergency_bypass:
+  enabled: false
+  justification: ''
+  follow_up_ticket_id: ''
+dod_evidence:
+  - id: dod-dep-provenance-core-hook
+    description: The provenance gate is core's hook, run by the workflow from the pre-commit config, and
+      no local copy of the script remains.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_dep_provenance_consumes_core_omn22011.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC1
