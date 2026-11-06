@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.12, <4.0"
 resolution-markers = [
     "python_full_version >= '3.15' and sys_platform == 'win32'",
@@ -3589,16 +3589,16 @@ wheels = [
 
 [[package]]
 name = "omnibase-spi"
-version = "0.23.12"
+version = "0.23.14"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "omnibase-core" },
     { name = "pydantic" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a9/19/9871f04fb5fd5aebb038dc6e9c13c6df15d7d550e77e73f9a7f8605e83d6/omnibase_spi-0.23.12.tar.gz", hash = "sha256:ce87bc9b6fc39b355916c36fbef15a550c5137260a6cc57f4d84dd0eb395a839", size = 1357790, upload-time = "2026-11-03T17:09:18.146Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e6/6a/873af364075f21a78d0ad866e69e193d69d7328875867b018282eac75a35/omnibase_spi-0.23.14.tar.gz", hash = "sha256:4a0af85ebeaf0e6101a9958c1b4ca140774bcca929c57610fe8c9ade280256ca", size = 1362260, upload-time = "2026-11-05T16:54:42.584Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/8f/e0/58f908889a90c23b3c79ef8ffa3a57fa2f88067364551d38c04ab1f07b82/omnibase_spi-0.23.12-py3-none-any.whl", hash = "sha256:6740d33ce2def9cf6d37e825d2db48ca83d6e2a5d64a6a12497c490f85bebc8c", size = 757102, upload-time = "2026-11-03T17:09:16.803Z" },
+    { url = "https://files.pythonhosted.org/packages/3f/f9/1884e0fe40c4e7350baac703cc747e6edc91b1fd8c7a167855b1cf448128/omnibase_spi-0.23.14-py3-none-any.whl", hash = "sha256:6015f10af99bc4d1f6418ecf6da1ef39d73bbcdf87e503065958d17b414923bd", size = 757104, upload-time = "2026-11-05T16:54:41.001Z" },
 ]
 
 [[package]]
