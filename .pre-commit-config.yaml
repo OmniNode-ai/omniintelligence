@@ -19,7 +19,7 @@
 #     of `language: python`. While this config uses `language: system` for
 #     local hooks, ecosystem compatibility requires 4.0+.
 #   - pre-commit 4.4.0 added `--fail-fast` CLI option to `pre-commit run`,
-#     complementing the config-level `fail_fast: true` setting used here.
+#     an opt-in for one run; this config does not set it at config level.
 #   - pre-commit 4.5.0 (November 2024) is the stable baseline ensuring all
 #     4.x features and bug fixes are available.
 #
@@ -94,8 +94,8 @@
 #    - Keep only fast smoke tests on pre-commit
 #
 # 4. Leverage fail_fast:
-#    - fail_fast: true (enabled) stops on first failure
-#    - Saves time during development by avoiding redundant hook runs
+#    - fail_fast: false (OMN-22933) runs every hook and reports every failure
+#    - Hook order still puts the fast hooks first
 #
 # 5. Check for environment issues:
 #    - Ensure uv is using cached virtual environment
@@ -206,10 +206,11 @@
 # ============================================================================
 # These optimizations minimize pre-commit execution time:
 #
-# 1. fail_fast: true
-#    - Stops processing on first hook failure
-#    - Benefit: Saves 5-10s on average during active development
-#    - Trade-off: May miss secondary failures (run without fail_fast periodically)
+# 1. fail_fast: false (OMN-22933)
+#    - Every hook runs and every failure is reported in the same attempt
+#    - A config-level fail_fast: true hid the second problem until the first
+#      was fixed, one commit attempt per problem
+#    - A single run can still opt in with `pre-commit run --fail-fast`
 #
 # 2. types: [python] instead of regex file matching
 #    - Pre-commit's type system uses file magic/extension detection
@@ -241,8 +242,9 @@
 #    - require_serial: false (default) allows hooks to run in parallel
 #    - Note: Some hooks set require_serial: true when order matters or they share a cache (mypy)
 
-# Stop on first failure to avoid wasted hook runs during development
-fail_fast: true
+# Run every hook and report every failure in one attempt (OMN-22933); no hook
+# is removed or loosened. Opt in per run with `pre-commit run --fail-fast`.
+fail_fast: false
 
 repos:
   # OMN-19183 plan task A3.x: shrink-only baseline config/hardcoded_model_config_baseline.yaml.
