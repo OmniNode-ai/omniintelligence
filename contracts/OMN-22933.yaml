@@ -1,0 +1,47 @@
+---
+schema_version: 1.0.0
+ticket_id: OMN-22933
+title: Report every failing pre-commit hook in one run
+summary: >-
+  Sets fail_fast false in .pre-commit-config.yaml so a commit attempt reports every failing hook instead
+  of stopping at the first.
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: req-omn22933-no-fail-fast
+    statement: The repository pre-commit config runs every hook and reports all failures in one run.
+    acceptance:
+      - id: AC1
+        statement: The repository config does not stop at the first failing hook.
+      - id: AC2
+        statement: Two planted problems are both reported in one run under the repository setting.
+evidence_requirements:
+  - kind: tests
+    description: Run the pre-commit reporting tests.
+    command: uv run pytest tests/ci/test_precommit_reports_every_failure_omn22933.py -q -n 0 --no-cov
+emergency_bypass:
+  enabled: false
+  justification: ''
+  follow_up_ticket_id: ''
+dod_evidence:
+  - id: dod-omn22933-ac1-config
+    description: Reject a config that stops at the first failing hook.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_precommit_reports_every_failure_omn22933.py::test_repo_config_runs_every_hook_not_stopping_at_the_first_failure
+          -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC1
+  - id: dod-omn22933-ac2-both-reported
+    description: Reject a setting that reports fewer than both planted problems.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_precommit_reports_every_failure_omn22933.py::test_repo_setting_reports_two_problems_at_once
+          -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC2
