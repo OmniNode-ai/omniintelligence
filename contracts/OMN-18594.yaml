@@ -1,0 +1,34 @@
+---
+schema_version: 1.0.0
+ticket_id: OMN-18594
+title: "Sibling lock refresh runs only by dispatch"
+summary: "Ruling 2026-11-09T21:54:25Z: a downstream moves its pin only when it needs something new."
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: req-omn18594-dispatch-only
+    statement: "sibling-lock-refresh.yml has no schedule and keeps workflow_dispatch."
+    acceptance:
+      - id: AC1
+        statement: "AC1: only workflow_dispatch triggers the workflow -- falsifier: the dispatch-only
+          test"
+evidence_requirements:
+  - kind: tests
+    description: The dispatch-only test passes against the changed workflow.
+    command: "uv run pytest tests/ci/test_sibling_lock_refresh_dispatch_only_omn18594.py -q"
+emergency_bypass:
+  enabled: false
+  justification: ''
+  follow_up_ticket_id: ''
+dod_evidence:
+  - id: dod-omn18594-ac1
+    description: "The workflow declares only workflow_dispatch."
+    source: manual
+    execution_scope: hosted_and_local
+    binds_ac:
+      - AC1
+    checks:
+      - check_type: test_passes
+        check_value: "uv run pytest tests/ci/test_sibling_lock_refresh_dispatch_only_omn18594.py -q"
+        cwd: ${OMNI_HOME}/omniintelligence
