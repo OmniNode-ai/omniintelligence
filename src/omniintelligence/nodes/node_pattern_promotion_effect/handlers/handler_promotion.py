@@ -669,19 +669,27 @@ class HandlerPromotion:
 
     def __init__(
         self,
-        repository: ProtocolPatternRepository,
+        repository: ProtocolPatternRepository | None = None,
         producer: ProtocolKafkaPublisher | None = None,
     ) -> None:
         """Bind the repository and optional publisher for promotion requests."""
         self._repository = repository
         self._producer = producer
 
+    def _require_repository(self) -> ProtocolPatternRepository:
+        """Return the bound repository or raise if it was not supplied."""
+        if self._repository is None:
+            raise RuntimeError(
+                f"{type(self).__name__} was built without its 'repository' dependency"
+            )
+        return self._repository
+
     async def handle(
         self, request: ModelPromotionCheckRequest
     ) -> ModelPromotionCheckResult:
         """Check promotion gates using the request thresholds and trace context."""
         return await check_and_promote_patterns(
-            self._repository,
+            self._require_repository(),
             self._producer,
             dry_run=request.dry_run,
             min_injection_count=request.min_injection_count,

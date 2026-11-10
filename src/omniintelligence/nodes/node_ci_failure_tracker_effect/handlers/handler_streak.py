@@ -55,8 +55,15 @@ async def get_current_streak(
 class HandlerStreak:
     """Typed entry points for the preserved streak management functions."""
 
-    def __init__(self, store: ProtocolDebugStore) -> None:
+    def __init__(self, store: ProtocolDebugStore | None = None) -> None:
         self._store = store
+
+    def _require_store(self) -> ProtocolDebugStore:
+        if self._store is None:
+            raise RuntimeError(
+                f"{type(self).__name__} was built without its 'store' dependency"
+            )
+        return self._store
 
     async def handle(self, request: ModelStreakIncrementRequest) -> dict[str, Any]:
         """Increment the failure streak using the injected store."""
@@ -64,17 +71,19 @@ class HandlerStreak:
             repo=request.repo,
             branch=request.branch,
             sha=request.sha,
-            store=self._store,
+            store=self._require_store(),
         )
 
     async def reset(self, request: ModelStreakResetRequest) -> None:
         """Reset the failure streak on recovery."""
-        await reset_streak(repo=request.repo, branch=request.branch, store=self._store)
+        await reset_streak(
+            repo=request.repo, branch=request.branch, store=self._require_store()
+        )
 
     async def current(self, request: ModelStreakQueryRequest) -> int:
         """Read the current failure streak."""
         return await get_current_streak(
-            repo=request.repo, branch=request.branch, store=self._store
+            repo=request.repo, branch=request.branch, store=self._require_store()
         )
 
 

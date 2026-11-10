@@ -138,8 +138,15 @@ class HandlerGitRepoCrawl:
     ``crawl_state`` is the persistence interface for omnimemory_crawl_state.
     """
 
-    def __init__(self, *, crawl_state: ProtocolCrawlStateStore) -> None:
+    def __init__(self, *, crawl_state: ProtocolCrawlStateStore | None = None) -> None:
         self._crawl_state = crawl_state
+
+    def _require_crawl_state(self) -> ProtocolCrawlStateStore:
+        if self._crawl_state is None:
+            raise RuntimeError(
+                f"{type(self).__name__} was built without its 'crawl_state' dependency"
+            )
+        return self._crawl_state
 
     async def handle(self, request: ModelGitRepoCrawlInput) -> ModelGitRepoCrawlOutput:
         """Perform git-based change detection for a single repository.
@@ -184,7 +191,8 @@ class HandlerGitRepoCrawl:
                 errors={"": str(exc)},
             )
 
-        stored_head_sha = await self._crawl_state.get_head_sha(repo_path)
+        crawl_state = self._require_crawl_state()
+        stored_head_sha = await crawl_state.get_head_sha(repo_path)
 
         if stored_head_sha is not None and stored_head_sha == new_head_sha:
             logger.debug(
@@ -243,7 +251,7 @@ class HandlerGitRepoCrawl:
         # ------------------------------------------------------------------
         existing_entries: dict[str, ModelCrawlStateEntry] = {
             entry.file_path: entry
-            for entry in await self._crawl_state.get_all_entries(repo_path)
+            for entry in await crawl_state.get_all_entries(repo_path)
         }
 
         discovered: list[ModelDocumentDiscoveredEvent] = []
@@ -274,7 +282,7 @@ class HandlerGitRepoCrawl:
                         correlation_id=correlation_id,
                     )
                 )
-                await self._crawl_state.upsert_entry(
+                await crawl_state.upsert_entry(
                     ModelCrawlStateEntry(
                         repo_path=repo_path,
                         file_path=file_path,
@@ -295,7 +303,7 @@ class HandlerGitRepoCrawl:
                         correlation_id=correlation_id,
                     )
                 )
-                await self._crawl_state.upsert_entry(
+                await crawl_state.upsert_entry(
                     ModelCrawlStateEntry(
                         repo_path=repo_path,
                         file_path=file_path,
@@ -321,12 +329,12 @@ class HandlerGitRepoCrawl:
                         correlation_id=correlation_id,
                     )
                 )
-                await self._crawl_state.delete_entry(repo_path, file_path)
+                await crawl_state.delete_entry(repo_path, file_path)
 
         # ------------------------------------------------------------------
         # Step 5 — persist new HEAD SHA
         # ------------------------------------------------------------------
-        await self._crawl_state.update_head_sha(repo_path, new_head_sha)
+        await crawl_state.update_head_sha(repo_path, new_head_sha)
 
         logger.info(
             "Crawl complete for %s: discovered=%d changed=%d removed=%d errors=%d "
