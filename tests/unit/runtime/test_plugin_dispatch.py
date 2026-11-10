@@ -30,6 +30,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID, uuid4
 
 import pytest
+from omnibase_core.models.container.model_onex_container import ModelONEXContainer
 from omnibase_core.protocols.event_bus.protocol_event_bus import ProtocolEventBus
 
 from omniintelligence.runtime.plugin import (
@@ -73,13 +74,6 @@ TOPIC_PATTERN_LIFECYCLE = "onex.cmd.omniintelligence.pattern-lifecycle-transitio
 # =============================================================================
 # Stubs
 # =============================================================================
-
-
-@dataclass
-class _StubContainer:
-    """Minimal container stub."""
-
-    service_registry: Any = None
 
 
 @dataclass
@@ -237,8 +231,10 @@ def _make_config(
     """Create a minimal ModelDomainPluginConfig-compatible object."""
     from omnibase_infra.runtime.models import ModelDomainPluginConfig
 
+    # A real container: wire_dispatchers registers the contract handlers in it
+    # (OMN-23431), so a stub with no registry would hide a broken registration.
     return ModelDomainPluginConfig(
-        container=_StubContainer(),  # type: ignore[arg-type]
+        container=ModelONEXContainer(),
         event_bus=event_bus or _StubEventBus(),
         correlation_id=correlation_id or uuid4(),
         input_topic="test.input",
@@ -321,6 +317,25 @@ class TestPluginWireDispatchers:
         assert result.success, f"wire_dispatchers failed: {result.error_message}"
         assert plugin._dispatch_engine is not None
         assert plugin._dispatch_engine.is_frozen
+
+    @pytest.mark.asyncio
+    async def test_wire_dispatchers_registers_the_contract_handlers(self) -> None:
+        """The loader's container holds every handler that needs a store or config."""
+        from omniintelligence.nodes.node_ci_failure_tracker_effect.handlers.handler_streak import (
+            HandlerStreak,
+        )
+        from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_promotion import (
+            HandlerPromotion,
+        )
+
+        plugin = PluginIntelligence()
+        config = _make_config()
+
+        result = await _wire_plugin(plugin, config)
+
+        assert result.success, f"wire_dispatchers failed: {result.error_message}"
+        assert config.container.get_service(HandlerStreak)._store is not None
+        assert config.container.get_service(HandlerPromotion)._repository is not None
 
     @pytest.mark.asyncio
     async def test_wire_dispatchers_engine_has_expected_routes(self) -> None:
@@ -1045,7 +1060,7 @@ class TestSharedConsumerGroup:
             from omnibase_infra.runtime.models import ModelDomainPluginConfig
 
             config = ModelDomainPluginConfig(
-                container=_StubContainer(),  # type: ignore[arg-type]
+                container=ModelONEXContainer(),
                 event_bus=event_bus,
                 correlation_id=uuid4(),
                 input_topic="test.input",

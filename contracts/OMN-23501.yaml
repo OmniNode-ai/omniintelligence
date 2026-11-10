@@ -1,0 +1,58 @@
+---
+schema_version: 1.0.0
+ticket_id: OMN-23501
+title: Intelligence handlers that need a store are built at start-up so the development system boots
+summary: >-
+  The one runtime's handler loader builds every contract-declared handler and supplies only event_bus,
+  container and ownership_query. Five omniintelligence handlers need a store, repository or config and
+  failed the dev boot with "requires constructor parameters". The plugin that owns those dependencies
+  now builds and registers the handlers in the container the loader reads, the two hook-event contracts
+  get operation keys so their dispatcher ids stop colliding, and one test wires the whole package through
+  the production wiring path under strict mode.
+is_seam_ticket: true
+interface_change: true
+interfaces_touched:
+  - public_api
+requirements:
+  - id: req-omn23501-handlers-construct
+    statement: Every handler omniintelligence announces to the one runtime is constructible by the runtime's
+      handler loader, or is named as having no live supplier.
+    acceptance:
+      - id: AC1
+        statement: The whole-package strict wiring test fails on the old code with the dev boot error
+          and passes with the plugin registration and the operation keys.
+      - id: AC2
+        statement: The five handlers with a supplier are registered by the plugin from its own stores.
+      - id: AC3
+        statement: The handlers with no supplier anywhere are named, and the test fails when the named
+          set and the unregistered set differ.
+evidence_requirements:
+  - kind: tests
+    description: Run the strict wiring test and the plugin dispatch test.
+    command: env PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/unit/test_contract_handler_construction.py
+      tests/unit/runtime/test_plugin_dispatch.py -q -n 0 --no-cov
+emergency_bypass:
+  enabled: false
+  justification: ''
+  follow_up_ticket_id: ''
+dod_evidence:
+  - id: dod-omn23501-ac1-strict-wiring
+    description: Wire every omniintelligence node contract through wire_from_manifest under strict mode
+      with a real container and engine; an unregistered dependency raises the dev boot TypeError.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/test_contract_handler_construction.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC1
+      - AC3
+  - id: dod-omn23501-ac2-plugin-registration
+    description: wire_dispatchers registers the contract handlers in the container the loader reads.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/runtime/test_plugin_dispatch.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC2
