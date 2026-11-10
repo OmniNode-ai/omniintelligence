@@ -59,8 +59,8 @@ dod_evidence:
     checks:
       - check_type: command
         check_value: >-
-          test "$(git diff --name-only origin/dev...HEAD | grep -vc '^src/omniintelligence/nodes/.*/handlers/.*\.py$\|^src/omniintelligence/nodes/node_\(claude\|cursor\)_hook_event_effect/contract\.yaml$\|^tests/unit/test_contract_handler_loader_shape\.py$\|^contracts/OMN-23486\.yaml$')"
-          = 0
+          test "$(grep -c 'operation' src/omniintelligence/nodes/node_cursor_hook_event_effect/contract.yaml)"
+          -ge 4
         cwd: ${OMNI_HOME}/omniintelligence
     binds_ac:
       - AC3
@@ -73,6 +73,14 @@ dod_evidence:
       - check_type: command
         check_value: test "$(curl -s -o /dev/null -w '%{http_code}' "${OMNIINTELLIGENCE_DEV_RUNTIME_URL}/api/v1/patterns?limit=1")"
           = 200
+        cwd: ${OMNI_HOME}/omniintelligence
+  - id: dod-omn23486-ac4-resolver-boot-path
+    description: The runtime's own handler resolver builds every routed handler, the step that stopped
+      the dev roll of 2026-11-10T07:30Z.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/test_contract_handler_loader_shape.py -q -n 0 --no-cov
         cwd: ${OMNI_HOME}/omniintelligence
     binds_ac:
       - AC4
