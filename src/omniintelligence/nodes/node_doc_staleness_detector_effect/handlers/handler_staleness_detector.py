@@ -45,7 +45,7 @@ Ticket: OMN-2394
 from __future__ import annotations
 
 import logging
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 from uuid import UUID
 
 from omniintelligence.nodes.node_doc_staleness_detector_effect.models.enum_staleness_case import (
@@ -635,8 +635,21 @@ async def handle_staleness_detection(
     )
 
 
+class HandlerStalenessDetection:
+    """Contract-bound handler for ``handle_staleness_detection``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    async def handle(
+        self, request: ModelStalenessDetectInput
+    ) -> ModelStalenessDetectOutput:
+        return await handle_staleness_detection(request, **self._dependencies)
+
+
 __all__ = [
     "handle_staleness_detection",
     "ProtocolStalenessStore",
     "ProtocolReingestionTrigger",
+    "HandlerStalenessDetection",
 ]

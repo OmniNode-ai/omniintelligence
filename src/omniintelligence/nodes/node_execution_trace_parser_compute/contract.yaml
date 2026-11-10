@@ -44,18 +44,18 @@ handler_routing:
   handlers:
     - operation: "parse_trace"
       handler:
-        class: "HandlerTraceParsingCompute"
+        name: "HandlerTraceParsingCompute"
         module: "omniintelligence.nodes.node_execution_trace_parser_compute.handlers.handler_compute"
         type: "sync"
     - operation: "extract_errors"
       handler:
+        name: "HandlerEventExtraction"
         module: "omniintelligence.nodes.node_execution_trace_parser_compute.handlers.handler_event_extraction"
-        class: "HandlerEventExtraction"
         type: "sync"
     - operation: "build_span_tree"
       handler:
+        name: "HandlerTraceParsing"
         module: "omniintelligence.nodes.node_execution_trace_parser_compute.handlers.handler_trace_parsing"
-        class: "HandlerTraceParsing"
         type: "sync"
 # Protocol Dependencies (Future)
 # ==============================

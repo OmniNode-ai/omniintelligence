@@ -67,7 +67,7 @@ handler_routing:
   handlers:
     - operation: "decide_substitute_votes"
       handler:
-        function: "handle"
+        name: "HandlerReviewReceiptSubstitute"
         module: "omniintelligence.nodes.node_review_receipt_substitute_compute.handlers.handler_review_receipt_substitute"
         type: "sync"
       description: "Decide substitute votes from signed review receipts"

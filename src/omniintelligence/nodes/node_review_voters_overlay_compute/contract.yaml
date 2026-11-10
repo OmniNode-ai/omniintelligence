@@ -67,7 +67,7 @@ handler_routing:
   handlers:
     - operation: "resolve_review_voters"
       handler:
-        function: "handle"
+        name: "HandlerReviewVotersOverlay"
         module: "omniintelligence.nodes.node_review_voters_overlay_compute.handlers.handler_review_voters_overlay"
         type: "sync"
       description: "Resolve the review voters overlay into a roster"

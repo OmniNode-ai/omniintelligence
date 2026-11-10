@@ -45,6 +45,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -427,6 +428,16 @@ async def start_watching(
         )
 
 
+class HandlerStartWatching:
+    """Contract-bound handler for ``start_watching``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    async def handle(self, request: Mapping[str, Any]) -> ModelWatchdogResult:
+        return await start_watching(**request, **self._dependencies)
+
+
 async def stop_watching(*, correlation_id: UUID) -> ModelWatchdogResult:
     """Gracefully stop the active filesystem observer.
 
@@ -525,6 +536,16 @@ async def stop_watching(*, correlation_id: UUID) -> ModelWatchdogResult:
         )
 
 
+class HandlerStopWatching:
+    """Contract-bound handler for ``stop_watching``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    async def handle(self, request: Mapping[str, Any]) -> ModelWatchdogResult:
+        return await stop_watching(**request, **self._dependencies)
+
+
 # =============================================================================
 # Internal helpers
 # =============================================================================
@@ -569,6 +590,8 @@ def _schedule_watches(
 
 __all__ = [
     "TOPIC_CRAWL_REQUESTED_V1",
+    "HandlerStartWatching",
+    "HandlerStopWatching",
     "start_watching",
     "stop_watching",
 ]

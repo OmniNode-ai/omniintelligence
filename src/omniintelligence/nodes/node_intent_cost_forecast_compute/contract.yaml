@@ -51,8 +51,8 @@ handler_routing:
   handlers:
     - operation: "forecast"
       handler:
-        function: "compute_forecast"
-        module: "omniintelligence.nodes.node_intent_cost_forecast_compute.handlers"
+        name: "HandlerComputeForecast"
+        module: "omniintelligence.nodes.node_intent_cost_forecast_compute.handlers.handler_cost_forecast"
         type: "async"
 # =============================================================================
 # EVENT BUS SUBCONTRACT

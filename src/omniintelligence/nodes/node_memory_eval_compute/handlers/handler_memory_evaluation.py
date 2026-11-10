@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Awaitable, Callable, Mapping
+from typing import Any
 from uuid import uuid4
 
 from omnibase_core.types import JsonType
@@ -121,6 +122,16 @@ async def handle_memory_evaluation(
         total_scenarios=len(results),
         passed_count=passed_count,
     )
+
+
+class HandlerMemoryEvaluation:
+    """Contract-bound handler for ``handle_memory_evaluation``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    async def handle(self, request: Mapping[str, Any]) -> ModelEvalSuiteResult:
+        return await handle_memory_evaluation(**request, **self._dependencies)
 
 
 def _build_system_prompt(
@@ -224,4 +235,4 @@ def _response_str_list(raw: Mapping[str, JsonType], key: str) -> list[str]:
     return [str(item) for item in value]
 
 
-__all__ = ["handle_memory_evaluation"]
+__all__ = ["HandlerMemoryEvaluation", "handle_memory_evaluation"]

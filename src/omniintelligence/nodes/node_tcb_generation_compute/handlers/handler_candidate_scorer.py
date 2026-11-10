@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
+from typing import Any
 
 
 def score_candidate(
@@ -68,3 +70,13 @@ def score_candidate(
         + 0.25 * recency_score
         + 0.15 * volatility_score
     )
+
+
+class HandlerScoreCandidate:
+    """Contract-bound handler for ``score_candidate``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    def handle(self, request: Mapping[str, Any]) -> float:
+        return score_candidate(**request, **self._dependencies)

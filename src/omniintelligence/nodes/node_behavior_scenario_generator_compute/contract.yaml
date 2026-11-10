@@ -40,7 +40,7 @@ handler_routing:
   handlers:
     - operation: "generate_scenarios"
       handler:
-        function: "handle_scenario_generation"
+        name: "HandlerScenarioGeneration"
         module: "omniintelligence.nodes.node_behavior_scenario_generator_compute.handlers.handler_scenario_generator"
         type: "async"
       description: "Generate exactly n ModelEvalScenario objects from spec"

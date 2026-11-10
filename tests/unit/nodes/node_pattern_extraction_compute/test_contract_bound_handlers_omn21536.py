@@ -94,7 +94,7 @@ def _bound(operation: str) -> tuple[Any, Any]:
     """The class the contract binds for an operation and its module."""
     expected = _OPERATIONS[operation][0]
     entry = _entry(operation)
-    assert entry.get("class") == expected, f"{operation} binds {entry!r}"
+    assert entry.get("name") == expected, f"{operation} binds {entry!r}"
     assert "function" not in entry, f"{operation} still binds a function"
     module = importlib.import_module(entry["module"])
     bound = getattr(module, expected, None)

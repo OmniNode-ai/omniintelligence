@@ -48,7 +48,9 @@ Reference: OMN-2384
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID, uuid4
 
 from omniintelligence.constants import TOPIC_CRAWL_TICK_V1
@@ -134,6 +136,16 @@ async def schedule_crawl_tick(
         )
 
 
+class HandlerScheduleCrawlTick:
+    """Contract-bound handler for ``schedule_crawl_tick``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    async def handle(self, request: Mapping[str, Any]) -> ModelCrawlSchedulerResult:
+        return await schedule_crawl_tick(**request, **self._dependencies)
+
+
 async def handle_crawl_requested(
     *,
     event: ModelCrawlRequestedEvent,
@@ -195,6 +207,16 @@ async def handle_crawl_requested(
         )
 
 
+class HandlerCrawlRequested:
+    """Contract-bound handler for ``handle_crawl_requested``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    async def handle(self, request: Mapping[str, Any]) -> ModelCrawlSchedulerResult:
+        return await handle_crawl_requested(**request, **self._dependencies)
+
+
 def handle_document_indexed(
     *,
     source_ref: str,
@@ -239,6 +261,16 @@ def handle_document_indexed(
         )
 
     return cleared
+
+
+class HandlerDocumentIndexed:
+    """Contract-bound handler for ``handle_document_indexed``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    def handle(self, request: Mapping[str, Any]) -> bool:
+        return handle_document_indexed(**request, **self._dependencies)
 
 
 # =============================================================================
@@ -378,6 +410,9 @@ async def _process_trigger(
 
 
 __all__ = [
+    "HandlerCrawlRequested",
+    "HandlerDocumentIndexed",
+    "HandlerScheduleCrawlTick",
     "TOPIC_CRAWL_TICK_V1",
     "handle_crawl_requested",
     "handle_document_indexed",

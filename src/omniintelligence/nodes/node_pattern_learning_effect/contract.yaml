@@ -60,8 +60,8 @@ handler_routing:
   handlers:
     - operation: "learn_patterns"
       handler:
-        function: "create_pattern_learning_dispatch_handler"
-        module: "omniintelligence.runtime.dispatch_handler_pattern_learning"
+        name: "HandlerPatternLearningDispatch"
+        module: "omniintelligence.handlers.handler_pattern_learning_dispatch"
         type: "async"
       description: "Extract and learn patterns from session execution traces"
       actions:

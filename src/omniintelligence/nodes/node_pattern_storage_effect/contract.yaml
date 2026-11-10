@@ -103,7 +103,7 @@ handler_routing:
     # Store pattern - persist new pattern to storage
     - operation: "store_pattern"
       handler:
-        function: "handle_store_pattern"
+        name: "HandlerStorePattern"
         module: "omniintelligence.nodes.node_pattern_storage_effect.handlers.handler_store_pattern"
         type: "async"
       description: "Persist a learned pattern to storage"
@@ -115,7 +115,7 @@ handler_routing:
     # Promote pattern - upgrade from candidate to active
     - operation: "promote_pattern"
       handler:
-        function: "handle_promote_pattern"
+        name: "HandlerPromotePattern"
         module: "omniintelligence.nodes.node_pattern_storage_effect.handlers.handler_promote_pattern"
         type: "async"
       description: "Promote a candidate pattern to active status"
@@ -127,7 +127,7 @@ handler_routing:
     # Consume discovered pattern - ingest from external discovery event
     - operation: "consume_discovered_pattern"
       handler:
-        function: "handle_consume_discovered"
+        name: "HandlerConsumeDiscovered"
         module: "omniintelligence.nodes.node_pattern_storage_effect.handlers.handler_consume_discovered"
         type: "async"
       description: "Consume a pattern.discovered event from external systems and store it"

@@ -150,27 +150,27 @@ handler_routing:
   handlers:
     - operation: "extract_patterns"
       handler:
-        class: "HandlerExtractAllPatterns"
+        name: "HandlerExtractAllPatterns"
         module: "omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_extract_all_patterns"
         type: "sync"
     - operation: "extract_file_patterns"
       handler:
-        class: "HandlerFilePatterns"
+        name: "HandlerFilePatterns"
         module: "omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_file_patterns"
         type: "sync"
     - operation: "extract_error_patterns"
       handler:
-        class: "HandlerErrorPatterns"
+        name: "HandlerErrorPatterns"
         module: "omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_error_patterns"
         type: "sync"
     - operation: "extract_architecture_patterns"
       handler:
-        class: "HandlerArchitecturePatterns"
+        name: "HandlerArchitecturePatterns"
         module: "omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_architecture_patterns"
         type: "sync"
     - operation: "extract_tool_patterns"
       handler:
-        class: "HandlerToolPatterns"
+        name: "HandlerToolPatterns"
         module: "omniintelligence.nodes.node_pattern_extraction_compute.handlers.handler_tool_patterns"
         type: "sync"
 dependencies: []

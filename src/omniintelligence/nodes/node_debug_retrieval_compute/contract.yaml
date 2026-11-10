@@ -29,7 +29,7 @@ handler_routing:
   handlers:
     - operation: "query_fix_records_with_decay"
       handler:
-        function: "query_fix_records_with_decay"
+        name: "HandlerQueryFixRecordsWithDecay"
         module: "omniintelligence.nodes.node_debug_retrieval_compute.handlers.handler_retrieval"
         type: "async"
 

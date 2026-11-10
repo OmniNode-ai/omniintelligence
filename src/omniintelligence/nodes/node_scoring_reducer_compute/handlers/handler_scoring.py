@@ -33,6 +33,8 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
+from collections.abc import Mapping
+from typing import Any
 
 from omniintelligence.nodes.node_scoring_reducer_compute.models.model_evaluation_result import (
     ModelEvaluationResult,
@@ -247,4 +249,14 @@ def evaluate_run(
     )
 
 
-__all__ = ["evaluate_run"]
+class HandlerEvaluateRun:
+    """Contract-bound handler for ``evaluate_run``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    def handle(self, request: Mapping[str, Any]) -> ModelEvaluationResult:
+        return evaluate_run(**request, **self._dependencies)
+
+
+__all__ = ["HandlerEvaluateRun", "evaluate_run"]

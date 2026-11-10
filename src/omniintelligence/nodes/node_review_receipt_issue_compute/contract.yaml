@@ -83,13 +83,13 @@ handler_routing:
   handlers:
     - operation: "issue_agent_receipt"
       handler:
-        function: "handle"
+        name: "HandlerIssueAgentReceipt"
         module: "omniintelligence.nodes.node_review_receipt_issue_compute.handlers.handler_issue_agent_receipt"
         type: "sync"
       description: "Issue a signed agent review receipt (hostile_review_agent_receipt.v1)"
     - operation: "issue_receipt"
       handler:
-        function: "handle"
+        name: "HandlerReviewReceiptIssue"
         module: "omniintelligence.nodes.node_review_receipt_issue_compute.handlers.handler_issue_receipt"
         type: "sync"
       description: "Issue a signed receipt and the record of the findings it counts"

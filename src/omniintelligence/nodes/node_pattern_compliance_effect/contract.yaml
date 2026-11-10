@@ -65,13 +65,13 @@ handler_routing:
   handlers:
     - operation: "evaluate_compliance"
       handler:
+        name: "HandlerEvaluateCompliance"
         module: "omniintelligence.nodes.node_pattern_compliance_effect.handlers.handler_compute"
-        class: "HandlerEvaluateCompliance"
         type: "async"
     - operation: "parse_compliance_response"
       handler:
+        name: "HandlerComplianceParsing"
         module: "omniintelligence.nodes.node_pattern_compliance_effect.handlers.handler_compliance"
-        class: "HandlerComplianceParsing"
         type: "sync"
 
 # =============================================================================

@@ -35,7 +35,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
-from typing import Final
+from typing import Any, Final
 
 from omniintelligence.constants import TOPIC_LLM_ROUTING_DECISION_PROCESSED
 from omniintelligence.nodes.node_llm_routing_decision_effect.models import (
@@ -154,6 +154,18 @@ async def process_llm_routing_decision(
             processed_at=datetime.now(UTC),
             error_message=sanitized_error,
         )
+
+
+class HandlerProcessLlmRoutingDecision:
+    """Contract-bound handler for ``process_llm_routing_decision``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    async def handle(
+        self, request: ModelLlmRoutingDecisionEvent
+    ) -> ModelLlmRoutingDecisionResult:
+        return await process_llm_routing_decision(request, **self._dependencies)
 
 
 async def _process_llm_routing_decision_inner(
@@ -362,5 +374,6 @@ async def _publish_processed_event(
 
 __all__ = [
     "DLQ_TOPIC",
+    "HandlerProcessLlmRoutingDecision",
     "process_llm_routing_decision",
 ]

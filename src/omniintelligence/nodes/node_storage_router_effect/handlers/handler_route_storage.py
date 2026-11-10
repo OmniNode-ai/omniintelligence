@@ -22,7 +22,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 from uuid import UUID
 
 from omnibase_core.types import JsonType
@@ -370,6 +370,16 @@ async def handle_route_storage(
     )
 
 
+class HandlerRouteStorage:
+    """Contract-bound handler for ``handle_route_storage``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    async def handle(self, request: ModelStorageRouteInput) -> RouteStorageResult:
+        return await handle_route_storage(request, **self._dependencies)
+
+
 # =============================================================================
 # DLQ Routing
 # =============================================================================
@@ -443,6 +453,7 @@ async def _route_to_dlq(
 
 
 __all__ = [
+    "HandlerRouteStorage",
     "MAX_RETRIES",
     "ROUTING_TABLE",
     "ProtocolDlqPublisher",

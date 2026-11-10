@@ -30,7 +30,7 @@ Example::
 from __future__ import annotations
 
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
 from uuid import uuid4
 
@@ -182,4 +182,14 @@ def _build_eval_result(
     )
 
 
-__all__ = ["handle_agent_behavior_evaluation"]
+class HandlerAgentBehaviorEvaluation:
+    """Contract-bound handler for ``handle_agent_behavior_evaluation``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    async def handle(self, request: Mapping[str, Any]) -> ModelEvalSuiteResult:
+        return await handle_agent_behavior_evaluation(**request, **self._dependencies)
+
+
+__all__ = ["HandlerAgentBehaviorEvaluation", "handle_agent_behavior_evaluation"]

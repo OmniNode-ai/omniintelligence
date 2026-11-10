@@ -37,7 +37,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Protocol, TypedDict, cast
+from typing import TYPE_CHECKING, Any, Protocol, TypedDict, cast
 
 from omniintelligence.constants import TOPIC_RUN_EVALUATED_V1
 from omniintelligence.nodes.node_evidence_collection_effect.errors import (
@@ -752,6 +752,16 @@ async def collect_and_evaluate(
     )
 
 
+class HandlerCollectAndEvaluate:
+    """Contract-bound handler for ``collect_and_evaluate``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    async def handle(self, request: ModelSessionCheckResults) -> ModelCollectionOutput:
+        return await collect_and_evaluate(request, **self._dependencies)
+
+
 async def fire_and_forget_evaluate(
     check_results: ModelSessionCheckResults,
     *,
@@ -814,3 +824,13 @@ async def fire_and_forget_evaluate(
         logger.exception(
             "Unexpected error in objective evaluation (non-blocking — session unaffected)"
         )
+
+
+class HandlerFireAndForgetEvaluate:
+    """Contract-bound handler for ``fire_and_forget_evaluate``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    async def handle(self, request: ModelSessionCheckResults) -> None:
+        await fire_and_forget_evaluate(request, **self._dependencies)

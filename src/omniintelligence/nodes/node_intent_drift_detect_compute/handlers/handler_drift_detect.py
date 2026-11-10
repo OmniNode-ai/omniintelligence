@@ -18,7 +18,8 @@ Reference: OMN-2489
 
 from __future__ import annotations
 
-from typing import Literal
+from collections.abc import Mapping
+from typing import Any, Literal
 
 from omnibase_core.enums.intelligence.enum_intent_class import EnumIntentClass
 
@@ -268,7 +269,18 @@ def detect_drift(
     return None
 
 
+class HandlerDetectDrift:
+    """Contract-bound handler for ``detect_drift``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    def handle(self, request: Mapping[str, Any]) -> ModelIntentDriftSignal | None:
+        return detect_drift(**request, **self._dependencies)
+
+
 __all__ = [
+    "HandlerDetectDrift",
     "detect_drift",
     "score_severity",
 ]

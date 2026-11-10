@@ -130,10 +130,23 @@ def handle(
     return load_verifier_settings(request.environ)
 
 
+class HandlerReviewAgentReceiptOverlay:
+    """Contract-bound handler for ``handle``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    def handle(
+        self, request: ModelAgentReceiptSettingsRequest
+    ) -> ModelAgentReceiptVerifierSettings:
+        return handle(request, **self._dependencies)
+
+
 __all__ = [
     "OVERLAY_ID",
     "ModelAgentReceiptSettingsRequest",
     "NodeOverlayError",
+    "HandlerReviewAgentReceiptOverlay",
     "find_deployment_overlay",
     "load_contract",
     "load_topics",

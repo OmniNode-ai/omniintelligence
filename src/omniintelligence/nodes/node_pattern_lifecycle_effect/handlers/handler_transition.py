@@ -79,7 +79,9 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Mapping
 from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID, uuid4
 
 from omniintelligence.enums import EnumEvidenceTier, EnumPatternLifecycleStatus
@@ -637,6 +639,16 @@ async def apply_transition(
     )
 
 
+class HandlerApplyTransition:
+    """Contract-bound handler for ``apply_transition``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    async def handle(self, request: Mapping[str, Any]) -> ModelTransitionResult:
+        return await apply_transition(**request, **self._dependencies)
+
+
 async def _emit_transition_event(
     producer: ProtocolKafkaPublisher,
     pattern_id: UUID,
@@ -810,6 +822,7 @@ async def _send_to_dlq(
 
 
 __all__ = [
+    "HandlerApplyTransition",
     "ProtocolIdempotencyStore",
     "apply_transition",
 ]

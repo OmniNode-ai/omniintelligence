@@ -55,7 +55,7 @@ handler_routing:
   handlers:
     - operation: "classify_chunks"
       handler:
-        function: "handle_chunk_classify"
+        name: "HandlerChunkClassify"
         module: "omniintelligence.nodes.node_chunk_classifier_compute.handlers.handler_chunk_classifier"
         type: "sync"
       description: "Apply v1 frozen classification rules to raw chunks"

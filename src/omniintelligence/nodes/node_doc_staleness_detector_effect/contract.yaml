@@ -59,7 +59,7 @@ handler_routing:
   handlers:
     - operation: "detect_staleness"
       handler:
-        function: "handle_staleness_detection"
+        name: "HandlerStalenessDetection"
         module: "omniintelligence.nodes.node_doc_staleness_detector_effect.handlers.handler_staleness_detector"
         type: "async"
       description: "Evaluate candidates and apply staleness policies"

@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from omniintelligence.nodes.node_linear_crawler_effect.handlers.protocol_linear_state import (
@@ -276,4 +276,14 @@ async def handle_linear_crawl(
     )
 
 
-__all__ = ["handle_linear_crawl"]
+class HandlerLinearCrawl:
+    """Contract-bound handler for ``handle_linear_crawl``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    async def handle(self, request: ModelLinearCrawlInput) -> ModelLinearCrawlOutput:
+        return await handle_linear_crawl(request, **self._dependencies)
+
+
+__all__ = ["HandlerLinearCrawl", "handle_linear_crawl"]

@@ -58,7 +58,7 @@ handler_routing:
   handlers:
     - operation: "evaluate_promotion"
       handler:
-        function: "handle_doc_promotion"
+        name: "HandlerDocPromotion"
         module: "omniintelligence.nodes.node_doc_promotion_reducer.handlers.handler_doc_promotion"
         type: "async"
       description: "Evaluate promotion gates for a batch of ContextItem candidates"

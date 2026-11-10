@@ -36,6 +36,7 @@ from __future__ import annotations
 import logging
 import math
 from datetime import UTC, datetime
+from typing import Any
 
 from omniintelligence.nodes.node_anti_gaming_guardrails_compute.models.model_alert_event import (
     ModelAntiGamingAlertUnion,
@@ -416,7 +417,18 @@ def run_all_guardrails(input_data: ModelGuardrailInput) -> ModelGuardrailOutput:
     )
 
 
+class HandlerRunAllGuardrails:
+    """Contract-bound handler for ``run_all_guardrails``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    def handle(self, request: ModelGuardrailInput) -> ModelGuardrailOutput:
+        return run_all_guardrails(request, **self._dependencies)
+
+
 __all__ = [
+    "HandlerRunAllGuardrails",
     "check_distributional_shift",
     "check_diversity_constraint",
     "check_goodhart_violation",

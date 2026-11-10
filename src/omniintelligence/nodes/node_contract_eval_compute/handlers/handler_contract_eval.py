@@ -15,7 +15,7 @@ Reference: OMN-4024
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
 
 from omniintelligence.nodes.node_bloom_eval_orchestrator.models.enum_failure_mode import (
@@ -119,6 +119,16 @@ async def handle_contract_evaluation(
     )
 
 
+class HandlerContractEvaluation:
+    """Contract-bound handler for ``handle_contract_evaluation``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    async def handle(self, request: Mapping[str, Any]) -> ModelEvalResult:
+        return await handle_contract_evaluation(**request, **self._dependencies)
+
+
 def _safe_float(value: object, *, default: float = 0.0) -> float:
     """Safely coerce a judge output value to float, returning default on failure."""
     if value is None:
@@ -176,4 +186,8 @@ def _get_failure_indicators(failure_mode: EnumFailureMode) -> list[str]:
     return _INDICATORS.get(failure_mode, ["evaluation failure", "unexpected output"])
 
 
-__all__ = ["JudgeCallerError", "handle_contract_evaluation"]
+__all__ = [
+    "HandlerContractEvaluation",
+    "JudgeCallerError",
+    "handle_contract_evaluation",
+]

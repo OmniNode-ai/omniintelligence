@@ -46,12 +46,12 @@ handler_routing:
   handlers:
     - operation: "run_retrieval_eval"
       handler:
-        class: "HandlerRetrievalEval"
+        name: "HandlerRetrievalEval"
         module: "omniintelligence.nodes.node_retrieval_eval_compute.handlers.handler_retrieval_eval"
         type: "async"
     - operation: "read_replay_fixture"
       handler:
-        function: "read_fixture_bytes"
+        name: "HandlerReadFixtureBytes"
         module: "omniintelligence.handlers.handler_fixture_io"
         type: "sync"
 dependencies: []

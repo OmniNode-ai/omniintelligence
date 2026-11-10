@@ -35,7 +35,7 @@ Ticket: OMN-2393
 from __future__ import annotations
 
 import logging
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 from uuid import UUID
 
 from omniintelligence.nodes.node_context_item_writer_effect.models.enum_write_outcome import (
@@ -482,8 +482,21 @@ async def handle_context_item_write(
     )
 
 
+class HandlerContextItemWrite:
+    """Contract-bound handler for ``handle_context_item_write``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    async def handle(
+        self, request: ModelContextItemWriteInput
+    ) -> ModelContextItemWriteOutput:
+        return await handle_context_item_write(request, **self._dependencies)
+
+
 __all__ = [
     "handle_context_item_write",
+    "HandlerContextItemWrite",
     "ProtocolContextStore",
     "ProtocolVectorStore",
     "ProtocolGraphStore",

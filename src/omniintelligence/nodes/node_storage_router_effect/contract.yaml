@@ -70,7 +70,7 @@ handler_routing:
   handlers:
     - operation: "route_vectorization"
       handler:
-        function: "handle_route_storage"
+        name: "HandlerRouteStorage"
         module: "omniintelligence.nodes.node_storage_router_effect.handlers.handler_route_storage"
         type: "async"
       description: "Route vectorization.completed events to Qdrant"
@@ -81,7 +81,7 @@ handler_routing:
 
     - operation: "route_entity_extraction"
       handler:
-        function: "handle_route_storage"
+        name: "HandlerRouteStorage"
         module: "omniintelligence.nodes.node_storage_router_effect.handlers.handler_route_storage"
         type: "async"
       description: "Route entity.extraction-completed events to Memgraph"
@@ -92,7 +92,7 @@ handler_routing:
 
     - operation: "route_pattern_match"
       handler:
-        function: "handle_route_storage"
+        name: "HandlerRouteStorage"
         module: "omniintelligence.nodes.node_storage_router_effect.handlers.handler_route_storage"
         type: "async"
       description: "Route pattern.matched events to PostgreSQL"

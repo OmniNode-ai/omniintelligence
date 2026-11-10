@@ -60,7 +60,7 @@ handler_routing:
   handlers:
     - operation: "write_context_items"
       handler:
-        function: "handle_context_item_write"
+        name: "HandlerContextItemWrite"
         module: "omniintelligence.nodes.node_context_item_writer_effect.handlers.handler_context_item_writer"
         type: "async"
       description: "Idempotent write of embedded chunks to PG + Qdrant + Memgraph"

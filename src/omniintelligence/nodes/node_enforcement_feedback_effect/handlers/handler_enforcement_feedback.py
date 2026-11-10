@@ -44,6 +44,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
 from omniintelligence.nodes.node_enforcement_feedback_effect.models import (
@@ -171,6 +172,18 @@ async def process_enforcement_feedback(
             processed_at=datetime.now(UTC),
             error_message=sanitized_error,
         )
+
+
+class HandlerProcessEnforcementFeedback:
+    """Contract-bound handler for ``process_enforcement_feedback``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    async def handle(
+        self, request: ModelEnforcementEvent
+    ) -> ModelEnforcementFeedbackResult:
+        return await process_enforcement_feedback(request, **self._dependencies)
 
 
 async def _process_enforcement_feedback_inner(
@@ -373,6 +386,7 @@ async def _apply_confidence_adjustment(
 
 __all__ = [
     "CONFIDENCE_ADJUSTMENT_PER_VIOLATION",
+    "HandlerProcessEnforcementFeedback",
     "filter_confirmed_violations",
     "process_enforcement_feedback",
 ]

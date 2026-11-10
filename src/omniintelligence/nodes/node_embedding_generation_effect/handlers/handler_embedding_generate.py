@@ -30,7 +30,7 @@ Ticket: OMN-2392, OMN-368
 from __future__ import annotations
 
 import logging
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from omniintelligence.adapters.embedding_client import (
     EmbeddingClient,
@@ -228,4 +228,20 @@ async def handle_embedding_generate(
     )
 
 
-__all__ = ["ProtocolEmbeddingClient", "handle_embedding_generate"]
+class HandlerEmbeddingGenerate:
+    """Contract-bound handler for ``handle_embedding_generate``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    async def handle(
+        self, request: ModelEmbeddingGenerateInput
+    ) -> ModelEmbeddingGenerateOutput:
+        return await handle_embedding_generate(request, **self._dependencies)
+
+
+__all__ = [
+    "HandlerEmbeddingGenerate",
+    "ProtocolEmbeddingClient",
+    "handle_embedding_generate",
+]

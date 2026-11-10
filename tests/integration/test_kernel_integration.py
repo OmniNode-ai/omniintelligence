@@ -159,7 +159,7 @@ def _extract_handler_entry_points(
         handler_inner = handler_def.get("handler")
         if isinstance(handler_inner, dict):
             module = handler_inner.get("module", "")
-            function = handler_inner.get("function", "")
+            function = handler_inner.get("name", handler_inner.get("function", ""))
             if not (module and function):
                 raise AssertionError(
                     f"handler entry missing module/function: {handler_def!r}"

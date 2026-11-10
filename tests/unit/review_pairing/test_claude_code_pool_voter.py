@@ -51,9 +51,7 @@ async def test_contract_bound_handler_injects_host_configuration(
     )
     contract = yaml.safe_load(contract_path.read_text())
     binding = contract["handler_routing"]["handlers"][0]["handler"]
-    bound_handler = getattr(
-        importlib.import_module(binding["module"]), binding["class"]
-    )
+    bound_handler = getattr(importlib.import_module(binding["module"]), binding["name"])
     monkeypatch.setenv("ONEX_CLAUDE_POOL_PY", "/fake/contract-pool-python")
     monkeypatch.setenv("PATH", "/fake/claude-bin")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "ambient-key-must-not-reach-effect")

@@ -10,7 +10,7 @@ import json
 import time
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Final, Literal
+from typing import Any, Final, Literal
 
 from omniintelligence.constants import (
     TOPIC_DISPATCH_OUTCOME_EVALUATED_V1,
@@ -112,7 +112,18 @@ async def handle_dispatch_outcome(event: ModelInput) -> ModelOutput:
     )
 
 
+class HandlerDispatchOutcome:
+    """Contract-bound handler for ``handle_dispatch_outcome``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    async def handle(self, request: ModelInput) -> ModelOutput:
+        return await handle_dispatch_outcome(request, **self._dependencies)
+
+
 __all__ = [
+    "HandlerDispatchOutcome",
     "PUBLISH_TOPIC",
     "SUBSCRIBE_TOPIC",
     "handle_dispatch_outcome",

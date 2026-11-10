@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import UTC, datetime
+from typing import Any
 
 from omnibase_core.models.dispatch import ModelDispatchEvalResult
 
@@ -110,4 +111,20 @@ async def record_dispatch_outcome(
     )
 
 
-__all__ = ["SQL_UPSERT_DISPATCH_EVAL_RESULT", "record_dispatch_outcome"]
+class HandlerRecordDispatchOutcome:
+    """Contract-bound handler for ``record_dispatch_outcome``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    async def handle(
+        self, request: ModelDispatchEvalResult
+    ) -> ModelDispatchOutcomeResult:
+        return await record_dispatch_outcome(request, **self._dependencies)
+
+
+__all__ = [
+    "HandlerRecordDispatchOutcome",
+    "SQL_UPSERT_DISPATCH_EVAL_RESULT",
+    "record_dispatch_outcome",
+]

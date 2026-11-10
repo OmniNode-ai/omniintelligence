@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from omniintelligence.nodes.node_anti_gaming_alerter_effect.handlers.protocols import (
     ProtocolAlertTopicPublisher,
@@ -115,4 +115,14 @@ class NodeAntiGamingAlerterEffect:
         return raw
 
 
-__all__ = ["NodeAntiGamingAlerterEffect"]
+class HandlerAntiGamingAlerterEffect:
+    """Contract-bound handler that runs ``NodeAntiGamingAlerterEffect.execute``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    async def handle(self, request: ModelAlerterInput) -> ModelAlerterOutput:
+        return await NodeAntiGamingAlerterEffect(**self._dependencies).execute(request)
+
+
+__all__ = ["HandlerAntiGamingAlerterEffect", "NodeAntiGamingAlerterEffect"]

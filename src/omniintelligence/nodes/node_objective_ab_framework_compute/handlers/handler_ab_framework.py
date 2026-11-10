@@ -33,6 +33,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import math
+from collections.abc import Mapping
 from typing import Any
 
 from omniintelligence.nodes.node_objective_ab_framework_compute.models.enum_variant_role import (
@@ -95,6 +96,16 @@ def route_to_variant(
 
     # Should never reach here (registry validates exactly 1 active)
     return registry.variants[0]
+
+
+class HandlerRouteToVariant:
+    """Contract-bound handler for ``route_to_variant``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    def handle(self, request: Mapping[str, Any]) -> ModelObjectiveVariant:
+        return route_to_variant(**request, **self._dependencies)
 
 
 def compute_score_delta(
@@ -180,6 +191,16 @@ def check_upgrade_ready(
     # Upgrade ready when win rate exceeds (1 - significance_threshold)
     # e.g., threshold=0.05 → need win_rate > 0.95
     return win_rate >= (1.0 - registry.significance_threshold)
+
+
+class HandlerCheckUpgradeReady:
+    """Contract-bound handler for ``check_upgrade_ready``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    def handle(self, request: Mapping[str, Any]) -> bool:
+        return check_upgrade_ready(**request, **self._dependencies)
 
 
 def _evaluate_variant_against_bundle(  # stub-ok: ab-framework-variant-eval-deferred
@@ -308,7 +329,20 @@ def run_ab_evaluation(input_data: ModelABEvaluationInput) -> ModelABEvaluationOu
     )
 
 
+class HandlerRunAbEvaluation:
+    """Contract-bound handler for ``run_ab_evaluation``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    def handle(self, request: ModelABEvaluationInput) -> ModelABEvaluationOutput:
+        return run_ab_evaluation(request, **self._dependencies)
+
+
 __all__ = [
+    "HandlerCheckUpgradeReady",
+    "HandlerRouteToVariant",
+    "HandlerRunAbEvaluation",
     "check_upgrade_ready",
     "compute_score_delta",
     "detect_divergence",
