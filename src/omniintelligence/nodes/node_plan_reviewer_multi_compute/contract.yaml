@@ -91,7 +91,7 @@ handler_routing:
   handlers:
     - operation: "review_plan"
       handler:
-        class: "HandlerPlanReviewerMultiCompute"
+        name: "HandlerPlanReviewerMultiCompute"
         module: "omniintelligence.nodes.node_plan_reviewer_multi_compute.handlers.handler_plan_reviewer_multi_compute"
         type: "async"
 

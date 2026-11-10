@@ -59,7 +59,7 @@ handler_routing:
   handlers:
     - operation: "record_review_run"
       handler:
-        function: "handle"
+        name: "HandlerReviewRecord"
         module: "omniintelligence.nodes.node_review_record_compute.handlers.handler_review_record"
         type: "sync"
       description: "Build the run's review records"

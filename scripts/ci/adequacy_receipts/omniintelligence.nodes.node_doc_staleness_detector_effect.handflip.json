@@ -1,0 +1,21 @@
+{
+  "base_ref": "0956fad0a",
+  "canonical_handler_module": "omniintelligence.nodes.node_doc_staleness_detector_effect.handlers.handler_staleness_detector",
+  "legacy_handler_module": "omniintelligence.nodes.node_doc_staleness_detector_effect.handlers.handler_staleness_detector",
+  "node_id": "omniintelligence.nodes.node_doc_staleness_detector_effect",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:125a2ca97c9babd3970eb0779b9fb7acd0d91348930ecba27d200ad37a70c727",
+      "sha256:27815a7049f4bbfb9e8b04b1755f146251e8f08401ad1c1fe4fa502ad69c6c27"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_doc_staleness_detector_effect/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[mixed-batch-all-cases]",
+      "tests/unit/nodes/node_doc_staleness_detector_effect/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[resume-from-index-new]"
+    ]
+  },
+  "preserved_symbols": [
+    "handle_staleness_detection"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

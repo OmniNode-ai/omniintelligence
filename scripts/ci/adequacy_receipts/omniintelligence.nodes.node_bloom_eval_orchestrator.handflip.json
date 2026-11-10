@@ -1,0 +1,19 @@
+{
+  "base_ref": "0956fad0a",
+  "canonical_handler_module": "omniintelligence.nodes.node_bloom_eval_orchestrator.handlers.handler_bloom_eval_effect",
+  "legacy_handler_module": "omniintelligence.nodes.node_bloom_eval_orchestrator.handlers.handler_bloom_eval_effect",
+  "node_id": "omniintelligence.nodes.node_bloom_eval_orchestrator",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:535e79d2bee8f5e8211c0e67b2bd6c2e6a72bb59c4d10aa76c4f17ca8b56f8ea"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_bloom_eval_orchestrator/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[publish-failure-swallowed]"
+    ]
+  },
+  "preserved_symbols": [
+    "run_bloom_eval"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

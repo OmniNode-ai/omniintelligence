@@ -1,0 +1,21 @@
+{
+  "base_ref": "0956fad0a",
+  "canonical_handler_module": "omniintelligence.nodes.node_enforcement_feedback_effect.handlers.handler_enforcement_feedback",
+  "legacy_handler_module": "omniintelligence.nodes.node_enforcement_feedback_effect.handlers.handler_enforcement_feedback",
+  "node_id": "omniintelligence.nodes.node_enforcement_feedback_effect",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:9c07efc45fdeb6f6e07c4cbefc3657522e71b87d9893e1519326409012b5c081",
+      "sha256:59c9dd742ed28518f2eb14c1c0fd62898c360906143afd009f411990ea2a6eea"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_enforcement_feedback_effect/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[partial-success-repository-error]",
+      "tests/unit/nodes/node_enforcement_feedback_effect/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[unhandled-exception-error-result]"
+    ]
+  },
+  "preserved_symbols": [
+    "process_enforcement_feedback"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

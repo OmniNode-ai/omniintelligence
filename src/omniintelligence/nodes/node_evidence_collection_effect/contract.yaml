@@ -59,13 +59,13 @@ handler_routing:
   handlers:
     - operation: "collect_and_evaluate"
       handler:
-        module: "omniintelligence.nodes.node_evidence_collection_effect.handlers"
-        function: "collect_and_evaluate"
+        name: "HandlerCollectAndEvaluate"
+        module: "omniintelligence.nodes.node_evidence_collection_effect.handlers.handler_evidence_collection"
       description: "Full pipeline: collect evidence → evaluate → emit Kafka → store DB"
     - operation: "fire_and_forget"
       handler:
+        name: "HandlerFireAndForgetEvaluate"
         module: "omniintelligence.nodes.node_evidence_collection_effect.handlers.handler_evidence_collection"
-        function: "fire_and_forget_evaluate"
       description: "Non-blocking wrapper for handle_stop integration"
 
 # =============================================================================

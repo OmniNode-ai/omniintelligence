@@ -176,7 +176,7 @@ class TestPlan:
         )
         binding = contract["handler_routing"]["handlers"][0]["handler"]
         handler_type = getattr(
-            importlib.import_module(binding["module"]), binding["class"]
+            importlib.import_module(binding["module"]), binding["name"]
         )
         plan = handler_type().handle(_request())
         assert plan.judge_id == "rejection-judge"

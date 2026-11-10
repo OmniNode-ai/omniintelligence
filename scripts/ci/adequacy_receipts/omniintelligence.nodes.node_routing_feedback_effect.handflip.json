@@ -1,0 +1,19 @@
+{
+  "base_ref": "0956fad0a",
+  "canonical_handler_module": "omniintelligence.nodes.node_routing_feedback_effect.handlers.handler_routing_feedback",
+  "legacy_handler_module": "omniintelligence.nodes.node_routing_feedback_effect.handlers.handler_routing_feedback",
+  "node_id": "omniintelligence.nodes.node_routing_feedback_effect",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:330a640541b8542f280497d17bc30a37ccf0dcf21bf804379838a260dc3545d0"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_routing_feedback_effect/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[publish-and-dlq-both-fail]"
+    ]
+  },
+  "preserved_symbols": [
+    "process_routing_feedback"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

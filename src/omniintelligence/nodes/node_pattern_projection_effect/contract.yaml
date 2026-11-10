@@ -57,10 +57,9 @@ handler_routing:
   handlers:
     - operation: "publish_projection"
       handler:
-        function: "publish_projection"
+        name: "HandlerPublishProjection"
         module: "omniintelligence.nodes.node_pattern_projection_effect.handlers.handler_projection"
         type: "async"
-        description: "Query validated patterns and publish full snapshot to pattern-projection topic"
 
 # =============================================================================
 # IO OPERATIONS

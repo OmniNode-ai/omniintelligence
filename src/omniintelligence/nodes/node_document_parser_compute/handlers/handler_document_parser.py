@@ -41,7 +41,7 @@ Ticket: OMN-2390
 from __future__ import annotations
 
 import re
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 from omniintelligence.nodes.node_document_parser_compute.models.enum_doc_type import (
     EnumDocType,
@@ -591,4 +591,14 @@ def handle_document_parse(
     )
 
 
-__all__ = ["handle_document_parse"]
+class HandlerDocumentParse:
+    """Contract-bound handler for ``handle_document_parse``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    def handle(self, request: ModelDocumentParseInput) -> ModelDocumentParseOutput:
+        return handle_document_parse(request, **self._dependencies)
+
+
+__all__ = ["HandlerDocumentParse", "handle_document_parse"]

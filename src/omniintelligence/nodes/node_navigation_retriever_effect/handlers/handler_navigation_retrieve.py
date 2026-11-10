@@ -558,7 +558,20 @@ async def handle_navigation_retrieve(
         )
 
 
+class HandlerNavigationRetrieve:
+    """Contract-bound handler for ``handle_navigation_retrieve``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    async def handle(
+        self, request: ModelNavigationRetrieveInput
+    ) -> ModelNavigationRetrieveOutput:
+        return await handle_navigation_retrieve(request, **self._dependencies)
+
+
 __all__ = [
+    "HandlerNavigationRetrieve",
     "handle_navigation_retrieve",
     "ProtocolNavigationEmbedder",
     "ProtocolNavigationVectorStore",

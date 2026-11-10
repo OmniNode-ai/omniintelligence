@@ -1,0 +1,25 @@
+{
+  "base_ref": "0956fad0a",
+  "canonical_handler_module": "omniintelligence.nodes.node_objective_ab_framework_compute.handlers.handler_ab_framework",
+  "legacy_handler_module": "omniintelligence.nodes.node_objective_ab_framework_compute.handlers.handler_ab_framework",
+  "node_id": "omniintelligence.nodes.node_objective_ab_framework_compute",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:97dd60ce7eadea1cca55af73b782ae4ccbc19a8aaab1b4b1cf5eec49bbad2079",
+      "sha256:65ede1efa449b1c2fdeb8c5ebbd5f16c6bfdc6cbb667b9d37f511397d974be8a",
+      "sha256:463290ccfa55ec4bb75ad36ebb14d79d6670207ad4bc2eedbfcb6be009398011"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_objective_ab_framework_compute/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[route-weights-short-falls-back-to-active]",
+      "tests/unit/nodes/node_objective_ab_framework_compute/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[upgrade-win-rate-at-threshold]",
+      "tests/unit/nodes/node_objective_ab_framework_compute/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[evaluate-scored-bundle-upgrade-ready]"
+    ]
+  },
+  "preserved_symbols": [
+    "route_to_variant",
+    "check_upgrade_ready",
+    "run_ab_evaluation"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

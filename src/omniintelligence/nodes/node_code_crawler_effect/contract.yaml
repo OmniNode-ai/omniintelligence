@@ -22,7 +22,7 @@ handler_routing:
   handlers:
     - operation: "crawl_files"
       handler:
-        class: "HandlerCrawlFiles"
+        name: "HandlerCrawlFiles"
         module: "omniintelligence.nodes.node_code_crawler_effect.handlers.handler_crawl_files"
         type: "sync"
 

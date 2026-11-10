@@ -61,7 +61,7 @@ handler_routing:
     # Start the OS-level filesystem observer
     - operation: "start_watching"
       handler:
-        function: "start_watching"
+        name: "HandlerStartWatching"
         module: "omniintelligence.nodes.node_watchdog_effect.handlers.handler_watchdog"
         type: "async"
       description: >
@@ -79,7 +79,7 @@ handler_routing:
     # Stop the active filesystem observer
     - operation: "stop_watching"
       handler:
-        function: "stop_watching"
+        name: "HandlerStopWatching"
         module: "omniintelligence.nodes.node_watchdog_effect.handlers.handler_watchdog"
         type: "async"
       description: >

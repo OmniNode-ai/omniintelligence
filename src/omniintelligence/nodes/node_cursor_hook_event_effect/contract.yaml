@@ -59,7 +59,7 @@ handler_routing:
     # beforeSubmitPrompt - Intent Classification (Cursor equivalent of UserPromptSubmit)
     - event_type: "beforeSubmitPrompt"
       handler:
-        function: "route_cursor_hook_event"
+        name: "HandlerCursorHookEvent"
         module: "omniintelligence.nodes.node_cursor_hook_event_effect.handlers.handler_cursor_event"
         type: "async"
       description: "Classify user prompt intent"
@@ -71,7 +71,7 @@ handler_routing:
     # stop - Trigger pattern extraction (Cursor equivalent of Stop)
     - event_type: "stop"
       handler:
-        function: "route_cursor_hook_event"
+        name: "HandlerCursorHookEvent"
         module: "omniintelligence.nodes.node_cursor_hook_event_effect.handlers.handler_cursor_event"
         type: "async"
       description: "Stop event triggers pattern learning command emission"
@@ -81,7 +81,7 @@ handler_routing:
     # afterFileEdit - tool-use handling (Cursor equivalent of PostToolUse)
     - event_type: "afterFileEdit"
       handler:
-        function: "route_cursor_hook_event"
+        name: "HandlerCursorHookEvent"
         module: "omniintelligence.nodes.node_cursor_hook_event_effect.handlers.handler_cursor_event"
         type: "async"
       description: "File edit applied (tool-use persistence / no-op)"
@@ -89,7 +89,7 @@ handler_routing:
     # beforeShellExecution - guard (Cursor equivalent of PreToolUse)
     - event_type: "beforeShellExecution"
       handler:
-        function: "route_cursor_hook_event"
+        name: "HandlerCursorHookEvent"
         module: "omniintelligence.nodes.node_cursor_hook_event_effect.handlers.handler_cursor_event"
         type: "async"
       description: "Shell command guard (no-op, future: tool validation)"

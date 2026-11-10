@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import math
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any
 
@@ -94,7 +95,18 @@ async def query_fix_records_with_decay(
     return annotated
 
 
+class HandlerQueryFixRecordsWithDecay:
+    """Contract-bound handler for ``query_fix_records_with_decay``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    async def handle(self, request: Mapping[str, Any]) -> list[dict[str, Any]]:
+        return await query_fix_records_with_decay(**request, **self._dependencies)
+
+
 __all__ = [
+    "HandlerQueryFixRecordsWithDecay",
     "_time_decay_weight",
     "query_fix_records_with_decay",
 ]

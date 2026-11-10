@@ -49,8 +49,8 @@ handler_routing:
   handlers:
     - operation: "detect_drift"
       handler:
-        function: "detect_drift"
-        module: "omniintelligence.nodes.node_intent_drift_detect_compute.handlers"
+        name: "HandlerDetectDrift"
+        module: "omniintelligence.nodes.node_intent_drift_detect_compute.handlers.handler_drift_detect"
         type: "sync"
 # No event_bus section — this is a pure compute node (no Kafka I/O).
 # The orchestrator emits the returned signal to onex.evt.omniintelligence.intent-drift-detected.v1.

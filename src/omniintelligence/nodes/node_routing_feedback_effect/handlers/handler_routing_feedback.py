@@ -46,7 +46,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
-from typing import Final
+from typing import Any, Final
 
 from omniintelligence.constants import TOPIC_ROUTING_FEEDBACK_PROCESSED
 from omniintelligence.nodes.node_routing_feedback_effect.models import (
@@ -146,6 +146,18 @@ async def process_routing_feedback(
             processed_at=datetime.now(UTC),
             error_message=sanitized_error,
         )
+
+
+class HandlerProcessRoutingFeedback:
+    """Contract-bound handler for ``process_routing_feedback``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    async def handle(
+        self, request: ModelRoutingFeedbackPayload
+    ) -> ModelRoutingFeedbackResult:
+        return await process_routing_feedback(request, **self._dependencies)
 
 
 async def _process_routing_feedback_inner(
@@ -361,5 +373,6 @@ async def _publish_processed_event(
 
 __all__ = [
     "DLQ_TOPIC",
+    "HandlerProcessRoutingFeedback",
     "process_routing_feedback",
 ]

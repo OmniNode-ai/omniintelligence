@@ -89,7 +89,7 @@ handler_routing:
     # Check and demote - main workflow
     - operation: "check_and_demote"
       handler:
-        function: "check_and_demote_patterns"
+        name: "HandlerCheckAndDemotePatterns"
         module: "omniintelligence.nodes.node_pattern_demotion_effect.handlers.handler_demotion"
         type: "async"
       description: "Check all validated patterns and demote those meeting criteria"
@@ -104,7 +104,7 @@ handler_routing:
     # Single pattern demotion
     - operation: "demote_pattern"
       handler:
-        function: "demote_pattern"
+        name: "HandlerDemotePattern"
         module: "omniintelligence.nodes.node_pattern_demotion_effect.handlers.handler_demotion"
         type: "async"
       description: "Demote a single pattern by emitting lifecycle event"

@@ -55,6 +55,7 @@ Ticket: OMN-2395
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from omniintelligence.nodes.node_doc_promotion_reducer.models.enum_attribution_signal_type import (
     DOC_MIN_SIMILARITY,
@@ -356,4 +357,14 @@ async def handle_doc_promotion(
     )
 
 
-__all__ = ["handle_doc_promotion"]
+class HandlerDocPromotion:
+    """Contract-bound handler for ``handle_doc_promotion``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    async def handle(self, request: ModelDocPromotionInput) -> ModelDocPromotionOutput:
+        return await handle_doc_promotion(request, **self._dependencies)
+
+
+__all__ = ["HandlerDocPromotion", "handle_doc_promotion"]

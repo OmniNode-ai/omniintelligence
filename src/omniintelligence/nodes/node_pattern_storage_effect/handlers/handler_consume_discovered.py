@@ -21,7 +21,7 @@ Reference:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from psycopg import AsyncConnection
@@ -217,6 +217,17 @@ async def handle_consume_discovered(
     return store_result
 
 
+class HandlerConsumeDiscovered:
+    """Contract-bound handler for ``handle_consume_discovered``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    async def handle(self, request: ModelPatternDiscoveredEvent) -> StorePatternResult:
+        return await handle_consume_discovered(request, **self._dependencies)
+
+
 __all__ = [
+    "HandlerConsumeDiscovered",
     "handle_consume_discovered",
 ]

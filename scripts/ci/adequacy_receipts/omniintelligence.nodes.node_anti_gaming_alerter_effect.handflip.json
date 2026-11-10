@@ -1,0 +1,19 @@
+{
+  "base_ref": "0956fad0a",
+  "canonical_handler_module": "omniintelligence.nodes.node_anti_gaming_alerter_effect.node",
+  "legacy_handler_module": "omniintelligence.nodes.node_anti_gaming_alerter_effect.node",
+  "node_id": "omniintelligence.nodes.node_anti_gaming_alerter_effect",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:65f2970506d50c8d416d0b277017400f8555d2dd434f8993bd8079a218721833"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_anti_gaming_alerter_effect/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[with-diversity-violation]"
+    ]
+  },
+  "preserved_symbols": [
+    "NodeAntiGamingAlerterEffect.execute"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

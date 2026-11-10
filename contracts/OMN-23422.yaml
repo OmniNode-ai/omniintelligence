@@ -1,0 +1,40 @@
+---
+schema_version: 1.0.0
+ticket_id: OMN-23422
+title: The intelligence service's parts load inside the one runtime, so its patterns page answers
+summary: >-
+  Every omniintelligence node contract declares its handlers as {name, module} naming a handler class,
+  the shape the infra handler loader imports. Function handlers gain a contract-bound handler class beside
+  the function, class-keyed and flat entries move to the nested name shape, and one test loads every node
+  contract through the loader's own discovery and class import.
+is_seam_ticket: true
+interface_change: true
+interfaces_touched:
+  - public_api
+requirements:
+  - id: req-omn23422-contracts-load
+    statement: Every omniintelligence node contract loads in the one runtime's handler loader.
+    acceptance:
+      - id: AC1
+        statement: The handler loader parses every node contract and imports every declared handler as
+          a class with a handle method.
+evidence_requirements:
+  - kind: tests
+    description: Run the loader-shape test over all node contracts.
+    command: env PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/unit/test_contract_handler_loader_shape.py
+      -q -n 0 --no-cov
+emergency_bypass:
+  enabled: false
+  justification: ''
+  follow_up_ticket_id: ''
+dod_evidence:
+  - id: dod-omn23422-ac1-loader-shape
+    description: Reject any node contract the infra handler loader cannot parse or whose declared handler
+      is not an importable class with handle or handle_async (HANDLER_LOADER_011).
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/test_contract_handler_loader_shape.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC1

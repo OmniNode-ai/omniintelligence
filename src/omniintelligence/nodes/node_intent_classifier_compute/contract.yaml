@@ -161,17 +161,17 @@ handler_routing:
   handlers:
     - operation: "classify_intent"
       handler:
-        class: "HandlerIntentClassification"
+        name: "HandlerIntentClassification"
         module: "omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_intent_classification"
         type: "sync"
     - operation: "analyze_semantics"
       handler:
-        class: "HandlerSemanticAnalysis"
+        name: "HandlerSemanticAnalysis"
         module: "omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_langextract"
         type: "sync"
     - operation: "map_semantic_to_intent_boost"
       handler:
-        class: "HandlerSemanticIntentBoost"
+        name: "HandlerSemanticIntentBoost"
         module: "omniintelligence.nodes.node_intent_classifier_compute.handlers.handler_langextract"
         type: "sync"
 dependencies: []

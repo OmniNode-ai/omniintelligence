@@ -5,6 +5,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from typing import Any
+
 from omnibase_core.models.ticket.model_ticket_context_bundle import (
     ModelTCBNormalizedIntent,
 )
@@ -84,3 +87,13 @@ def normalize_intent(
         capability_tags=capability_tags,
         risk_tags=risk_tags,
     )
+
+
+class HandlerNormalizeIntent:
+    """Contract-bound handler for ``normalize_intent``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    def handle(self, request: Mapping[str, Any]) -> ModelTCBNormalizedIntent:
+        return normalize_intent(**request, **self._dependencies)

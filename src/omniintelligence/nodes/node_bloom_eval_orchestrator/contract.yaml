@@ -58,8 +58,8 @@ handler_routing:
   handlers:
     - operation: "run_eval"
       handler:
-        module: "omniintelligence.nodes.node_bloom_eval_orchestrator"
-        function: "handle_bloom_eval_run"
+        name: "HandlerBloomEvalRun"
+        module: "omniintelligence.nodes.node_bloom_eval_orchestrator.handlers.handler_bloom_eval_effect"
         type: "async"
       description: "Run the full bloom eval suite and emit results"
 

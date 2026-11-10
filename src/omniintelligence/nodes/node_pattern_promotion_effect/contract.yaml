@@ -86,8 +86,8 @@ handler_routing:
     # Check and promote - batch operation for all provisional patterns
     - operation: "check_and_promote"
       handler:
+        name: "HandlerPromotion"
         module: "omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_promotion"
-        class: "HandlerPromotion"
         type: "async"
       description: "Check all provisional patterns and promote eligible ones"
       actions:
@@ -99,7 +99,7 @@ handler_routing:
     # Promote single pattern - used internally by check_and_promote
     - operation: "promote_pattern"
       handler:
-        function: "promote_pattern"
+        name: "HandlerPromotion"
         module: "omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_promotion"
         type: "async"
       description: "Promote a single pattern from provisional to validated status"
@@ -110,8 +110,8 @@ handler_routing:
     # Prometheus metrics for a completed promotion check
     - operation: "record_promotion_metrics"
       handler:
+        name: "HandlerPromotionMetrics"
         module: "omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_metrics"
-        class: "HandlerPromotionMetrics"
         type: "sync"
       description: "Record counters and gauges for a completed promotion check"
       actions:
@@ -120,7 +120,7 @@ handler_routing:
     # Pure criteria check - no I/O
     - operation: "check_criteria"
       handler:
-        function: "meets_promotion_criteria"
+        name: "HandlerPromotion"
         module: "omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_promotion"
         type: "sync"
       description: "Pure function to check if a pattern meets promotion criteria"

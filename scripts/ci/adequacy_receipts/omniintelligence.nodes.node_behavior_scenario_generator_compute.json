@@ -1,0 +1,17 @@
+{
+  "branch_coverage_pct": 100.0,
+  "candidate_count": 6,
+  "coverage_target": 80.0,
+  "handler_module": "omniintelligence.nodes.node_behavior_scenario_generator_compute.handlers.handler_scenario_generator",
+  "handler_module_sha256": "sha256:af5f6a6ffb692dfbeef85aebf9eacc97cb15acdfcd0cc88ee8de86dbee5703d8",
+  "meets_target": true,
+  "node_id": "omniintelligence.nodes.node_behavior_scenario_generator_compute",
+  "receipt_schema": "adequacy_receipt.v1",
+  "recorded_at": "2026-11-10T05:40:09.830576+00:00",
+  "recorder_schema": "adequacy_receipt.v1",
+  "selected_count": 1,
+  "selected_input_hashes": [
+    "sha256:d86a056a9e6b3d6bafed1cbb8822fec86b85416937218e67fddc210236c26b09"
+  ],
+  "volatile_mask": []
+}

@@ -1,0 +1,19 @@
+{
+  "base_ref": "0956fad0a",
+  "canonical_handler_module": "omniintelligence.nodes.node_compliance_evaluate_effect.handlers.handler_compliance_evaluate",
+  "legacy_handler_module": "omniintelligence.nodes.node_compliance_evaluate_effect.handlers.handler_compliance_evaluate",
+  "node_id": "omniintelligence.nodes.node_compliance_evaluate_effect",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:b061c360e0af0d5fa6d29d54085961c5aeeaaa200ea3e8ea4e7b663fa4a9be4e"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_compliance_evaluate_effect/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[publish-and-dlq-failure]"
+    ]
+  },
+  "preserved_symbols": [
+    "handle_compliance_evaluate_command"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

@@ -43,8 +43,8 @@ handler_routing:
   handlers:
     - operation: "evaluate_agent_behavior"
       handler:
-        function: "handle_agent_behavior_evaluation"
-        module: "omniintelligence.nodes.node_agent_behavior_eval_compute.handlers"
+        name: "HandlerAgentBehaviorEvaluation"
+        module: "omniintelligence.nodes.node_agent_behavior_eval_compute.handlers.handler_agent_behavior_evaluation"
         type: "async"
 dependencies: []
 error_handling:

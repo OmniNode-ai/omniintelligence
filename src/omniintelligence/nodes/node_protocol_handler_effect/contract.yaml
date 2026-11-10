@@ -69,7 +69,7 @@ handler_routing:
   handlers:
     - operation: "execute_http_rest"
       handler:
-        function: "handle_protocol_execute"
+        name: "HandlerProtocolExecute"
         module: "omniintelligence.nodes.node_protocol_handler_effect.handlers.handler_protocol"
         type: "async"
       description: "Execute HTTP/REST operations (GET, POST, PUT, DELETE)"
@@ -80,7 +80,7 @@ handler_routing:
 
     - operation: "execute_bolt"
       handler:
-        function: "handle_protocol_execute"
+        name: "HandlerProtocolExecute"
         module: "omniintelligence.nodes.node_protocol_handler_effect.handlers.handler_protocol"
         type: "async"
       description: "Execute Bolt protocol operations (query, write)"
@@ -91,7 +91,7 @@ handler_routing:
 
     - operation: "execute_postgresql"
       handler:
-        function: "handle_protocol_execute"
+        name: "HandlerProtocolExecute"
         module: "omniintelligence.nodes.node_protocol_handler_effect.handlers.handler_protocol"
         type: "async"
       description: "Execute PostgreSQL operations (query, execute)"
@@ -102,7 +102,7 @@ handler_routing:
 
     - operation: "execute_kafka"
       handler:
-        function: "handle_protocol_execute"
+        name: "HandlerProtocolExecute"
         module: "omniintelligence.nodes.node_protocol_handler_effect.handlers.handler_protocol"
         type: "async"
       description: "Execute Kafka operations (produce, consume)"

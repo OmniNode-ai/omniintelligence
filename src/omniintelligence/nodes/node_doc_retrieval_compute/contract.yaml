@@ -53,7 +53,7 @@ handler_routing:
   handlers:
     - operation: "rank_doc_items"
       handler:
-        function: "handle_doc_retrieval"
+        name: "HandlerDocRetrieval"
         module: "omniintelligence.nodes.node_doc_retrieval_compute.handlers.handler_doc_retrieval"
         type: "async"
       description: "Score, re-rank, and budget-enforce document context items"

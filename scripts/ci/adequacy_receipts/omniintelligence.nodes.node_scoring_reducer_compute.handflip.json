@@ -1,0 +1,21 @@
+{
+  "base_ref": "0956fad0a",
+  "canonical_handler_module": "omniintelligence.nodes.node_scoring_reducer_compute.handlers.handler_scoring",
+  "legacy_handler_module": "omniintelligence.nodes.node_scoring_reducer_compute.handlers.handler_scoring",
+  "node_id": "omniintelligence.nodes.node_scoring_reducer_compute",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:3c45d76a062296f6cdcd0c69f99feb83271208aa7a84aca6b22c1355996a1674",
+      "sha256:9b63119ec5ad38cb198b611538f1adace8d41a35b9876310400b2a1591b10e06"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_scoring_reducer_compute/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[shaped-terms-missing-evidence-and-zero-contribution]",
+      "tests/unit/nodes/node_scoring_reducer_compute/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[range-gate-above-upper-bound-fails]"
+    ]
+  },
+  "preserved_symbols": [
+    "evaluate_run"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

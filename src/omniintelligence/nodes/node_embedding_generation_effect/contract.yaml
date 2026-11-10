@@ -55,7 +55,7 @@ handler_routing:
   handlers:
     - operation: "generate_embeddings"
       handler:
-        function: "handle_embedding_generate"
+        name: "HandlerEmbeddingGenerate"
         module: "omniintelligence.nodes.node_embedding_generation_effect.handlers.handler_embedding_generate"
         type: "async"
       description: "Batch embed classified chunks via Qwen3-Embedding"

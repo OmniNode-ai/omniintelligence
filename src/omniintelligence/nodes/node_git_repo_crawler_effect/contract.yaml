@@ -76,7 +76,7 @@ handler_routing:
   handlers:
     - operation: "crawl_repo"
       handler:
-        class: "HandlerGitRepoCrawl"
+        name: "HandlerGitRepoCrawl"
         module: "omniintelligence.nodes.node_git_repo_crawler_effect.handlers.handler_git_repo_crawl"
         type: "async"
       description: "Detect .md file changes and emit document lifecycle events"

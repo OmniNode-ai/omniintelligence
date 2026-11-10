@@ -322,7 +322,18 @@ async def run_bloom_eval(
         _task.add_done_callback(_background_tasks.discard)
 
 
+class HandlerBloomEvalRun:
+    """Contract-bound handler for ``run_bloom_eval``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    async def handle(self, request: ModelBloomEvalRunCommand) -> None:
+        await run_bloom_eval(request, **self._dependencies)
+
+
 __all__ = [
+    "HandlerBloomEvalRun",
     "ModelBloomEvalRunCommand",
     "run_bloom_eval",
 ]

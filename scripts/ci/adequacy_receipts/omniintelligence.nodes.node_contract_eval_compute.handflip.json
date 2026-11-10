@@ -1,0 +1,19 @@
+{
+  "base_ref": "0956fad0a",
+  "canonical_handler_module": "omniintelligence.nodes.node_contract_eval_compute.handlers.handler_contract_eval",
+  "legacy_handler_module": "omniintelligence.nodes.node_contract_eval_compute.handlers.handler_contract_eval",
+  "node_id": "omniintelligence.nodes.node_contract_eval_compute",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:a4fa575baf164aed137746b78d00462ae8c5a4854ecace4eeff4cc1ab3fe71e3"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_contract_eval_compute/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[judge-output-coercions]"
+    ]
+  },
+  "preserved_symbols": [
+    "handle_contract_evaluation"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

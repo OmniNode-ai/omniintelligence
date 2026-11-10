@@ -639,6 +639,16 @@ async def record_session_outcome(
     )
 
 
+class HandlerRecordSessionOutcome:
+    """Contract-bound handler for ``record_session_outcome``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    async def handle(self, request: Mapping[str, Any]) -> ModelSessionOutcomeResult:
+        return await record_session_outcome(**request, **self._dependencies)
+
+
 async def compute_and_store_heuristics(
     injection_rows: list[Mapping[str, Any]],
     heuristic_method: EnumHeuristicMethod,
@@ -798,6 +808,7 @@ async def update_effectiveness_scores(
 __all__ = [
     "ROLLING_WINDOW_SIZE",
     "HandlerArgs",
+    "HandlerRecordSessionOutcome",
     "compute_and_store_heuristics",
     "event_to_handler_args",
     "record_session_outcome",

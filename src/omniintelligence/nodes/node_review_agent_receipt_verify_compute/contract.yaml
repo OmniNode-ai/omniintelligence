@@ -71,13 +71,13 @@ handler_routing:
   handlers:
     - operation: "verify_agent_receipt"
       handler:
-        function: "handle"
+        name: "HandlerReviewAgentReceiptVerify"
         module: "omniintelligence.nodes.node_review_agent_receipt_verify_compute.handlers.handler_review_agent_receipt_verify"
         type: "sync"
       description: "Verify a signed agent review receipt"
     - operation: "resolve_verifier_settings"
       handler:
-        function: "handle"
+        name: "HandlerReviewAgentReceiptOverlay"
         module: "omniintelligence.handlers.handler_review_agent_receipt_overlay"
         type: "sync"
       description: "Resolve the policy, the quorum size and the bus binding from the overlay"

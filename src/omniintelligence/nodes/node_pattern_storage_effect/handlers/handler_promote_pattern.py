@@ -49,9 +49,10 @@ Usage:
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Any, Final
 from uuid import UUID, uuid4
 
 if TYPE_CHECKING:
@@ -466,10 +467,21 @@ async def handle_promote_pattern(
     )
 
 
+class HandlerPromotePattern:
+    """Contract-bound handler for ``handle_promote_pattern``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    async def handle(self, request: Mapping[str, Any]) -> PromotePatternResult:
+        return await handle_promote_pattern(**request, **self._dependencies)
+
+
 __all__ = [
     "DEFAULT_ACTOR",
     "ERROR_CODE_INVALID_TRANSITION",
     "ERROR_CODE_PATTERN_NOT_FOUND",
+    "HandlerPromotePattern",
     "ModelStateTransition",
     "PatternNotFoundError",
     "PatternStateTransitionError",

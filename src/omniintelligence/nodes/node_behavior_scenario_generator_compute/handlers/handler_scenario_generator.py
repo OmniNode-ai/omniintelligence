@@ -10,7 +10,8 @@ LLM calls are delegated to the injected llm_caller.
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
+from typing import Any
 
 from omniintelligence.nodes.node_bloom_eval_orchestrator.models.model_behavior_spec import (
     ModelBehaviorSpec,
@@ -50,4 +51,14 @@ async def handle_scenario_generation(
     ]
 
 
-__all__ = ["handle_scenario_generation"]
+class HandlerScenarioGeneration:
+    """Contract-bound handler for ``handle_scenario_generation``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    async def handle(self, request: Mapping[str, Any]) -> list[ModelEvalScenario]:
+        return await handle_scenario_generation(**request, **self._dependencies)
+
+
+__all__ = ["HandlerScenarioGeneration", "handle_scenario_generation"]

@@ -1,0 +1,19 @@
+{
+  "base_ref": "0956fad0a",
+  "canonical_handler_module": "omniintelligence.nodes.node_pattern_projection_effect.handlers.handler_projection",
+  "legacy_handler_module": "omniintelligence.nodes.node_pattern_projection_effect.handlers.handler_projection",
+  "node_id": "omniintelligence.nodes.node_pattern_projection_effect",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:28fd8a598fb131fbb4d5ff30dc7f9b4fc87d757af27c9265309a4aba9b10b140"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_pattern_projection_effect/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[malformed-rows-skipped]"
+    ]
+  },
+  "preserved_symbols": [
+    "publish_projection"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

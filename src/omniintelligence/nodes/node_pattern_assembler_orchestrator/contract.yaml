@@ -30,7 +30,7 @@ handler_routing:
   handlers:
     - operation: "orchestrate_assembly"
       handler:
-        class: "HandlerPatternAssemblyOrchestrate"
+        name: "HandlerPatternAssemblyOrchestrate"
         module: "omniintelligence.nodes.node_pattern_assembler_orchestrator.handlers.handler_orchestrate"
         type: "async"
       description: "Main orchestration entry point for pattern assembly workflow"

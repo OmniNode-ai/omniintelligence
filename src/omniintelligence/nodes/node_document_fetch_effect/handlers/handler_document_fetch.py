@@ -33,7 +33,7 @@ from __future__ import annotations
 import logging
 import subprocess
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from omniintelligence.nodes.node_document_fetch_effect.handlers.protocol_blob_store import (
@@ -265,4 +265,16 @@ async def handle_document_fetch(
     )
 
 
-__all__ = ["handle_document_fetch"]
+class HandlerDocumentFetch:
+    """Contract-bound handler for ``handle_document_fetch``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    async def handle(
+        self, request: ModelDocumentFetchInput
+    ) -> ModelDocumentFetchOutput:
+        return await handle_document_fetch(request, **self._dependencies)
+
+
+__all__ = ["HandlerDocumentFetch", "handle_document_fetch"]

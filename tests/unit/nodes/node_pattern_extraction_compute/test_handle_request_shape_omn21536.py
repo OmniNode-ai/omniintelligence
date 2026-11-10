@@ -179,7 +179,7 @@ class TestHandlerShapeValidator:
     def test_contract_binds_the_extractor_classes(self) -> None:
         contract = yaml.safe_load((_NODE_DIR / "contract.yaml").read_text("utf-8"))
         bound = {
-            h["operation"]: h["handler"]["class"]
+            h["operation"]: h["handler"]["name"]
             for h in contract["handler_routing"]["handlers"]
         }
         assert bound == _BOUND_CLASSES

@@ -61,7 +61,7 @@ handler_routing:
     # Periodic scheduler tick — emits crawl-tick.v1 for configured sources
     - operation: "schedule_crawl_tick"
       handler:
-        function: "schedule_crawl_tick"
+        name: "HandlerScheduleCrawlTick"
         module: "omniintelligence.nodes.node_crawl_scheduler_effect.handlers.handler_crawl_scheduler"
         type: "async"
       description: >
@@ -81,7 +81,7 @@ handler_routing:
     # Manual / external trigger from crawl-requested.v1
     - operation: "handle_crawl_requested"
       handler:
-        function: "handle_crawl_requested"
+        name: "HandlerCrawlRequested"
         module: "omniintelligence.nodes.node_crawl_scheduler_effect.handlers.handler_crawl_scheduler"
         type: "async"
       description: >
@@ -102,7 +102,7 @@ handler_routing:
     # Debounce reset on crawl completion
     - operation: "handle_document_indexed"
       handler:
-        function: "handle_document_indexed"
+        name: "HandlerDocumentIndexed"
         module: "omniintelligence.nodes.node_crawl_scheduler_effect.handlers.handler_crawl_scheduler"
         type: "sync"
       description: >

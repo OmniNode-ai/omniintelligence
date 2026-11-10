@@ -67,7 +67,7 @@ handler_routing:
   handlers:
     - operation: "fetch_document"
       handler:
-        function: "handle_document_fetch"
+        name: "HandlerDocumentFetch"
         module: "omniintelligence.nodes.node_document_fetch_effect.handlers.handler_document_fetch"
         type: "async"
       description: "Fetch raw document content from disk or blob store"

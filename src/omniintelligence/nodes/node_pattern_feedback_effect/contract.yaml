@@ -71,7 +71,7 @@ handler_routing:
     # Records session outcomes and updates rolling window metrics.
     - operation: "record_session_outcome"
       handler:
-        function: "record_session_outcome"
+        name: "HandlerRecordSessionOutcome"
         module: "omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_session_outcome"
         type: "async"
       description: "Record session outcome and update rolling window metrics for patterns"
@@ -86,7 +86,7 @@ handler_routing:
         - error_message
     - operation: "record_dispatch_outcome"
       handler:
-        function: "record_dispatch_outcome"
+        name: "HandlerRecordDispatchOutcome"
         module: "omniintelligence.nodes.node_pattern_feedback_effect.handlers.handler_dispatch_outcome"
         type: "async"
       description: "Record per-task dispatch evaluation outcomes without mutating session outcome state"

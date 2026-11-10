@@ -50,7 +50,7 @@ handler_routing:
   handlers:
     - operation: "publish_alerts"
       handler:
-        function: "NodeAntiGamingAlerterEffect"
+        name: "HandlerAntiGamingAlerterEffect"
         module: "omniintelligence.nodes.node_anti_gaming_alerter_effect.node"
         type: "async"
       description: "Iterate alerts and diversity violation, publish each to Kafka topic"

@@ -1,0 +1,18 @@
+{
+  "branch_coverage_pct": 81.48,
+  "candidate_count": 12,
+  "coverage_target": 80.0,
+  "handler_module": "omniintelligence.nodes.node_embedding_generation_effect.handlers.handler_embedding_generate",
+  "handler_module_sha256": "sha256:e46283737d9c94bfd9d01d26b3d1b4f6e9c11552063cafed7bdb6d8334602f75",
+  "meets_target": true,
+  "node_id": "omniintelligence.nodes.node_embedding_generation_effect",
+  "receipt_schema": "adequacy_receipt.v1",
+  "recorded_at": "2026-11-10T05:40:56.343534+00:00",
+  "recorder_schema": "adequacy_receipt.v1",
+  "selected_count": 2,
+  "selected_input_hashes": [
+    "sha256:7da565fc6aa1059c5f9105626f3a6aaf948c5411d92706b1db56609bf2607fd1",
+    "sha256:f8e9465430f3effb91f86261814183c4d5355f96e08af94bc74b680dd1b31d15"
+  ],
+  "volatile_mask": []
+}

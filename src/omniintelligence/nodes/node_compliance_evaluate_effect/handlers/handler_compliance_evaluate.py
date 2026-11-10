@@ -34,7 +34,7 @@ import hashlib
 import logging
 import time
 from datetime import UTC, datetime
-from typing import Final
+from typing import Any, Final
 from uuid import UUID
 
 from omniintelligence.constants import TOPIC_COMPLIANCE_EVALUATED_V1
@@ -419,7 +419,20 @@ async def _route_to_dlq(
         )
 
 
+class HandlerComplianceEvaluateCommand:
+    """Contract-bound handler for ``handle_compliance_evaluate_command``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    async def handle(
+        self, request: ModelComplianceEvaluateCommand
+    ) -> ModelComplianceEvaluatedEvent:
+        return await handle_compliance_evaluate_command(request, **self._dependencies)
+
+
 __all__ = [
+    "HandlerComplianceEvaluateCommand",
     "DLQ_TOPIC",
     "PUBLISH_TOPIC",
     "STATUS_EVALUATION_FAILED",

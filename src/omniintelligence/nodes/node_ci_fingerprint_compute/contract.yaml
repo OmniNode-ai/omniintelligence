@@ -29,8 +29,8 @@ handler_routing:
   handlers:
     - operation: "compute_fingerprint"
       handler:
+        name: "HandlerCiFingerprint"
         module: "omniintelligence.nodes.node_ci_fingerprint_compute.handlers.handler_fingerprint"
-        class: "HandlerCiFingerprint"
         type: "sync"
 
 event_bus:

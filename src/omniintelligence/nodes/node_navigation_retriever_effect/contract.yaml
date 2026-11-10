@@ -58,7 +58,7 @@ handler_routing:
   handlers:
     - operation: "retrieve_paths"
       handler:
-        function: "handle_navigation_retrieve"
+        name: "HandlerNavigationRetrieve"
         module: "omniintelligence.nodes.node_navigation_retriever_effect.handlers.handler_navigation_retrieve"
         type: "async"
       description: "Retrieve ranked prior navigation paths from OmniMemory"

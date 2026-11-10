@@ -29,7 +29,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from psycopg import AsyncConnection
@@ -916,9 +916,20 @@ async def handle_store_pattern(
     )
 
 
+class HandlerStorePattern:
+    """Contract-bound handler for ``handle_store_pattern``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    async def handle(self, request: ModelPatternStorageInput) -> StorePatternResult:
+        return await handle_store_pattern(request, **self._dependencies)
+
+
 __all__ = [
     "GovernanceResult",
     "GovernanceViolation",
+    "HandlerStorePattern",
     "PatternStateTransition",
     "ProtocolPatternStore",
     "StorePatternResult",

@@ -45,6 +45,7 @@ Ticket: OMN-2396
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from omniintelligence.nodes.node_doc_retrieval_compute.models.model_doc_retrieval_input import (
     DocSourceConfig,
@@ -367,7 +368,18 @@ async def handle_doc_retrieval(
     )
 
 
+class HandlerDocRetrieval:
+    """Contract-bound handler for ``handle_doc_retrieval``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    async def handle(self, request: ModelDocRetrievalInput) -> ModelDocRetrievalOutput:
+        return await handle_doc_retrieval(request, **self._dependencies)
+
+
 __all__ = [
     "DOCUMENT_INTENT_TYPE_WEIGHTS",
+    "HandlerDocRetrieval",
     "handle_doc_retrieval",
 ]

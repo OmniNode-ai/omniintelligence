@@ -1,0 +1,19 @@
+{
+  "base_ref": "0956fad0a",
+  "canonical_handler_module": "omniintelligence.nodes.node_linear_crawler_effect.handlers.handler_linear_crawl",
+  "legacy_handler_module": "omniintelligence.nodes.node_linear_crawler_effect.handlers.handler_linear_crawl",
+  "node_id": "omniintelligence.nodes.node_linear_crawler_effect",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:8f3a37412de8003d833dd9e3dc5e808e14c8c5835edf1483e799734a6293d3f9"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_linear_crawler_effect/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[mixed-all-branches]"
+    ]
+  },
+  "preserved_symbols": [
+    "handle_linear_crawl"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

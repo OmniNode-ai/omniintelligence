@@ -1,0 +1,22 @@
+{
+  "branch_coverage_pct": 63.41,
+  "candidate_count": 15,
+  "coverage_target": 80.0,
+  "handler_module": "omniintelligence.nodes.node_document_fetch_effect.handlers.handler_document_fetch",
+  "handler_module_sha256": "sha256:a81de92d0c7681cc2978bda134d47106df27961e4f673f2c041bf0287fc388cc",
+  "meets_target": false,
+  "node_id": "omniintelligence.nodes.node_document_fetch_effect",
+  "receipt_schema": "adequacy_receipt.v1",
+  "recorded_at": "2026-11-10T05:40:50.705188+00:00",
+  "recorder_schema": "adequacy_receipt.v1",
+  "selected_count": 2,
+  "selected_input_hashes": [
+    "sha256:da7ef7635b428252c44c27c20887907760cb14a47c33260dd33c102c00684c9f",
+    "sha256:54a733506d5f93eb7404b1f3119bc42e8616dbd02a2f65d74a5c8e8d21eb5030"
+  ],
+  "uncovered_waiver": {
+    "reason": "Parity corpus selected 2 of 15 candidate input(s) (greedy branch-covering subset) and executes the contract-bound wrapper and the preserved function over normal, alternate-branch and error inputs and reaches 63.41% branch coverage of the handler module (coverage.py, branch mode, whole-process). The flip adds only the wrapper class; the forwarded function bodies are verified byte-identical to the base revision by the hand-flip proof, so branches this corpus does not reach are unchanged code, not new behavior.",
+    "uncovered_branch_count": 0
+  },
+  "volatile_mask": []
+}

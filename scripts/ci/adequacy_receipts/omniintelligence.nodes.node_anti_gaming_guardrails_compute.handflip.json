@@ -1,0 +1,19 @@
+{
+  "base_ref": "0956fad0a",
+  "canonical_handler_module": "omniintelligence.nodes.node_anti_gaming_guardrails_compute.handlers.handler_guardrails",
+  "legacy_handler_module": "omniintelligence.nodes.node_anti_gaming_guardrails_compute.handlers.handler_guardrails",
+  "node_id": "omniintelligence.nodes.node_anti_gaming_guardrails_compute",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:ee5ba4ad3a654b86f7fded0b7e1ea84f456daf51429d64e0dfefa8df17df2cf2"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_anti_gaming_guardrails_compute/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[all-guardrails-fire]"
+    ]
+  },
+  "preserved_symbols": [
+    "run_all_guardrails"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

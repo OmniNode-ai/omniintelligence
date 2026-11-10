@@ -60,7 +60,7 @@ handler_routing:
   handlers:
     - operation: "parse_document"
       handler:
-        function: "handle_document_parse"
+        name: "HandlerDocumentParse"
         module: "omniintelligence.nodes.node_document_parser_compute.handlers.handler_document_parser"
         type: "sync"
       description: "Split raw markdown into typed chunks"

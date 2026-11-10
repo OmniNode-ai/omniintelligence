@@ -44,7 +44,7 @@ handler_routing:
   handlers:
     - operation: "analyze_semantics"
       handler:
-        class: "HandlerSemanticAnalysisCompute"
+        name: "HandlerSemanticAnalysisCompute"
         module: "omniintelligence.nodes.node_semantic_analysis_compute.handlers.handler_compute_semantic_analysis"
         type: "sync"
 dependencies: []

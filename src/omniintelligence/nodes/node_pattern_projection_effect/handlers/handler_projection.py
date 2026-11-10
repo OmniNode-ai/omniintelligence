@@ -25,7 +25,9 @@ Reference:
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID, uuid4
 
 from omniintelligence.models.events.model_pattern_projection_event import (
@@ -253,6 +255,17 @@ async def publish_projection(
     return snapshot
 
 
+class HandlerPublishProjection:
+    """Contract-bound handler for ``publish_projection``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    async def handle(self, request: Mapping[str, Any]) -> ModelPatternProjectionEvent:
+        return await publish_projection(**request, **self._dependencies)
+
+
 __all__ = [
+    "HandlerPublishProjection",
     "publish_projection",
 ]

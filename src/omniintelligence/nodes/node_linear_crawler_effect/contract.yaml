@@ -77,7 +77,7 @@ handler_routing:
   handlers:
     - operation: "crawl_linear"
       handler:
-        function: "handle_linear_crawl"
+        name: "HandlerLinearCrawl"
         module: "omniintelligence.nodes.node_linear_crawler_effect.handlers.handler_linear_crawl"
         type: "async"
       description: "Fetch Linear issues/docs and emit document lifecycle events"

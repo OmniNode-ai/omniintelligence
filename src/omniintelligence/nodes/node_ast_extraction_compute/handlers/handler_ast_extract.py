@@ -17,6 +17,7 @@ import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from typing import Any
 
 from omniintelligence.nodes.node_ast_extraction_compute.handlers.handler_relationship_detect import (
     detect_relationships,
@@ -208,6 +209,16 @@ def handle_ast_extract(input_data: AstExtractInput) -> ModelCodeEntitiesExtracte
         parse_error=parse_error,
         timestamp=datetime.now(timezone.utc),
     )
+
+
+class HandlerAstExtract:
+    """Contract-bound handler for ``handle_ast_extract``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    def handle(self, request: AstExtractInput) -> ModelCodeEntitiesExtractedEvent:
+        return handle_ast_extract(request, **self._dependencies)
 
 
 # ---------------------------------------------------------------------------

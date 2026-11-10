@@ -1,0 +1,24 @@
+{
+  "base_ref": "0956fad0a",
+  "canonical_handler_module": "omniintelligence.nodes.node_evidence_collection_effect.handlers.handler_evidence_collection",
+  "legacy_handler_module": "omniintelligence.nodes.node_evidence_collection_effect.handlers.handler_evidence_collection",
+  "node_id": "omniintelligence.nodes.node_evidence_collection_effect",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:1dc001cefda8ab0e6084956a18b0d06b5fe220f8da6613a5caefd9146821c0cf",
+      "sha256:ab8f1051b89c5c6eeb81a089a573718a4277a5bf27dd8428dca76e6107330fab",
+      "sha256:0264379add679909a45e8977be37066c11cf6e5531379de7870537f7960ff994"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_evidence_collection_effect/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[collect-db-failure]",
+      "tests/unit/nodes/node_evidence_collection_effect/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[forget-empty-evidence]",
+      "tests/unit/nodes/node_evidence_collection_effect/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[forget-kafka-failure]"
+    ]
+  },
+  "preserved_symbols": [
+    "collect_and_evaluate",
+    "fire_and_forget_evaluate"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

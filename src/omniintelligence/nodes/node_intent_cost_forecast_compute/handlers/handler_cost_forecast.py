@@ -18,7 +18,9 @@ Reference: OMN-2490
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime
+from typing import Any
 
 from omnibase_core.enums.intelligence.enum_intent_class import EnumIntentClass
 
@@ -78,6 +80,16 @@ async def compute_forecast(
         baseline_sample_count=baseline.sample_count,
         forecasted_at=forecasted_at,
     )
+
+
+class HandlerComputeForecast:
+    """Contract-bound handler for ``compute_forecast``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    async def handle(self, request: Mapping[str, Any]) -> ModelIntentCostForecast:
+        return await compute_forecast(**request, **self._dependencies)
 
 
 def update_baseline(
@@ -157,6 +169,7 @@ def compute_accuracy_record(
 
 
 __all__ = [
+    "HandlerComputeForecast",
     "check_escalation",
     "compute_accuracy_record",
     "compute_forecast",

@@ -62,13 +62,13 @@ handler_routing:
   handlers:
     - operation: "normalize_intent"
       handler:
-        function: "normalize_intent"
+        name: "HandlerNormalizeIntent"
         module: "omniintelligence.nodes.node_tcb_generation_compute.handlers.handler_intent_normalizer"
         type: "sync"
       description: "Normalize raw intent text into structured TCB tags"
     - operation: "score_candidate"
       handler:
-        function: "score_candidate"
+        name: "HandlerScoreCandidate"
         module: "omniintelligence.nodes.node_tcb_generation_compute.handlers.handler_candidate_scorer"
         type: "sync"
       description: "Score a candidate path using path proximity, repo proximity, recency, and volatility"

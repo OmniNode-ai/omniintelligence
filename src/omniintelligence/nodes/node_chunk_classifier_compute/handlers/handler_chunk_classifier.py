@@ -58,6 +58,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from typing import Any
 
 from omniintelligence.nodes.node_chunk_classifier_compute.models.enum_context_item_type import (
     EnumContextItemType,
@@ -471,7 +472,18 @@ def handle_chunk_classify(
     )
 
 
+class HandlerChunkClassify:
+    """Contract-bound handler for ``handle_chunk_classify``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    def handle(self, request: ModelChunkClassifyInput) -> ModelChunkClassifyOutput:
+        return handle_chunk_classify(request, **self._dependencies)
+
+
 __all__ = [
+    "HandlerChunkClassify",
     "RULE_VERSION",
     "extract_tags",
     "handle_chunk_classify",

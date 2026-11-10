@@ -71,7 +71,7 @@ handler_routing:
   handlers:
     - operation: "gmail.evaluate_intent"
       handler:
-        class: "HandlerGmailIntentEvaluate"
+        name: "HandlerGmailIntentEvaluate"
         module: "omniintelligence.nodes.node_gmail_intent_evaluator_effect.handlers.handler_gmail_intent_evaluate"
         type: "async"
       description: "Evaluate Gmail intent signal: URL fetch, omnimemory, LLM, Slack, Kafka"

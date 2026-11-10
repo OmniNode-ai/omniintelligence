@@ -55,7 +55,7 @@ handler_routing:
   handlers:
     - operation: "evaluate_contract"
       handler:
-        function: "handle_contract_evaluation"
+        name: "HandlerContractEvaluation"
         module: "omniintelligence.nodes.node_contract_eval_compute.handlers.handler_contract_eval"
         type: "async"
       description: "Two-layer contract evaluation"

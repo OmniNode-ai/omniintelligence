@@ -31,6 +31,7 @@ Ticket: OMN-2034
 from __future__ import annotations
 
 import logging
+from typing import Any
 from uuid import UUID
 
 from omnibase_core.models.reducer.model_intent import ModelIntent
@@ -99,6 +100,16 @@ def handle_receive_intent(
     )
 
 
+class HandlerReceiveIntent:
+    """Contract-bound handler for ``handle_receive_intent``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    def handle(self, request: ModelIntent) -> ModelIntentReceipt:
+        return handle_receive_intent(request, **self._dependencies)
+
+
 def handle_receive_intents(
     intents: tuple[ModelIntent, ...],
     *,
@@ -153,4 +164,19 @@ def handle_receive_intents(
     return receipts
 
 
-__all__ = ["handle_receive_intent", "handle_receive_intents"]
+class HandlerReceiveIntents:
+    """Contract-bound handler for ``handle_receive_intents``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    def handle(self, request: tuple[ModelIntent, ...]) -> list[ModelIntentReceipt]:
+        return handle_receive_intents(request, **self._dependencies)
+
+
+__all__ = [
+    "HandlerReceiveIntent",
+    "HandlerReceiveIntents",
+    "handle_receive_intent",
+    "handle_receive_intents",
+]

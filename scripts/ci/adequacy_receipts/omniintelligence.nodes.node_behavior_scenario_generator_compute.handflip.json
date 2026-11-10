@@ -1,0 +1,19 @@
+{
+  "base_ref": "0956fad0a",
+  "canonical_handler_module": "omniintelligence.nodes.node_behavior_scenario_generator_compute.handlers.handler_scenario_generator",
+  "legacy_handler_module": "omniintelligence.nodes.node_behavior_scenario_generator_compute.handlers.handler_scenario_generator",
+  "node_id": "omniintelligence.nodes.node_behavior_scenario_generator_compute",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:d86a056a9e6b3d6bafed1cbb8822fec86b85416937218e67fddc210236c26b09"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_behavior_scenario_generator_compute/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[normal-three]"
+    ]
+  },
+  "preserved_symbols": [
+    "handle_scenario_generation"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

@@ -44,22 +44,22 @@ handler_routing:
   handlers:
     - operation: "match"
       handler:
-        class: "HandlerPatternMatchingCompute"
+        name: "HandlerPatternMatchingCompute"
         module: "omniintelligence.nodes.node_pattern_matching_compute.handlers.handler_compute"
         type: "sync"
     - operation: "similarity"
       handler:
-        class: "HandlerPatternMatchingCompute"
+        name: "HandlerPatternMatchingCompute"
         module: "omniintelligence.nodes.node_pattern_matching_compute.handlers.handler_compute"
         type: "sync"
     - operation: "classify"
       handler:
-        class: "HandlerPatternMatchingCompute"
+        name: "HandlerPatternMatchingCompute"
         module: "omniintelligence.nodes.node_pattern_matching_compute.handlers.handler_compute"
         type: "sync"
     - operation: "validate"
       handler:
-        class: "HandlerPatternMatchingCompute"
+        name: "HandlerPatternMatchingCompute"
         module: "omniintelligence.nodes.node_pattern_matching_compute.handlers.handler_compute"
         type: "sync"
 # Metadata Model (for typed metadata in output)

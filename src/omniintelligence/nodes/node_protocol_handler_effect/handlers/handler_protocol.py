@@ -324,7 +324,20 @@ async def handle_protocol_execute(
     )
 
 
+class HandlerProtocolExecute:
+    """Contract-bound handler for ``handle_protocol_execute``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    async def handle(
+        self, request: ModelProtocolHandlerInput
+    ) -> ModelProtocolHandlerOutput:
+        return await handle_protocol_execute(request, **self._dependencies)
+
+
 __all__ = [
+    "HandlerProtocolExecute",
     "ProtocolHandler",
     "ProtocolHandlerRegistry",
     "handle_protocol_execute",

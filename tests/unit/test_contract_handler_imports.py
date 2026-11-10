@@ -35,9 +35,7 @@ NODES_DIR = Path("src/omniintelligence/nodes")
 # Reducers use inline handler delegation.
 HANDLER_ROUTING_EXEMPT_TYPES = {"ORCHESTRATOR_GENERIC", "REDUCER_GENERIC"}
 
-KNOWN_MISSING_HANDLER_FUNCTIONS = {
-    ("node_bloom_eval_orchestrator", "handle_bloom_eval_run"),
-}
+KNOWN_MISSING_HANDLER_FUNCTIONS: set[tuple[str, str]] = set()
 
 KNOWN_MODEL_IMPORT_FAILURES = {
     ("node_behavior_scenario_generator_compute", "input_model", "ModelBehaviorSpec"),
@@ -171,7 +169,10 @@ class TestContractHandlerImports:
                     "module", handler_entry.get("handler_module", "")
                 )
                 function_name = handler_config.get(
-                    "function", handler_entry.get("handler_class", "")
+                    "name",
+                    handler_config.get(
+                        "function", handler_entry.get("handler_class", "")
+                    ),
                 )
 
                 if not module_path or not function_name:

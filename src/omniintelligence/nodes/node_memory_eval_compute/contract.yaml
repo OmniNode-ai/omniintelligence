@@ -44,8 +44,8 @@ handler_routing:
   handlers:
     - operation: "evaluate_memory"
       handler:
-        function: "handle_memory_evaluation"
-        module: "omniintelligence.nodes.node_memory_eval_compute.handlers"
+        name: "HandlerMemoryEvaluation"
+        module: "omniintelligence.nodes.node_memory_eval_compute.handlers.handler_memory_evaluation"
         type: "async"
 dependencies: []
 error_handling:

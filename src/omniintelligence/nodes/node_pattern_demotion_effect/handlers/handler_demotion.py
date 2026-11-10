@@ -99,8 +99,9 @@ Reference:
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from datetime import UTC, datetime
-from typing import TypedDict, cast
+from typing import Any, TypedDict, cast
 from uuid import UUID, uuid4
 
 from omniintelligence.constants import TOPIC_PATTERN_LIFECYCLE_CMD_V1
@@ -804,6 +805,16 @@ async def check_and_demote_patterns(
     )
 
 
+class HandlerCheckAndDemotePatterns:
+    """Contract-bound handler for ``check_and_demote_patterns``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    async def handle(self, request: Mapping[str, Any]) -> ModelDemotionCheckResult:
+        return await check_and_demote_patterns(**request, **self._dependencies)
+
+
 async def demote_pattern(
     repository: ProtocolPatternRepository,
     producer: ProtocolKafkaPublisher | None,
@@ -959,6 +970,16 @@ async def demote_pattern(
         effective_thresholds=thresholds,
         dry_run=False,
     )
+
+
+class HandlerDemotePattern:
+    """Contract-bound handler for ``demote_pattern``."""
+
+    def __init__(self, **dependencies: Any) -> None:
+        self._dependencies = dependencies
+
+    async def handle(self, request: Mapping[str, Any]) -> ModelDemotionResult:
+        return await demote_pattern(**request, **self._dependencies)
 
 
 async def _emit_lifecycle_event(

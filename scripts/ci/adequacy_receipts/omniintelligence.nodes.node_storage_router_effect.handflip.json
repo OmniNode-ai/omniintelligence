@@ -1,0 +1,19 @@
+{
+  "base_ref": "0956fad0a",
+  "canonical_handler_module": "omniintelligence.nodes.node_storage_router_effect.handlers.handler_route_storage",
+  "legacy_handler_module": "omniintelligence.nodes.node_storage_router_effect.handlers.handler_route_storage",
+  "node_id": "omniintelligence.nodes.node_storage_router_effect",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:b611cce318b1e6f836700d344f99be5af1f32043022bcf287405b7b619f2046c"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_storage_router_effect/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[storage-and-dlq-failure]"
+    ]
+  },
+  "preserved_symbols": [
+    "handle_route_storage"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}
