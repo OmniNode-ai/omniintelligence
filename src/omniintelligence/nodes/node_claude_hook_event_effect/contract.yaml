@@ -75,7 +75,7 @@ handler_routing:
   handlers:
     # UserPromptSubmit - Intent Classification
     - event_type: "UserPromptSubmit"
-      operation: "UserPromptSubmit"
+      operation: "user_prompt_submit"
       handler:
         name: "HandlerClaudeHookEvent"
         module: "omniintelligence.nodes.node_claude_hook_event_effect.handlers.handler_claude_event"
@@ -87,7 +87,7 @@ handler_routing:
 
     # SessionStart - No-op (future: session tracking)
     - event_type: "SessionStart"
-      operation: "SessionStart"
+      operation: "session_start"
       handler:
         name: "HandlerClaudeHookEvent"
         module: "omniintelligence.nodes.node_claude_hook_event_effect.handlers.handler_claude_event"
@@ -96,7 +96,7 @@ handler_routing:
 
     # SessionEnd - No-op (future: session summary)
     - event_type: "SessionEnd"
-      operation: "SessionEnd"
+      operation: "session_end"
       handler:
         name: "HandlerClaudeHookEvent"
         module: "omniintelligence.nodes.node_claude_hook_event_effect.handlers.handler_claude_event"
@@ -105,7 +105,7 @@ handler_routing:
 
     # PreToolUse - No-op (future: tool validation)
     - event_type: "PreToolUse"
-      operation: "PreToolUse"
+      operation: "pre_tool_use"
       handler:
         name: "HandlerClaudeHookEvent"
         module: "omniintelligence.nodes.node_claude_hook_event_effect.handlers.handler_claude_event"
@@ -114,7 +114,7 @@ handler_routing:
 
     # PostToolUse - No-op (future: result capture)
     - event_type: "PostToolUse"
-      operation: "PostToolUse"
+      operation: "post_tool_use"
       handler:
         name: "HandlerClaudeHookEvent"
         module: "omniintelligence.nodes.node_claude_hook_event_effect.handlers.handler_claude_event"
@@ -123,7 +123,7 @@ handler_routing:
 
     # Stop - Trigger pattern extraction (OMN-2210)
     - event_type: "Stop"
-      operation: "Stop"
+      operation: "stop"
       handler:
         name: "HandlerClaudeHookEvent"
         module: "omniintelligence.nodes.node_claude_hook_event_effect.handlers.handler_claude_event"
@@ -134,7 +134,7 @@ handler_routing:
 
     # Notification - No-op (future: async notification handling)
     - event_type: "Notification"
-      operation: "Notification"
+      operation: "notification"
       handler:
         name: "HandlerClaudeHookEvent"
         module: "omniintelligence.nodes.node_claude_hook_event_effect.handlers.handler_claude_event"
