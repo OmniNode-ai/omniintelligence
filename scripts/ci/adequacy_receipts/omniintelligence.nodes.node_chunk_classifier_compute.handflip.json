@@ -1,0 +1,21 @@
+{
+  "base_ref": "0956fad0a",
+  "canonical_handler_module": "omniintelligence.nodes.node_chunk_classifier_compute.handlers.handler_chunk_classifier",
+  "legacy_handler_module": "omniintelligence.nodes.node_chunk_classifier_compute.handlers.handler_chunk_classifier",
+  "node_id": "omniintelligence.nodes.node_chunk_classifier_compute",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:42e871c844ab1730693dfbca42d8b18c17e35f928c6ded8816be1125c4a2d669",
+      "sha256:29f94ba96d6316f86c95320e9b6f0e6a34c6dc9e87fcae012afb175771072856"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_chunk_classifier_compute/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[repo-map-tree]",
+      "tests/unit/nodes/node_chunk_classifier_compute/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[repo-name-unresolvable]"
+    ]
+  },
+  "preserved_symbols": [
+    "handle_chunk_classify"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

@@ -1,0 +1,24 @@
+{
+  "base_ref": "0956fad0a",
+  "canonical_handler_module": "omniintelligence.nodes.node_watchdog_effect.handlers.handler_watchdog",
+  "legacy_handler_module": "omniintelligence.nodes.node_watchdog_effect.handlers.handler_watchdog",
+  "node_id": "omniintelligence.nodes.node_watchdog_effect",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:26f78c55edc72cf6d4be09ee840262427eaea7eb5611b3c15b0a4fc976cd9643",
+      "sha256:b39550a6e687d62d2bccc769ce131eaa50c6193fd6398d5ebb3740baefefca06",
+      "sha256:a501c56ce35091907fb1184fbf36848e0a3157b118ea86d6815c17a40fca15de"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_watchdog_effect/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[start-observer-start-raises]",
+      "tests/unit/nodes/node_watchdog_effect/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[stop-join-raises]",
+      "tests/unit/nodes/node_watchdog_effect/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[start-without-publisher]"
+    ]
+  },
+  "preserved_symbols": [
+    "start_watching",
+    "stop_watching"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

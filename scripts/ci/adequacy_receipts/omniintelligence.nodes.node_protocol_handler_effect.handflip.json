@@ -1,0 +1,21 @@
+{
+  "base_ref": "0956fad0a",
+  "canonical_handler_module": "omniintelligence.nodes.node_protocol_handler_effect.handlers.handler_protocol",
+  "legacy_handler_module": "omniintelligence.nodes.node_protocol_handler_effect.handlers.handler_protocol",
+  "node_id": "omniintelligence.nodes.node_protocol_handler_effect",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:5f0d230f183c0e90eb06b1c3a10995c9b1a891de934739a866d1e178ead682a0",
+      "sha256:6e551d85a1dc2408aed3c14cb2746355199d7e58f16a059dfb0eb5c7ef63a906"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_protocol_handler_effect/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[generic-failure]",
+      "tests/unit/nodes/node_protocol_handler_effect/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[success-with-correlation]"
+    ]
+  },
+  "preserved_symbols": [
+    "handle_protocol_execute"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

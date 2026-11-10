@@ -1,0 +1,22 @@
+{
+  "base_ref": "0956fad0a",
+  "canonical_handler_module": "omniintelligence.nodes.node_pattern_demotion_effect.handlers.handler_demotion",
+  "legacy_handler_module": "omniintelligence.nodes.node_pattern_demotion_effect.handlers.handler_demotion",
+  "node_id": "omniintelligence.nodes.node_pattern_demotion_effect",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:fd54bb815168eaa7c6a3b593dd34c0d4568d0c14a3b268ed9b6cf8b7806a20a9",
+      "sha256:dadcaeb9f02a11f48abe39da4d651a6d632b615ee6d0e6fca45f38a9fabc9c3a"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_pattern_demotion_effect/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[check-publish-failure]",
+      "tests/unit/nodes/node_pattern_demotion_effect/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[demote-failure-streak]"
+    ]
+  },
+  "preserved_symbols": [
+    "check_and_demote_patterns",
+    "demote_pattern"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

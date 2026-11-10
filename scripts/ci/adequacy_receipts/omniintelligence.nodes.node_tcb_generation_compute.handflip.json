@@ -1,0 +1,19 @@
+{
+  "base_ref": "0956fad0a",
+  "canonical_handler_module": "omniintelligence.nodes.node_tcb_generation_compute.handlers.handler_intent_normalizer",
+  "legacy_handler_module": "omniintelligence.nodes.node_tcb_generation_compute.handlers.handler_intent_normalizer",
+  "node_id": "omniintelligence.nodes.node_tcb_generation_compute",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:62879532942686d74f67c3ba5700048f269dc0e1a4a7a4eb9daa46b1444aedc9"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_tcb_generation_compute/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[normalize-repo-and-module]"
+    ]
+  },
+  "preserved_symbols": [
+    "normalize_intent"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

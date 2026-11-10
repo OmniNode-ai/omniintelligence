@@ -1,0 +1,21 @@
+{
+  "base_ref": "0956fad0a",
+  "canonical_handler_module": "omniintelligence.nodes.node_intent_drift_detect_compute.handlers.handler_drift_detect",
+  "legacy_handler_module": "omniintelligence.nodes.node_intent_drift_detect_compute.handlers.handler_drift_detect",
+  "node_id": "omniintelligence.nodes.node_intent_drift_detect_compute",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:e7a7f1658012ec48d885ea49cdd44955728b7f0910f3a6d5dbf1c52bcce952f2",
+      "sha256:137bf904a800f7f322d900c0bbc721a0f5623a4300c45e3091aa6e3396ca8792"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_intent_drift_detect_compute/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[file-surface-documentation-code-files]",
+      "tests/unit/nodes/node_intent_drift_detect_compute/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[tool-mismatch-disabled-falls-to-scope-expansion]"
+    ]
+  },
+  "preserved_symbols": [
+    "detect_drift"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

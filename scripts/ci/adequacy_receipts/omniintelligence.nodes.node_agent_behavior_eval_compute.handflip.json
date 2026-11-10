@@ -1,0 +1,19 @@
+{
+  "base_ref": "0956fad0a",
+  "canonical_handler_module": "omniintelligence.nodes.node_agent_behavior_eval_compute.handlers.handler_agent_behavior_evaluation",
+  "legacy_handler_module": "omniintelligence.nodes.node_agent_behavior_eval_compute.handlers.handler_agent_behavior_evaluation",
+  "node_id": "omniintelligence.nodes.node_agent_behavior_eval_compute",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:6d5f5983ee412a3a1c1e72a6301434b737b76eee6dbcaedb56d57e7163666a0a"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_agent_behavior_eval_compute/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[single-pass]"
+    ]
+  },
+  "preserved_symbols": [
+    "handle_agent_behavior_evaluation"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

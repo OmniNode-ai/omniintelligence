@@ -1,0 +1,21 @@
+{
+  "base_ref": "0956fad0a",
+  "canonical_handler_module": "omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition",
+  "legacy_handler_module": "omniintelligence.nodes.node_pattern_lifecycle_effect.handlers.handler_transition",
+  "node_id": "omniintelligence.nodes.node_pattern_lifecycle_effect",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:ebbf0e0a4ac3f2eef275d629041fcbae0d1a1e15eb24c036dea0269e58eee59f",
+      "sha256:86a3f4c7b5b5153ca5b1deb78c1d85a50e805451117ea80e9cb802bc7a921af4"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_pattern_lifecycle_effect/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[publish-and-dlq-failure]",
+      "tests/unit/nodes/node_pattern_lifecycle_effect/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[unparseable-evidence-tier]"
+    ]
+  },
+  "preserved_symbols": [
+    "apply_transition"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

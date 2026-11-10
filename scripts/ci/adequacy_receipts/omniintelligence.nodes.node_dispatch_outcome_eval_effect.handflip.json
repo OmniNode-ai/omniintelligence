@@ -1,0 +1,21 @@
+{
+  "base_ref": "0956fad0a",
+  "canonical_handler_module": "omniintelligence.nodes.node_dispatch_outcome_eval_effect.handlers.handler_dispatch_outcome",
+  "legacy_handler_module": "omniintelligence.nodes.node_dispatch_outcome_eval_effect.handlers.handler_dispatch_outcome",
+  "node_id": "omniintelligence.nodes.node_dispatch_outcome_eval_effect",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:40c4b4612c4e3627a0fe617640dd581d0f149caa7839257856d2cdb52d19f256",
+      "sha256:ba452077bc22fbb56df633021f6e4bead0f6e7048fa17f53d5a0dbaef6cba5da"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_dispatch_outcome_eval_effect/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[scorer-raises-runtime-error]",
+      "tests/unit/nodes/node_dispatch_outcome_eval_effect/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[error-status]"
+    ]
+  },
+  "preserved_symbols": [
+    "handle_dispatch_outcome"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

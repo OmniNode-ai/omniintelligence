@@ -1,0 +1,17 @@
+{
+  "branch_coverage_pct": 97.78,
+  "candidate_count": 5,
+  "coverage_target": 80.0,
+  "handler_module": "omniintelligence.nodes.node_anti_gaming_alerter_effect.node",
+  "handler_module_sha256": "sha256:e2f6672db92cfb128d6bd135bbf459cfb35fc2d6b25d40635402e7aafafe12f7",
+  "meets_target": true,
+  "node_id": "omniintelligence.nodes.node_anti_gaming_alerter_effect",
+  "receipt_schema": "adequacy_receipt.v1",
+  "recorded_at": "2026-11-10T05:40:04.968931+00:00",
+  "recorder_schema": "adequacy_receipt.v1",
+  "selected_count": 1,
+  "selected_input_hashes": [
+    "sha256:65f2970506d50c8d416d0b277017400f8555d2dd434f8993bd8079a218721833"
+  ],
+  "volatile_mask": []
+}

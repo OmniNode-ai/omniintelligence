@@ -1,0 +1,21 @@
+{
+  "base_ref": "0956fad0a",
+  "canonical_handler_module": "omniintelligence.nodes.node_doc_retrieval_compute.handlers.handler_doc_retrieval",
+  "legacy_handler_module": "omniintelligence.nodes.node_doc_retrieval_compute.handlers.handler_doc_retrieval",
+  "node_id": "omniintelligence.nodes.node_doc_retrieval_compute",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:8b4cf4c09aded05f364b29d7b4a64d86b15fad69cc62642067ecbbfff94ae41c",
+      "sha256:8506c4f1e87684eb74f16d419fefd492a8b7afc0e9534aab184afdbcddb33e1a"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_doc_retrieval_compute/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[scope-boost-levels]",
+      "tests/unit/nodes/node_doc_retrieval_compute/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[tier-filter]"
+    ]
+  },
+  "preserved_symbols": [
+    "handle_doc_retrieval"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

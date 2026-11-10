@@ -1,0 +1,19 @@
+{
+  "base_ref": "0956fad0a",
+  "canonical_handler_module": "omniintelligence.nodes.node_llm_routing_decision_effect.handlers.handler_llm_routing_decision",
+  "legacy_handler_module": "omniintelligence.nodes.node_llm_routing_decision_effect.handlers.handler_llm_routing_decision",
+  "node_id": "omniintelligence.nodes.node_llm_routing_decision_effect",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:6b430c6eb479aa0f96da641fd22aa2b8542ed526ec5eaaa9304ef2ba71d6fde9"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_llm_routing_decision_effect/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[publish-and-dlq-failure]"
+    ]
+  },
+  "preserved_symbols": [
+    "process_llm_routing_decision"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

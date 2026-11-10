@@ -1,0 +1,19 @@
+{
+  "base_ref": "0956fad0a",
+  "canonical_handler_module": "omniintelligence.nodes.node_navigation_retriever_effect.handlers.handler_navigation_retrieve",
+  "legacy_handler_module": "omniintelligence.nodes.node_navigation_retriever_effect.handlers.handler_navigation_retrieve",
+  "node_id": "omniintelligence.nodes.node_navigation_retriever_effect",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:aa454f17e567903bd10e5a7dbf2b38c7274a09315ba33c1f74d458fc9f1cf9f3"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_navigation_retriever_effect/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[bad-goal-json-skipped]"
+    ]
+  },
+  "preserved_symbols": [
+    "handle_navigation_retrieve"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}

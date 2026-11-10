@@ -1,0 +1,21 @@
+{
+  "base_ref": "0956fad0a",
+  "canonical_handler_module": "omniintelligence.nodes.node_document_fetch_effect.handlers.handler_document_fetch",
+  "legacy_handler_module": "omniintelligence.nodes.node_document_fetch_effect.handlers.handler_document_fetch",
+  "node_id": "omniintelligence.nodes.node_document_fetch_effect",
+  "parity": {
+    "selected_input_hashes": [
+      "sha256:da7ef7635b428252c44c27c20887907760cb14a47c33260dd33c102c00684c9f",
+      "sha256:54a733506d5f93eb7404b1f3119bc42e8616dbd02a2f65d74a5c8e8d21eb5030"
+    ],
+    "status": "pass",
+    "test_ids": [
+      "tests/unit/nodes/node_document_fetch_effect/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[git-untracked-sha-unavailable]",
+      "tests/unit/nodes/node_document_fetch_effect/test_wrapper_parity_omn23422.py::test_wrapper_matches_preserved_function[filesystem-not-found-removed-event]"
+    ]
+  },
+  "preserved_symbols": [
+    "handle_document_fetch"
+  ],
+  "receipt_schema": "handflip_proof.v1"
+}
