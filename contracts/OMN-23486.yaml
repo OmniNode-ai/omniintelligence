@@ -64,7 +64,7 @@ dod_evidence:
         cwd: ${OMNI_HOME}/omniintelligence
     binds_ac:
       - AC3
-  - id: dod-omn23486-ac4-integration-proof-dev-patterns-200
+  - id: dod-omn23486-ac4-integration-proof
     description: After the deploy agent rolls dev, GET /api/v1/patterns on the dev runtime answers 200;
       a runtime that failed to build a routed handler never reaches this answer.
     source: manual
