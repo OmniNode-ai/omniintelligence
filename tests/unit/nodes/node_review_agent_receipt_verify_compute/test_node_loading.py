@@ -115,9 +115,7 @@ def test_contract_binds_the_handler_through_routing(
     }
     assert set(routes) == {"verify_agent_receipt", "resolve_verifier_settings"}
     for handler in routes.values():
-        resolved = getattr(
-            importlib.import_module(handler["module"]), handler["function"]
-        )
+        resolved = getattr(importlib.import_module(handler["module"]), handler["name"])
         assert callable(resolved)
     assert contract["input_model"]["name"] == ModelAgentReceiptVerifyRequest.__name__
     assert contract["output_model"]["name"] == ModelAgentReceiptVerdict.__name__
@@ -147,8 +145,8 @@ def test_node_answers_accepted_and_refused_over_the_bound_bus(
     handler = cast(
         "Callable[[ModelAgentReceiptVerifyRequest], ModelAgentReceiptVerdict]",
         getattr(
-            importlib.import_module(handler_ref["module"]), handler_ref["function"]
-        ),
+            importlib.import_module(handler_ref["module"]), handler_ref["name"]
+        )().handle,
     )
     context = ModelAgentReceiptContext(repo=REPO, pr=PR, head_sha=HEAD)
     signed = receipt((voter("voter-a"), voter("voter-b")))

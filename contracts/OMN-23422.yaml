@@ -10,7 +10,7 @@ summary: >-
 is_seam_ticket: true
 interface_change: true
 interfaces_touched:
-  - omnibase_infra auto-wiring handler loader reading handler_routing.handlers[].handler as {name, module}
+  - public_api
 requirements:
   - id: req-omn23422-contracts-load
     statement: Every omniintelligence node contract loads in the one runtime's handler loader.
