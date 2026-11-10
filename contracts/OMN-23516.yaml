@@ -1,0 +1,81 @@
+---
+schema_version: 1.0.0
+ticket_id: OMN-23516
+title: Development system start leaves out two store-needing nodes until the runtime image can supply
+  them
+summary: >-
+  The runtime image removes omniintelligence's onex.domain_plugins entry points, so the plugin that registers
+  the stores for node_ci_failure_tracker_effect and node_pattern_promotion_effect never runs there and
+  the strict wiring pass fails on HandlerStreak ['store'] (deploy agent job d9d269d6, infra ref b4f38762,
+  omniintelligence 810d4b37). Both nodes are left out of the package's onex.nodes entry points, the set
+  the boot announcer reads, citing OMN-23509. The whole-package test now wires the announced set over
+  a plain container, as the runtime does, and a second test reads the image's strip policy so the exclusion
+  is revisited only when the plugin can run there.
+is_seam_ticket: true
+interface_change: true
+interfaces_touched:
+  - public_api
+requirements:
+  - id: req-omn23516-announce-only-what-runtime-can-build
+    statement: Every node omniintelligence announces is built by the runtime loader with what the runtime
+      image supplies, with no plugin registration.
+    acceptance:
+      - id: AC1
+        statement: The two store-needing nodes are left out of the onex.nodes entry points, citing OMN-23509,
+          and strict wiring of the announced set over a plain container reports no failure.
+      - id: AC2
+        statement: A test reads the runtime image's strip policy and fails when the intelligence plugin
+          group is kept for omninode-intelligence.
+      - id: AC3
+        statement: Integrated, the next dev roll at a ref containing the change succeeds and GET /api/v1/patterns
+          answers 200.
+evidence_requirements:
+  - kind: tests
+    description: Run the strict wiring test and the loader shape test.
+    command: env PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/unit/test_contract_handler_construction.py
+      tests/unit/test_contract_handler_loader_shape.py -q -n 0 --no-cov
+emergency_bypass:
+  enabled: false
+  justification: ''
+  follow_up_ticket_id: ''
+dod_evidence:
+  - id: dod-omn23516-ac1-plain-container-wiring
+    description: Wire the announced omniintelligence contracts through wire_from_manifest under strict
+      mode over a plain container; with either entry point restored the test fails.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/test_contract_handler_construction.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC1
+  - id: dod-omn23516-ac2-declared-exclusion
+    description: The ci failure tracker node is not in the onex.nodes entry points and its declaration
+      cites OMN-23509.
+    source: manual
+    checks:
+      - check_type: command
+        check_value: >-
+          grep -q '^# not announced: node_ci_failure_tracker_effect (.*OMN-23509' pyproject.toml
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC2
+  - id: dod-omn23516-ac3-integration-proof
+    description: After the deploy agent rolls dev, GET /api/v1/patterns on the dev runtime answers 200.
+    source: manual
+    execution_scope: local_done_gate
+    checks:
+      - check_type: command
+        check_value: test "$(curl -s -o /dev/null -w '%{http_code}' "${OMNIINTELLIGENCE_DEV_RUNTIME_URL}/api/v1/patterns?limit=1")"
+          = 200
+        cwd: ${OMNI_HOME}/omniintelligence
+  - id: dod-omn23516-ac3-boot-wiring-path
+    description: The runtime's own strict wiring pass builds every announced handler over a plain container,
+      the step that stopped the dev rolls of 2026-11-10.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/test_contract_handler_construction.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC3
