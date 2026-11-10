@@ -14,18 +14,22 @@ constructs them, through the production wiring path, over the whole package.
 Shape follows omnibase_infra ``test_savings_correlation_pool_di_omn17510.py``: a
 real ``MessageDispatchEngine`` (no mock container) and a real
 ``ModelONEXContainer``, ``event_bus=None`` and ``subscribe_immediately=False`` to
-stay offline. No skip: a handler with a required parameter that the plugin does
-not register fails here.
+stay offline. No skip: an announced handler with a required parameter that the
+runtime does not supply fails here.
 
-Two nodes have no live supplier for a required parameter anywhere in the package
-(see ``NODES_WITHOUT_A_LIVE_SUPPLIER``). They are left out of the package's
+The runtime image removes this package's ``onex.domain_plugins`` entry points
+(``omnibase_infra.runtime.strip_runtime_entry_points``), so ``PluginIntelligence``
+never runs there and ``register_contract_handler_dependencies`` registers nothing
+(deploy agent job d9d269d6: the boot failed on ``HandlerStreak`` ``['store']`` with
+the plugin's registration merged). The wiring tests therefore use a plain
+container, as the runtime does. Four nodes have no supplier the runtime image can
+reach (see ``NODES_WITHOUT_A_LIVE_SUPPLIER``). They are left out of the package's
 ``onex.nodes`` entry points — the set the dev boot announcer reads to discover
 contracts — so the runtime never loads them (OMN-23509); the dev-lane manifest
 here is the kernel's profile filter run over exactly that announced set, and a
-companion test fails the moment the named set and the unregistered set differ,
-so the list can only shrink.
+companion test fails the moment a node the loader refuses is not named.
 
-Ticket: OMN-23431, OMN-23510
+Ticket: OMN-23431, OMN-23510, OMN-23516
 """
 
 from __future__ import annotations
@@ -36,6 +40,7 @@ from typing import Any
 
 import pytest
 from omnibase_core.models.container.model_onex_container import ModelONEXContainer
+from omnibase_infra.runtime import strip_runtime_entry_points as runtime_strip_policy
 from omnibase_infra.runtime.auto_wiring.discovery import discover_contracts_from_paths
 from omnibase_infra.runtime.auto_wiring.handler_wiring import (
     _import_handler_class,
@@ -76,11 +81,19 @@ PYPROJECT = Path(__file__).parent.parent.parent / "pyproject.toml"
 CONTRACT_PATHS = sorted(NODES_DIR.glob("*/contract.yaml"))
 
 
-# Nodes whose handler needs a constructor argument that nothing in this package can
-# build for the runtime today. Each is left out of the onex.nodes entry points
+# Nodes whose handler needs a constructor argument that nothing the runtime image
+# carries can build today. Each is left out of the onex.nodes entry points
 # (OMN-23509), so the runtime never loads it; an entry is removed in the change that
 # registers a live supplier for it and restores the entry point.
 NODES_WITHOUT_A_LIVE_SUPPLIER: dict[str, str] = {
+    "node_ci_failure_tracker_effect": (
+        "HandlerStreak and HandlerTriggerRecord need the debug store; only the "
+        "intelligence plugin builds it and the runtime image strips that plugin"
+    ),
+    "node_pattern_promotion_effect": (
+        "HandlerPromotion needs the pattern repository; only the intelligence "
+        "plugin builds it and the runtime image strips that plugin"
+    ),
     "node_git_repo_crawler_effect": (
         "HandlerGitRepoCrawl needs a ProtocolCrawlStateStore; the only store is the "
         "in-memory test one and the omnimemory_crawl_state table is in omnimemory's "
@@ -148,14 +161,27 @@ def _dev_lane_manifest() -> ModelAutoWiringManifest:
     ).manifest
 
 
-async def _wire(container: ModelONEXContainer) -> Any:
+async def _wire_manifest(
+    manifest: ModelAutoWiringManifest, container: ModelONEXContainer
+) -> Any:
     return await wire_from_manifest(
-        manifest=_dev_lane_manifest(),
+        manifest=manifest,
         dispatch_engine=MessageDispatchEngine(),
         event_bus=None,
         container=container,
         subscribe_immediately=False,
     )
+
+
+async def _wire(container: ModelONEXContainer) -> Any:
+    return await _wire_manifest(_dev_lane_manifest(), container)
+
+
+def _full_dev_lane_manifest() -> ModelAutoWiringManifest:
+    """Every contract on disk through the profile filter: announced or not."""
+    return filter_manifest_for_runtime_profile(
+        _manifest(), "main", environ=_DEV_LANE_ENV
+    ).manifest
 
 
 async def _registered(
@@ -180,24 +206,20 @@ async def _registered(
 async def test_unregistered_dependencies_fail_the_loader_with_the_runtime_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Failing control: with no registration the loader raises the dev boot error."""
+    """Failing control: announce every contract and the loader raises the dev boot error."""
     monkeypatch.setenv("ONEX_WIRING_STRICT_MODE", "1")
     with pytest.raises(TypeError, match="requires constructor parameters"):
-        await _wire(ModelONEXContainer())
+        await _wire_manifest(_full_dev_lane_manifest(), ModelONEXContainer())
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_registered_dependencies_let_every_announced_handler_construct(
+async def test_announced_handlers_construct_with_only_what_the_runtime_supplies(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Strict wiring over the whole package reports no failure and wires handlers."""
+    """Strict wiring of the announced set over a plain container reports no failure."""
     monkeypatch.setenv("ONEX_WIRING_STRICT_MODE", "1")
-    container = ModelONEXContainer()
-    await _registered(
-        container, debug_store=_Store(), repository=_Repository(), llm_client=None
-    )
-    report = await _wire(container)
+    report = await _wire(ModelONEXContainer())
     assert report.total_failed == 0
     assert report.total_wired > 0
     assert len(report.results) == len(_dev_lane_manifest().contracts)
@@ -229,19 +251,23 @@ async def test_registered_handlers_receive_the_given_dependencies() -> None:
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_unregistered_handlers_are_exactly_the_nodes_without_a_live_supplier() -> (
+async def test_nodes_the_loader_refuses_are_exactly_named_as_without_a_supplier() -> (
     None
 ):
-    """Discovered, not listed: what needs arguments and is not registered is named."""
-    registered = set(
-        await _registered(
-            ModelONEXContainer(),
-            debug_store=_Store(),
-            repository=_Repository(),
-            llm_client=None,
-        )
+    """Discovered, not listed: what a plain container cannot build is named.
+
+    The full manifest is wired without strict mode, so the loader quarantines each
+    handler it cannot build instead of raising on the first. Every refused node is
+    named in ``NODES_WITHOUT_A_LIVE_SUPPLIER``, and every named node really has a
+    handler with a required constructor parameter, so a stale entry fails too.
+    """
+    report = await _wire_manifest(_full_dev_lane_manifest(), ModelONEXContainer())
+    refused = {q.contract_name for q in report.quarantined_handlers}
+    assert refused, "the loader refused nothing: discovery or the control is broken"
+    assert refused <= set(NODES_WITHOUT_A_LIVE_SUPPLIER), (
+        "nodes the runtime loader cannot build and the package still announces or "
+        f"does not name: {sorted(refused - set(NODES_WITHOUT_A_LIVE_SUPPLIER))}"
     )
-    unregistered_nodes: set[str] = set()
     needing: set[str] = set()
     for contract in _manifest().contracts:
         if contract.handler_routing is None:
@@ -250,19 +276,24 @@ async def test_unregistered_handlers_are_exactly_the_nodes_without_a_live_suppli
             handler_cls = _import_handler_class(
                 entry.handler.module, entry.handler.name
             )
-            if not _required_handler_init_params(handler_cls):
-                continue
-            needing.add(entry.handler.name)
-            if entry.handler.name not in registered:
-                unregistered_nodes.add(contract.name)
-    assert needing, "no handler with required parameters found: discovery is broken"
-    assert registered <= needing, (
-        f"registered but not needed: {sorted(registered - needing)}"
+            if _required_handler_init_params(handler_cls):
+                needing.add(contract.name)
+    assert set(NODES_WITHOUT_A_LIVE_SUPPLIER) <= needing, (
+        "named without a supplier but no handler needs one: "
+        f"{sorted(set(NODES_WITHOUT_A_LIVE_SUPPLIER) - needing)}"
     )
-    assert unregistered_nodes == set(NODES_WITHOUT_A_LIVE_SUPPLIER), (
-        "handlers the loader cannot construct and the plugin does not register: "
-        f"{sorted(unregistered_nodes)}; named without a supplier: "
-        f"{sorted(NODES_WITHOUT_A_LIVE_SUPPLIER)}"
+
+
+@pytest.mark.unit
+def test_runtime_image_strips_the_intelligence_plugin() -> None:
+    """The plugin is not a supplier in the runtime image: read from the image's own policy."""
+    kept = getattr(runtime_strip_policy, "DEFAULT_KEPT_GROUPS", {})
+    assert "onex.domain_plugins" in runtime_strip_policy.DEFAULT_STRIPPED_GROUPS
+    assert "onex.domain_plugins" not in kept.get(
+        "omninode-intelligence", frozenset()
+    ), (
+        "the runtime image keeps the intelligence plugin: it can supply the "
+        "handlers' stores there, and NODES_WITHOUT_A_LIVE_SUPPLIER may be revisited"
     )
 
 
