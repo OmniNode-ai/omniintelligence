@@ -18,6 +18,7 @@ Ticket: OMN-23422, OMN-23486
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 import pytest
@@ -26,7 +27,12 @@ from omnibase_core.models.resolver.model_handler_resolver_context import (
 )
 from omnibase_core.services.service_handler_resolver import ServiceHandlerResolver
 from omnibase_infra.runtime.auto_wiring.discovery import discover_contracts_from_paths
-from omnibase_infra.runtime.auto_wiring.handler_wiring import _import_handler_class
+from omnibase_infra.runtime.auto_wiring.handler_wiring import (
+    _import_handler_class,
+    wire_from_manifest,
+)
+from omnibase_infra.runtime.auto_wiring.report import EnumWiringOutcome
+from omnibase_infra.runtime.message_dispatch_engine import MessageDispatchEngine
 
 NODES_DIR = Path(__file__).parent.parent.parent / "src" / "omniintelligence" / "nodes"
 
@@ -111,3 +117,33 @@ def test_every_declared_handler_is_built_by_the_runtime_resolver(
     )
     resolution = ServiceHandlerResolver().resolve(context)
     assert resolution.handler_instance is not None, f"{node}: {module}.{name}"
+
+
+@pytest.mark.unit
+def test_the_whole_package_wires_through_the_runtime_pipeline() -> None:
+    """The runtime's own wiring pass accepts every node contract of the package.
+
+    ``wire_from_manifest`` is the pass the one runtime runs at boot. It stops the
+    boot on a handler the resolver cannot build and on two routing entries that
+    derive the same dispatcher id (``ONEX_CORE_064_DUPLICATE_REGISTRATION``, which
+    the hook event contracts hit when one handler class served several event types
+    with no ``operation`` to tell the entries apart).
+    """
+    manifest = discover_contracts_from_paths(CONTRACT_PATHS)
+    report = asyncio.run(
+        wire_from_manifest(
+            manifest,
+            MessageDispatchEngine(),
+            event_bus=None,
+            environment="dev",
+            container=None,
+        )
+    )
+    failed = [
+        (r.contract_name, str(r.outcome))
+        for r in report.results
+        if r.outcome not in {EnumWiringOutcome.WIRED, EnumWiringOutcome.SKIPPED}
+    ]
+    assert failed == []
+    assert len(report.results) == len(CONTRACT_PATHS)
+    assert any(r.outcome == EnumWiringOutcome.WIRED for r in report.results)

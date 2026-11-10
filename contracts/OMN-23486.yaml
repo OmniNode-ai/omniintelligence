@@ -26,7 +26,8 @@ requirements:
         statement: The seven handler classes build with no argument and still take their dependency by
           keyword.
       - id: AC3
-        statement: No other omniintelligence contract or handler changes.
+        statement: No other omniintelligence handler or contract changes, apart from the operation key
+          on the eleven routing entries of the Claude and Cursor hook event contracts.
       - id: AC4
         statement: Integrated - the dev runtime boots with the omniintelligence node contracts loaded
           and GET /api/v1/patterns on the dev runtime answers 200 after the deploy agent rolls dev.
@@ -52,12 +53,13 @@ dod_evidence:
       - AC1
       - AC2
   - id: dod-omn23486-ac3-only-handlers-change
-    description: The change touches the seven handler files, the loader-shape test and this contract.
+    description: The change touches the seven handler files, the two hook event contracts, the loader-shape
+      test and this contract.
     source: manual
     checks:
       - check_type: command
         check_value: >-
-          test "$(git diff --name-only origin/dev...HEAD | grep -vc '^src/omniintelligence/nodes/.*/handlers/.*\.py$\|^tests/unit/test_contract_handler_loader_shape\.py$\|^contracts/OMN-23486\.yaml$')"
+          test "$(git diff --name-only origin/dev...HEAD | grep -vc '^src/omniintelligence/nodes/.*/handlers/.*\.py$\|^src/omniintelligence/nodes/node_\(claude\|cursor\)_hook_event_effect/contract\.yaml$\|^tests/unit/test_contract_handler_loader_shape\.py$\|^contracts/OMN-23486\.yaml$')"
           = 0
         cwd: ${OMNI_HOME}/omniintelligence
     binds_ac:
