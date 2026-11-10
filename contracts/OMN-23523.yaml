@@ -1,0 +1,82 @@
+---
+schema_version: 1.0.0
+ticket_id: OMN-23523
+title: Leave two intelligence nodes whose names clash with other packages unannounced
+summary: >-
+  The dev runtime discovers contracts from the onex.nodes entry points of every installed first-party
+  package and refuses a second announcement of the same contract name (DUPLICATE_REGISTRATION prevented),
+  which turns its health DEGRADED on discovery_errors and the container unhealthy (h201, image revision
+  8a25397a, 2026-11-10T11:16Z). omniintelligence announced node_pattern_lifecycle_effect, already announced
+  by omnibase_infra, and node_retrieval_eval_compute, also announced by omnimarket as a bus node while
+  this package's copy is an offline harness with no topics. Both are left out of the onex.nodes table
+  by declared comment lines, and a test fails when any announced name is also announced by omnibase_infra
+  or omnimarket.
+is_seam_ticket: true
+interface_change: true
+interfaces_touched:
+  - public_api
+requirements:
+  - id: req-omn23523-announced-names-are-unique
+    statement: No contract name omniintelligence announces to the runtime is announced by another runtime
+      package.
+    acceptance:
+      - id: AC1
+        statement: omniintelligence announces neither node_pattern_lifecycle_effect nor node_retrieval_eval_compute
+          in its onex.nodes entry points, each left out by a declared comment line naming why.
+      - id: AC2
+        statement: A unit test fails when any name in omniintelligence's onex.nodes table is also announced
+          by omnibase_infra or omnimarket, and it fails on the unchanged pyproject.
+      - id: AC3
+        statement: Integrated, on the next dev roll whose image carries the change, the omninode-runtime
+          log has no DUPLICATE_REGISTRATION line for either contract and its health has no discovery_errors
+          dimension.
+evidence_requirements:
+  - kind: tests
+    description: Run the announced-name uniqueness test.
+    command: env PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/unit/test_announced_contract_names_are_unique.py
+      -q -n 0 --no-cov
+emergency_bypass:
+  enabled: false
+  justification: ''
+  follow_up_ticket_id: ''
+dod_evidence:
+  - id: dod-omn23523-ac1-declared-exclusion
+    description: Neither clashing name is in the onex.nodes table and each declaration cites OMN-23523.
+    source: manual
+    checks:
+      - check_type: command
+        check_value: >-
+          grep -q '^# not announced: node_pattern_lifecycle_effect (.*OMN-23523' pyproject.toml && grep
+          -q '^# not announced: node_retrieval_eval_compute (.*OMN-23523' pyproject.toml
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC1
+  - id: dod-omn23523-ac2-uniqueness-test
+    description: The uniqueness test reads the sibling packages' installed entry points and passes; with
+      either line restored it fails.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/test_announced_contract_names_are_unique.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC2
+  - id: dod-omn23523-ac3-integration-proof
+    description: After the deploy agent rolls dev with the change, the runtime health probe reports no
+      discovery_errors dimension.
+    source: manual
+    execution_scope: local_done_gate
+    checks:
+      - check_type: command
+        check_value: test "$(curl -s -o /dev/null -w '%{http_code}' "${OMNIINTELLIGENCE_DEV_RUNTIME_URL}/health")"
+          = 200
+        cwd: ${OMNI_HOME}/omniintelligence
+  - id: dod-omn23523-ac3-announced-set
+    description: The announced set the runtime reads has no name another runtime package announces.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/test_announced_contract_names_are_unique.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC3
