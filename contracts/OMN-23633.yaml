@@ -1,0 +1,79 @@
+---
+schema_version: 1.0.0
+ticket_id: OMN-23633
+title: Release tests assert the rule, not the previous release's numbers
+summary: >-
+  tests/unit/test_release_0_25_3_omn18595.py and tests/unit/test_transformers_lock_omn21878.py hard-coded
+  the previous release's version (0.25.3) and locked transformers (5.22.1), so every release-train change
+  failed Unit Tests (Split 10/10) with five failures (release change 1220, version 0.25.4, transformers
+  5.22.2). They now read the declared version and the rl group lower bound from pyproject.toml: the uv.lock
+  root entry and a CHANGELOG heading must match the declared version, and the locked transformers entry,
+  with its hashed artifacts, must meet the declared lower bound.
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: req-omn23633-release-tests-assert-the-rule
+    statement: The two release-shaped tests pass for any release whose version, lock and changelog agree
+      and whose locked transformers meets the declared bound, and fail when they do not.
+    acceptance:
+      - id: AC1
+        statement: 'AC1: the version test passes on dev and on the release 0.25.4 files and fails when
+          the changelog has no heading for the declared version -- falsifier: pytest tests/unit/test_release_0_25_3_omn18595.py
+          -q -n 0 --no-cov'
+      - id: AC2
+        statement: 'AC2: the transformers test passes on dev and on the release lock (5.22.2) and fails
+          when the declared lower bound exceeds the locked version -- falsifier: pytest tests/unit/test_transformers_lock_omn21878.py
+          -q -n 0 --no-cov'
+      - id: AC3
+        statement: 'AC3: integrated, the release change for omniintelligence refreshed from dev has Unit
+          Tests (Split 10/10) not red on these two files -- falsifier: pr_state_local.py --pr omniintelligence#1220
+          after the refresh'
+evidence_requirements:
+  - kind: tests
+    description: Run the two rewritten test files.
+    command: env PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/unit/test_release_0_25_3_omn18595.py tests/unit/test_transformers_lock_omn21878.py
+      -q -n 0 --no-cov
+emergency_bypass:
+  enabled: false
+  justification: ''
+  follow_up_ticket_id: ''
+dod_evidence:
+  - id: dod-omn23633-ac1-version-test
+    description: The version test passes at the head; with a changelog heading renamed it fails.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/test_release_0_25_3_omn18595.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC1
+  - id: dod-omn23633-ac2-transformers-test
+    description: The transformers test passes at the head; with the lower bound raised above the lock
+      it fails.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/test_transformers_lock_omn21878.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC2
+  - id: dod-omn23633-ac3-integration-proof
+    description: After the release change is refreshed from dev, its Unit Tests (Split 10/10) check is
+      read from the PR watcher and is not red on these two files.
+    source: manual
+    execution_scope: local_done_gate
+    checks:
+      - check_type: command
+        check_value: python3 "${OMNI_PLUGIN_ROOT}/skills/merge-drain/scripts/pr_state_local.py" --pr omniintelligence#1220
+        cwd: ${OMNI_HOME}/omniintelligence
+  - id: dod-omn23633-ac3-release-tests
+    description: Both rewritten test files pass at the head, the same files the release change runs.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/test_release_0_25_3_omn18595.py tests/unit/test_transformers_lock_omn21878.py
+          -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC3
