@@ -1,0 +1,79 @@
+---
+schema_version: 1.0.0
+ticket_id: OMN-23510
+title: Development system start keeps the real storage wiring, drops the start-anyway fallbacks and leaves
+  out two unsupplied nodes
+summary: >-
+  Two fixes for the same dev boot failure both merged: one registers the handlers' stores from the plugin's
+  own wiring, the other gave seven handler classes constructor defaults that build them with no store
+  and fail at call time. The defaults are removed, so a missing store stops the boot where the loader
+  reports it. node_git_repo_crawler_effect and node_plan_reviewer_multi_compute, which nothing can supply
+  (OMN-23509), are left out of the package's onex.nodes entry points, the set the boot announcer reads.
+  The whole-package test wires the announced set and asserts the two are excluded by that declaration.
+is_seam_ticket: true
+interface_change: true
+interfaces_touched:
+  - public_api
+requirements:
+  - id: req-omn23510-no-hidden-defaults
+    statement: Every handler omniintelligence announces is built by the runtime loader with what the plugin
+      registers, and no handler builds without the store it needs.
+    acceptance:
+      - id: AC1
+        statement: The seven handler classes take their dependencies as required arguments and every announced
+          handler constructs under strict wiring with the plugin's registrations.
+      - id: AC2
+        statement: The two nodes without a live supplier are left out of the onex.nodes entry points,
+          citing OMN-23509, and the test asserts that declaration.
+      - id: AC3
+        statement: Integrated, the next dev roll at a ref containing the change succeeds and GET /api/v1/patterns
+          answers 200.
+evidence_requirements:
+  - kind: tests
+    description: Run the strict wiring test and the loader shape test.
+    command: env PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/unit/test_contract_handler_construction.py
+      tests/unit/test_contract_handler_loader_shape.py -q -n 0 --no-cov
+emergency_bypass:
+  enabled: false
+  justification: ''
+  follow_up_ticket_id: ''
+dod_evidence:
+  - id: dod-omn23510-ac1-strict-wiring
+    description: Wire the announced omniintelligence contracts through wire_from_manifest under strict
+      mode with a real container; with no registration the loader raises the dev boot TypeError.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/test_contract_handler_construction.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC1
+  - id: dod-omn23510-ac2-declared-exclusion
+    description: The crawler node is not in the onex.nodes entry points and its declaration cites OMN-23509.
+    source: manual
+    checks:
+      - check_type: command
+        check_value: >-
+          grep -q '^# not announced: node_git_repo_crawler_effect (.*OMN-23509' pyproject.toml
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC2
+  - id: dod-omn23510-ac3-integration-proof
+    description: After the deploy agent rolls dev, GET /api/v1/patterns on the dev runtime answers 200.
+    source: manual
+    execution_scope: local_done_gate
+    checks:
+      - check_type: command
+        check_value: test "$(curl -s -o /dev/null -w '%{http_code}' "${OMNIINTELLIGENCE_DEV_RUNTIME_URL}/api/v1/patterns?limit=1")"
+          = 200
+        cwd: ${OMNI_HOME}/omniintelligence
+  - id: dod-omn23510-ac3-boot-wiring-path
+    description: The runtime's own strict wiring pass builds every announced handler with the plugin's
+      registrations, the step that stopped the dev rolls of 2026-11-10.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/test_contract_handler_construction.py -q -n 0 --no-cov
+        cwd: ${OMNI_HOME}/omniintelligence
+    binds_ac:
+      - AC3

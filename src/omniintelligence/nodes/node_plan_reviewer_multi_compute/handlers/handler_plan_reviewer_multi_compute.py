@@ -200,13 +200,13 @@ class HandlerPlanReviewerMultiCompute:
 
     def __init__(
         self,
-        model_callers: dict[EnumReviewModel, ModelCaller] | None = None,
+        model_callers: dict[EnumReviewModel, ModelCaller],
         *,
         db_conn: ProtocolDBConnection | None = None,
         producer: ProtocolKafkaPublisher | None = None,
         critic_caller: CriticCaller | None = None,
     ) -> None:
-        self._model_callers = model_callers if model_callers is not None else {}
+        self._model_callers = model_callers
         self._db_conn = db_conn
         self._producer = producer
         self._critic_caller = critic_caller
