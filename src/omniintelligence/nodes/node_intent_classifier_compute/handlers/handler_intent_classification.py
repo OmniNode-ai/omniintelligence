@@ -801,8 +801,8 @@ def _build_error_response(
 class HandlerIntentClassification:
     """Orchestrate classification, semantic enrichment, and error handling."""
 
-    def __init__(self, config: ModelClassificationConfig) -> None:
-        self._config = config
+    def __init__(self, config: ModelClassificationConfig | None = None) -> None:
+        self._config = config if config is not None else ModelClassificationConfig()
 
     def handle(
         self, request: ModelIntentClassificationInput

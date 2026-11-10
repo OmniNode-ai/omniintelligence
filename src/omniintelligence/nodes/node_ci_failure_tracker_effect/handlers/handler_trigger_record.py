@@ -155,11 +155,18 @@ class HandlerTriggerRecord:
 
     def __init__(
         self,
-        store: ProtocolDebugStore,
+        store: ProtocolDebugStore | None = None,
         kafka_producer: ProtocolKafkaPublisher | None = None,
     ) -> None:
         self._store = store
         self._kafka_producer = kafka_producer
+
+    def _require_store(self) -> ProtocolDebugStore:
+        if self._store is None:
+            raise RuntimeError(
+                f"{type(self).__name__} was built without its 'store' dependency"
+            )
+        return self._store
 
     async def handle(
         self, request: ModelTriggerRecordRequest
@@ -171,7 +178,7 @@ class HandlerTriggerRecord:
             sha=request.sha,
             failure_fingerprint=request.failure_fingerprint,
             error_classification=request.error_classification,
-            store=self._store,
+            store=self._require_store(),
             streak_threshold=request.streak_threshold,
             kafka_producer=self._kafka_producer,
             correlation_id=request.correlation_id,
