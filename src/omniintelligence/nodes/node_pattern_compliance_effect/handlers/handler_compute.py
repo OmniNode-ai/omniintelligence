@@ -544,7 +544,7 @@ class HandlerEvaluateCompliance:
 
     def __init__(
         self,
-        llm_client: ProtocolLlmClient | None = None,
+        llm_client: ProtocolLlmClient | None,
         model: str = DEFAULT_MODEL,
         kafka_producer: ProtocolKafkaPublisher | None = None,
     ) -> None:

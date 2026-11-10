@@ -18,17 +18,19 @@ stay offline. No skip: a handler with a required parameter that the plugin does
 not register fails here.
 
 Two nodes have no live supplier for a required parameter anywhere in the package
-(see ``NODES_WITHOUT_A_LIVE_SUPPLIER``). The kernel filters the manifest through
-``filter_manifest_for_runtime_profile`` before wiring, and a deployment excludes
-nodes with ``ONEX_RUNTIME_NODE_EXCLUSION``; the dev-lane manifest here is built by
-that same filter with those two dropped by name, and a companion test fails the moment the
-named set and the unregistered set differ, so the list can only shrink.
+(see ``NODES_WITHOUT_A_LIVE_SUPPLIER``). They are left out of the package's
+``onex.nodes`` entry points — the set the dev boot announcer reads to discover
+contracts — so the runtime never loads them (OMN-23509); the dev-lane manifest
+here is the kernel's profile filter run over exactly that announced set, and a
+companion test fails the moment the named set and the unregistered set differ,
+so the list can only shrink.
 
-Ticket: OMN-23431
+Ticket: OMN-23431, OMN-23510
 """
 
 from __future__ import annotations
 
+import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -44,6 +46,7 @@ from omnibase_infra.runtime.auto_wiring.models import ModelAutoWiringManifest
 from omnibase_infra.runtime.auto_wiring.profile_ownership import (
     filter_manifest_for_runtime_profile,
 )
+from omnibase_infra.runtime.auto_wiring.report import EnumWiringOutcome
 from omnibase_infra.runtime.message_dispatch_engine import MessageDispatchEngine
 
 from omniintelligence.handlers.runtime_dependencies import (
@@ -69,13 +72,14 @@ from omniintelligence.nodes.node_pattern_promotion_effect.handlers.handler_promo
 )
 
 NODES_DIR = Path(__file__).parent.parent.parent / "src" / "omniintelligence" / "nodes"
+PYPROJECT = Path(__file__).parent.parent.parent / "pyproject.toml"
 CONTRACT_PATHS = sorted(NODES_DIR.glob("*/contract.yaml"))
 
 
 # Nodes whose handler needs a constructor argument that nothing in this package can
-# build for the runtime today. Each is excluded from the dev-lane manifest exactly as
-# the deployment control ONEX_RUNTIME_NODE_EXCLUSION excludes it. Remove an entry in
-# the change that registers a live supplier for it.
+# build for the runtime today. Each is left out of the onex.nodes entry points
+# (OMN-23509), so the runtime never loads it; an entry is removed in the change that
+# registers a live supplier for it and restores the entry point.
 NODES_WITHOUT_A_LIVE_SUPPLIER: dict[str, str] = {
     "node_git_repo_crawler_effect": (
         "HandlerGitRepoCrawl needs a ProtocolCrawlStateStore; the only store is the "
@@ -111,23 +115,37 @@ def _manifest() -> ModelAutoWiringManifest:
     return ModelAutoWiringManifest(contracts=list(discovered.contracts))
 
 
+def _announced_node_dirs() -> set[str]:
+    """The node directories the package's ``onex.nodes`` entry points announce.
+
+    This is the table the dev boot announcer reads to discover contracts. One key
+    (``node_audit``) maps to a value whose last segment is not the key, so the
+    directory name is taken from each value's last dotted segment, not each key.
+    """
+    data = tomllib.loads(PYPROJECT.read_text())
+    values = data["project"]["entry-points"]["onex.nodes"].values()
+    return {value.rsplit(".", 1)[-1] for value in values}
+
+
+def _announced_manifest() -> ModelAutoWiringManifest:
+    """The contracts the runtime would discover from the announced entry points."""
+    announced = [p for p in CONTRACT_PATHS if p.parent.name in _announced_node_dirs()]
+    discovered = discover_contracts_from_paths(announced)
+    assert [e.error for e in discovered.errors] == []
+    return ModelAutoWiringManifest(contracts=list(discovered.contracts))
+
+
 def _dev_lane_manifest() -> ModelAutoWiringManifest:
     """The manifest the dev lane's main runtime wires.
 
-    The kernel's own ownership filter (profile, folded profiles, lane) runs first;
-    then the two named nodes are dropped, as the deployment's
-    ``ONEX_RUNTIME_NODE_EXCLUSION`` drops them in omnibase_infra releases that read
-    it. The omnibase_infra pinned here predates that variable, so it is applied by
-    name here rather than left to the filter.
+    The kernel's own ownership filter (profile, folded profiles, lane) runs over
+    the announced manifest — the announced set comes from the package's
+    ``onex.nodes`` entry points, exactly what the boot announcer reads — and no
+    node is dropped by name here.
     """
-    owned = filter_manifest_for_runtime_profile(
-        _manifest(), "main", environ=_DEV_LANE_ENV
+    return filter_manifest_for_runtime_profile(
+        _announced_manifest(), "main", environ=_DEV_LANE_ENV
     ).manifest
-    return ModelAutoWiringManifest(
-        contracts=[
-            c for c in owned.contracts if c.name not in NODES_WITHOUT_A_LIVE_SUPPLIER
-        ]
-    )
 
 
 async def _wire(container: ModelONEXContainer) -> Any:
@@ -182,6 +200,12 @@ async def test_registered_dependencies_let_every_announced_handler_construct(
     report = await _wire(container)
     assert report.total_failed == 0
     assert report.total_wired > 0
+    assert len(report.results) == len(_dev_lane_manifest().contracts)
+    assert [
+        (r.contract_name, str(r.outcome))
+        for r in report.results
+        if r.outcome not in {EnumWiringOutcome.WIRED, EnumWiringOutcome.SKIPPED}
+    ] == []
 
 
 @pytest.mark.unit
@@ -243,8 +267,35 @@ async def test_unregistered_handlers_are_exactly_the_nodes_without_a_live_suppli
 
 
 @pytest.mark.unit
-def test_the_dev_lane_filter_drops_only_the_named_nodes() -> None:
-    """The mirrored deployment exclusion removes the named nodes and nothing else."""
-    full = {c.name for c in _manifest().contracts}
-    kept = {c.name for c in _dev_lane_manifest().contracts}
-    assert full - kept == set(NODES_WITHOUT_A_LIVE_SUPPLIER)
+def test_excluded_nodes_are_excluded_by_declaration() -> None:
+    """Left out by the package's declared entry points, not by deletion, profile or accident."""
+    assert set(NODES_WITHOUT_A_LIVE_SUPPLIER).isdisjoint(_announced_node_dirs())
+    for name in NODES_WITHOUT_A_LIVE_SUPPLIER:
+        assert (NODES_DIR / name / "contract.yaml").is_file(), (
+            f"{name} was deleted instead of being left unannounced"
+        )
+        declaration = next(
+            (
+                line
+                for line in PYPROJECT.read_text().splitlines()
+                if f"# not announced: {name} (" in line
+            ),
+            "",
+        )
+        assert declaration, f"pyproject.toml has no '# not announced: {name}' line"
+        assert "OMN-23509" in declaration, (
+            f"the exclusion declaration for {name} does not cite OMN-23509"
+        )
+    profile_keeps = {
+        c.name
+        for c in filter_manifest_for_runtime_profile(
+            _manifest(), "main", environ=_DEV_LANE_ENV
+        ).manifest.contracts
+    }
+    assert set(NODES_WITHOUT_A_LIVE_SUPPLIER) <= profile_keeps, (
+        "the profile filter alone already removes an excluded node: the entry-point "
+        f"declaration is not what keeps it out (profile keeps {sorted(profile_keeps)})"
+    )
+    assert {c.name for c in _dev_lane_manifest().contracts}.isdisjoint(
+        NODES_WITHOUT_A_LIVE_SUPPLIER
+    )

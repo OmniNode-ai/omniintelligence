@@ -13,26 +13,16 @@ loader an empty name, and the runtime fails to boot with
 This test runs the loader's own discovery and class import over every node contract
 shipped in this package, so a contract that the runtime would reject fails here first.
 
-Ticket: OMN-23422, OMN-23486
+Ticket: OMN-23422
 """
 
 from __future__ import annotations
 
-import asyncio
 from pathlib import Path
 
 import pytest
-from omnibase_core.models.resolver.model_handler_resolver_context import (
-    ModelHandlerResolverContext,
-)
-from omnibase_core.services.service_handler_resolver import ServiceHandlerResolver
 from omnibase_infra.runtime.auto_wiring.discovery import discover_contracts_from_paths
-from omnibase_infra.runtime.auto_wiring.handler_wiring import (
-    _import_handler_class,
-    wire_from_manifest,
-)
-from omnibase_infra.runtime.auto_wiring.report import EnumWiringOutcome
-from omnibase_infra.runtime.message_dispatch_engine import MessageDispatchEngine
+from omnibase_infra.runtime.auto_wiring.handler_wiring import _import_handler_class
 
 NODES_DIR = Path(__file__).parent.parent.parent / "src" / "omniintelligence" / "nodes"
 
@@ -83,67 +73,3 @@ def test_every_declared_handler_is_a_loadable_class(
     assert callable(getattr(handler_cls, "handle", None)) or callable(
         getattr(handler_cls, "handle_async", None)
     ), f"{node}: {module}.{name} has neither handle nor handle_async"
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize(
-    ("node", "module", "name"),
-    _handler_entries(),
-    ids=lambda v: str(v).rsplit(".", 1)[-1],
-)
-def test_every_declared_handler_is_built_by_the_runtime_resolver(
-    node: str, module: str, name: str
-) -> None:
-    """The runtime's handler resolver builds each handler from what it supplies.
-
-    The resolver hands a handler only the event bus, the container and the
-    ownership query (and any explicit dependency map a node registry builds). A
-    handler class with another required constructor parameter makes the resolver
-    raise ``TypeError`` and the runtime stops booting (dev roll of 2026-11-10T07:30Z,
-    ``HandlerStreak`` requires ``store``). The context here supplies all three
-    runtime objects and no explicit dependency map, which is the most the
-    runtime offers these nodes.
-    """
-    handler_cls = _import_handler_class(module, name)
-    context = ModelHandlerResolverContext(
-        handler_cls=handler_cls,
-        handler_module=module,
-        handler_name=name,
-        contract_name=node,
-        node_name=node,
-        event_bus=object(),
-        container=object(),
-        ownership_query=object(),
-    )
-    resolution = ServiceHandlerResolver().resolve(context)
-    assert resolution.handler_instance is not None, f"{node}: {module}.{name}"
-
-
-@pytest.mark.unit
-def test_the_whole_package_wires_through_the_runtime_pipeline() -> None:
-    """The runtime's own wiring pass accepts every node contract of the package.
-
-    ``wire_from_manifest`` is the pass the one runtime runs at boot. It stops the
-    boot on a handler the resolver cannot build and on two routing entries that
-    derive the same dispatcher id (``ONEX_CORE_064_DUPLICATE_REGISTRATION``, which
-    the hook event contracts hit when one handler class served several event types
-    with no ``operation`` to tell the entries apart).
-    """
-    manifest = discover_contracts_from_paths(CONTRACT_PATHS)
-    report = asyncio.run(
-        wire_from_manifest(
-            manifest,
-            MessageDispatchEngine(),
-            event_bus=None,
-            environment="dev",
-            container=None,
-        )
-    )
-    failed = [
-        (r.contract_name, str(r.outcome))
-        for r in report.results
-        if r.outcome not in {EnumWiringOutcome.WIRED, EnumWiringOutcome.SKIPPED}
-    ]
-    assert failed == []
-    assert len(report.results) == len(CONTRACT_PATHS)
-    assert any(r.outcome == EnumWiringOutcome.WIRED for r in report.results)
