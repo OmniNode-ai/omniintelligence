@@ -1,3 +1,18 @@
+## v0.25.4 (2026-11-11)
+
+### Release
+- Cut omninode-intelligence from dev at 0.25.4 by the scheduled release train.
+- 6 release-relevant commit(s) merged since v0.25.3.
+- Opened by the release train, which cuts only when the repo's declared lab-evidence premise holds for the exact candidate commit.
+
+### Included Since v0.25.3
+- fix: stop announcing two contract names other packages own (#1225)
+- fix: leave two store-needing nodes unannounced because the runtime image strips the plugin that supplies them (#1224)
+- fix: keep the plugin's store wiring, drop the constructor defaults, leave two unsupplied nodes unannounced (#1223)
+- fix: omniintelligence handlers that need a store are built for the one runtime (#1222)
+- fix: routed handlers build from what the runtime supplies (#1221)
+- fix: omniintelligence node contracts declare handler classes the one runtime loads (#1219)
+
 ## v0.25.3 (2026-11-03)
 
 ### Release
