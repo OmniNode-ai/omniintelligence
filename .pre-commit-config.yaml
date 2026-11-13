@@ -247,6 +247,21 @@
 fail_fast: false
 
 repos:
+  # OMN-24065: generic validators omnibase_core merged (core 2290 to 2294), run here by hook id.
+  # rev is a dev-merge tag of the core commit that carries each hook below. No baseline file and no
+  # allowlist: each hook passes over the whole tree. no-naive-timestamp is not listed because it
+  # refuses code already in the tree.
+  - repo: https://github.com/OmniNode-ai/omnibase_core
+    rev: dev-20261111183916-a85cb916d4c1
+    hooks:
+      - id: declared-timeout-reaches-call
+        args: [--report-json, /tmp/onex-validation-declared-timeout-reaches-call.json]
+      - id: no-time-bound-truncation
+        args: [--report-json, /tmp/onex-validation-no-time-bound-truncation.json]
+      - id: no-id-from-stamp
+        args: [--report-json, /tmp/onex-validation-no-id-from-stamp.json]
+      - id: no-fixed-tmp-atomic-write
+        args: [--report-json, /tmp/onex-validation-no-fixed-tmp-atomic-write.json]
   # OMN-19183 plan task A3.x: shrink-only baseline config/hardcoded_model_config_baseline.yaml.
   # No inline suppression marker; pin must equal core_ref in .github/workflows/hardcoded-model-config.yml.
   - repo: https://github.com/OmniNode-ai/omnibase_core
