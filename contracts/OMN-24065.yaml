@@ -1,0 +1,82 @@
+---
+schema_version: "1.0.0"
+ticket_id: OMN-24065
+title: "Run the new core validators in each repository's pre-commit"
+summary: >
+  omnibase_core merged five generic validators that no consumer's pre-commit configuration calls. This
+  repository now lists declared-timeout-reaches-call, no-time-bound-truncation, no-id-from-stamp, no-fixed-tmp-atomic-write
+  at core revision dev-20261111183916-a85cb916d4c1 in a new block, a revision that carries each hook,
+  so no existing pin moves; each passes over the whole tree with no baseline file and no allowlist. Not
+  listed: no-naive-timestamp (5 findings); each refuses code already in the tree and the canonical-file-shape
+  ratchet refuses a new baseline file, so the findings need fixing first.
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: req-omn24065-hooks-listed
+    statement: This repository's pre-commit config lists the core validator hooks that pass over its tree.
+    acceptance:
+      - id: "AC1"
+        statement: "AC1: omniclaude's pre-commit config lists declared-timeout-reaches-call, no-time-bound-truncation,
+          no-naive-timestamp, no-id-from-stamp and no-fixed-tmp-atomic-write at a core revision that carries
+          them, with a shrink-only baseline for the findings it already holds -- falsifier: pre-commit
+          run no-fixed-tmp-atomic-write --all-files fails on a planted fixed-suffix temporary rename and
+          passes on the branch"
+  - id: req-omn24065-consumers
+    statement: Each repository that consumes core hooks lists the same hooks in its own pre-commit config
+      in its own pull request.
+    acceptance:
+      - id: "AC2"
+        statement: "AC2: each further repository that consumes core hooks lists the same five hooks in
+          its own pre-commit config in its own pull request, moving its core pin only where the pinned
+          revision lacks a hook -- falsifier: pre-commit run <hook id> --all-files exits non-zero on a
+          planted violation in that repository"
+  - id: req-omn24065-integrated
+    statement: The hooks run in the consumer's own next CI run on the merged head.
+    acceptance:
+      - id: "AC3"
+        statement: "AC3: integrated: the hooks run in each consumer's own next CI run on the merged head
+          and the dev runtime keeps running on the merged revision -- falsifier: the consumer's CI log
+          for the pre-commit job on the merged head lacks the hook ids, read from the PR watcher state
+          and the running image revision label"
+evidence_requirements:
+  - kind: tests
+    description: "The listed hooks pass over the tree"
+    command: "pre-commit run declared-timeout-reaches-call --all-files"
+emergency_bypass:
+  enabled: false
+  justification: ""
+  follow_up_ticket_id: ""
+dod_evidence:
+  - id: dod-omn24065-ac1-hooks-listed
+    description: "omniintelligence's pre-commit config lists 4 of the five hook ids, each passing over
+      the tree (measured with pre-commit run <id> --all-files). The rest are not listed: no-naive-timestamp
+      (5 findings)."
+    source: manual
+    binds_ac:
+      - "AC1"
+    checks:
+      - check_type: command
+        check_value: "grep -c -E 'id: (declared-timeout-reaches-call|no-time-bound-truncation|no-id-from-stamp|no-fixed-tmp-atomic-write)$'
+          .pre-commit-config.yaml"
+        cwd: "${OMNI_HOME}/omniintelligence"
+  - id: dod-omn24065-ac2-consumers
+    description: "AC2 is met repository by repository, each in its own pull request; this repository's
+      entry is the hooks listed in its config. Read in each consumer's pull request."
+    source: manual
+    binds_ac:
+      - "AC2"
+    checks:
+      - check_type: command
+        check_value: "grep -q 'id: declared-timeout-reaches-call$' .pre-commit-config.yaml"
+        cwd: "${OMNI_HOME}/omniintelligence"
+  - id: dod-omn24065-ac3-integrated
+    description: "AC3 is a reading of the consumer's CI run on the merged head and of the running image
+      revision; not yet read. The check pins the hook the reading depends on."
+    source: manual
+    binds_ac:
+      - "AC3"
+    checks:
+      - check_type: command
+        check_value: "grep -q 'id: declared-timeout-reaches-call$' .pre-commit-config.yaml"
+        cwd: "${OMNI_HOME}/omniintelligence"
