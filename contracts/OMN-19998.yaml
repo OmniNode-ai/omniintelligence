@@ -106,8 +106,7 @@ dod_evidence:
     description: "No omnibase.compat hit remains on the paths this change edits."
     source: "manual"
     checks:
-      - check_type: "command"
-        check_value: "! git grep -n -i 'omnibase.compat' -- .github/workflows/release.yml .github/workflows/sibling-lock-refresh.yml
-          .github/workflows/workflow-script-refs.yml"
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_no_omnibase_compat_workflows_omn19998.py -q -n 0"
         cwd: "."
     binds_ac: ["AC4"]
