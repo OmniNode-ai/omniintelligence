@@ -78,7 +78,7 @@ jobs:
         # This repository published to PyPI with no resolvability check at all
         # until OMN-19655, while its four publishing siblings refused a wheel
         # whose declared dependencies cannot be installed from the published
-        # index (omnimarket 0.4.6 pinned a nonexistent omnibase-compat, OMN-14064;
+        # index (omnimarket 0.4.6 pinned a nonexistent sibling release, OMN-14064;
         # omnimarket 0.4.21-0.4.24 needed an omnibase-core no published
         # omnibase-infra allowed, OMN-18034). The script is vendored
         # byte-for-byte from omnibase_infra and is the same one

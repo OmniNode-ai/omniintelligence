@@ -16,7 +16,7 @@
 # both of them run. Every manual replay dispatched here died at
 # `[Errno 2] No such file or directory` before the precheck could decide
 # anything -- the sanctioned recovery path was a dead end, discovered only when
-# somebody needed it mid-incident (omnibase_compat run 33001337186).
+# somebody needed it mid-incident (a sibling repository run 33001337186).
 #
 # The gate's logic, its unit tests, and the reasons for its two deliberate
 # blind spots all live in tests/ci/test_workflow_script_refs_exist.py.
