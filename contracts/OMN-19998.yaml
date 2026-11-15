@@ -37,6 +37,14 @@ requirements:
         statement: "A four-chunk review whose primary answers within each configured request timeout but
           exceeds the whole-vote budget completes through its healthy configured overflow within the original
           total budget; silent endpoints still fail as a timeout and no partial review becomes a vote."
+  - id: "req-omn19998-remove-compat"
+    statement: "Operator RULING 2026-11-15T17:59:49Z: omnibase_compat is removed and nothing uses it.
+      This repository no longer installs, checks out, imports, pins or lists it on the changed paths."
+    acceptance:
+      - id: "AC4"
+        statement: "AC4: the repository's own grep for omnibase.compat over the changed paths returns
+          no hit -- falsifier: git grep -n -i 'omnibase.compat' -- .github/workflows/release.yml .github/workflows/sibling-lock-refresh.yml
+          .github/workflows/workflow-script-refs.yml exits 1 at the head and exits 0 at the merge base"
 evidence_requirements:
   - kind: "tests"
     description: "The exhausted budget is a failed vote that the substitute-vote policy may replace."
@@ -94,3 +102,12 @@ dod_evidence:
           chunk_overflow_through_the_production_http_handler"
         cwd: "."
     binds_ac: ["AC3"]
+  - id: "dod-omn19998-remove-compat"
+    description: "No omnibase.compat hit remains on the paths this change edits."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: "! git grep -n -i 'omnibase.compat' -- .github/workflows/release.yml .github/workflows/sibling-lock-refresh.yml
+          .github/workflows/workflow-script-refs.yml"
+        cwd: "."
+    binds_ac: ["AC4"]
