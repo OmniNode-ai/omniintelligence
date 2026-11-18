@@ -1,0 +1,44 @@
+---
+schema_version: "1.0.0"
+ticket_id: OMN-25664
+title: Repo Evidence Gate caller runs on pull_request
+summary: >-
+  The Repo Evidence Gate caller uses the pull_request event with its existing filters and check name.
+requirements:
+  - id: req-repo-evidence-caller-trigger
+    statement: >-
+      Run the Repo Evidence Gate on pull_request and preserve the caller's filters and check name.
+    acceptance:
+      - id: AC1
+        statement: >-
+          AC1: omniintelligence's call-repo-evidence-gate.yml on its default branch triggers on pull_request
+          with the same types and branches, keeps job id repo-evidence so the context name repo-evidence
+          / dod-verify is unchanged, and no longer names pull_request_target -- falsifier: git grep -c
+          pull_request_target origin/dev -- .github/workflows/call-repo-evidence-gate.yml returns 0 in
+          omniintelligence
+      - id: AC2
+        statement: >-
+          AC2: the tests that pin the old trigger in omniintelligence are rewritten to pin the new one
+          with the same strictness, fail on the old workflow and pass on the new one -- falsifier: the
+          repository's caller-trigger test run with pytest red on the base workflow and green on the head,
+          receipt in the PR body
+dod_evidence:
+  - id: caller-trigger
+    description: >-
+      Check the event, filters, job id and display name, read-only permissions, and absence of references
+      to the old event in the workflow.
+    source: manual
+    binds_ac: [AC1]
+    checks:
+      - check_type: test_passes
+        check_value: >-
+          uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q -k 'base_branch or bare_call_with_no_secrets'
+        cwd: "."
+  - id: caller-regression-tests
+    description: Run the caller regression tests with the new trigger expectation.
+    source: manual
+    binds_ac: [AC2]
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_repo_evidence_caller_omn20074.py -q
+        cwd: "."
