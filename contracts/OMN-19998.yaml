@@ -38,8 +38,8 @@ requirements:
           exceeds the whole-vote budget completes through its healthy configured overflow within the original
           total budget; silent endpoints still fail as a timeout and no partial review becomes a vote."
   - id: "req-omn19998-remove-compat"
-    statement: "Operator RULING 2026-11-15T17:59:49Z: omnibase_compat is removed and nothing uses it.
-      This repository no longer installs, checks out, imports, pins or lists it on the changed paths."
+    statement: "The workflow paths changed under the 2026-11-15T17:59:49Z ruling omit the retired shared-structure
+      package."
     acceptance:
       - id: "AC4"
         statement: "AC4: the repository's own grep for omnibase.compat over the changed paths returns
@@ -103,10 +103,10 @@ dod_evidence:
         cwd: "."
     binds_ac: ["AC3"]
   - id: "dod-omn19998-remove-compat"
-    description: "No omnibase.compat hit remains on the paths this change edits."
+    description: "The edited paths omit the retired shared-structure package."
     source: "manual"
     checks:
       - check_type: "test_passes"
-        check_value: "uv run pytest tests/ci/test_no_omnibase_compat_workflows_omn19998.py -q -n 0"
+        check_value: "uv run pytest tests/ci/test_retired_package_references_omn19998.py -q -n 0"
         cwd: "."
     binds_ac: ["AC4"]

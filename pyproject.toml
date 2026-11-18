@@ -236,18 +236,8 @@ all = [
 ]
 
 [tool.uv.sources]
-# omnimarket git-rev override removed under OMN-18634 (2026-09-18): the pinned rev
-# 54fa07dd (omnimarket 0.4.3, 2026-07-10) declares `omnibase-compat==0.5.6` exactly,
-# while every omnibase-infra release from 0.38.22 on declares `omnibase-compat==0.5.7`
-# exactly. Two exact pins on the same distribution cannot both hold, so EVERY
-# omnibase_infra release cascade refused at `uv lock --upgrade-package
-# omnibase-infra==<ver>` on this repo and only this repo (run 35329990280, v0.38.32:
-# the sibling omnimemory and omniclaude legs in the same run succeeded, and the
-# OMN-15604 `--check-movable` guard PASSED, so the refusal was never about the
-# omnibase-infra override this repo had already removed). omnimarket is published to
-# PyPI and its releases carry `omnibase-compat==0.5.7`, so it resolves from the
-# declared range (>=0.4.0) in [project.dependencies] instead. This also retires the
-# OMN-15145 staleness residual: there is no longer a rev to refresh.
+# OMN-18634 removed the omnimarket git-rev override. uv resolves omnimarket from
+# PyPI using the declared range (>=0.4.0) in [project.dependencies].
 # omnibase-core git-rev override removed under OMN-16287 (2026-08-20): the OMN-14758
 # omnibase_infra override this comment cited was deleted 2026-08-01 (OMN-14628), and
 # PyPI now has releases past the pinned unreleased rev — resolves from the declared
