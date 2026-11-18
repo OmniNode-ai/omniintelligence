@@ -8,7 +8,7 @@
 # protection required-checks, and fails loud on any missing/mis-configured
 # validator.
 #
-# Adding a new validator here automatically propagates to all 12 repos via the
+# Adding a new validator here automatically propagates to governed repos via the
 # OMN-9050 pin-bump bot: spec change → bot opens a bump PR on every downstream
 # repo → each repo's handshake workflow fails until wiring is added.
 #
@@ -26,7 +26,6 @@ schema_version:
 # validators will surface as gaps on the next handshake run.
 known_repos:
   - omniclaude
-  - omnibase_compat
   - omnibase_core
   - omnibase_spi
   - omnibase_infra
@@ -45,8 +44,8 @@ known_repos:
 #   - silent_skip_allowed: false (no advisory modes per feedback_no_informational_gates)
 #   - excludes.forbidden: regex patterns the exclude list MUST NOT contain
 #   - excludes.allowed: regex patterns the exclude list MAY contain (fixtures only)
-#   - applies_to_repos: which of the 12 repos must have this validator wired.
-#     "all" = all 12. Override with a list for validators that legitimately
+#   - applies_to_repos: which governed repos must have this validator wired.
+#     "all" = every repo in known_repos. Override with a list for validators that legitimately
 #     skip some repos (e.g., Python validators skip omniweb PHP).
 #   - central_source: canonical module/script location
 #   - pre_commit_hook_ids: list of acceptable pre-commit hook id substrings.
@@ -171,7 +170,6 @@ required_validators:
       - omnibase_core
       - omnibase_infra
       - omnibase_spi
-      - omnibase_compat
       - omnimarket
       - omnimemory
       - omniintelligence
@@ -199,7 +197,6 @@ required_validators:
       - omnibase_core
       - omnibase_infra
       - omnibase_spi
-      - omnibase_compat
       - omnimarket
       - omnimemory
       - omniintelligence
@@ -264,7 +261,6 @@ required_validators:
       - omnibase_core
       - omnibase_infra
       - omnibase_spi
-      - omnibase_compat
       - omnimarket
       - omnimemory
       - omniintelligence
@@ -291,7 +287,6 @@ required_validators:
       - omnibase_core
       - omnibase_infra
       - omnibase_spi
-      - omnibase_compat
       - omnimarket
       - omnimemory
       - omniintelligence
@@ -318,7 +313,6 @@ required_validators:
       - omnibase_core
       - omnibase_infra
       - omnibase_spi
-      - omnibase_compat
       - omnimarket
       - omnimemory
       - omniintelligence
@@ -366,7 +360,6 @@ required_validators:
       - omnibase_core
       - omnibase_infra
       - omnibase_spi
-      - omnibase_compat
       - omnimarket
       - omnimemory
       - omniintelligence
@@ -393,7 +386,6 @@ required_validators:
       - omnibase_core
       - omnibase_infra
       - omnibase_spi
-      - omnibase_compat
       - omnimarket
       - omnimemory
       - omniintelligence

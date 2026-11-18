@@ -18,7 +18,7 @@ requirements:
     acceptance:
       - id: "AC1"
         statement: |-
-          AC1: In each of omnibase_spi, omnibase_compat and omniintelligence, `.github/workflows/call-reject-skip.yml` on the PR head calls omniclaude's `reject-deploy-gate-skip.yml` at a sha that has 4358450cc as an ancestor -- falsifier: `git -C omniclaude merge-base --is-ancestor 4358450cc <pinned sha>` exits 0 for each repo's pinned sha, and `git -C omniclaude show <pinned sha>:.github/workflows/reject-deploy-gate-skip.yml | grep -c occ-preflight.yml@` returns 0
+          AC1: In each of omnibase_spi, the retired shared-structure repository and omniintelligence, `.github/workflows/call-reject-skip.yml` on the PR head calls omniclaude's `reject-deploy-gate-skip.yml` at a sha that has 4358450cc as an ancestor -- falsifier: `git -C omniclaude merge-base --is-ancestor 4358450cc <pinned sha>` exits 0 for each repo's pinned sha, and `git -C omniclaude show <pinned sha>:.github/workflows/reject-deploy-gate-skip.yml | grep -c occ-preflight.yml@` returns 0
       - id: "AC2"
         statement: |-
           AC2: The skip-token scan still runs and still refuses a skip token on each repo's PR -- falsifier: the PR's own `call-reject-skip-token / scan` (or the repo's equivalent scan context) check run concludes success on the PR head and no `call-reject-skip-token / occ-preflight / eligibility` context is reported for that head; plus the reusable's scan step, run locally against a planted staged line carrying a skip-token prefix, exits non-zero (recorded in the PR body's Lab: line)

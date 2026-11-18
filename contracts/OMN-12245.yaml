@@ -14,13 +14,6 @@ emergency_bypass:
   justification: ""
   follow_up_ticket_id: ""
 dod_evidence:
-  - id: "dod-release-omnibase-compat-pr-112"
-    description: "omnibase_compat release PR #112 is mergeable release evidence for OMN-12245."
-    source: "manual"
-    status: "verified"
-    checks:
-      - check_type: "command"
-        check_value: "grep -q '^status: PASS$' drift/dod_receipts/OMN-12245/dod-release-omnibase-compat-pr-112/command.yaml"
   - id: "dod-release-omnibase-core-pr-1168"
     description: "omnibase_core release PR #1168 is mergeable release evidence for OMN-12245."
     source: "manual"

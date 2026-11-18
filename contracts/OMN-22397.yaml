@@ -1,0 +1,69 @@
+---
+schema_version: "1.0.0"
+ticket_id: OMN-22397
+title: Remove the retired shared-structure package from the handshake spec and the lock
+summary: >-
+  Remove the retired package from the validator spec and retire historical references. The lock keeps
+  the published transitive requirements pending omnibase-infra 0.38.77 and omnimarket 0.4.321.
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: retired-shared-structure-package
+    statement: Remove references to the retired package from the repository.
+    acceptance:
+      - id: AC1
+        statement: The only literal references in the tree are the documented lock entries.
+      - id: AC2
+        statement: The focused tests and CI contract tests pass, with a failing spec check at the merge
+          base.
+      - id: AC3
+        statement: The residual lock entries belong to the two published releases that still require the
+          package.
+      - id: AC4
+        statement: The PR head passes required contexts and is handed to the landing controller.
+dod_evidence:
+  - id: retired-package-references
+    description: Scan the checked-out commit for literal references outside the lock.
+    source: manual
+    checks:
+      - check_type: command
+        check_value: >-
+          git grep -nIE 'omnibase[_-]compat' HEAD -- . ':(exclude)uv.lock'; test "$?" -eq 1
+        cwd: "."
+    binds_ac: [AC1]
+  - id: retired-package-tests
+    description: Run the retirement guard and the CI contract tests for the affected paths.
+    source: manual
+    checks:
+      - check_type: test_passes
+        check_value: >-
+          uv run --locked pytest -q -n 0 tests/ci/test_retired_package_references_omn19998.py tests/ci/test_workflow_script_refs_exist.py
+          tests/ci/test_occ_residue_removed_omn20074.py tests/ci/test_pin_resolvability_conflict_report.py
+          tests/ci/test_pin_resolvability_gate_workflow.py tests/ci/test_contract_validation_core_validator_omn20074.py
+          tests/unit/test_uv_sources_cascade_compatibility_omn18634.py
+        cwd: "."
+    binds_ac: [AC2]
+  - id: published-lock-residual
+    description: >-
+      The five matching lines are confined to the unchanged lock pending omnibase-infra 0.38.77 and omnimarket
+      0.4.321.
+    source: manual
+    checks:
+      - check_type: command
+        check_value: >-
+          test "$(git grep -cIE 'omnibase[_-]compat' HEAD)" = 'HEAD:uv.lock:5' && test "$(git rev-parse
+          HEAD:uv.lock)" = 44236188d085b52a827eed5033bab0ea84ed5777
+        cwd: "."
+    binds_ac: [AC3]
+  - id: pr-head-verification
+    description: >-
+      The hosted verifier checks the PR event's exact head. The required contexts and the landing handoff
+      are recorded by the watcher and landing controller.
+    source: manual
+    checks:
+      - check_type: command
+        check_value: >-
+          test "$(git rev-parse HEAD)" = "$(jq -er '.pull_request.head.sha' "$GITHUB_EVENT_PATH")"
+        cwd: "."
+    binds_ac: [AC4]

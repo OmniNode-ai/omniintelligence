@@ -8,11 +8,10 @@ leg, and only that leg, for roughly two months. The cause was not the
 ``--check-movable`` guard, which PASSED on every run: this repo had already
 removed its ``omnibase-infra`` git override. It was a *different* entry in the
 same table. ``[tool.uv.sources]`` pinned ``omnimarket`` to rev ``54fa07dd``
-(omnimarket 0.4.3, 2026-07-10), and that frozen revision declares
-``omnibase-compat==0.5.6`` exactly, while every ``omnibase-infra`` release from
-0.38.22 on declares ``omnibase-compat==0.5.7`` exactly. Two exact pins on one
-distribution cannot both hold, so ``uv lock --upgrade-package
-omnibase-infra==<ver>`` was unsatisfiable and the repo sat at 0.38.21.
+(omnimarket 0.4.3, 2026-07-10). That revision and ``omnibase-infra`` releases
+from 0.38.22 required incompatible versions of the same dependency, so
+``uv lock --upgrade-package omnibase-infra==<ver>`` could not resolve and the
+repo stayed at 0.38.21.
 
 A git-rev override on a distribution that IS published to PyPI freezes that
 distribution's transitive exact pins at the revision's moment. The foundation
@@ -50,8 +49,7 @@ _UV_LOCK = _REPO_ROOT / "uv.lock"
 #: Empty since OMN-20074 dropped the unused onex-change-control pin, the one
 #: distribution that was not on PyPI.
 #:
-#: omnimarket is deliberately ABSENT: it publishes to PyPI (0.4.126 at the time
-#: of this fix) and its releases carry the current ``omnibase-compat`` pin.
+#: omnimarket publishes releases to PyPI.
 _GIT_OVERRIDE_ALLOWLIST: frozenset[str] = frozenset()
 
 

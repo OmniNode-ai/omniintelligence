@@ -4,9 +4,9 @@ ticket_id: OMN-22011
 title: The dependency-provenance gate is core's check-dep-provenance hook
 summary: >-
   omniintelligence carried its own scripts/check_dep_provenance.py, which forbade every git source for
-  omnibase-core, omnibase-spi and omnibase-compat and so refused the tag-only dev merge-tag pin the dependency
-  cascade writes. The gate is now core's check-dep-provenance hook (OMN-22011), consumed from the pre-commit
-  config and run by dep-provenance-gate.yml; the local script and its tests are deleted.
+  the shared foundation packages and refused the tag-only dev merge-tag pin the dependency cascade writes.
+  The gate is now core's check-dep-provenance hook (OMN-22011), consumed from the pre-commit config and
+  run by dep-provenance-gate.yml; the local script and its tests are deleted.
 is_seam_ticket: false
 interface_change: false
 interfaces_touched: []

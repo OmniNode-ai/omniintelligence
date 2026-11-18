@@ -9,8 +9,7 @@ into this repo. Both carry a
     run: python3 scripts/ci/manual_replay_precheck.py pr_state.json
 
 but the fan-out never carried `scripts/ci/manual_replay_precheck.py` with
-them. Live shape (omnibase_compat run 33001337186, omnimemory run
-33019346585):
+them. The missing script produced this error in omnimemory run 33019346585.
 
     python3: can't open file '/home/runner/work/.../manual_replay_precheck.py'
     [Errno 2] No such file or directory
