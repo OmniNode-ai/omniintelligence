@@ -32,7 +32,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 JOB_ID = "canonical-file-shape"
 STEP_NAME = "Refuse new non-canonical files and new exceptions"
-LANDED_EXCEPTION_FILE = ".github/workflows/secrets-baseline-wiring.yml"
+LANDED_EXCEPTION_FILE = "config/landed_allowlist.yaml"
 NEW_EXCEPTION_FILE = "config/new_allowlist.yaml"
 
 
@@ -91,7 +91,7 @@ class _Repo:
             self.work, "previous release", {"README.md": "a\n"}
         )
         # A dev PR that landed an exception file, checked on its own PR.
-        _commit(self.work, "dev PR", {LANDED_EXCEPTION_FILE: "name: wiring\n"})
+        _commit(self.work, "dev PR", {LANDED_EXCEPTION_FILE: "entries:\n  - a\n"})
         # The release commit; main is fast-forwarded to it.
         self.release = _commit(self.work, "release", {"CHANGELOG.md": "v0.25.0\n"})
         _git(self.work, "push", "-q", "origin", "dev")

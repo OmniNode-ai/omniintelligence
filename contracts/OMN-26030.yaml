@@ -60,8 +60,8 @@ dod_evidence:
     binds_ac:
       - "AC1"
     checks:
-      - check_type: command
-        check_value: "! grep -q 'dev-20261029' .pre-commit-config.yaml"
+      - check_type: test_passes
+        check_value: "uv run --frozen pytest tests/ci/test_precommit_core_revs_omn26030.py -q --no-cov"
         cwd: "${OMNI_HOME}/omniintelligence"
   - id: dod-omn26030-ac2-dependency-pins
     description: "The omnibase_core dependency-pins check, run at the new tag, names none of the three
@@ -71,8 +71,9 @@ dod_evidence:
     binds_ac:
       - "AC2"
     checks:
-      - check_type: command
-        check_value: "grep -c 'rev: dev-20261119101844-59e0293aeaef' .pre-commit-config.yaml"
+      - check_type: test_passes
+        check_value: "uv run --frozen pytest tests/ci/test_precommit_core_revs_omn26030.py tests/ci/test_canonical_file_shape_release_push_omn21164.py
+          -q --no-cov"
         cwd: "${OMNI_HOME}/omniintelligence"
   - id: dod-omn26030-ac3-hooks-and-stamps
     description: "pre-commit run --all-files and the focused tests that pin the hook config pass at the
