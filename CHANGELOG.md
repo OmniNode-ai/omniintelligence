@@ -1,3 +1,13 @@
+## v0.25.5 (2026-11-19)
+
+### Release
+- Cut omninode-intelligence from dev at 0.25.5 by the scheduled release train.
+- 1 release-relevant commit(s) merged since v0.25.4.
+- Opened by the release train, which cuts only when the repo's declared lab-evidence premise holds for the exact candidate commit.
+
+### Included Since v0.25.4
+- chore: remove retired shared-structure package references (#1229)
+
 ## v0.25.4 (2026-11-11)
 
 ### Release
