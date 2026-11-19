@@ -1,0 +1,88 @@
+---
+schema_version: "1.0.0"
+ticket_id: OMN-26030
+title: "omniintelligence's pre-commit omnibase_core hook revs read the newest dev-merge tag its own hooks
+  and tests pass against"
+summary: >
+  The three dev-merge hook revs of omnibase_core in .pre-commit-config.yaml (dev-20261029151319-6e0a5eee541a,
+  dev-20261103173624-74e0b0f12767, dev-20261111183916-a85cb916d4c1) and the one CI literal that equals
+  the first of them (CANONICAL_FILE_SHAPE_CORE in .github/workflows/ci.yml) move to dev-20261119101844-59e0293aeaef,
+  the newest omnibase_core dev-merge tag, so the pin-near-bound check stops refusing this repository's
+  pull requests (the oldest rev was 13 release tags behind; the bound is 14). Operator RULING 2026-11-19T13:04:50Z
+  (kind decision) amends RULING 2026-11-09T21:54:25Z. The nine other omnibase_core hook revs (SHA or release
+  pins) are not moved: moving them to the newest tag raises findings that this change cannot be blamed
+  for and cannot fix inside its scope; they are named in the pull request body.
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: req-omn26030-dev-tag-revs
+    statement: No omnibase_core hook rev in .pre-commit-config.yaml reads dev-20261029 and the dev-merge
+      tag revs read the newest tag.
+    acceptance:
+      - id: "AC1"
+        statement: "AC1: no omnibase_core hook rev in .pre-commit-config.yaml of omniintelligence reads
+          dev-20261029 and every rev the check-dependency-pins hook names reads a dev-merge tag of omnibase_core
+          that it resolves -- falsifier: `git -C \"$OMNI_HOME/omniintelligence\" show origin/dev:.pre-commit-config.yaml
+          | grep -c 'dev-20261029'` prints a number above 0 after the pull request merges"
+  - id: req-omn26030-no-near-bound
+    statement: The dependency-pins check reports no hook_rev_near_bound and no hook_rev_behind finding
+      for the moved revs.
+    acceptance:
+      - id: "AC2"
+        statement: "AC2: the check-dependency-pins hook reports no hook_rev_near_bound and no hook_rev_behind
+          finding for omniintelligence at the pull request head -- falsifier: `uv run pre-commit run check-dependency-pins
+          --all-files` in the pull request worktree exits non-zero or prints either finding code"
+  - id: req-omn26030-hooks-and-stamps
+    statement: The pre-commit hooks pass and the pull request body names the reason and both ruling stamps.
+    acceptance:
+      - id: "AC3"
+        statement: "AC3: the repository's pre-commit hooks pass over all files at the pull request head
+          and the pull request body names the reason and both ruling stamps 2026-11-19T13:04:50Z and 2026-11-09T21:54:25Z
+          -- falsifier: `uv run pre-commit run --all-files` in the pull request worktree exits non-zero,
+          or `onex scm pr-view OmniNode-ai/omniintelligence#<n>` shows a body without both stamps"
+evidence_requirements:
+  - kind: tests
+    description: "The tests that pin the hook config and the canonical-file-shape CI job pass"
+    command: "uv run --frozen pytest tests/ci/test_canonical_file_shape_canary_omn21527.py tests/ci/test_core_validator_hooks_listed_omn24065.py
+      tests/ci/test_dep_provenance_consumes_core_omn22011.py tests/ci/test_precommit_hooks_core_omn20074.py
+      -q --no-cov"
+emergency_bypass:
+  enabled: false
+  justification: ""
+  follow_up_ticket_id: ""
+dod_evidence:
+  - id: dod-omn26030-ac1-no-old-tag
+    description: "No line of .pre-commit-config.yaml reads dev-20261029 (grep -c prints 0). The nine SHA
+      or release revs of omnibase_core in the same file are not moved by this pull request; the pull request
+      body names them."
+    source: manual
+    binds_ac:
+      - "AC1"
+    checks:
+      - check_type: command
+        check_value: "! grep -q 'dev-20261029' .pre-commit-config.yaml"
+        cwd: "${OMNI_HOME}/omniintelligence"
+  - id: dod-omn26030-ac2-dependency-pins
+    description: "The omnibase_core dependency-pins check, run at the new tag, names none of the three
+      moved revs. It still names the nine SHA or release revs and the pyproject.toml pin, all present
+      at the base."
+    source: manual
+    binds_ac:
+      - "AC2"
+    checks:
+      - check_type: command
+        check_value: "grep -c 'rev: dev-20261119101844-59e0293aeaef' .pre-commit-config.yaml"
+        cwd: "${OMNI_HOME}/omniintelligence"
+  - id: dod-omn26030-ac3-hooks-and-stamps
+    description: "pre-commit run --all-files and the focused tests that pin the hook config pass at the
+      head; the pull request body carries both ruling stamps."
+    source: manual
+    binds_ac:
+      - "AC3"
+    checks:
+      - check_type: test_passes
+        check_value: "uv run --frozen pytest tests/ci/test_canonical_file_shape_canary_omn21527.py tests/ci/test_core_validator_hooks_listed_omn24065.py
+          tests/ci/test_dep_provenance_consumes_core_omn22011.py tests/ci/test_precommit_hooks_core_omn20074.py
+          -q --no-cov"
+        cwd: "${OMNI_HOME}/omniintelligence"
