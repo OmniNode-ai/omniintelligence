@@ -83,7 +83,7 @@ dod_evidence:
       - "AC3"
     checks:
       - check_type: test_passes
-        check_value: "uv run --frozen pytest tests/ci/test_canonical_file_shape_canary_omn21527.py tests/ci/test_core_validator_hooks_listed_omn24065.py
-          tests/ci/test_dep_provenance_consumes_core_omn22011.py tests/ci/test_precommit_hooks_core_omn20074.py
-          -q --no-cov"
+        check_value: "uv run --frozen pytest tests/ci/test_precommit_core_revs_omn26030.py tests/ci/test_canonical_file_shape_canary_omn21527.py
+          tests/ci/test_core_validator_hooks_listed_omn24065.py tests/ci/test_dep_provenance_consumes_core_omn22011.py
+          tests/ci/test_precommit_hooks_core_omn20074.py -q --no-cov"
         cwd: "${OMNI_HOME}/omniintelligence"
