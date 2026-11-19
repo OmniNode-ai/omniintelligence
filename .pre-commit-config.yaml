@@ -252,7 +252,7 @@ repos:
   # allowlist: each hook passes over the whole tree. no-naive-timestamp is not listed because it
   # refuses code already in the tree.
   - repo: https://github.com/OmniNode-ai/omnibase_core
-    rev: dev-20261111183916-a85cb916d4c1
+    rev: dev-20261119101844-59e0293aeaef
     hooks:
       - id: declared-timeout-reaches-call
         args: [--report-json, /tmp/onex-validation-declared-timeout-reaches-call.json]
@@ -298,7 +298,7 @@ repos:
         stages: [pre-commit]
 
   - repo: https://github.com/OmniNode-ai/omnibase_core
-    rev: dev-20261103173624-74e0b0f12767
+    rev: dev-20261119101844-59e0293aeaef
     hooks:
       # OMN-13873, OMN-22011: first-party packages resolve from the registry, a
       # workspace or the dev-merge tag of their own repository, and from nothing
@@ -332,7 +332,7 @@ repos:
   # and the ticketed burn-down file .onex_ratchets/canonical_file_shape_burndown_baseline.txt
   # (OMN-21527). CI runs the same entry at the same tag (job "Canonical File Shape (OMN-20304)").
   - repo: https://github.com/OmniNode-ai/omnibase_core
-    rev: dev-20261029151319-6e0a5eee541a
+    rev: dev-20261119101844-59e0293aeaef
     hooks:
       - id: canonical-file-shape
         args: [--rules, file-shape]
