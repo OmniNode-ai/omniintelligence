@@ -1,0 +1,29 @@
+---
+schema_version: "1.0.0"
+ticket_id: OMN-25070
+title: omniintelligence's CI and hooks run the core CLI as a module, not the onex launcher
+summary: omnibase-core stops declaring the onex console script once the customer package omninode-onex
+  carries it. This repository's callers now run python -m omnibase_core.cli.cli_commands with the same
+  arguments.
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: req-omn25070-no-launcher-callers
+    statement: No CI step or pre-commit hook in omniintelligence runs the onex launcher, so CI keeps working
+      once only omninode-onex declares it.
+    acceptance:
+      - id: AC3
+        statement: "AC3 (this repository's launcher-move part): CI and hook callers run python -m omnibase_core.cli.cli_commands
+          -- falsifier: the bound check fails at the merge base, where they run uv run onex"
+dod_evidence:
+  - id: dod-omn25070-ac3-no-launcher-calls
+    description: No CI step or hook entry runs uv run onex; the callers run python -m omnibase_core.cli.cli_commands.
+      At the merge base .github/workflows/ci.yml, .pre-commit-config.yaml still run uv run onex, so the
+      check fails there.
+    source: manual
+    binds_ac: [AC3]
+    checks:
+      - check_type: test_passes
+        check_value: uv run --frozen pytest -q --no-cov tests/ci/test_onex_launcher_callers_omn25070.py
+        cwd: ${OMNI_HOME}/omniintelligence
