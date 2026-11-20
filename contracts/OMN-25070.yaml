@@ -24,7 +24,6 @@ dod_evidence:
     source: manual
     binds_ac: [AC3]
     checks:
-      - check_type: command
-        check_value: "! grep -nE 'uv run onex ' .github/workflows/ci.yml .pre-commit-config.yaml && grep
-          -q 'python -m omnibase_core.cli.cli_commands' .github/workflows/ci.yml .pre-commit-config.yaml"
+      - check_type: test_passes
+        check_value: uv run --frozen pytest -q --no-cov tests/ci/test_onex_launcher_callers_omn25070.py
         cwd: ${OMNI_HOME}/omniintelligence
