@@ -730,7 +730,7 @@ repos:
       # OMN-4383: SPDX header enforcement
       - id: validate-spdx-headers
         name: ONEX SPDX Header Requirement
-        entry: uv run onex spdx validate
+        entry: uv run python -m omnibase_core.cli.cli_commands spdx validate
         language: system
         pass_filenames: true
         files: ^(src|tests|scripts|examples)/.*\.(py|sh|bash|yml|yaml|toml)$
